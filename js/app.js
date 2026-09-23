@@ -31,7 +31,7 @@ async function route() {
     else renderHome();
   } catch (err) {
     console.error(err);
-    app.innerHTML = `<div class="empty"><div class="big">😵</div><p>載入失敗：${esc(err.message)}</p><a class="btn" href="#/">回首頁</a></div>`;
+    app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><p>載入失敗：${esc(err.message)}</p><a class="btn" href="#/">回首頁</a></div>`;
   }
 }
 
@@ -66,7 +66,7 @@ function renderHome() {
   const lessons = [...new Set(visible.map((u) => u.lesson))].sort((a, b) => a - b);
   const host = app.querySelector('#lessons');
   if (!visible.length) {
-    host.innerHTML = '<div class="empty"><div class="big">📭</div><p>老師目前沒有開放任何單元。</p></div>';
+    host.innerHTML = `<div class="empty"><div class="big">${icon.inbox}</div><p>老師目前沒有開放任何單元。</p></div>`;
     return;
   }
   host.innerHTML = lessons.map((n) => {
@@ -80,7 +80,7 @@ function renderHome() {
 
 function pillHTML(label, b) {
   const cls = b == null ? '' : b >= PASS ? 'pass' : 'tried';
-  return `<span class="lv-pill ${cls}">${b != null && b >= PASS ? '✓ ' : ''}${label}${b != null ? ` ${b}%` : ''}</span>`;
+  return `<span class="lv-pill ${cls}">${b != null && b >= PASS ? icon.check : ''}${label}${b != null ? ` ${b}%` : ''}</span>`;
 }
 
 function tileHTML(u) {
@@ -122,13 +122,13 @@ function headHTML(meta, data) {
 }
 
 function locked() {
-  app.innerHTML = '<div class="empty"><div class="big">🔒</div><p>老師目前沒有開放這個單元。</p><a class="btn" href="#/">回首頁</a></div>';
+  app.innerHTML = `<div class="empty"><div class="big">${icon.lock}</div><p>老師目前沒有開放這個單元。</p><a class="btn" href="#/">回首頁</a></div>`;
 }
 
 async function renderUnit(id, sub) {
   const meta = findUnit(id);
   if (!meta || !unitVisible(config, meta.id)) {
-    app.innerHTML = '<div class="empty"><div class="big">🔒</div><p>找不到這個單元，或老師目前沒有開放。</p><a class="btn" href="#/">回首頁</a></div>';
+    app.innerHTML = `<div class="empty"><div class="big">${icon.lock}</div><p>找不到這個單元，或老師目前沒有開放。</p><a class="btn" href="#/">回首頁</a></div>`;
     return;
   }
   if (meta.id !== id) { location.replace(`#/u/${meta.id}${sub ? `/${sub}` : ''}`); return; }
@@ -170,7 +170,7 @@ async function boot() {
   try {
     [index, config] = await Promise.all([loadIndex(), getConfig()]);
   } catch (err) {
-    app.innerHTML = `<div class="empty"><div class="big">😵</div><p>無法載入課程資料（${esc(err.message)}）。<br>請用網頁伺服器開啟，不能直接雙擊 index.html。</p></div>`;
+    app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><p>無法載入課程資料（${esc(err.message)}）。<br>請用網頁伺服器開啟，不能直接雙擊 index.html。</p></div>`;
     return;
   }
   initNav(visibleUnits());

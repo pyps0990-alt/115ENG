@@ -3,11 +3,11 @@ import { esc, confetti } from '../util.js';
 const CIRC = 2 * Math.PI * 52;
 
 function cheer(pct) {
-  if (pct === 100) return '滿分！太強了 🎉';
+  if (pct === 100) return '滿分！太強了';
   if (pct >= 85) return '表現超棒！';
   if (pct >= 70) return '不錯喔，再接再厲';
   if (pct >= 50) return '還差一點，再練一次';
-  return '多練幾次就會了 💪';
+  return '多練幾次就會了';
 }
 
 // wrong: [{ p: 題目, a: 正確答案, y: 你的答案 }]

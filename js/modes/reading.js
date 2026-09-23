@@ -15,7 +15,7 @@ export function mount(stage, ctx) {
   const unload = (e) => { e.preventDefault(); e.returnValue = ''; };
 
   if (!qs.length) {
-    stage.innerHTML = '<div class="empty"><div class="big">📄</div><p>這個單元還沒有題目。</p></div>';
+    stage.innerHTML = `<div class="empty"><div class="big">${icon.file}</div><p>這個單元還沒有題目。</p></div>`;
     return;
   }
   const nWords = (data.passage || []).join(' ').split(/\s+/).filter(Boolean).length;
@@ -109,7 +109,7 @@ export function mount(stage, ctx) {
       });
       const ex = card.querySelector('.explain');
       ex.hidden = false;
-      ex.innerHTML = `<b>${ok ? '✓ 答對' : answers[i] == null ? `未作答・正解 ${KEYS[q.answer]}` : `✗ 正解 ${KEYS[q.answer]}`}</b>　${esc(q.explain || '')}`;
+      ex.innerHTML = `<b class="ex-head ${ok ? 'ok' : 'no'}">${ok ? `${icon.check} 答對` : answers[i] == null ? `${icon.x} 未作答・正解 ${KEYS[q.answer]}` : `${icon.x} 正解 ${KEYS[q.answer]}`}</b>　${esc(q.explain || '')}`;
     }
 
     async function finish() {

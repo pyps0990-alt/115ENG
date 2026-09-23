@@ -36,9 +36,9 @@ export function testGate(stage, { eyebrow, title, rules = [], best, onStart }) {
 export function submitStateHTML(status) {
   const map = {
     sending: ['sending', '成績傳送中…'],
-    sent: ['sent', '✓ 成績已送出給老師'],
-    error: ['error', '⚠ 傳送失敗，請截圖這個畫面繳交'],
-    disabled: ['disabled', '📸 請截圖這個畫面繳交給老師'],
+    sent: ['sent', `${icon.check} 成績已送出給老師`],
+    error: ['error', `${icon.alert} 傳送失敗，請截圖這個畫面繳交`],
+    disabled: ['disabled', `${icon.camera} 請截圖這個畫面繳交給老師`],
   };
   const [cls, text] = map[status] || map.disabled;
   return `<div class="submit-state ${cls}" role="status">${text}</div>`;
