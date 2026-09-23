@@ -1,0 +1,17 @@
+{
+  "title": "L2 Cloze Test",
+  "sample": true,
+  "kind": "cloze",
+  "instructions": "選出最適合填入各空格的答案。",
+  "passage": [
+    "Volunteering is a great way to help others and learn new skills. Many teenagers {{1}} their free time at animal shelters, libraries, or community centers. At first, some of them feel nervous because they are not sure what to {{2}}.",
+    "However, most volunteers quickly discover that the work is {{3}}. They make new friends and gain confidence. {{4}}, colleges often value volunteer experience when they review applications. In short, volunteering benefits both the community and the volunteers {{5}}."
+  ],
+  "questions": [
+    { "options": ["spend", "waste", "take", "cost"], "answer": 0, "explain": "spend time + at/on/V-ing：花時間在某處或做某事。" },
+    { "options": ["expect", "accept", "except", "respect"], "answer": 0, "explain": "what to expect：不知道會遇到什麼。" },
+    { "options": ["boring", "rewarding", "dangerous", "expensive"], "answer": 1, "explain": "後面提到交朋友、建立自信，可知工作「值得、有收穫」→ rewarding。" },
+    { "options": ["Instead", "Otherwise", "In addition", "On the contrary"], "answer": 2, "explain": "再補充另一個好處，用 In addition（此外）。" },
+    { "options": ["themselves", "itself", "ourselves", "himself"], "answer": 0, "explain": "the volunteers 為複數，反身代名詞用 themselves。" }
+  ]
+}

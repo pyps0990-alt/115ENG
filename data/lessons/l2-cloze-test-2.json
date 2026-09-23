@@ -1,0 +1,17 @@
+{
+  "title": "L2 Cloze Test 2",
+  "sample": true,
+  "kind": "cloze",
+  "instructions": "選出最適合填入各空格的答案。",
+  "passage": [
+    "Sleep is just as important as diet and exercise. Scientists {{1}} that teenagers need about eight to ten hours of sleep each night. Unfortunately, many students stay up late {{2}} their phones or doing homework.",
+    "A lack of sleep can make it hard to {{3}} in class. It can also affect your mood and weaken your immune system. To sleep better, experts suggest {{4}} screens an hour before bed and going to sleep at the same time every day. Small changes like these can make a big {{5}}."
+  ],
+  "questions": [
+    { "options": ["suggest", "suggestion", "suggesting", "suggestive"], "answer": 0, "explain": "主詞 Scientists 後需要動詞，用 suggest。" },
+    { "options": ["use", "using", "to using", "used"], "answer": 1, "explain": "stay up late + V-ing：熬夜做某事。" },
+    { "options": ["concentrate", "celebrate", "compete", "complain"], "answer": 0, "explain": "睡眠不足會難以「專心」→ concentrate。" },
+    { "options": ["avoid", "to avoid", "avoiding", "avoided"], "answer": 2, "explain": "suggest 後接動名詞：suggest avoiding。" },
+    { "options": ["mistake", "difference", "decision", "promise"], "answer": 1, "explain": "make a big difference：產生很大的影響。" }
+  ]
+}

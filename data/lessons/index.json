@@ -1,0 +1,13 @@
+{
+  "book": "Book 5",
+  "units": [
+    { "id": "l1-voc", "lesson": 1, "type": "vocab", "kind": "vocab", "title": "L1 VOC", "subtitle": "Lesson 1 單字", "count": 20, "sample": true },
+    { "id": "l1-reading", "lesson": 1, "type": "passage", "kind": "reading", "title": "L1 Reading", "subtitle": "閱讀測驗", "count": 4, "sample": true },
+    { "id": "l2-reading-comprehension", "lesson": 2, "type": "passage", "kind": "reading", "title": "L2 Reading Comprehension", "subtitle": "閱讀理解", "count": 4, "sample": true },
+    { "id": "l2-grammar-in-reading", "lesson": 2, "type": "passage", "kind": "grammar", "title": "L2 Grammar in Reading", "subtitle": "文法閱讀", "count": 5, "sample": true },
+    { "id": "l2-cloze-test", "lesson": 2, "type": "passage", "kind": "cloze", "title": "L2 Cloze Test", "subtitle": "克漏字 1", "count": 5, "sample": true },
+    { "id": "l2-cloze-test-2", "lesson": 2, "type": "passage", "kind": "cloze", "title": "L2 Cloze Test 2", "subtitle": "克漏字 2", "count": 5, "sample": true },
+    { "id": "l3-voc", "lesson": 3, "type": "vocab", "kind": "vocab", "title": "L3 VOC", "subtitle": "Lesson 3 單字（Part 1 + Part 2）", "count": 20, "sample": true, "aliases": ["l3-voc-part2"] },
+    { "id": "l4-reading", "lesson": 4, "type": "passage", "kind": "reading", "title": "L4 Reading", "subtitle": "閱讀測驗", "count": 4, "sample": true }
+  ]
+}
