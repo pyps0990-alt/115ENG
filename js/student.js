@@ -54,7 +54,7 @@ export function mountInlineForm(host, { title, desc, button = '開始練習', on
 export function openStudentDialog(onSave) {
   const d = el(`<dialog class="modal"><form class="modal-body" novalidate>
       <h2>學生基本資料</h2>
-      <p class="muted" style="margin:0">只存在這台裝置，正式測驗交卷時會一起送給老師。</p>
+      <p class="muted" style="margin:0">只存在這台裝置，完成測驗後會和成績一起送給老師。</p>
       ${formHTML(store.student() || {})}
       <div class="btn-row" style="justify-content:flex-end">
         <button class="btn ghost" type="button" data-close>取消</button>

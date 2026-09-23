@@ -3,11 +3,11 @@ import { esc, confetti } from '../util.js';
 const CIRC = 2 * Math.PI * 52;
 
 function cheer(pct) {
-  if (pct === 100) return '滿分！太強了 🎉';
+  if (pct === 100) return '滿分！太強了';
   if (pct >= 85) return '表現超棒！';
   if (pct >= 70) return '不錯喔，再接再厲';
   if (pct >= 50) return '還差一點，再練一次';
-  return '多練幾次就會了 💪';
+  return '多練幾次就會了';
 }
 
 // wrong: [{ p: 題目, a: 正確答案, y: 你的答案 }]
@@ -31,7 +31,8 @@ export function renderResult(host, { title, pct, scoreText, pills = [], wrong = 
     <div class="btn-row center" data-actions></div>
     ${wrong.length ? `<div class="wrong-list"><h3>要再複習的 ${wrong.length} 題</h3>
       ${wrong.map((w) => `<div class="wrong-item"><span class="p">${esc(w.p)}</span><span class="a">${esc(w.a)}</span>
-        ${w.y != null && w.y !== '' ? `<span class="y">你的答案：${esc(w.y)}</span>` : ''}</div>`).join('')}</div>` : ''}`;
+        ${w.y != null && w.y !== '' ? `<span class="y">你的答案：${esc(w.y)}</span>` : ''}
+        ${w.x ? `<span class="x">${esc(w.x)}</span>` : ''}</div>`).join('')}</div>` : ''}`;
   const row = box.querySelector('[data-actions]');
   actions.forEach((a) => {
     const b = document.createElement('button');

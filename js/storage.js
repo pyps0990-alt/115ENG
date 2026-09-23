@@ -20,21 +20,6 @@ export const store = {
   student: () => read('student', null),
   setStudent: (s) => write('student', s),
 
-  theme: () => read('theme', null),
-  setTheme: (t) => write('theme', t),
-
-  pref: (k, d) => read(`pref:${k}`, d),
-  setPref: (k, v) => write(`pref:${k}`, v),
-
-  // 熟悉度：{ word: 1 (熟悉) | 0 (不熟) }
-  known: (unit) => read(`known:${unit}`, {}),
-  setKnown(unit, word, val) {
-    const m = this.known(unit);
-    if (val == null) delete m[word]; else m[word] = val;
-    write(`known:${unit}`, m);
-    if (val === 1) this.removeWrong(unit, word);
-  },
-
   // 錯題本
   wrong: (unit) => read(`wrong:${unit}`, []),
   addWrong(unit, word) {
@@ -45,6 +30,10 @@ export const store = {
     write(`wrong:${unit}`, this.wrong(unit).filter((x) => x !== word));
   },
 
+  // 最近一次單字片語測驗的三段百分比：{ basic, advanced, mastery }
+  last: (unit) => read(`last:${unit}`, null),
+  setLast: (unit, v) => write(`last:${unit}`, v),
+
   // 最佳成績（百分比）
   best: (unit) => read(`best:${unit}`, {}),
   setBest(unit, mode, pct) {
@@ -52,16 +41,5 @@ export const store = {
     if (!(mode in b) || pct > b[mode]) { b[mode] = pct; write(`best:${unit}`, b); return true; }
     return false;
   },
-  bestTime: (unit) => read(`bestTime:${unit}`, null),
-  setBestTime(unit, ms) {
-    const cur = this.bestTime(unit);
-    if (cur == null || ms < cur) { write(`bestTime:${unit}`, ms); return true; }
-    return false;
-  },
 };
 
-export function weakWords(unitId, words) {
-  const k = store.known(unitId);
-  const w = new Set(store.wrong(unitId));
-  return words.filter((x) => k[x.word] === 0 || w.has(x.word));
-}

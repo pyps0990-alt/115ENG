@@ -1,0 +1,16 @@
+{
+  "title": "Farms That Grow Upward",
+  "sample": true,
+  "passage": [
+    "Imagine a farm with no fields, no tractors, and no sunshine. In cities such as Singapore and Tokyo, this kind of farm already exists. Vertical farms grow vegetables on shelves stacked high inside buildings. Instead of sunlight, the plants receive light from LED lamps, and computers control the water and temperature.",
+    "Supporters say vertical farms are a sustainable answer to several problems. Because the crops grow indoors, they are protected from droughts and storms, and farmers do not need chemical sprays to fight insects. The farms also use up to ninety percent less water than traditional farms, since the water is collected and reused. What is more, food grown inside a city does not have to travel far, which cuts down on emissions from trucks.",
+    "However, these farms have their own problems. The lamps and machines depend on large amounts of electricity, which can be expensive. At present, most vertical farms grow only leafy greens and herbs, because crops like rice and wheat need too much space. For now, vertical farming is unlikely to replace traditional farms, but it may become an important partner to them."
+  ],
+  "questions": [
+    { "skill": "細節", "q": "What replaces natural daylight in a vertical farm?", "options": ["Mirrors placed on the roof", "Artificial lighting powered by electricity", "Heat from nearby factories", "Windows that open automatically"], "answer": 1, "explain": "第一段：植物的光源是 LED 燈，而不是陽光。" },
+    { "skill": "細節", "q": "Why do vertical farms need much less water?", "options": ["Their plants are watered only once a month.", "They grow crops that never need water.", "The same water is gathered and used again.", "They buy water from other countries."], "answer": 2, "explain": "第二段：水會被收集起來重複使用，所以用水量少很多。" },
+    { "skill": "字義", "q": "The word \"partner\" in the last sentence suggests that vertical farms will probably ____.", "options": ["compete with and defeat traditional farms", "work alongside traditional farms", "disappear in a few years", "be owned by the same families"], "answer": 1, "explain": "partner 是夥伴的意思，表示垂直農場比較可能和傳統農場並存、互補。" },
+    { "skill": "推論", "q": "Which food would be the hardest to produce in today's vertical farms?", "options": ["Lettuce", "Basil", "Spinach", "Wheat"], "answer": 3, "explain": "第三段：稻米和小麥需要太多空間，目前的垂直農場大多只種葉菜和香草。" },
+    { "skill": "主旨", "q": "What is the passage's overall message about vertical farming?", "options": ["It solves every food problem in the world.", "It has clear strengths but also real limits.", "It is too costly to be worth studying.", "It works only in Japan."], "answer": 1, "explain": "第二段說明優點，第三段說明限制，結論是它有潛力，但無法完全取代傳統農業。" }
+  ]
+}

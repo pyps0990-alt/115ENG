@@ -1,27 +1,206 @@
 {
-  "title": "L3 VOC",
+  "title": "L3 單字片語",
   "sample": true,
-  "parts": { "1": "Part 1", "2": "Part 2" },
   "words": [
-    { "part": 1, "word": "sustainable", "pos": "adj.", "zh": "永續的；可持續的", "example": "We need more [sustainable] ways to produce food.", "exampleZh": "我們需要更多永續的糧食生產方式。" },
-    { "part": 1, "word": "emission", "pos": "n.", "zh": "排放；排放物", "example": "Cars are a major source of carbon [emissions].", "exampleZh": "汽車是碳排放的主要來源。" },
-    { "part": 1, "word": "renewable", "pos": "adj.", "zh": "可再生的", "example": "Solar power is a [renewable] energy source.", "exampleZh": "太陽能是一種可再生能源。" },
-    { "part": 1, "word": "conserve", "pos": "v.", "zh": "節約；保護", "example": "Turn off the lights to [conserve] electricity.", "exampleZh": "關燈以節約用電。" },
-    { "part": 1, "word": "pollutant", "pos": "n.", "zh": "汙染物", "example": "Factories released harmful [pollutants] into the river.", "exampleZh": "工廠把有害的汙染物排入河中。" },
-    { "part": 1, "word": "deplete", "pos": "v.", "zh": "耗盡；使枯竭", "example": "Overfishing has [depleted] the ocean's fish stocks.", "exampleZh": "過度捕撈已使海洋魚群枯竭。" },
-    { "part": 1, "word": "habitat", "pos": "n.", "zh": "棲息地", "example": "The panda's natural [habitat] is shrinking.", "exampleZh": "貓熊的自然棲息地正在縮小。" },
-    { "part": 1, "word": "extinct", "pos": "adj.", "zh": "絕種的；滅絕的", "example": "Dinosaurs became [extinct] millions of years ago.", "exampleZh": "恐龍在數百萬年前就滅絕了。" },
-    { "part": 1, "word": "biodiversity", "pos": "n.", "zh": "生物多樣性", "example": "Rainforests are rich in [biodiversity].", "exampleZh": "雨林擁有豐富的生物多樣性。" },
-    { "part": 1, "word": "drought", "pos": "n.", "zh": "乾旱", "example": "The long [drought] destroyed most of the crops.", "exampleZh": "長期乾旱毀了大部分作物。" },
-    { "part": 2, "word": "innovation", "pos": "n.", "zh": "創新；新發明", "example": "The smartphone was a major [innovation].", "exampleZh": "智慧型手機是一項重大的創新。" },
-    { "part": 2, "word": "artificial", "pos": "adj.", "zh": "人工的；人造的", "example": "[Artificial] intelligence is changing how we work.", "exampleZh": "人工智慧正在改變我們的工作方式。" },
-    { "part": 2, "word": "automate", "pos": "v.", "zh": "使自動化", "example": "Many factories have [automated] their production lines.", "exampleZh": "許多工廠已將生產線自動化。" },
-    { "part": 2, "word": "efficient", "pos": "adj.", "zh": "有效率的", "example": "This new heater is more [efficient] than the old one.", "exampleZh": "這台新暖氣比舊的更有效率。" },
-    { "part": 2, "word": "convenience", "pos": "n.", "zh": "便利；方便", "example": "Online shopping offers great [convenience].", "exampleZh": "網購提供了極大的便利。" },
-    { "part": 2, "word": "privacy", "pos": "n.", "zh": "隱私", "example": "Social media users worry about their [privacy].", "exampleZh": "社群媒體使用者擔心自己的隱私。" },
-    { "part": 2, "word": "device", "pos": "n.", "zh": "裝置；設備", "example": "Please turn off all electronic [devices].", "exampleZh": "請關閉所有電子裝置。" },
-    { "part": 2, "word": "access", "pos": "n. / v.", "zh": "使用權；存取", "example": "Students have free [access] to the library's database.", "exampleZh": "學生可以免費使用圖書館的資料庫。" },
-    { "part": 2, "word": "interact", "pos": "v.", "zh": "互動", "example": "Robots can now [interact] with humans naturally.", "exampleZh": "機器人現在能與人類自然地互動。" },
-    { "part": 2, "word": "transform", "pos": "v.", "zh": "轉變；徹底改變", "example": "The internet has [transformed] the way we learn.", "exampleZh": "網路徹底改變了我們學習的方式。" }
+    {
+      "word": "sustainable",
+      "pos": "adj.",
+      "zh": "永續的；可持續的",
+      "example": "We need more [sustainable] ways to produce food.",
+      "exampleZh": "我們需要更多永續的糧食生產方式。",
+      "type": "word"
+    },
+    {
+      "word": "emission",
+      "pos": "n.",
+      "zh": "排放；排放物",
+      "example": "Cars are a major source of carbon [emissions].",
+      "exampleZh": "汽車是碳排放的主要來源。",
+      "type": "word"
+    },
+    {
+      "word": "renewable",
+      "pos": "adj.",
+      "zh": "可再生的",
+      "example": "Solar power is a [renewable] energy source.",
+      "exampleZh": "太陽能是一種可再生能源。",
+      "type": "word"
+    },
+    {
+      "word": "conserve",
+      "pos": "v.",
+      "zh": "節約；保護",
+      "example": "Turn off the lights to [conserve] electricity.",
+      "exampleZh": "關燈以節約用電。",
+      "type": "word"
+    },
+    {
+      "word": "pollutant",
+      "pos": "n.",
+      "zh": "汙染物",
+      "example": "Factories released harmful [pollutants] into the river.",
+      "exampleZh": "工廠把有害的汙染物排入河中。",
+      "type": "word"
+    },
+    {
+      "word": "deplete",
+      "pos": "v.",
+      "zh": "耗盡；使枯竭",
+      "example": "Overfishing has [depleted] the ocean's fish stocks.",
+      "exampleZh": "過度捕撈已使海洋魚群枯竭。",
+      "type": "word"
+    },
+    {
+      "word": "habitat",
+      "pos": "n.",
+      "zh": "棲息地",
+      "example": "The panda's natural [habitat] is shrinking.",
+      "exampleZh": "貓熊的自然棲息地正在縮小。",
+      "type": "word"
+    },
+    {
+      "word": "extinct",
+      "pos": "adj.",
+      "zh": "絕種的；滅絕的",
+      "example": "Dinosaurs became [extinct] millions of years ago.",
+      "exampleZh": "恐龍在數百萬年前就滅絕了。",
+      "type": "word"
+    },
+    {
+      "word": "biodiversity",
+      "pos": "n.",
+      "zh": "生物多樣性",
+      "example": "Rainforests are rich in [biodiversity].",
+      "exampleZh": "雨林擁有豐富的生物多樣性。",
+      "type": "word"
+    },
+    {
+      "word": "drought",
+      "pos": "n.",
+      "zh": "乾旱",
+      "example": "The long [drought] destroyed most of the crops.",
+      "exampleZh": "長期乾旱毀了大部分作物。",
+      "type": "word"
+    },
+    {
+      "word": "innovation",
+      "pos": "n.",
+      "zh": "創新；新發明",
+      "example": "The smartphone was a major [innovation].",
+      "exampleZh": "智慧型手機是一項重大的創新。",
+      "type": "word"
+    },
+    {
+      "word": "artificial",
+      "pos": "adj.",
+      "zh": "人工的；人造的",
+      "example": "[Artificial] intelligence is changing how we work.",
+      "exampleZh": "人工智慧正在改變我們的工作方式。",
+      "type": "word"
+    },
+    {
+      "word": "automate",
+      "pos": "v.",
+      "zh": "使自動化",
+      "example": "Many factories have [automated] their production lines.",
+      "exampleZh": "許多工廠已將生產線自動化。",
+      "type": "word"
+    },
+    {
+      "word": "efficient",
+      "pos": "adj.",
+      "zh": "有效率的",
+      "example": "This new heater is more [efficient] than the old one.",
+      "exampleZh": "這台新暖氣比舊的更有效率。",
+      "type": "word"
+    },
+    {
+      "word": "convenience",
+      "pos": "n.",
+      "zh": "便利；方便",
+      "example": "Online shopping offers great [convenience].",
+      "exampleZh": "網購提供了極大的便利。",
+      "type": "word"
+    },
+    {
+      "word": "privacy",
+      "pos": "n.",
+      "zh": "隱私",
+      "example": "Social media users worry about their [privacy].",
+      "exampleZh": "社群媒體使用者擔心自己的隱私。",
+      "type": "word"
+    },
+    {
+      "word": "device",
+      "pos": "n.",
+      "zh": "裝置；設備",
+      "example": "Please turn off all electronic [devices].",
+      "exampleZh": "請關閉所有電子裝置。",
+      "type": "word"
+    },
+    {
+      "word": "access",
+      "pos": "n. / v.",
+      "zh": "使用權；存取",
+      "example": "Students have free [access] to the library's database.",
+      "exampleZh": "學生可以免費使用圖書館的資料庫。",
+      "type": "word"
+    },
+    {
+      "word": "interact",
+      "pos": "v.",
+      "zh": "互動",
+      "example": "Robots can now [interact] with humans naturally.",
+      "exampleZh": "機器人現在能與人類自然地互動。",
+      "type": "word"
+    },
+    {
+      "word": "transform",
+      "pos": "v.",
+      "zh": "轉變；徹底改變",
+      "example": "The internet has [transformed] the way we learn.",
+      "exampleZh": "網路徹底改變了我們學習的方式。",
+      "type": "word"
+    },
+    {
+      "type": "phrase",
+      "word": "run out of",
+      "pos": "phr.",
+      "zh": "用完；耗盡",
+      "example": "The world may [run out of] fresh water one day.",
+      "exampleZh": "有一天世界可能會用完淡水。"
+    },
+    {
+      "type": "phrase",
+      "word": "cut down on",
+      "pos": "phr.",
+      "zh": "減少（用量）",
+      "example": "We should [cut down on] plastic bags.",
+      "exampleZh": "我們應該減少使用塑膠袋。"
+    },
+    {
+      "type": "phrase",
+      "word": "depend on",
+      "pos": "phr.",
+      "zh": "依賴；取決於",
+      "example": "Many families [depend on] farming for their income.",
+      "exampleZh": "許多家庭依靠務農維生。"
+    },
+    {
+      "type": "phrase",
+      "word": "keep track of",
+      "pos": "phr.",
+      "zh": "記錄；追蹤",
+      "example": "This app helps you [keep track of] how much water you use.",
+      "exampleZh": "這個 app 能幫你記錄自己用了多少水。"
+    },
+    {
+      "type": "phrase",
+      "word": "in harmony with",
+      "pos": "phr.",
+      "zh": "與…和諧共處",
+      "example": "The villagers live [in harmony with] nature.",
+      "exampleZh": "村民與大自然和諧共處。"
+    }
   ]
 }

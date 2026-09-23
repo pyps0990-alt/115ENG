@@ -4,22 +4,22 @@
   <base target="_top">
   <meta charset="utf-8">
   <style>
-    :root { --bg:#f6f4ef; --surface:#fff; --ink:#1d2033; --muted:#6c7087; --line:#e6e2d8; --primary:#4f46e5; --soft:#eceafe; --good:#15803d; --bad:#c62828; }
-    @media (prefers-color-scheme: dark) {
-      :root { --bg:#12141d; --surface:#1b1e2b; --ink:#eceef7; --muted:#9296ad; --line:#2e3246; --primary:#8b85ff; --soft:#26264d; --good:#4ade80; --bad:#f87171; }
-    }
+    :root { --bg:#FFFFFF; --surface:#F4F6F9; --ink:#1E3A8A; --muted:#64748B; --line:#E2E8F0; --primary:#F59E0B; --soft:#FEF3C7; --good:#92400E; --bad:#B91C1C; }
     * { box-sizing: border-box; }
+    [hidden] { display:none !important; }
     body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 "Noto Sans TC", system-ui, -apple-system, "Microsoft JhengHei", sans-serif; }
-    header { position:sticky; top:0; z-index:5; background:var(--surface); border-bottom:1px solid var(--line); }
+    header { position:sticky; top:0; z-index:5; background:var(--ink); color:#fff; }
+    header h1 { color:#fff; }
+    header .who { color:rgba(255,255,255,.8); }
     .wrap { max-width:1100px; margin:0 auto; padding:12px 16px; }
     header .wrap { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
     h1 { font-size:1.15rem; margin:0; }
     .who { margin-left:auto; color:var(--muted); font-size:.85rem; }
     nav { display:flex; gap:6px; }
     nav button, .btn { border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:10px; padding:8px 14px; font:inherit; font-weight:700; cursor:pointer; }
-    nav button.on { background:var(--ink); color:var(--bg); }
-    .btn.primary { background:var(--primary); color:#fff; border-color:transparent; }
-    .card { background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px; margin-top:16px; overflow-x:auto; }
+    nav button.on { background:var(--primary); color:var(--ink); border-color:var(--primary); }
+    .btn.primary { background:var(--primary); color:var(--ink); border-color:transparent; }
+    .card { background:var(--surface); border:none; border-radius:16px; padding:16px; margin-top:16px; overflow-x:auto; }
     table { width:100%; border-collapse:collapse; font-size:.9rem; }
     th, td { padding:8px 6px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle; white-space:nowrap; }
     th { color:var(--muted); font-weight:700; font-size:.8rem; }
@@ -36,13 +36,45 @@
     tr.off td { opacity:.5; }
     tr.off td:first-child, tr.off td:nth-child(2) { opacity:1; }
     .stats { display:flex; gap:10px; flex-wrap:wrap; margin:8px 0; }
-    .stat { background:var(--soft); color:var(--primary); border-radius:10px; padding:6px 12px; font-weight:700; }
+    .stat { background:var(--soft); color:var(--good); border-radius:10px; padding:6px 12px; font-weight:700; }
+    /* 匯入內容 */
+    .imp-grid { display:grid; gap:12px; margin-top:14px; }
+    .imp-grid label { display:grid; gap:4px; font-weight:700; font-size:.9rem; }
+    .imp-grid input[type=text], .imp-grid textarea, .qcard input[type=text], .qcard textarea, .qcard select { width:100%; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font:inherit; }
+    .imp-grid > label > textarea { min-height:220px; font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; resize:vertical; }
+    .qcard textarea { min-height:0; resize:vertical; }
+    #r-passage { min-height:200px; font:15px/1.7 system-ui,sans-serif; }
+    .help { background:var(--bg); border-radius:12px; padding:10px 14px; font-size:.88rem; color:var(--muted); }
+    .help code { background:var(--surface); padding:0 4px; border-radius:4px; color:var(--ink); }
+    .pill { display:inline-block; padding:2px 10px; border-radius:99px; font-size:.8rem; font-weight:700; background:var(--bg); border:1px solid var(--line); }
+    .pill.on { background:var(--soft); border-color:var(--primary); color:var(--good); }
+    .qcard { background:var(--bg); border:1px solid var(--line); border-radius:14px; padding:12px 14px; display:grid; gap:8px; }
+    .qhead { display:flex; gap:8px; align-items:center; }
+    .qhead b { min-width:2em; }
+    .qhead select { width:auto; }
+    .qhead .del { margin-left:auto; }
+    .opts { display:grid; gap:6px; }
+    .opts label { display:flex; gap:8px; align-items:center; font-weight:400; }
+    .opts input[type=text] { flex:1; }
+    .report { margin-top:12px; }
+    .report table td { white-space:normal; vertical-align:top; }
+    .st-ok { color:var(--good); font-weight:700; }
+    .st-warn { color:#B45309; font-weight:700; }
+    .st-err { color:var(--bad); font-weight:700; }
+    mark { background:var(--soft); color:var(--good); padding:0 2px; border-radius:3px; }
+    .issues { margin:8px 0 0; padding-left:1.2em; }
+    .issues li.err { color:var(--bad); } .issues li.warn { color:#B45309; }
+    .btn[disabled] { opacity:.45; cursor:not-allowed; }
+    .ai-box { background:var(--bg); border:1px solid var(--line); border-radius:14px; padding:10px 14px; margin-top:12px; }
+    .ai-box summary { cursor:pointer; font-weight:700; display:flex; align-items:center; gap:10px; }
+    .btn.ai { background:var(--ink); color:#fff; border-color:var(--ink); }
+    .btn.ai.busy { opacity:.7; cursor:progress; }
   </style>
 </head>
 <body>
   <header><div class="wrap">
     <h1>B5 Practice 老師後台</h1>
-    <nav><button class="on" data-tab="settings">單元設定</button><button data-tab="scores">成績</button></nav>
+    <nav><button class="on" data-tab="settings">單元設定</button><button data-tab="import">匯入內容</button><button data-tab="scores">成績</button></nav>
     <span class="who"><?= email ?></span>
   </div></header>
 
@@ -55,9 +87,60 @@
           <span class="muted" style="margin-left:auto">學生網站約 1 分鐘內會套用新設定</span>
         </div>
         <table>
-          <thead><tr><th>顯示</th><th>單元</th><th>開放的練習模式</th><th>正式測驗</th><th>題數</th><th>開始日</th><th>截止日</th></tr></thead>
-          <tbody id="units"><tr><td colspan="7" class="muted">載入中…</td></tr></tbody>
+          <thead><tr><th>顯示</th><th>單元</th><th>包含的階段／測驗</th><th>每段題數</th></tr></thead>
+          <tbody id="units"><tr><td colspan="4" class="muted">載入中…</td></tr></tbody>
         </table>
+      </div>
+    </section>
+
+    <section id="tab-import" hidden>
+      <div class="card">
+        <div class="bar">
+          <label>單元 <select id="imp-unit"></select></label>
+          <span id="imp-status" class="pill"></span>
+          <button class="btn" id="imp-load" type="button">載入目前內容</button>
+          <button class="btn" id="imp-reset" type="button">還原成網站內建內容</button>
+        </div>
+
+        <details class="ai-box" id="ai-box">
+          <summary>AI 設定（Gemini）<span id="ai-status" class="pill">讀取中…</span></summary>
+          <div class="imp-grid">
+            <div class="help">到 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> 登入後按「Create API key」，把金鑰貼在下面。金鑰只存在這份試算表的 Apps Script 裡，學生看不到。學校帳號無法申請時，請改用個人 Gmail。</div>
+            <label>API 金鑰<input type="password" id="ai-key" autocomplete="off" placeholder="AIza…"></label>
+            <label>模型（通常不用改）<input type="text" id="ai-model"></label>
+            <div class="bar"><button class="btn primary" id="ai-save" type="button">儲存 AI 設定</button><button class="btn" id="ai-clear" type="button">刪除金鑰</button><span class="msg" id="ai-msg"></span></div>
+          </div>
+        </details>
+
+        <div id="imp-vocab" class="imp-grid" hidden>
+          <label>主題（顯示在首頁卡片上，可空白）<input type="text" id="v-topic" placeholder="例：Resilience"></label>
+          <div class="help">
+            每行一個單字或片語，欄位順序：<b>英文、詞性、中文、例句、例句翻譯（可省略）</b>。<br>
+            從 Excel 或 Google 試算表選取這幾欄直接複製貼上即可；也可以自己打字，用 <code>|</code> 隔開。<br>
+            例句中要考的部分用 <code>[ ]</code> 括起來，例如 <code>The team [bounced back] quickly.</code>；沒括的話會自動找出來。含空格或詞性寫 <code>phr.</code> 的會當成片語。
+          </div>
+          <div class="bar"><button class="btn ai" id="ai-vocab" type="button">✦ AI 補齊詞性、中文與例句</button><span class="muted">可以只輸入英文，每行一個；已經填好的行不會被改動。</span></div>
+          <label>單字片語<textarea id="v-text" spellcheck="false" placeholder="resilient&#9;adj.&#9;有韌性的&#9;Children are often more [resilient] than adults think.&#9;孩子往往比大人想像的更有韌性。&#10;bounce back | phr. | （挫折後）很快恢復 | The team [bounced back] after losing. | 球隊很快重新振作。"></textarea></label>
+        </div>
+
+        <div id="imp-reading" class="imp-grid" hidden>
+          <label>文章標題<input type="text" id="r-title" placeholder="例：Mia's Second Try"></label>
+          <label>主題（顯示在首頁卡片上，可空白，預設用文章標題）<input type="text" id="r-topic"></label>
+          <label>文章（段落之間空一行）<textarea id="r-passage" spellcheck="false"></textarea></label>
+          <div class="help">題目與選項請用自己的話改寫，<b>不要照抄文章</b>：和文章連續 6 個英文字以上相同會無法儲存，連續 5 個字會提醒。</div>
+          <div class="bar"><button class="btn ai" id="ai-reading" type="button">✦ AI 產生題目</button>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400">題數 <select id="ai-count"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>8</option><option>10</option></select></label>
+            <span class="muted">會取代下方目前的題目；產生後請逐題確認再儲存。</span></div>
+          <div id="r-qs" class="imp-grid" style="margin-top:0"></div>
+          <div><button class="btn" id="r-add" type="button">＋ 新增題目</button></div>
+        </div>
+
+        <div class="bar" style="margin-top:14px">
+          <button class="btn" id="imp-check" type="button">預覽與檢查</button>
+          <button class="btn primary" id="imp-save" type="button" disabled>儲存到網站</button>
+          <span class="msg" id="imp-msg"></span>
+        </div>
+        <div id="imp-report" class="report"></div>
       </div>
     </section>
 
@@ -72,8 +155,8 @@
         </div>
         <div class="stats" id="stats"></div>
         <table>
-          <thead><tr><th>時間</th><th>班級</th><th>座號</th><th>姓名</th><th>單元</th><th>分數</th><th>%</th><th>錯題</th></tr></thead>
-          <tbody id="rows"><tr><td colspan="8" class="muted">按「查詢」載入成績</td></tr></tbody>
+          <thead><tr><th>時間</th><th>班級</th><th>座號</th><th>姓名</th><th>單元</th><th>分數</th><th>%</th><th>基礎</th><th>進階</th><th>精熟</th><th>錯題</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="11" class="muted">按「查詢」載入成績</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -81,8 +164,8 @@
 
   <script>
     var MODES = {
-      vocab: [['list', '單字表'], ['flashcards', '單字卡'], ['mc', '選擇'], ['spell', '拼字'], ['match', '配對'], ['exam', '正式測驗']],
-      passage: [['practice', '練習'], ['exam', '正式測驗']],
+      vocab: [['basic', '基礎'], ['advanced', '進階'], ['mastery', '精熟']],
+      reading: [['reading', '課文理解']],
     };
     var units = [];
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -93,23 +176,21 @@
         document.querySelectorAll('nav button').forEach(function (x) { x.classList.toggle('on', x === b); });
         $('tab-settings').hidden = b.dataset.tab !== 'settings';
         $('tab-scores').hidden = b.dataset.tab !== 'scores';
+        $('tab-import').hidden = b.dataset.tab !== 'import';
       };
     });
 
     function render() {
       $('units').innerHTML = units.map(function (u, i) {
-        var modes = MODES[u.type] || MODES.passage;
+        var modes = MODES[u.type] || MODES.reading;
         return '<tr data-i="' + i + '" class="' + (u.visible ? '' : 'off') + '">' +
           '<td><input type="checkbox" data-k="visible" ' + (u.visible ? 'checked' : '') + ' aria-label="顯示"></td>' +
           '<td class="title">' + esc(u.title || u.id) + '<div class="muted" style="font-weight:400;font-size:.8rem">' + esc(u.id) + '</div></td>' +
           '<td><div class="modes">' + modes.map(function (m) {
             return '<label><input type="checkbox" data-mode="' + m[0] + '" ' + (u.disabled.indexOf(m[0]) === -1 ? 'checked' : '') + '>' + m[1] + '</label>';
           }).join('') + '</div></td>' +
-          '<td><label class="switch"><input type="checkbox" data-k="examOpen" ' + (u.examOpen ? 'checked' : '') + '>開放</label></td>' +
-          '<td><input type="number" min="1" max="100" data-k="examCount" value="' + esc(u.examCount) + '"></td>' +
-          '<td><input type="date" data-k="examFrom" value="' + esc(u.examFrom) + '"></td>' +
-          '<td><input type="date" data-k="examTo" value="' + esc(u.examTo) + '"></td></tr>';
-      }).join('') || '<tr><td colspan="7" class="muted">settings 分頁沒有資料，請先在編輯器執行 setup()。</td></tr>';
+          '<td>' + (u.type === 'vocab' ? '<input type="number" min="1" max="100" data-k="questionCount" value="' + esc(u.questionCount) + '">' : '<span class="muted">依文章題數</span>') + '</td></tr>';
+      }).join('') || '<tr><td colspan="4" class="muted">settings 分頁沒有資料，請先在編輯器執行 setup()。</td></tr>';
       $('f-unit').innerHTML = '<option value="">全部</option>' + units.map(function (u) { return '<option value="' + esc(u.id) + '">' + esc(u.title || u.id) + '</option>'; }).join('');
     }
 
@@ -142,8 +223,8 @@
           $('smsg').textContent = '';
           $('rows').innerHTML = rows.map(function (r) {
             return '<tr><td>' + esc(r.time) + '</td><td>' + esc(r.cls) + '</td><td>' + esc(r.seat) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.unitTitle || r.unit) +
-              '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td></tr>';
-          }).join('') || '<tr><td colspan="8" class="muted">沒有資料</td></tr>';
+              '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td></tr>';
+          }).join('') || '<tr><td colspan="11" class="muted">沒有資料</td></tr>';
           var n = rows.length;
           var avg = n ? Math.round(rows.reduce(function (a, r) { return a + Number(r.pct || 0); }, 0) / n) : 0;
           $('stats').innerHTML = n ? '<span class="stat">筆數 ' + n + '</span><span class="stat">平均 ' + avg + '%</span>' : '';
@@ -152,9 +233,285 @@
         .getScores({ cls: $('f-cls').value.trim(), unit: $('f-unit').value });
     };
 
+    /* ---------------- 匯入內容 ---------------- */
+    var content = [], siteUrl = '', pending = null;
+    var SKILLS = ['主旨', '細節', '字義', '推論', '態度', '其他'];
+    function impUnit() { var id = $('imp-unit').value; return units.filter(function (u) { return u.id === id; })[0]; }
+    function impDirty() { pending = null; $('imp-save').disabled = true; $('imp-msg').textContent = ''; $('imp-msg').className = 'msg'; }
+
+    function impInit() {
+      $('imp-unit').innerHTML = units.map(function (u) { return '<option value="' + esc(u.id) + '">' + esc(u.title || u.id) + '</option>'; }).join('');
+      impShow();
+    }
+    function impStatus() {
+      var u = impUnit(); if (!u) return;
+      var c = content.filter(function (x) { return x.id === u.id; })[0];
+      $('imp-status').className = 'pill' + (c ? ' on' : '');
+      $('imp-status').textContent = c ? '使用匯入內容（' + c.count + (u.type === 'vocab' ? ' 個' : ' 題') + '，' + String(c.updated).slice(0, 10) + '）' : '使用網站內建內容';
+      $('imp-reset').disabled = !c;
+    }
+    function impShow() {
+      var u = impUnit(); if (!u) return;
+      $('imp-vocab').hidden = u.type !== 'vocab';
+      $('imp-reading').hidden = u.type === 'vocab';
+      $('v-topic').value = ''; $('v-text').value = '';
+      $('r-title').value = ''; $('r-topic').value = ''; $('r-passage').value = ''; $('r-qs').innerHTML = '';
+      if (u.type !== 'vocab') addQ();
+      $('imp-report').innerHTML = '';
+      impStatus(); impDirty();
+    }
+    $('imp-unit').addEventListener('change', impShow);
+    ['imp-vocab', 'imp-reading'].forEach(function (id) { $(id).addEventListener('input', impDirty); $(id).addEventListener('change', impDirty); });
+
+    // ----- 閱讀題目表單 -----
+    function addQ(q) {
+      q = q || { skill: '細節', q: '', options: ['', '', '', ''], answer: -1, explain: '' };
+      var i = $('r-qs').children.length;
+      var box = document.createElement('div');
+      box.className = 'qcard';
+      var name = 'ans-' + Date.now() + '-' + i;
+      box.innerHTML = '<div class="qhead"><b class="qn"></b><select class="q-skill">' + SKILLS.map(function (k) { return '<option' + (k === q.skill ? ' selected' : '') + '>' + k + '</option>'; }).join('') + '</select>' +
+        '<button class="btn del" type="button">刪除</button></div>' +
+        '<input type="text" class="q-text" placeholder="題目（英文）">' +
+        '<div class="opts">' + [0, 1, 2, 3].map(function (j) {
+          return '<label><input type="radio" name="' + name + '" value="' + j + '"' + (q.answer === j ? ' checked' : '') + ' title="設為正確答案"> ' + 'ABCD'[j] + ' <input type="text" class="q-opt" placeholder="選項 ' + 'ABCD'[j] + '"></label>';
+        }).join('') + '</div>' +
+        '<textarea class="q-explain" rows="2" placeholder="中文解析（交卷後顯示給學生）"></textarea>';
+      box.querySelector('.q-text').value = q.q || '';
+      box.querySelectorAll('.q-opt').forEach(function (el, j) { el.value = (q.options || [])[j] || ''; });
+      box.querySelector('.q-explain').value = q.explain || '';
+      box.querySelector('.del').onclick = function () { box.remove(); numberQs(); impDirty(); };
+      $('r-qs').appendChild(box);
+      numberQs();
+    }
+    function numberQs() { [].forEach.call($('r-qs').children, function (c, i) { c.querySelector('.qn').textContent = (i + 1) + '.'; }); }
+    $('r-add').onclick = function () { addQ(); impDirty(); };
+
+    // ----- 讀取目前內容 -----
+    function fillForm(u, d) {
+      if (u.type === 'vocab') {
+        $('v-topic').value = d.topic || '';
+        $('v-text').value = (d.words || []).map(function (w) { return [w.word, w.pos || '', w.zh, w.example || '', w.exampleZh || ''].join('\t'); }).join('\n');
+      } else {
+        $('r-title').value = d.title || ''; $('r-topic').value = d.topic || '';
+        $('r-passage').value = (d.passage || []).join('\n\n');
+        $('r-qs').innerHTML = '';
+        (d.questions || []).forEach(addQ);
+        if (!(d.questions || []).length) addQ();
+      }
+      impDirty();
+    }
+    $('imp-load').onclick = function () {
+      var u = impUnit(); if (!u) return;
+      $('imp-msg').textContent = '讀取中…'; $('imp-msg').className = 'msg';
+      google.script.run.withSuccessHandler(function (res) {
+        if (res && res.data) { fillForm(u, res.data); $('imp-msg').textContent = '已載入匯入的內容'; return; }
+        fetch(siteUrl.replace(/\/?$/, '/') + 'data/lessons/' + encodeURIComponent(u.id) + '.json', { cache: 'no-store' })
+          .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+          .then(function (d) { fillForm(u, d); $('imp-msg').textContent = '已載入網站內建內容，可以直接修改'; })
+          .catch(function () { $('imp-msg').textContent = '讀不到網站內建內容，請直接貼上新內容'; $('imp-msg').className = 'msg err'; });
+      }).withFailureHandler(function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; }).getContent(u.id);
+    };
+
+    // ----- 解析與檢查 -----
+    function reEsc(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    function autoBracket(word, ex) {
+      if (/\[[^\]]+\]/.test(ex)) return { ex: ex, auto: false };
+      var tokens = word.replace(/\.\.\.|…/g, ' ').trim().split(/\s+/);
+      var pat = tokens.map(function (t) { return reEsc(t.length > 4 ? t.slice(0, t.length - 2) : t) + '[a-z]*'; }).join('\\s+');
+      var m = ex.match(new RegExp('\\b' + pat, 'i'));
+      if (!m) return null;
+      return { ex: ex.slice(0, m.index) + '[' + m[0] + ']' + ex.slice(m.index + m[0].length), auto: true };
+    }
+    function parseVocab() {
+      var lines = $('v-text').value.split(/\r?\n/).map(function (l) { return l.replace(/\s+$/, ''); }).filter(function (l) { return l.trim(); });
+      if (lines.length && /^(word|英文|單字|片語)/i.test(lines[0].split(/\t|\|/)[0].trim())) lines.shift();
+      var seen = {}, seenZh = {}, rows = [], words = [];
+      lines.forEach(function (line, i) {
+        var c = (line.indexOf('\t') >= 0 ? line.split('\t') : line.split('|')).map(function (x) { return x.trim(); });
+        var w = { word: c[0] || '', pos: c[1] || '', zh: c[2] || '', example: c[3] || '', exampleZh: c[4] || '' };
+        w.type = /phr/i.test(w.pos) || /\s/.test(w.word) ? 'phrase' : 'word';
+        if (w.type === 'phrase' && !w.pos) w.pos = 'phr.';
+        var st = 'ok', msg = '';
+        if (!w.word || !w.zh) { st = 'err'; msg = '缺少英文或中文'; }
+        else if (!w.example) { st = 'err'; msg = '缺少例句'; }
+        else {
+          var b = autoBracket(w.word, w.example);
+          if (!b) { st = 'err'; msg = '例句裡找不到這個字，請用 [ ] 標出要考的部分'; }
+          else { w.example = b.ex; if (b.auto) { st = 'warn'; msg = '已自動標出要考的部分'; } }
+        }
+        var key = w.word.toLowerCase();
+        if (st !== 'err' && seen[key]) { st = 'err'; msg = '和第 ' + seen[key] + ' 行重複'; }
+        if (st === 'ok' && seenZh[w.zh]) { st = 'warn'; msg = '中文意思和第 ' + seenZh[w.zh] + ' 行相同，選擇題可能出現兩個一樣的選項'; }
+        seen[key] = seen[key] || i + 1; seenZh[w.zh] = seenZh[w.zh] || i + 1;
+        rows.push({ n: i + 1, w: w, st: st, msg: msg });
+        if (st !== 'err') words.push(w);
+      });
+      var errs = rows.filter(function (r) { return r.st === 'err'; }).length;
+      var global = words.length < 4 ? '至少需要 4 個單字片語才能出選擇題' : '';
+      var data = { title: impUnit().title, topic: $('v-topic').value.trim(), words: words };
+      $('imp-report').innerHTML =
+        '<div class="stats"><span class="stat">可匯入 ' + words.length + ' 個</span>' + (errs ? '<span class="stat" style="background:#FEE2E2;color:var(--bad)">有 ' + errs + ' 行要修正</span>' : '') + '</div>' +
+        (global ? '<p class="st-err">' + global + '</p>' : '') +
+        '<table><thead><tr><th>#</th><th>英文</th><th>詞性</th><th>中文</th><th>例句</th><th>狀態</th></tr></thead><tbody>' +
+        rows.map(function (r) {
+          return '<tr><td>' + r.n + '</td><td><b>' + esc(r.w.word) + '</b></td><td>' + esc(r.w.pos) + '</td><td>' + esc(r.w.zh) + '</td><td>' +
+            esc(r.w.example).replace(/\[([^\]]+)\]/g, '<mark>$1</mark>') + '</td><td class="st-' + r.st + '">' + (r.st === 'ok' ? '✓' : esc(r.msg)) + '</td></tr>';
+        }).join('') + '</tbody></table>';
+      return errs || global ? null : data;
+    }
+    function words_(s) { return String(s).toLowerCase().replace(/[“”"]/g, ' ').match(/[a-z0-9']+/g) || []; }
+    function longestShared(a, b) {
+      var best = 0, at = -1;
+      for (var i = 0; i < a.length; i++) for (var j = 0; j < b.length; j++) {
+        var k = 0; while (a[i + k] && a[i + k] === b[j + k]) k++;
+        if (k > best) { best = k; at = i; }
+      }
+      return { n: best, text: at >= 0 ? a.slice(at, at + best).join(' ') : '' };
+    }
+    function parseReading() {
+      var passage = $('r-passage').value.split(/\n\s*\n/).map(function (p) { return p.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean);
+      var pw = words_(passage.join(' '));
+      var issues = [], qs = [];
+      if (!passage.length) issues.push(['err', '請貼上文章']);
+      [].forEach.call($('r-qs').children, function (box, i) {
+        var tag = '第 ' + (i + 1) + ' 題';
+        var q = { skill: box.querySelector('.q-skill').value, q: box.querySelector('.q-text').value.trim(), options: [], answer: -1, explain: box.querySelector('.q-explain').value.trim() };
+        var opts = [].map.call(box.querySelectorAll('.q-opt'), function (el) { return el.value.trim(); });
+        var checked = box.querySelector('input[type=radio]:checked');
+        var ans = checked ? Number(checked.value) : -1;
+        while (opts.length && !opts[opts.length - 1]) opts.pop();
+        if (!q.q) issues.push(['err', tag + '：缺少題目']);
+        if (opts.length < 2 || opts.some(function (o) { return !o; })) issues.push(['err', tag + '：選項要從 A 開始連續填寫，至少 2 個']);
+        if (ans < 0 || ans >= opts.length || !opts[ans]) issues.push(['err', tag + '：請點選正確答案前面的圓點']);
+        if (!q.explain) issues.push(['warn', tag + '：沒有解析，學生交卷後只會看到正確答案']);
+        [['題目', q.q]].concat(opts.map(function (o, j) { return ['選項 ' + 'ABCD'[j], o]; })).forEach(function (pair) {
+          var s = longestShared(words_(pair[1]), pw);
+          if (s.n >= 6) issues.push(['err', tag + '（' + pair[0] + '）照抄文章 ' + s.n + ' 個字：「' + s.text + '」，請改寫']);
+          else if (s.n === 5) issues.push(['warn', tag + '（' + pair[0] + '）和文章連續 5 個字相同：「' + s.text + '」']);
+        });
+        q.options = opts; q.answer = ans;
+        qs.push(q);
+      });
+      if (!qs.length) issues.push(['err', '至少要 1 題']);
+      var errs = issues.filter(function (x) { return x[0] === 'err'; }).length;
+      $('imp-report').innerHTML = '<div class="stats"><span class="stat">文章 ' + passage.length + ' 段、' + pw.length + ' 字</span><span class="stat">' + qs.length + ' 題</span></div>' +
+        (issues.length ? '<ul class="issues">' + issues.map(function (x) { return '<li class="' + x[0] + '">' + esc(x[1]) + '</li>'; }).join('') + '</ul>'
+          : '<p class="st-ok">✓ 檢查通過，沒有照抄文章</p>');
+      var title = $('r-title').value.trim();
+      return errs ? null : { title: title, topic: $('r-topic').value.trim() || title, passage: passage, questions: qs };
+    }
+    $('imp-check').onclick = function () {
+      var u = impUnit(); if (!u) return;
+      pending = u.type === 'vocab' ? parseVocab() : parseReading();
+      $('imp-save').disabled = !pending;
+      $('imp-msg').className = 'msg ' + (pending ? 'ok' : 'err');
+      $('imp-msg').textContent = pending ? '檢查通過，可以儲存' : '請先修正紅色的項目';
+    };
+    $('imp-save').onclick = function () {
+      var u = impUnit(); if (!u || !pending) return;
+      $('imp-save').disabled = true; $('imp-msg').textContent = '儲存中…'; $('imp-msg').className = 'msg';
+      google.script.run.withSuccessHandler(function (res) {
+        content = content.filter(function (x) { return x.id !== u.id; }).concat([{ id: u.id, updated: new Date().toISOString(), count: res.count }]);
+        impStatus();
+        $('imp-msg').textContent = '✓ 已儲存，學生網站約 1 分鐘內更新'; $('imp-msg').className = 'msg ok';
+      }).withFailureHandler(function (err) {
+        $('imp-save').disabled = false; $('imp-msg').textContent = '儲存失敗：' + err.message; $('imp-msg').className = 'msg err';
+      }).saveContent(u.id, pending);
+    };
+    $('imp-reset').onclick = function () {
+      var u = impUnit(); if (!u) return;
+      if (!confirm('確定要刪除「' + (u.title || u.id) + '」匯入的內容，改回網站內建內容嗎？')) return;
+      google.script.run.withSuccessHandler(function () {
+        content = content.filter(function (x) { return x.id !== u.id; });
+        impStatus(); $('imp-msg').textContent = '已還原成網站內建內容'; $('imp-msg').className = 'msg ok';
+      }).withFailureHandler(function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; }).deleteContent(u.id);
+    };
+
+    /* ---------------- AI 出題（Gemini） ---------------- */
+    var aiReady = false;
+    function aiPaint(st) {
+      aiReady = !!st.configured;
+      $('ai-status').className = 'pill' + (aiReady ? ' on' : '');
+      $('ai-status').textContent = aiReady ? '已設定 ' + st.hint : '尚未設定';
+      $('ai-model').value = st.model || '';
+      $('ai-box').open = !aiReady;
+    }
+    function aiBusy(btn, on, label) { btn.disabled = on; btn.classList.toggle('busy', on); btn.textContent = on ? 'AI 產生中…（約 10–30 秒）' : label; }
+    function needAi() {
+      if (aiReady) return true;
+      $('ai-box').open = true; $('ai-key').focus();
+      $('imp-msg').textContent = '請先在「AI 設定」填入 Gemini API 金鑰'; $('imp-msg').className = 'msg err';
+      return false;
+    }
+    $('ai-save').onclick = function () {
+      $('ai-msg').textContent = '儲存中…'; $('ai-msg').className = 'msg';
+      google.script.run.withSuccessHandler(function (st) { aiPaint(st); $('ai-key').value = ''; $('ai-msg').textContent = '✓ 已儲存'; $('ai-msg').className = 'msg ok'; })
+        .withFailureHandler(function (err) { $('ai-msg').textContent = err.message; $('ai-msg').className = 'msg err'; })
+        .setAiSettings($('ai-key').value, $('ai-model').value);
+    };
+    $('ai-clear').onclick = function () {
+      if (!confirm('確定要刪除 Gemini API 金鑰嗎？')) return;
+      google.script.run.withSuccessHandler(function (st) { aiPaint(st); $('ai-msg').textContent = '已刪除'; $('ai-msg').className = 'msg ok'; }).clearAiKey();
+    };
+
+    $('ai-reading').onclick = function () {
+      if (!needAi()) return;
+      var passage = $('r-passage').value.split(/\n\s*\n/).map(function (p) { return p.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean);
+      if (!passage.length) { $('imp-msg').textContent = '請先貼上文章'; $('imp-msg').className = 'msg err'; return; }
+      var hasQs = [].some.call($('r-qs').querySelectorAll('.q-text'), function (el) { return el.value.trim(); });
+      if (hasQs && !confirm('AI 產生的題目會取代目前的題目，確定嗎？')) return;
+      var btn = $('ai-reading'), label = btn.textContent;
+      aiBusy(btn, true, label); impDirty();
+      google.script.run.withSuccessHandler(function (res) {
+        aiBusy(btn, false, label);
+        $('r-qs').innerHTML = '';
+        res.questions.forEach(addQ);
+        $('imp-check').click();
+        $('imp-msg').textContent = 'AI 產生了 ' + res.questions.length + ' 題，請逐題確認答案與解析後再儲存'; $('imp-msg').className = 'msg ok';
+        $('r-qs').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }).withFailureHandler(function (err) {
+        aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
+      }).aiGenerateReading(passage, Number($('ai-count').value), $('r-title').value.trim());
+    };
+
+    $('ai-vocab').onclick = function () {
+      if (!needAi()) return;
+      var lines = $('v-text').value.split(/\r?\n/);
+      var todo = [];
+      lines.forEach(function (line, i) {
+        if (!line.trim()) return;
+        var c = (line.indexOf('\t') >= 0 ? line.split('\t') : line.split('|')).map(function (x) { return x.trim(); });
+        if (i === 0 && /^(word|英文|單字|片語)$/i.test(c[0])) return;
+        if (!c[2] || !c[3]) todo.push({ i: i, word: c[0], keep: c });
+      });
+      if (!todo.length) { $('imp-msg').textContent = '每一行都已經填好了，不需要 AI 補齊'; $('imp-msg').className = 'msg ok'; return; }
+      var btn = $('ai-vocab'), label = btn.textContent;
+      aiBusy(btn, true, label); impDirty();
+      google.script.run.withSuccessHandler(function (res) {
+        aiBusy(btn, false, label);
+        var byWord = {};
+        res.words.forEach(function (w) { byWord[w.word.toLowerCase()] = w; });
+        var filled = 0;
+        todo.forEach(function (t) {
+          var w = byWord[t.word.toLowerCase()];
+          if (!w) return;
+          var k = t.keep;
+          lines[t.i] = [t.word, k[1] || w.pos, k[2] || w.zh, k[3] || w.example, k[4] || w.exampleZh].join('\t');
+          filled++;
+        });
+        $('v-text').value = lines.join('\n');
+        $('imp-check').click();
+        $('imp-msg').textContent = 'AI 補齊了 ' + filled + ' 行，請確認中文與例句後再儲存'; $('imp-msg').className = 'msg ok';
+      }).withFailureHandler(function (err) {
+        aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
+      }).aiFillVocab(todo.map(function (t) { return t.word; }));
+    };
+
     google.script.run
-      .withSuccessHandler(function (d) { units = d.units; $('sheet').href = d.sheetUrl; render(); })
-      .withFailureHandler(function (err) { $('units').innerHTML = '<tr><td colspan="7" class="msg err">' + esc(err.message) + '</td></tr>'; })
+      .withSuccessHandler(function (d) { units = d.units; content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit();
+        google.script.run.withSuccessHandler(aiPaint).withFailureHandler(function () {}).getAiStatus(); })
+      .withFailureHandler(function (err) { $('units').innerHTML = '<tr><td colspan="4" class="msg err">' + esc(err.message) + '</td></tr>'; })
       .getAdminData();
   </script>
 </body>

@@ -1,17 +1,16 @@
 {
-  "title": "L4 Reading",
+  "title": "Can You See the Wall?",
   "sample": true,
-  "kind": "reading",
-  "instructions": "閱讀下列文章，回答問題。",
   "passage": [
     "For centuries, people believed that the Great Wall of China could be seen from the Moon. The idea appeared in books, classrooms, and even quiz shows. It sounded amazing—but it is not true.",
     "Astronauts who have traveled to the Moon report that no human-made structures are visible from that distance. Even from a much lower orbit, the Great Wall is very hard to see because it is narrow and its color is similar to the land around it. Highways and airports, which are wider and brighter, are actually easier to spot.",
     "Why did the myth last so long? Part of the reason is that it was repeated so often that people stopped questioning it. The story reminds us that even popular \"facts\" deserve a second look."
   ],
   "questions": [
-    { "q": "What popular belief does the passage discuss?", "options": ["The Great Wall is the longest wall in the world.", "The Great Wall can be seen from the Moon.", "Astronauts built the Great Wall.", "The Moon can be seen from the Great Wall."], "answer": 1, "explain": "第一段即點出這個說法。" },
-    { "q": "Why is the Great Wall hard to see from space?", "options": ["It is too short.", "It is covered by clouds all year.", "It is narrow and blends in with the land.", "It was destroyed long ago."], "answer": 2, "explain": "第二段：narrow and its color is similar to the land around it." },
-    { "q": "The word \"spot\" in paragraph 2 is closest in meaning to ____.", "options": ["clean", "notice", "build", "avoid"], "answer": 1, "explain": "spot 在此為動詞「看見、發現」= notice。" },
-    { "q": "What lesson does the writer want readers to learn?", "options": ["We should travel to space.", "Highways are more important than walls.", "We should question commonly accepted ideas.", "Quiz shows are always wrong."], "answer": 2, "explain": "最後一句：even popular \"facts\" deserve a second look." }
+    { "skill": "主旨", "q": "What is the main purpose of the passage?", "options": ["To describe how the Great Wall was built", "To correct a widely held but mistaken belief", "To encourage readers to become astronauts", "To compare China's highways with its airports"], "answer": 1, "explain": "作者要糾正「從月球看得到長城」這個流傳很廣的錯誤說法。" },
+    { "skill": "細節", "q": "What have people who flew to the Moon said?", "options": ["They could clearly see the Great Wall.", "Nothing built by humans can be made out from there.", "Only airports can be seen from there.", "The Earth looked completely dark."], "answer": 1, "explain": "第二段：登月的太空人表示，從那麼遠的地方看不到任何人造建築。" },
+    { "skill": "細節", "q": "Why is the Wall difficult to notice even from closer to Earth?", "options": ["It is usually covered by snow.", "It is too thin and matches the colors of its surroundings.", "Most of it was destroyed long ago.", "It is hidden under trees."], "answer": 1, "explain": "第二段：長城很窄，顏色又和周圍的土地相近。" },
+    { "skill": "字義", "q": "In paragraph 2, \"spot\" is closest in meaning to ____.", "options": ["clean", "notice", "build", "avoid"], "answer": 1, "explain": "spot 在這裡當動詞，意思是「看見、發現」，和 notice 相同。" },
+    { "skill": "推論", "q": "What habit does the writer hope readers will develop?", "options": ["Traveling to famous places", "Checking whether well-known claims are really true", "Watching more quiz shows", "Memorizing facts about China"], "answer": 1, "explain": "最後一句：就算是大家都相信的「事實」也值得再查證。" }
   ]
 }
