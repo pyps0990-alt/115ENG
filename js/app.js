@@ -145,7 +145,7 @@ async function renderUnit(id, sub) {
   // 舊網址（#/u/l1-voc/basic 等）一律導回單元頁
   if (sub) { location.replace(`#/u/${meta.id}`); return; }
   document.title = `${meta.title} — B5 Practice`;
-  app.innerHTML = `${headHTML(meta, data)}<section id="stage"></section>`;
+  app.innerHTML = `<div class="focus">${headHTML(meta, data)}<section id="stage"></section></div>`;
   cleanup = vocab.mount(app.querySelector('#stage'), {
     unit: meta, data, allWords: data.words || [], config, levels,
     questionCount: questionCount(config, meta.id),
