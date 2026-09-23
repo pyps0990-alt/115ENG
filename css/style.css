@@ -44,8 +44,10 @@
 html { -webkit-text-size-adjust: 100%; font-size: clamp(16px, 0.25vw + 13.5px, 18px); }
 body {
   margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
-  font-family: var(--font); font-size: 1rem; line-height: 1.65; overflow-x: hidden;
+  font-family: var(--font); font-size: 1rem; line-height: 1.65;
 }
+/* 裁掉左右溢出要設在 html（會套用到整個視窗）；只設在 body 時 iPhone Safari 不理會，頁面會左右晃、上下滑卡住 */
+html { overflow-x: hidden; overflow-x: clip; }
 h1, h2, h3 { color: var(--ink); line-height: 1.25; margin: 0; text-wrap: balance; }
 p { margin: 0; }
 a { color: var(--navy); }
@@ -267,7 +269,8 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 
 .q-card { background: var(--surface); border-radius: 22px; padding: 28px 20px 22px; display: grid; gap: 20px; }
 .q-card.slide-in { animation: slide-in .35s var(--ease); }
-@keyframes slide-in { from { opacity: 0; transform: translateX(24px); } }
+/* 往上浮入：不左右位移，避免頁面暫時比螢幕寬（iPhone 會因此卡住無法上下滑） */
+@keyframes slide-in { from { opacity: 0; transform: translateY(12px); } }
 .q-head { display: grid; justify-items: center; gap: 10px; text-align: center; }
 .q-meta { font-size: .82rem; font-weight: 700; letter-spacing: .04em; }
 .q-prompt { display: flex; align-items: center; gap: 12px; justify-content: center; flex-wrap: wrap; }
