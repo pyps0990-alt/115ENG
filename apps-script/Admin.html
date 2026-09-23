@@ -65,6 +65,10 @@
     .issues { margin:8px 0 0; padding-left:1.2em; }
     .issues li.err { color:var(--bad); } .issues li.warn { color:#B45309; }
     .btn[disabled] { opacity:.45; cursor:not-allowed; }
+    .ai-box { background:var(--bg); border:1px solid var(--line); border-radius:14px; padding:10px 14px; margin-top:12px; }
+    .ai-box summary { cursor:pointer; font-weight:700; display:flex; align-items:center; gap:10px; }
+    .btn.ai { background:var(--ink); color:#fff; border-color:var(--ink); }
+    .btn.ai.busy { opacity:.7; cursor:progress; }
   </style>
 </head>
 <body>
@@ -98,6 +102,16 @@
           <button class="btn" id="imp-reset" type="button">還原成網站內建內容</button>
         </div>
 
+        <details class="ai-box" id="ai-box">
+          <summary>AI 設定（Gemini）<span id="ai-status" class="pill">讀取中…</span></summary>
+          <div class="imp-grid">
+            <div class="help">到 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> 登入後按「Create API key」，把金鑰貼在下面。金鑰只存在這份試算表的 Apps Script 裡，學生看不到。學校帳號無法申請時，請改用個人 Gmail。</div>
+            <label>API 金鑰<input type="password" id="ai-key" autocomplete="off" placeholder="AIza…"></label>
+            <label>模型（通常不用改）<input type="text" id="ai-model"></label>
+            <div class="bar"><button class="btn primary" id="ai-save" type="button">儲存 AI 設定</button><button class="btn" id="ai-clear" type="button">刪除金鑰</button><span class="msg" id="ai-msg"></span></div>
+          </div>
+        </details>
+
         <div id="imp-vocab" class="imp-grid" hidden>
           <label>主題（顯示在首頁卡片上，可空白）<input type="text" id="v-topic" placeholder="例：Resilience"></label>
           <div class="help">
@@ -105,6 +119,7 @@
             從 Excel 或 Google 試算表選取這幾欄直接複製貼上即可；也可以自己打字，用 <code>|</code> 隔開。<br>
             例句中要考的部分用 <code>[ ]</code> 括起來，例如 <code>The team [bounced back] quickly.</code>；沒括的話會自動找出來。含空格或詞性寫 <code>phr.</code> 的會當成片語。
           </div>
+          <div class="bar"><button class="btn ai" id="ai-vocab" type="button">✦ AI 補齊詞性、中文與例句</button><span class="muted">可以只輸入英文，每行一個；已經填好的行不會被改動。</span></div>
           <label>單字片語<textarea id="v-text" spellcheck="false" placeholder="resilient&#9;adj.&#9;有韌性的&#9;Children are often more [resilient] than adults think.&#9;孩子往往比大人想像的更有韌性。&#10;bounce back | phr. | （挫折後）很快恢復 | The team [bounced back] after losing. | 球隊很快重新振作。"></textarea></label>
         </div>
 
@@ -113,6 +128,9 @@
           <label>主題（顯示在首頁卡片上，可空白，預設用文章標題）<input type="text" id="r-topic"></label>
           <label>文章（段落之間空一行）<textarea id="r-passage" spellcheck="false"></textarea></label>
           <div class="help">題目與選項請用自己的話改寫，<b>不要照抄文章</b>：和文章連續 6 個英文字以上相同會無法儲存，連續 5 個字會提醒。</div>
+          <div class="bar"><button class="btn ai" id="ai-reading" type="button">✦ AI 產生題目</button>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400">題數 <select id="ai-count"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>8</option><option>10</option></select></label>
+            <span class="muted">會取代下方目前的題目；產生後請逐題確認再儲存。</span></div>
           <div id="r-qs" class="imp-grid" style="margin-top:0"></div>
           <div><button class="btn" id="r-add" type="button">＋ 新增題目</button></div>
         </div>
@@ -410,8 +428,89 @@
       }).withFailureHandler(function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; }).deleteContent(u.id);
     };
 
+    /* ---------------- AI 出題（Gemini） ---------------- */
+    var aiReady = false;
+    function aiPaint(st) {
+      aiReady = !!st.configured;
+      $('ai-status').className = 'pill' + (aiReady ? ' on' : '');
+      $('ai-status').textContent = aiReady ? '已設定 ' + st.hint : '尚未設定';
+      $('ai-model').value = st.model || '';
+      $('ai-box').open = !aiReady;
+    }
+    function aiBusy(btn, on, label) { btn.disabled = on; btn.classList.toggle('busy', on); btn.textContent = on ? 'AI 產生中…（約 10–30 秒）' : label; }
+    function needAi() {
+      if (aiReady) return true;
+      $('ai-box').open = true; $('ai-key').focus();
+      $('imp-msg').textContent = '請先在「AI 設定」填入 Gemini API 金鑰'; $('imp-msg').className = 'msg err';
+      return false;
+    }
+    $('ai-save').onclick = function () {
+      $('ai-msg').textContent = '儲存中…'; $('ai-msg').className = 'msg';
+      google.script.run.withSuccessHandler(function (st) { aiPaint(st); $('ai-key').value = ''; $('ai-msg').textContent = '✓ 已儲存'; $('ai-msg').className = 'msg ok'; })
+        .withFailureHandler(function (err) { $('ai-msg').textContent = err.message; $('ai-msg').className = 'msg err'; })
+        .setAiSettings($('ai-key').value, $('ai-model').value);
+    };
+    $('ai-clear').onclick = function () {
+      if (!confirm('確定要刪除 Gemini API 金鑰嗎？')) return;
+      google.script.run.withSuccessHandler(function (st) { aiPaint(st); $('ai-msg').textContent = '已刪除'; $('ai-msg').className = 'msg ok'; }).clearAiKey();
+    };
+
+    $('ai-reading').onclick = function () {
+      if (!needAi()) return;
+      var passage = $('r-passage').value.split(/\n\s*\n/).map(function (p) { return p.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean);
+      if (!passage.length) { $('imp-msg').textContent = '請先貼上文章'; $('imp-msg').className = 'msg err'; return; }
+      var hasQs = [].some.call($('r-qs').querySelectorAll('.q-text'), function (el) { return el.value.trim(); });
+      if (hasQs && !confirm('AI 產生的題目會取代目前的題目，確定嗎？')) return;
+      var btn = $('ai-reading'), label = btn.textContent;
+      aiBusy(btn, true, label); impDirty();
+      google.script.run.withSuccessHandler(function (res) {
+        aiBusy(btn, false, label);
+        $('r-qs').innerHTML = '';
+        res.questions.forEach(addQ);
+        $('imp-check').click();
+        $('imp-msg').textContent = 'AI 產生了 ' + res.questions.length + ' 題，請逐題確認答案與解析後再儲存'; $('imp-msg').className = 'msg ok';
+        $('r-qs').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }).withFailureHandler(function (err) {
+        aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
+      }).aiGenerateReading(passage, Number($('ai-count').value), $('r-title').value.trim());
+    };
+
+    $('ai-vocab').onclick = function () {
+      if (!needAi()) return;
+      var lines = $('v-text').value.split(/\r?\n/);
+      var todo = [];
+      lines.forEach(function (line, i) {
+        if (!line.trim()) return;
+        var c = (line.indexOf('\t') >= 0 ? line.split('\t') : line.split('|')).map(function (x) { return x.trim(); });
+        if (i === 0 && /^(word|英文|單字|片語)$/i.test(c[0])) return;
+        if (!c[2] || !c[3]) todo.push({ i: i, word: c[0], keep: c });
+      });
+      if (!todo.length) { $('imp-msg').textContent = '每一行都已經填好了，不需要 AI 補齊'; $('imp-msg').className = 'msg ok'; return; }
+      var btn = $('ai-vocab'), label = btn.textContent;
+      aiBusy(btn, true, label); impDirty();
+      google.script.run.withSuccessHandler(function (res) {
+        aiBusy(btn, false, label);
+        var byWord = {};
+        res.words.forEach(function (w) { byWord[w.word.toLowerCase()] = w; });
+        var filled = 0;
+        todo.forEach(function (t) {
+          var w = byWord[t.word.toLowerCase()];
+          if (!w) return;
+          var k = t.keep;
+          lines[t.i] = [t.word, k[1] || w.pos, k[2] || w.zh, k[3] || w.example, k[4] || w.exampleZh].join('\t');
+          filled++;
+        });
+        $('v-text').value = lines.join('\n');
+        $('imp-check').click();
+        $('imp-msg').textContent = 'AI 補齊了 ' + filled + ' 行，請確認中文與例句後再儲存'; $('imp-msg').className = 'msg ok';
+      }).withFailureHandler(function (err) {
+        aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
+      }).aiFillVocab(todo.map(function (t) { return t.word; }));
+    };
+
     google.script.run
-      .withSuccessHandler(function (d) { units = d.units; content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit(); })
+      .withSuccessHandler(function (d) { units = d.units; content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit();
+        google.script.run.withSuccessHandler(aiPaint).withFailureHandler(function () {}).getAiStatus(); })
       .withFailureHandler(function (err) { $('units').innerHTML = '<tr><td colspan="4" class="msg err">' + esc(err.message) + '</td></tr>'; })
       .getAdminData();
   </script>

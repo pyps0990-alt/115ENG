@@ -323,6 +323,208 @@ function validateContent_(type, d) {
 }
 
 /* ------------------------------------------------------------------ */
+/* AI 出題（Google Gemini）                                              */
+/* ------------------------------------------------------------------ */
+// API 金鑰存在「指令碼屬性」，只有老師能在後台設定，不會傳到學生網站。
+
+var AI_KEY_PROP = 'GEMINI_API_KEY';
+var AI_MODEL_PROP = 'GEMINI_MODEL';
+var AI_DEFAULT_MODEL = 'gemini-2.5-flash';
+var AI_MAX_COPY = 6; // 和課文連續相同的英文字數上限（與後台、tools/check-content.mjs 一致）
+var SKILLS = ['主旨', '細節', '字義', '推論', '態度'];
+
+function getAiStatus() {
+  assertTeacher_();
+  var props = PropertiesService.getScriptProperties();
+  var key = props.getProperty(AI_KEY_PROP) || '';
+  return { configured: !!key, hint: key ? '…' + key.slice(-4) : '', model: props.getProperty(AI_MODEL_PROP) || AI_DEFAULT_MODEL };
+}
+
+function setAiSettings(key, model) {
+  assertTeacher_();
+  var props = PropertiesService.getScriptProperties();
+  key = String(key || '').trim();
+  model = String(model || '').trim();
+  if (key) props.setProperty(AI_KEY_PROP, key);
+  if (model) props.setProperty(AI_MODEL_PROP, model);
+  return getAiStatus();
+}
+
+function clearAiKey() {
+  assertTeacher_();
+  PropertiesService.getScriptProperties().deleteProperty(AI_KEY_PROP);
+  return getAiStatus();
+}
+
+// 課文理解：依文章產生選擇題（題目、選項改寫，不照抄文章）
+function aiGenerateReading(passage, count, title) {
+  assertTeacher_();
+  passage = (passage || []).map(String).filter(function (p) { return p.trim(); });
+  if (!passage.length) throw new Error('請先貼上文章');
+  count = Math.max(1, Math.min(10, Number(count) || 5));
+  var text = passage.map(function (p, i) { return '[' + (i + 1) + '] ' + p; }).join('\n\n');
+  var schema = {
+    type: 'OBJECT',
+    properties: {
+      questions: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            skill: { type: 'STRING', enum: SKILLS },
+            q: { type: 'STRING' },
+            options: { type: 'ARRAY', items: { type: 'STRING' } },
+            answer: { type: 'INTEGER' },
+            explain: { type: 'STRING' },
+          },
+          required: ['skill', 'q', 'options', 'answer', 'explain'],
+        },
+      },
+    },
+    required: ['questions'],
+  };
+  var prompt = [
+    'You are an experienced English teacher at a senior high school in Taiwan, writing a reading comprehension quiz for 11th-grade students.',
+    'Write exactly ' + count + ' multiple-choice questions about the passage below' + (title ? ' (title: "' + title + '")' : '') + '.',
+    'Rules:',
+    '- Mix these question types and put the type in "skill": 主旨 (main idea), 細節 (detail), 字義 (word meaning in context), 推論 (inference), 態度 (attitude/tone). Use 主旨 at most once.',
+    '- Each question has exactly 4 options in English; exactly one is correct. "answer" is the 0-based index of the correct option. Vary the position of the correct answer.',
+    '- Wrong options must be plausible and similar in length, but clearly wrong according to the passage. Do not use "All of the above" or "None of the above".',
+    '- Paraphrase. Never copy ' + (AI_MAX_COPY - 1) + ' or more consecutive words from the passage into a question or an option. Students must understand the passage, not match words.',
+    '- For 字義 questions you may quote the single target word or short phrase in quotation marks.',
+    '- "explain" is a short explanation in Traditional Chinese (Taiwan usage), saying which paragraph ([1], [2]...) supports the answer and why.',
+    '- Keep the English at a CEFR B1–B2 level.',
+    '',
+    'Passage:',
+    text,
+  ].join('\n');
+
+  var pw = aiWords_(passage.join(' '));
+  var result = aiCall_(prompt, schema);
+  var qs = cleanQuestions_(result.questions || []);
+  var copied = copiedParts_(qs, pw);
+  if (copied.length) {
+    // 有照抄就請 AI 改寫一次
+    var retry = prompt + '\n\nYour previous answer copied these phrases from the passage. Rewrite so that no question or option copies ' + (AI_MAX_COPY - 1) + '+ consecutive words:\n- ' + copied.join('\n- ');
+    qs = cleanQuestions_((aiCall_(retry, schema).questions) || []);
+  }
+  if (!qs.length) throw new Error('AI 沒有產生可用的題目，請再試一次');
+  return { questions: qs.slice(0, count) };
+}
+
+// 單字片語：補上詞性、中文、例句（用 [ ] 標出目標字）與例句翻譯
+function aiFillVocab(items) {
+  assertTeacher_();
+  items = (items || []).map(function (x) { return String(x || '').trim(); }).filter(String).slice(0, 60);
+  if (!items.length) throw new Error('請先輸入英文單字或片語');
+  var schema = {
+    type: 'OBJECT',
+    properties: {
+      words: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            word: { type: 'STRING' }, pos: { type: 'STRING' }, zh: { type: 'STRING' },
+            example: { type: 'STRING' }, exampleZh: { type: 'STRING' },
+          },
+          required: ['word', 'pos', 'zh', 'example', 'exampleZh'],
+        },
+      },
+    },
+    required: ['words'],
+  };
+  var prompt = [
+    'You are an English teacher at a senior high school in Taiwan preparing a vocabulary list for 11th-grade students.',
+    'For each English word or phrase below, return one entry in the same order with:',
+    '- "word": exactly as given',
+    '- "pos": one of n. / v. / adj. / adv. / prep. / conj. / phr. (use "phr." for multi-word phrases; for words with two common uses write e.g. "n. / v.")',
+    '- "zh": the most common meaning in Traditional Chinese (Taiwan usage), short, with ； between senses, at most two senses',
+    '- "example": one natural example sentence at CEFR B1–B2 level, 8–16 words, in which the target word or phrase appears once and is wrapped in square brackets, e.g. "The team [bounced back] after the loss." The bracketed text may be an inflected form (past tense, plural, -ing).',
+    '- "exampleZh": a natural Traditional Chinese translation of the example',
+    '',
+    'Words:',
+    items.map(function (w, i) { return (i + 1) + '. ' + w; }).join('\n'),
+  ].join('\n');
+  var out = (aiCall_(prompt, schema).words || []).map(function (w) {
+    return {
+      word: String(w.word || '').trim(), pos: String(w.pos || '').trim(), zh: String(w.zh || '').trim(),
+      example: String(w.example || '').trim(), exampleZh: String(w.exampleZh || '').trim(),
+    };
+  }).filter(function (w) { return w.word; });
+  return { words: out };
+}
+
+function aiCall_(prompt, schema) {
+  var props = PropertiesService.getScriptProperties();
+  var key = props.getProperty(AI_KEY_PROP);
+  if (!key) throw new Error('還沒有設定 Gemini API 金鑰，請先在「AI 設定」填入');
+  var model = props.getProperty(AI_MODEL_PROP) || AI_DEFAULT_MODEL;
+  var res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { 'x-goog-api-key': key },
+    muteHttpExceptions: true,
+    payload: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0.7 },
+    }),
+  });
+  var code = res.getResponseCode();
+  var body = res.getContentText();
+  if (code !== 200) {
+    var msg = '';
+    try { msg = JSON.parse(body).error.message; } catch (err) { msg = body.slice(0, 200); }
+    if (code === 400 && /API key/i.test(msg)) throw new Error('API 金鑰無效，請到「AI 設定」重新填入');
+    if (code === 403) throw new Error('這組金鑰沒有權限使用 Gemini（學校帳號可能被管理員關閉，可改用個人 Gmail 申請）：' + msg);
+    if (code === 404) throw new Error('找不到模型「' + model + '」，請到「AI 設定」改成目前可用的模型名稱');
+    if (code === 429) throw new Error('Gemini 用量已達上限（免費額度），請過幾分鐘再試');
+    throw new Error('Gemini 錯誤 ' + code + '：' + msg);
+  }
+  var data = JSON.parse(body);
+  var cand = data.candidates && data.candidates[0];
+  var text = cand && cand.content && cand.content.parts && cand.content.parts.map(function (p) { return p.text || ''; }).join('');
+  if (!text) throw new Error('Gemini 沒有回傳內容' + (cand && cand.finishReason ? '（' + cand.finishReason + '）' : '') + '，請再試一次');
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    throw new Error('Gemini 回傳的格式無法解析，請再試一次');
+  }
+}
+
+function cleanQuestions_(qs) {
+  return qs.map(function (q) {
+    var options = (q.options || []).map(function (o) { return String(o || '').trim(); }).filter(String).slice(0, 4);
+    var answer = Number(q.answer);
+    return {
+      skill: SKILLS.indexOf(q.skill) >= 0 ? q.skill : '細節',
+      q: String(q.q || '').trim(),
+      options: options,
+      answer: answer >= 0 && answer < options.length ? answer : -1,
+      explain: String(q.explain || '').trim(),
+    };
+  }).filter(function (q) { return q.q && q.options.length >= 2 && q.answer >= 0; });
+}
+
+function aiWords_(s) { return String(s).toLowerCase().replace(/[“”"]/g, ' ').match(/[a-z0-9']+/g) || []; }
+
+function copiedParts_(qs, pw) {
+  var out = [];
+  qs.forEach(function (q) {
+    [q.q].concat(q.options).forEach(function (t) {
+      var a = aiWords_(t);
+      var best = 0; var at = -1;
+      for (var i = 0; i < a.length; i++) for (var j = 0; j < pw.length; j++) {
+        var k = 0; while (a[i + k] && a[i + k] === pw[j + k]) k++;
+        if (k > best) { best = k; at = i; }
+      }
+      if (best >= AI_MAX_COPY) out.push(a.slice(at, at + best).join(' '));
+    });
+  });
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
 /* Config                                                              */
 /* ------------------------------------------------------------------ */
 
