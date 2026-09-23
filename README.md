@@ -87,12 +87,14 @@ node tools/check-content.mjs
 
 ## 老師後台與成績（Google Apps Script）
 
-1. 建立一份 Google 試算表 → **擴充功能 → Apps Script**。
-2. 貼上 `apps-script/Code.gs`、`apps-script/Setup.gs`，再新增一個 HTML 檔，命名為 `Admin`，貼上 `Admin.html` 的內容。
-3. 選擇 `setup` 函式並按 **執行**。執行後會建立 `settings`、`teachers`、`scores` 三個分頁，並把你的帳號加入老師名單。其他老師的帳號可以直接加到 `teachers` 分頁。
-4. **部署 → 新增部署作業 → 網頁應用程式**：執行身分選「我」，誰可以存取選「所有人」。
+1. 開啟（或建立）一份 Google 試算表 → **擴充功能 → Apps Script**。
+2. 把 `apps-script/Code.gs` 的內容貼進預設的 `程式碼.gs`（先刪掉原本的內容）。按左側「檔案」旁的 **＋ → HTML**，命名為 `Admin`，貼上 `apps-script/Admin.html`。按 **儲存**。
+3. 上方函式選單選 `setup`，按 **執行**，依畫面授權。執行後會建立 `settings`、`teachers`、`scores` 三個分頁，並把你的帳號加入老師名單。其他老師的帳號可以直接加到 `teachers` 分頁。
+4. **部署 → 新增部署作業 → 類型選「網頁應用程式」**：執行身分選「我」，誰可以存取選「所有人」，按 **部署**。
 5. 把 Web App 網址（結尾是 `/exec`）貼到 `js/config.js` 的 `SCRIPT_URL`，然後 commit。
-6. 老師用學校 Google 帳號登入後，打開同一個網址（不帶參數）就是後台。這個網址也會出現在網站頁尾的「老師後台」連結。
+6. 老師用學校 Google 帳號登入後，打開同一個網址（不帶參數）就是後台。這個網址也會出現在網站頁尾的「老師後台」連結，以及試算表上方的「B5 Practice → 開啟老師後台」。
+
+> 如果部署時「誰可以存取」沒有「所有人」可選，代表學校網域限制了對外存取：學生必須先登入學校 Google 帳號才能送出成績。可以改用個人 Gmail 建立試算表來避免這個限制。
 
 老師可以設定：
 
@@ -120,5 +122,5 @@ js/modes/reading.js      課文理解流程
 js/components/*.js       題目元件（選擇題、字母框拼字）、結果頁、測驗前關卡
 data/lessons/*.json      課程資料
 tools/check-content.mjs  內容檢查（防止閱讀題照抄文章）
-apps-script/             Google Apps Script（成績、設定、老師後台）
+apps-script/             Google Apps Script：Code.gs（成績、設定、初始化）＋ Admin.html（老師後台）
 ```

@@ -5,7 +5,8 @@
  *   POST (text/plain JSON) → 學生完成測驗（單字片語三段連續、課文理解），寫入 scores 分頁
  *   GET  （不帶參數）     → 老師後台；只有 teachers 分頁白名單裡的 Google 帳號能進入
  *
- * 部署方式請見 README.md。
+ * 使用方式：這個檔案和 Admin.html 貼進試算表的 Apps Script，執行一次 setup()，再部署成網頁應用程式。
+ * 詳細步驟請見 README.md。
  */
 
 var SHEET_SCORES = 'scores';
@@ -73,6 +74,61 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* 初始化與試算表選單                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 第一次使用時執行一次：建立 settings / teachers / scores 三個分頁，
+ * 並把目前執行的帳號加入老師名單。之後新增單元時，在 settings 分頁加一列（id 要和 data/lessons/index.json 相同）。
+ */
+var DEFAULT_UNITS = [
+  ['l1-voc', 'L1 單字片語', 'vocab'],
+  ['l1-reading', 'L1 課文理解', 'reading'],
+  ['l2-voc', 'L2 單字片語', 'vocab'],
+  ['l2-reading', 'L2 課文理解', 'reading'],
+  ['l3-voc', 'L3 單字片語', 'vocab'],
+  ['l3-reading', 'L3 課文理解', 'reading'],
+  ['l4-voc', 'L4 單字片語', 'vocab'],
+  ['l4-reading', 'L4 課文理解', 'reading'],
+];
+
+function setup() {
+  var settings = sheet_(SHEET_SETTINGS, SETTINGS_HEADER);
+  if (settings.getLastRow() < 2) {
+    var rows = DEFAULT_UNITS.map(function (u) { return [u[0], u[1], u[2], true, '', 10]; });
+    settings.getRange(2, 1, rows.length, SETTINGS_HEADER.length).setValues(rows);
+  }
+  var teachers = sheet_(SHEET_TEACHERS, ['email', 'note']);
+  var me = Session.getEffectiveUser().getEmail();
+  if (me && teachers.getLastRow() < 2) teachers.appendRow([me, '建立者']);
+  sheet_(SHEET_SCORES, SCORES_HEADER);
+  CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
+  Logger.log('完成。老師名單：' + me);
+}
+
+// 試算表上方的「B5 Practice」選單
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('B5 Practice')
+    .addItem('初始化（建立分頁）', 'setup')
+    .addItem('開啟老師後台', 'openAdmin')
+    .addToUi();
+}
+
+function openAdmin() {
+  var url = ScriptApp.getService().getUrl();
+  var ui = SpreadsheetApp.getUi();
+  if (!url) {
+    ui.alert('還沒部署', '請先在 Apps Script 編輯器按「部署 → 新增部署作業 → 網頁應用程式」。', ui.ButtonSet.OK);
+    return;
+  }
+  var html = HtmlService.createHtmlOutput(
+    '<p style="font-family:sans-serif">老師後台網址：</p><p><a href="' + url + '" target="_blank">' + url + '</a></p>'
+  ).setWidth(460).setHeight(140);
+  ui.showModalDialog(html, 'B5 Practice 老師後台');
 }
 
 /* ------------------------------------------------------------------ */
