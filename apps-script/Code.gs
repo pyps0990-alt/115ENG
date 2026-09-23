@@ -2,7 +2,7 @@
  * B5 Practice — 成績回傳與老師後台（Google Apps Script，綁定在一份 Google 試算表上）
  *
  *   GET  ?action=config  → 學生網站讀取顯示設定（JSON，不需要登入）
- *   POST (text/plain JSON) → 學生完成測驗（單字片語三段連續、課文理解），寫入 scores 分頁
+ *   POST (text/plain JSON) → 學生完成測驗（單字片語三段連續、課文理解），寫入 scores 總表、「班級 xxx」分頁與 details（每題明細），用 attemptId 去除重複
  *   GET  （不帶參數）     → 老師後台；只有 teachers 分頁白名單裡的 Google 帳號能進入
  *
  * 使用方式：這個檔案和 Admin.html 貼進試算表的 Apps Script，執行一次 setup()，再部署成網頁應用程式。
@@ -126,7 +126,7 @@ function seenAttempt_(id) {
 /* ------------------------------------------------------------------ */
 
 /**
- * 第一次使用時執行一次：建立 settings / teachers / scores 三個分頁，
+ * 第一次使用時執行一次：建立 settings / teachers / scores / details / content 分頁，
  * 並把目前執行的帳號加入老師名單。之後新增單元時，在 settings 分頁加一列（id 要和 data/lessons/index.json 相同）。
  */
 var DEFAULT_UNITS = [
