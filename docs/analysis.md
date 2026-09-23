@@ -2,79 +2,81 @@
 
 ## 1. 分析範圍
 
-- 目標頁面：`https://sites.google.com/nhsh.tp.edu.tw/b5practice/l1-voc`
-- 開發環境的網路政策擋住了 `sites.google.com`（代理伺服器回傳 HTTP 403），所以沒辦法直接讀取 L1 VOC 頁面的內容。
-- 分析依據的是使用者貼上的**首頁 HTML 原始碼**（`/b5practice/home`）。L1 VOC 的實際單字還沒拿到，新網站目前先用**範例資料**，並清楚標示「範例」。
+- 目標網站：`https://sites.google.com/nhsh.tp.edu.tw/b5practice/`（L1 VOC 等頁面）
+- 開發環境的網路政策擋住了 `sites.google.com`（代理伺服器回傳 HTTP 403），所以沒辦法直接讀取頁面內容。分析依據的是使用者貼上的**首頁 HTML 原始碼**。
+- 新網站的單字和文章目前都是**範例資料**，要等拿到課本內容後再替換。
 
-## 2. 現況（從首頁原始碼觀察到的）
+## 2. 原網站現況
 
 | 項目 | 觀察 |
 | --- | --- |
-| 導覽列 | 共 10 頁：Home、L2 Reading Comprehension、L2 Grammar in reading、L2 Cloze Test、L2 Cloze Test 2、L1 VOC、L1 Reading、L3 VOC、L3 VOC Part2、L4 Reading |
-| 首頁內容 | 只有一個標題「B5 Practice」，沒有說明、入口或進度 |
+| 導覽列 | 10 頁：Home、L2 Reading Comprehension、L2 Grammar in reading、L2 Cloze Test、L2 Cloze Test 2、L1 VOC、L1 Reading、L3 VOC、L3 VOC Part2、L4 Reading |
+| 首頁 | 只有一個標題「B5 Practice」，沒有入口、說明或進度 |
 | 排序 | L2 排在 L1 前面，課次順序混亂 |
-| 拆頁 | 同一課被拆成平行頁面（Cloze Test / Cloze Test 2、VOC / VOC Part2），學生要自己在導覽列找 |
-| 內容形式 | 頂部有「Embedded Files」，表示練習內容主要是嵌入的檔案、表單或外部工具 |
-| 題型 | 單字（VOC）、閱讀（Reading / Reading Comprehension）、文法（Grammar in reading）、克漏字（Cloze Test） |
+| 拆頁 | 同一課被拆成好幾頁（VOC / VOC Part2、Cloze Test 1 / 2） |
+| 內容形式 | 靠嵌入的檔案或表單，頁面本身不能互動、不能記錄成績 |
 
-## 3. Google Sites 的限制
+## 3. 改造需求（使用者指定）
 
-1. **沒有互動**：頁面本身不能出題、判斷對錯，只能嵌入 Google 表單、Quizlet 或文件。
-2. **沒有個人進度**：學生看不出自己哪些字已經熟、哪些常錯；錯題不會累積。
-3. **手機體驗差**：嵌入的 iframe 在手機上常常需要縮放或左右捲動。
-4. **資料難以重複利用**：同一份單字表無法同時產生單字卡、選擇題和拼字題，每種練習都要各做一次。
-5. **老師控管不方便**：想暫時隱藏某一課或關閉測驗，只能手動編輯網站、重新發布。
-6. **成績分散**：如果每個練習各用一份 Google 表單，成績會分散在多份試算表裡。
+1. **只保留兩種功能**：
+   - **單字片語測驗**，分成基礎、進階、精熟三個等級
+   - **課文理解**：先讀文章，再做閱讀測驗
+2. **閱讀測驗不可照抄文章**：題目和選項都要改寫，考的是理解，不是找字。
+3. **配色**：`#FFFFFF` 背景、`#F4F6F9` 區塊、`#1E3A8A` 導覽列與標題、`#64748B` 內文、`#F59E0B` 答對與重要按鈕。
+4. **老師用帳號控管、學生只填基本資料**（沿用前一版的需求）。
 
-## 4. 改造方案
+## 4. 新網站架構
 
-### 4.1 架構
+### 4.1 單元對應
 
-- **純靜態網站**（HTML／CSS／原生 JS，不需要建置），可以放在 GitHub Pages，再用 Google Sites 的「嵌入 → 網址」嵌進原本的網站，或直接改連過去。
-- **一份資料、多種練習**：每個單元一個 JSON 檔（`data/lessons/<id>.json`），系統會自動產生所有題型。
-- **兩種題型引擎**涵蓋原本所有頁面：
+每一課固定有兩個單元，原本的網址也都有對應：
 
-| 原頁面 | 新單元 | 引擎 | 可用模式 |
+| 課次 | 單字片語 | 課文理解 | 原頁面 |
 | --- | --- | --- | --- |
-| L1 VOC | `l1-voc` | 單字 | 單字表・單字卡・選擇題・拼字／克漏字・配對遊戲・正式測驗 |
-| L3 VOC + L3 VOC Part2 | `l3-voc`（Part 1／Part 2 可篩選；舊網址 `l3-voc-part2` 會自動轉過去） | 單字 | 同上 |
-| L1 Reading、L4 Reading、L2 Reading Comprehension | `l1-reading` 等 | 題組 | 練習・正式測驗 |
-| L2 Grammar in reading | `l2-grammar-in-reading` | 題組（文章內空格） | 練習・正式測驗 |
-| L2 Cloze Test／Cloze Test 2 | `l2-cloze-test`、`l2-cloze-test-2` | 題組（文章內空格） | 練習・正式測驗 |
+| L1 | `l1-voc` | `l1-reading` | L1 VOC、L1 Reading |
+| L2 | `l2-voc` | `l2-reading`（舊網址 `l2-reading-comprehension` 會自動轉過去） | L2 Reading Comprehension；原本的 Grammar／Cloze 頁面依需求移除 |
+| L3 | `l3-voc`（合併原本的 Part2，舊網址 `l3-voc-part2` 會自動轉過去） | `l3-reading` | L3 VOC、L3 VOC Part2 |
+| L4 | `l4-voc` | `l4-reading` | L4 Reading |
 
-### 4.2 首頁
+### 4.2 三個等級的設計
 
-- 依課次（L1 → L4）分組的卡片，每張卡片顯示題型、題數、熟悉度進度條和最佳成績。
-- 第一次進站時會請學生填**班級、座號、姓名**（不用登入，資料只存在學生自己的裝置）。
+三個等級用的是**同一份單字片語清單**，只是作答方式越來越難，從「認得」一路到「會拼寫」：
 
-### 4.3 單字互動設計
+| 等級 | 題型 | 考的能力 |
+| --- | --- | --- |
+| 基礎 | 英 → 中，四選一（可以聽發音） | 看到字認得意思 |
+| 進階 | 中 → 英，四選一；例句填空，四選一（選項是其他字在例句中的形式，例如 *bounced back* / *stumbled*） | 從意思找到正確的字，並在句子中辨認詞形 |
+| 精熟 | 看中文拼出英文；例句填空拼寫（沒有選項，提示每次扣 0.25 分） | 能正確拼寫出來 |
 
-- **單字表**：每個字一張卡片，有詞性標籤、🔊 發音、例句中的目標字會用螢光標出，可以點一下標記「熟悉／不熟」。
-- **單字卡**：3D 翻面；手機往右滑代表「熟悉」、往左滑代表「不熟」，卡片會傾斜並蓋上印章；電腦可以用 ← → 和空白鍵操作。
-- **選擇題**：英→中、中→英、混合三種方向；答對會變綠並跳一下，連對時 🔥 數字會跳動；答錯的選項會晃動，並標出正確答案。
-- **拼字／克漏字**：像 Wordle 一樣一格一格輸入字母；有提示功能（每次扣 0.25 分）；答對時字母框會依序翻成綠色。
-- **配對遊戲**：每回合 6 組，有計時和配錯次數，會記錄最佳時間。
-- **結果頁**：環形分數圖、錯題清單、「只練錯的」按鈕；拿到滿分會噴彩帶。
-- **待加強**：所有模式答錯或標記「不熟」的字，都會自動收進「待加強」範圍，可以只針對這些字練習。
-- 支援深色模式、減少動態效果（`prefers-reduced-motion`）和鍵盤操作；對錯除了顏色之外，也會用 ✓／✗ 符號表示。
+- 出題時單字和片語都會出現，片語的干擾選項也會盡量用片語，避免一眼就看出答案。
+- 答對率達 **80%** 就算通過該等級。首頁和等級頁會用琥珀色標示「✓ 通過」，並推薦下一個要挑戰的等級。
+- 每題答完立刻顯示對錯：答對時選項變成琥珀色並跳一下，連對會累計 🔥；答錯時選項會晃動，並標出正確答案。
+- 結果頁會列出錯題，可以「練習錯的題目」（只用來複習，不會送出成績），或直接挑戰下一級。
 
-### 4.4 老師控管（用帳號區分）
+### 4.3 課文理解
 
-- 用一份 Google 試算表加上 Apps Script（`apps-script/`）：
-  - `settings` 分頁：每個單元可以設定是否顯示、要關閉哪些練習模式、正式測驗是否開放、題數，以及開放的起訖日期。
-  - `teachers` 分頁：老師的 Google 帳號白名單。只有名單上的帳號能打開**老師後台**；學生不需要帳號。
-  - `scores` 分頁：學生正式測驗交卷後，成績會自動寫進這裡。
-- 學生網站啟動時會讀取 `?action=config`，套用老師的設定；讀不到時會改用預設設定（全部開放），網站仍然可以使用。
-- 老師後台可以在網頁上勾選設定，也可以查詢成績（依班級或單元篩選，並顯示平均分數）。
+- 桌機是左右兩欄：左邊是固定的文章，右邊是題目；手機則是先文章、後題目。
+- 每題標示題型（主旨、細節、字義、推論、態度），交卷後才公布答案和中文解析。
+- **防止照抄**：`tools/check-content.mjs` 會比對每個題目和選項跟文章的重疊。只要有連續 6 個英文字以上相同，就列為錯誤；連續 5 個字列為警告。目前 4 篇範例文章、20 題都通過檢查。改寫示範：
 
-## 5. 替換成真正的內容
+| 文章原句 | 選項改寫 |
+| --- | --- |
+| Her hands had shaken so badly that she forgot the second half of the piece. | Nerves made her lose track of the music halfway through. |
+| This time, she did not practice to win. She practiced to enjoy the music. | She focused on having fun with music rather than on beating others. |
+| the water is collected and reused | The same water is gathered and used again. |
 
-1. 單字單元：編輯 `data/lessons/l1-voc.json`，每個字的格式如下：
-   ```json
-   { "word": "adversity", "pos": "n.", "zh": "逆境", "example": "She stayed calm in the face of [adversity].", "exampleZh": "她在逆境中仍保持冷靜。" }
-   ```
-   例句中要考的字用 `[ ]` 括起來，克漏字題就會挖空這個字（可以是變化形，例如 `[accomplished]`）。
-   如果要分段，加上 `"part": 1`，並在檔案最上層加 `"parts": {"1": "Part 1", "2": "Part 2"}`。
-2. 題組單元：`passage` 是段落陣列，空格寫成 `{{1}}`、`{{2}}`……；`questions` 裡的 `answer` 是正確選項的索引（從 0 開始），`explain` 是詳解。
-3. 把 `data/lessons/index.json` 裡對應單元的 `"sample": true` 拿掉，並更新 `count`。
-4. 如果把 L1 VOC 頁面的單字表複製貼給我（或提供截圖），我可以直接幫你轉成 JSON。
+### 4.4 老師控管與成績
+
+- 學生：不用登入，第一次進站時填班級、座號、姓名（只存在自己的裝置）。每次完成正式測驗，成績就會送出。
+- 老師：用 Google 試算表加 Apps Script 做後台，只有 `teachers` 名單上的 Google 帳號能進入。後台可以：
+  - 決定每個單元要不要顯示
+  - 個別開關基礎、進階、精熟或課文理解
+  - 設定每次測驗的題數
+  - 依班級或單元查詢成績，並看平均分數
+- 學生網站讀不到老師的設定時，會改用預設值（全部開放、每次 10 題），網站仍然可以使用。
+
+## 5. 待辦
+
+1. 提供 L1–L4 真正的單字片語與課文（貼文字或截圖都可以），替換 `data/lessons/` 裡的範例資料，並執行 `node tools/check-content.mjs`。
+2. 部署 Apps Script，把網址填進 `js/config.js`。
+3. 開啟 GitHub Pages，再嵌入或連結到原本的 Google Sites。

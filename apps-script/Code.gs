@@ -2,7 +2,7 @@
  * B5 Practice — 成績回傳與老師後台（Google Apps Script，綁定在一份 Google 試算表上）
  *
  *   GET  ?action=config  → 學生網站讀取顯示設定（JSON，不需要登入）
- *   POST (text/plain JSON) → 學生正式測驗交卷，寫入 scores 分頁
+ *   POST (text/plain JSON) → 學生完成測驗（單字片語各等級、課文理解），寫入 scores 分頁
  *   GET  （不帶參數）     → 老師後台；只有 teachers 分頁白名單裡的 Google 帳號能進入
  *
  * 部署方式請見 README.md。
@@ -13,8 +13,8 @@ var SHEET_SETTINGS = 'settings';
 var SHEET_TEACHERS = 'teachers';
 var CONFIG_CACHE_KEY = 'config-json';
 
-var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'examOpen', 'examCount', 'examFrom', 'examTo'];
-var SCORES_HEADER = ['serverTime', 'cls', 'seat', 'name', 'unit', 'unitTitle', 'mode', 'score', 'total', 'pct', 'wrong', 'durationSec', 'clientTime'];
+var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCount'];
+var SCORES_HEADER = ['serverTime', 'cls', 'seat', 'name', 'unit', 'unitTitle', 'level', 'mode', 'score', 'total', 'pct', 'wrong', 'durationSec', 'clientTime'];
 
 /* ------------------------------------------------------------------ */
 /* Web App entry points                                                */
@@ -55,6 +55,7 @@ function doPost(e) {
       cell_(d.name, 40),
       cell_(d.unit, 60),
       cell_(d.unitTitle, 80),
+      cell_(d.level, 20),
       cell_(d.mode, 30),
       num_(d.score),
       num_(d.total),
@@ -92,16 +93,12 @@ function saveSettings(units) {
       String(u.id), String(u.title || ''), String(u.type || ''),
       u.visible !== false,
       (u.disabled || []).join(','),
-      u.examOpen !== false,
-      Number(u.examCount) || 20,
-      String(u.examFrom || ''),
-      String(u.examTo || ''),
+      Math.min(100, Math.max(1, Number(u.questionCount) || 10)),
     ];
   });
   var last = sh.getLastRow();
   if (last > 1) sh.getRange(2, 1, last - 1, SETTINGS_HEADER.length).clearContent();
   if (rows.length) {
-    sh.getRange(2, 8, rows.length, 2).setNumberFormat('@'); // 日期以文字儲存
     sh.getRange(2, 1, rows.length, SETTINGS_HEADER.length).setValues(rows);
   }
   CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
@@ -124,8 +121,8 @@ function getScores(filter) {
     out.push({
       time: r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd HH:mm') : String(r[0]),
       cls: String(r[1]), seat: String(r[2]), name: String(r[3]),
-      unit: String(r[4]), unitTitle: String(r[5]), mode: String(r[6]),
-      score: r[7], total: r[8], pct: r[9], wrong: String(r[10]), durationSec: r[11],
+      unit: String(r[4]), unitTitle: String(r[5]), level: String(r[6]), mode: String(r[7]),
+      score: r[8], total: r[9], pct: r[10], wrong: String(r[11]), durationSec: r[12],
     });
   }
   return out;
@@ -141,10 +138,7 @@ function readConfigCached_() {
   if (hit) return JSON.parse(hit);
   var cfg = { units: {}, updated: new Date().toISOString() };
   readSettingsRows_().forEach(function (u) {
-    cfg.units[u.id] = {
-      visible: u.visible, disabled: u.disabled, examOpen: u.examOpen,
-      examCount: u.examCount, examFrom: u.examFrom, examTo: u.examTo,
-    };
+    cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount };
   });
   cache.put(CONFIG_CACHE_KEY, JSON.stringify(cfg), 60);
   return cfg;
@@ -154,11 +148,6 @@ function readSettingsRows_() {
   var sh = sheet_(SHEET_SETTINGS, SETTINGS_HEADER);
   var last = sh.getLastRow();
   if (last < 2) return [];
-  var tz = Session.getScriptTimeZone();
-  var fmtDate = function (v) {
-    if (v instanceof Date) return Utilities.formatDate(v, tz, 'yyyy-MM-dd');
-    return String(v || '').trim();
-  };
   return sh.getRange(2, 1, last - 1, SETTINGS_HEADER.length).getValues()
     .filter(function (r) { return String(r[0]).trim(); })
     .map(function (r) {
@@ -168,10 +157,7 @@ function readSettingsRows_() {
         type: String(r[2]),
         visible: bool_(r[3], true),
         disabled: String(r[4] || '').split(',').map(function (s) { return s.trim(); }).filter(String),
-        examOpen: bool_(r[5], true),
-        examCount: Number(r[6]) || 20,
-        examFrom: fmtDate(r[7]),
-        examTo: fmtDate(r[8]),
+        questionCount: Number(r[5]) || 10,
       };
     });
 }

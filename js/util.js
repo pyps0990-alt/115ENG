@@ -76,7 +76,7 @@ export function confirmDialog({ title, body, ok = '確定', cancel = '取消' })
 export function confetti() {
   if (reducedMotion()) return;
   const fx = document.getElementById('fx');
-  const colors = ['#4f46e5', '#ff6b5b', '#22c55e', '#f59e0b', '#06b6d4', '#a855f7'];
+  const colors = ['#1E3A8A', '#F59E0B', '#FCD34D', '#3B5BB5', '#FDE68A'];
   for (let i = 0; i < 70; i++) {
     const c = document.createElement('span');
     c.className = 'confetti';

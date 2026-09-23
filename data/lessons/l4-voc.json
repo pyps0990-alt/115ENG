@@ -1,0 +1,26 @@
+{
+  "title": "L4 單字片語",
+  "sample": true,
+  "words": [
+    { "type": "word", "word": "myth", "pos": "n.", "zh": "迷思；神話", "example": "It is a [myth] that goldfish only remember things for three seconds.", "exampleZh": "金魚只有三秒記憶是一種迷思。" },
+    { "type": "word", "word": "visible", "pos": "adj.", "zh": "看得見的", "example": "The mountain is [visible] from my window on clear days.", "exampleZh": "天氣晴朗時，從我的窗戶看得到那座山。" },
+    { "type": "word", "word": "orbit", "pos": "n. / v.", "zh": "軌道；繞軌道運行", "example": "The satellite [orbits] the Earth every 90 minutes.", "exampleZh": "這顆衛星每 90 分鐘繞地球一圈。" },
+    { "type": "word", "word": "astronaut", "pos": "n.", "zh": "太空人", "example": "The [astronaut] took photos of the Earth from space.", "exampleZh": "太空人從太空拍下地球的照片。" },
+    { "type": "word", "word": "narrow", "pos": "adj.", "zh": "狹窄的", "example": "The street is too [narrow] for buses.", "exampleZh": "這條街太窄，公車開不進去。" },
+    { "type": "word", "word": "distance", "pos": "n.", "zh": "距離", "example": "The [distance] between the two cities is 300 kilometers.", "exampleZh": "兩座城市相距 300 公里。" },
+    { "type": "word", "word": "similar", "pos": "adj.", "zh": "相似的", "example": "My opinion is [similar] to yours.", "exampleZh": "我的意見跟你的相似。" },
+    { "type": "word", "word": "spot", "pos": "v.", "zh": "看見；發現", "example": "Can you [spot] the difference between these two pictures?", "exampleZh": "你看得出這兩張圖的差別嗎？" },
+    { "type": "word", "word": "repeat", "pos": "v.", "zh": "重複", "example": "Please [repeat] the question more slowly.", "exampleZh": "請再慢一點重複一次問題。" },
+    { "type": "word", "word": "evidence", "pos": "n.", "zh": "證據", "example": "There is no [evidence] that the story is true.", "exampleZh": "沒有證據顯示那個故事是真的。" },
+    { "type": "word", "word": "accurate", "pos": "adj.", "zh": "準確的", "example": "Make sure your information is [accurate] before you share it.", "exampleZh": "分享之前先確認你的資訊是正確的。" },
+    { "type": "word", "word": "popular", "pos": "adj.", "zh": "受歡迎的；普遍的", "example": "It is a [popular] belief, but it is wrong.", "exampleZh": "這是很普遍的看法，但它是錯的。" },
+    { "type": "word", "word": "claim", "pos": "n. / v.", "zh": "聲稱；主張", "example": "Some websites [claim] that the product works in one day.", "exampleZh": "有些網站聲稱這個產品一天就見效。" },
+    { "type": "word", "word": "doubt", "pos": "n. / v.", "zh": "懷疑", "example": "I [doubt] that he will arrive on time.", "exampleZh": "我懷疑他會準時到。" },
+    { "type": "word", "word": "reliable", "pos": "adj.", "zh": "可靠的", "example": "Is this news source [reliable]?", "exampleZh": "這個新聞來源可靠嗎？" },
+    { "type": "phrase", "word": "take it for granted", "pos": "phr.", "zh": "視…為理所當然", "example": "Many people [take it for granted] that the internet will always work.", "exampleZh": "很多人把網路永遠能用視為理所當然。" },
+    { "type": "phrase", "word": "find out", "pos": "phr.", "zh": "查明；發現", "example": "Scientists wanted to [find out] whether the rumor was true.", "exampleZh": "科學家想查明傳聞是否屬實。" },
+    { "type": "phrase", "word": "stand out", "pos": "phr.", "zh": "顯眼；突出", "example": "Her bright red coat made her [stand out] in the crowd.", "exampleZh": "她亮紅色的外套讓她在人群中很顯眼。" },
+    { "type": "phrase", "word": "blend in with", "pos": "phr.", "zh": "與…融為一體", "example": "The frog's color helps it [blend in with] the leaves.", "exampleZh": "青蛙的顏色讓牠能和葉子融為一體。" },
+    { "type": "phrase", "word": "at first glance", "pos": "phr.", "zh": "乍看之下", "example": "[At first glance], the two photos look the same.", "exampleZh": "乍看之下，這兩張照片看起來一樣。" }
+  ]
+}

@@ -13,5 +13,3 @@ async function getJSON(url) {
 
 export const loadIndex = () => getJSON('data/lessons/index.json');
 export const loadUnit = (id) => getJSON(`data/lessons/${encodeURIComponent(id)}.json`);
-
-export const KIND_LABEL = { vocab: '單字', reading: '閱讀', grammar: '文法', cloze: '克漏字' };

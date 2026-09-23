@@ -1,0 +1,16 @@
+{
+  "title": "Gardens in the Sky",
+  "sample": true,
+  "passage": [
+    "In many cities, rooftop gardens are becoming more common. These gardens are built on top of apartment buildings, schools, and even hospitals. They may look like simple decorations, but they offer a surprising number of benefits.",
+    "First, rooftop gardens help keep buildings cool. Plants absorb sunlight that would otherwise heat the roof, so people inside use less air conditioning in summer. Second, they provide homes for birds, bees, and butterflies in areas where green space is rare. Finally, they give city residents a quiet place to relax, grow vegetables, and meet their neighbors.",
+    "Of course, building a rooftop garden is not always easy. The roof must be strong enough to hold heavy soil and water, and the plants need regular care. Still, many city planners believe the benefits are worth the effort."
+  ],
+  "questions": [
+    { "skill": "主旨", "q": "What is the writer mainly doing in this passage?", "options": ["Giving step-by-step instructions for planting vegetables", "Weighing the good points of roof gardens against the difficulties", "Comparing hospitals with schools", "Complaining about noisy neighbors in apartments"], "answer": 1, "explain": "第二段列出好處，第三段說明困難，整篇是在比較優缺點。" },
+    { "skill": "細節", "q": "According to the passage, how can a green roof lower energy use?", "options": ["Its plants take in sunlight, so the building stays cooler and needs less cooling.", "It collects rain to run electric generators.", "It blocks strong winds in winter.", "It reflects moonlight back into the sky."], "answer": 0, "explain": "植物吸收陽光，屋頂比較不熱，所以夏天可以少開冷氣。" },
+    { "skill": "細節", "q": "Which advantage is NOT mentioned by the writer?", "options": ["A place for wildlife to live", "A spot where neighbors can get to know each other", "Higher prices for apartments", "Cooler rooms in hot weather"], "answer": 2, "explain": "文中沒有提到房價會變高。" },
+    { "skill": "推論", "q": "Why might an old building be unsuitable for a rooftop garden?", "options": ["Its roof may be unable to support the weight.", "Birds refuse to visit old buildings.", "Old buildings are always too cold for plants.", "Residents of old buildings dislike vegetables."], "answer": 0, "explain": "第三段提到屋頂必須夠堅固，才撐得住泥土和水的重量；老建築的屋頂可能撐不住。" },
+    { "skill": "態度", "q": "How do city planners seem to feel about roof gardens overall?", "options": ["Worried that they are too dangerous", "Positive, even though they require work", "Uninterested because they are only decorations", "Unsure whether they help at all"], "answer": 1, "explain": "最後一句：規劃者認為好處值得這些付出，態度是正面的。" }
+  ]
+}

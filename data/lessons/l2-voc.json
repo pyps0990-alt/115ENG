@@ -1,0 +1,26 @@
+{
+  "title": "L2 單字片語",
+  "sample": true,
+  "words": [
+    { "type": "word", "word": "urban", "pos": "adj.", "zh": "城市的；都市的", "example": "More people now live in [urban] areas than in the countryside.", "exampleZh": "現在住在都市的人比住在鄉下的人多。" },
+    { "type": "word", "word": "resident", "pos": "n.", "zh": "居民", "example": "Local [residents] complained about the noise.", "exampleZh": "當地居民抱怨噪音。" },
+    { "type": "word", "word": "absorb", "pos": "v.", "zh": "吸收", "example": "Dark clothes [absorb] more heat from the sun.", "exampleZh": "深色衣服會吸收更多陽光的熱。" },
+    { "type": "word", "word": "insulate", "pos": "v.", "zh": "使隔熱；使隔絕", "example": "Thick walls [insulate] the house from the cold.", "exampleZh": "厚牆讓房子能隔絕寒冷。" },
+    { "type": "word", "word": "benefit", "pos": "n. / v.", "zh": "好處；有益於", "example": "Regular exercise has many health [benefits].", "exampleZh": "規律運動對健康有很多好處。" },
+    { "type": "word", "word": "rare", "pos": "adj.", "zh": "稀少的；罕見的", "example": "Green space is [rare] in the city center.", "exampleZh": "市中心的綠地很少見。" },
+    { "type": "word", "word": "structure", "pos": "n.", "zh": "結構；建築物", "example": "The bridge is the tallest [structure] in town.", "exampleZh": "這座橋是鎮上最高的建築。" },
+    { "type": "word", "word": "maintain", "pos": "v.", "zh": "維護；保養", "example": "It costs a lot to [maintain] an old building.", "exampleZh": "維護一棟老建築要花很多錢。" },
+    { "type": "word", "word": "harvest", "pos": "n. / v.", "zh": "收成；收割", "example": "The farmers expect a good [harvest] this year.", "exampleZh": "農夫們預期今年會豐收。" },
+    { "type": "word", "word": "pollinate", "pos": "v.", "zh": "給…授粉", "example": "Bees [pollinate] many of the crops we eat.", "exampleZh": "蜜蜂為我們吃的許多作物授粉。" },
+    { "type": "word", "word": "shelter", "pos": "n.", "zh": "遮蔽處；庇護所", "example": "The birds found [shelter] under the roof.", "exampleZh": "鳥兒在屋簷下找到了遮蔽處。" },
+    { "type": "word", "word": "community", "pos": "n.", "zh": "社區；群體", "example": "The whole [community] helped clean the park.", "exampleZh": "整個社區一起幫忙打掃公園。" },
+    { "type": "word", "word": "planner", "pos": "n.", "zh": "規劃者", "example": "City [planners] want to add more bike lanes.", "exampleZh": "城市規劃者想增設更多自行車道。" },
+    { "type": "word", "word": "temperature", "pos": "n.", "zh": "溫度", "example": "The [temperature] dropped sharply at night.", "exampleZh": "夜裡氣溫驟降。" },
+    { "type": "word", "word": "effort", "pos": "n.", "zh": "努力；費力的事", "example": "Learning a language takes time and [effort].", "exampleZh": "學一種語言需要時間與努力。" },
+    { "type": "phrase", "word": "make use of", "pos": "phr.", "zh": "利用", "example": "The school [makes use of] its empty roof as a garden.", "exampleZh": "學校把空著的屋頂拿來當花園。" },
+    { "type": "phrase", "word": "take care of", "pos": "phr.", "zh": "照顧；處理", "example": "Students take turns to [take care of] the plants.", "exampleZh": "學生輪流照顧植物。" },
+    { "type": "phrase", "word": "be worth the effort", "pos": "phr.", "zh": "值得付出努力", "example": "The long hike was hard, but the view [was worth the effort].", "exampleZh": "健行很辛苦，但那片風景值得。" },
+    { "type": "phrase", "word": "be home to", "pos": "phr.", "zh": "是…的家園；有…棲息", "example": "The rooftop garden [is home to] dozens of bees.", "exampleZh": "這座屋頂花園有數十隻蜜蜂棲息。" },
+    { "type": "phrase", "word": "turn into", "pos": "phr.", "zh": "變成", "example": "The old parking lot was [turned into] a playground.", "exampleZh": "舊停車場被改建成遊樂場。" }
+  ]
+}

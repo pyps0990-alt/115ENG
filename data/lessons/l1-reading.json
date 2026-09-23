@@ -1,17 +1,16 @@
 {
-  "title": "L1 Reading",
+  "title": "Mia's Second Try",
   "sample": true,
-  "kind": "reading",
-  "instructions": "閱讀下列文章，回答問題。",
   "passage": [
     "When Mia failed her first piano competition, she wanted to quit. Her hands had shaken so badly that she forgot the second half of the piece. For weeks, she refused to touch the piano.",
     "Her grandfather, who had learned to play the violin at the age of sixty, told her a simple story. \"The first time I performed,\" he said, \"I played every note wrong. But the audience clapped anyway, because they could see I was trying.\" Mia laughed, but the story stayed with her.",
     "Slowly, she returned to practicing. This time, she did not practice to win. She practiced to enjoy the music. A year later, she entered the competition again. She did not win first prize, but she finished the piece with a smile—and that, she said, felt like a victory."
   ],
   "questions": [
-    { "q": "Why did Mia want to quit at first?", "options": ["She did not like her piano teacher.", "She performed poorly in a competition.", "Her grandfather told her to stop.", "She wanted to learn the violin instead."], "answer": 1, "explain": "第一段：她在第一次比賽手抖、忘譜，因此想放棄。" },
-    { "q": "What was the main point of the grandfather's story?", "options": ["Mistakes are acceptable when you are trying your best.", "Audiences never notice mistakes.", "It is better to learn music when you are older.", "The violin is easier than the piano."], "answer": 0, "explain": "爺爺想表達：即使出錯，只要努力，大家都看得見。" },
-    { "q": "How did Mia's attitude toward practicing change?", "options": ["She practiced only to beat others.", "She stopped practicing completely.", "She practiced because she enjoyed the music.", "She practiced only when her grandfather watched."], "answer": 2, "explain": "第三段：This time, she did not practice to win. She practiced to enjoy the music." },
-    { "q": "Which word best describes Mia at the end of the story?", "options": ["Disappointed", "Resilient", "Jealous", "Careless"], "answer": 1, "explain": "她從挫折中重新站起來，最適合的形容詞是 resilient（有韌性的）。" }
+    { "skill": "細節", "q": "What went wrong during Mia's first competition?", "options": ["Her piano was out of tune.", "Nerves made her lose track of the music halfway through.", "She arrived too late to perform.", "The judges stopped her before she began."], "answer": 1, "explain": "第一段：她的手抖得很厲害，忘了曲子的後半段——也就是太緊張，彈到一半就接不下去。" },
+    { "skill": "推論", "q": "Why did the grandfather most likely share his own experience?", "options": ["To show Mia that he was a better musician", "To persuade her to switch to the violin", "To help her see that effort matters more than a perfect performance", "To explain why audiences are usually polite"], "answer": 2, "explain": "他說觀眾看得出他很努力，所以還是鼓掌。用意是讓 Mia 明白：努力比完美更重要。" },
+    { "skill": "細節", "q": "How was Mia's second year of practice different from before?", "options": ["She focused on having fun with music rather than on beating others.", "She practiced far fewer hours each week.", "She hired a new teacher to prepare her for the prize.", "She only practiced in front of her grandfather."], "answer": 0, "explain": "第三段：這次她練琴不是為了贏，而是為了享受音樂。" },
+    { "skill": "字義", "q": "In the last paragraph, what does Mia mean by calling the result \"a victory\"?", "options": ["She was given a trophy by the judges.", "She beat every other player in the contest.", "Overcoming her fear felt like success to her, even without the top prize.", "Her grandfather finally let her quit."], "answer": 2, "explain": "她沒有拿到第一名，但能笑著彈完整首曲子，對她來說已經是勝利。" },
+    { "skill": "主旨", "q": "Which title best fits the story?", "options": ["How to Win a Piano Contest", "Learning the Violin at Sixty", "Getting Back Up After a Fall", "Why Audiences Clap"], "answer": 2, "explain": "全文講的是 Mia 從失敗中重新站起來，所以最適合的標題是「跌倒後再站起來」。" }
   ]
 }
