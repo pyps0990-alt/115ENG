@@ -30,6 +30,10 @@ export const store = {
     write(`wrong:${unit}`, this.wrong(unit).filter((x) => x !== word));
   },
 
+  // 最近一次單字片語測驗的三段百分比：{ basic, advanced, mastery }
+  last: (unit) => read(`last:${unit}`, null),
+  setLast: (unit, v) => write(`last:${unit}`, v),
+
   // 最佳成績（百分比）
   best: (unit) => read(`best:${unit}`, {}),
   setBest(unit, mode, pct) {

@@ -2,7 +2,7 @@
  * B5 Practice — 成績回傳與老師後台（Google Apps Script，綁定在一份 Google 試算表上）
  *
  *   GET  ?action=config  → 學生網站讀取顯示設定（JSON，不需要登入）
- *   POST (text/plain JSON) → 學生完成測驗（單字片語各等級、課文理解），寫入 scores 分頁
+ *   POST (text/plain JSON) → 學生完成測驗（單字片語三段連續、課文理解），寫入 scores 分頁
  *   GET  （不帶參數）     → 老師後台；只有 teachers 分頁白名單裡的 Google 帳號能進入
  *
  * 部署方式請見 README.md。
@@ -14,7 +14,7 @@ var SHEET_TEACHERS = 'teachers';
 var CONFIG_CACHE_KEY = 'config-json';
 
 var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCount'];
-var SCORES_HEADER = ['serverTime', 'cls', 'seat', 'name', 'unit', 'unitTitle', 'level', 'mode', 'score', 'total', 'pct', 'wrong', 'durationSec', 'clientTime'];
+var SCORES_HEADER = ['serverTime', 'cls', 'seat', 'name', 'unit', 'unitTitle', 'level', 'mode', 'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTime'];
 
 /* ------------------------------------------------------------------ */
 /* Web App entry points                                                */
@@ -60,6 +60,9 @@ function doPost(e) {
       num_(d.score),
       num_(d.total),
       num_(d.pct),
+      text_(d.basic, 12),
+      text_(d.advanced, 12),
+      text_(d.mastery, 12),
       cell_((d.wrong || []).join(', '), 1000),
       num_(d.durationSec),
       cell_(d.clientTs, 30),
@@ -122,7 +125,9 @@ function getScores(filter) {
       time: r[0] instanceof Date ? Utilities.formatDate(r[0], tz, 'yyyy-MM-dd HH:mm') : String(r[0]),
       cls: String(r[1]), seat: String(r[2]), name: String(r[3]),
       unit: String(r[4]), unitTitle: String(r[5]), level: String(r[6]), mode: String(r[7]),
-      score: r[8], total: r[9], pct: r[10], wrong: String(r[11]), durationSec: r[12],
+      score: r[8], total: r[9], pct: r[10],
+      basic: String(r[11]), advanced: String(r[12]), mastery: String(r[13]),
+      wrong: String(r[14]), durationSec: r[15],
     });
   }
   return out;
@@ -214,6 +219,12 @@ function json_(obj) {
 function cell_(v, max) {
   var s = String(v == null ? '' : v).slice(0, max || 200);
   return /^[=+\-@]/.test(s) ? "'" + s : s;
+}
+
+// 強制存成文字（例如 "9/10" 不能被試算表當成日期）
+function text_(v, max) {
+  var s = cell_(v, max);
+  return s && s.charAt(0) !== "'" ? "'" + s : s;
 }
 
 function num_(v) {

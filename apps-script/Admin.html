@@ -54,7 +54,7 @@
           <span class="muted" style="margin-left:auto">學生網站約 1 分鐘內會套用新設定</span>
         </div>
         <table>
-          <thead><tr><th>顯示</th><th>單元</th><th>開放的測驗</th><th>每次題數</th></tr></thead>
+          <thead><tr><th>顯示</th><th>單元</th><th>包含的階段／測驗</th><th>每段題數</th></tr></thead>
           <tbody id="units"><tr><td colspan="4" class="muted">載入中…</td></tr></tbody>
         </table>
       </div>
@@ -71,8 +71,8 @@
         </div>
         <div class="stats" id="stats"></div>
         <table>
-          <thead><tr><th>時間</th><th>班級</th><th>座號</th><th>姓名</th><th>單元</th><th>等級</th><th>分數</th><th>%</th><th>錯題</th></tr></thead>
-          <tbody id="rows"><tr><td colspan="9" class="muted">按「查詢」載入成績</td></tr></tbody>
+          <thead><tr><th>時間</th><th>班級</th><th>座號</th><th>姓名</th><th>單元</th><th>分數</th><th>%</th><th>基礎</th><th>進階</th><th>精熟</th><th>錯題</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="11" class="muted">按「查詢」載入成績</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -138,8 +138,8 @@
           $('smsg').textContent = '';
           $('rows').innerHTML = rows.map(function (r) {
             return '<tr><td>' + esc(r.time) + '</td><td>' + esc(r.cls) + '</td><td>' + esc(r.seat) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.unitTitle || r.unit) +
-              '</td><td>' + esc(r.level) + '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td></tr>';
-          }).join('') || '<tr><td colspan="9" class="muted">沒有資料</td></tr>';
+              '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td></tr>';
+          }).join('') || '<tr><td colspan="11" class="muted">沒有資料</td></tr>';
           var n = rows.length;
           var avg = n ? Math.round(rows.reduce(function (a, r) { return a + Number(r.pct || 0); }, 0) / n) : 0;
           $('stats').innerHTML = n ? '<span class="stat">筆數 ' + n + '</span><span class="stat">平均 ' + avg + '%</span>' : '';

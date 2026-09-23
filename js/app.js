@@ -6,8 +6,8 @@ import { icon } from './icons.js';
 import { ttsSupported } from './tts.js';
 import { renderStudentChip, mountInlineForm } from './student.js';
 import { SCRIPT_URL, ADMIN_URL } from './config.js';
-import { LEVELS, PASS, levelById } from './levels.js';
-import * as level from './modes/level.js';
+import { LEVELS, PASS } from './levels.js';
+import * as vocab from './modes/vocab.js';
 import * as reading from './modes/reading.js';
 
 const app = document.getElementById('app');
@@ -43,7 +43,7 @@ function renderHome() {
     <section class="hero">
       <div class="eyebrow">高二英文 · ${esc(index.book || 'Book 5')}</div>
       <h1>B5 Practice</h1>
-      <p>單字片語分三級挑戰，讀完課文再做閱讀測驗。</p>
+      <p>單字片語連續挑戰基礎、進階、精熟三段，讀完課文再做閱讀測驗。</p>
       ${s ? `<p class="hello">${esc(s.name)}，今天從哪一課開始？</p>` : ''}
     </section>
     <div id="welcome-slot"></div>
@@ -82,9 +82,15 @@ function pillHTML(label, b) {
 function tileHTML(u) {
   const best = store.best(u.id);
   const vocab = u.type === 'vocab';
-  const status = vocab
-    ? openLevels(u).map((l) => pillHTML(l.name, best[l.id])).join('')
-    : best.reading == null ? '<span class="lv-pill">尚未作答</span>' : pillHTML('最佳', best.reading);
+  let status;
+  if (vocab) {
+    const last = store.last(u.id);
+    status = best.vocab == null ? '<span class="lv-pill">尚未測驗</span>'
+      : `${pillHTML('最佳', best.vocab)}${last ? openLevels(u).filter((l) => last[l.id] != null).map((l) => `<span class="lv-pill mini">${l.name} ${last[l.id]}%</span>`).join('') : ''}`;
+  } else {
+    status = best.reading == null ? '<span class="lv-pill">尚未作答</span>' : pillHTML('最佳', best.reading);
+  }
+  const stages = openLevels(u).map((l) => l.name).join(' → ');
   return `<a class="unit-tile ${vocab ? 't-vocab' : 't-reading'}" href="#/u/${esc(u.id)}">
       <div class="tile-top">
         <span class="tile-icon">${vocab ? icon.cards : icon.book}</span>
@@ -92,21 +98,21 @@ function tileHTML(u) {
         ${u.sample ? '<span class="badge">範例</span>' : ''}
       </div>
       <h3 class="en">${esc(u.topic || u.title)}</h3>
-      <div class="tile-meta">${vocab ? `${u.count} 個單字與片語 · 三個等級` : `一篇文章 · ${u.count} 題閱讀測驗`}</div>
+      <div class="tile-meta">${vocab ? `${u.count} 個單字與片語 · ${stages}` : `一篇文章 · ${u.count} 題閱讀測驗`}</div>
       <div class="lv-row">${status}</div>
     </a>`;
 }
 
 /* ---------------- unit ---------------- */
-function headHTML(meta, data, levelName = '') {
+function headHTML(meta, data) {
   const vocab = meta.type === 'vocab';
   const words = data.words || [];
   const phrases = words.filter((w) => w.type === 'phrase').length;
   const sub = vocab ? `單字 ${words.length - phrases} 個 · 片語 ${phrases} 個` : `${(data.questions || []).length} 題閱讀測驗`;
   return `<div class="unit-head">
-      <a class="back" href="${levelName ? `#/u/${meta.id}` : '#/'}">${icon.back} ${levelName ? '選擇等級' : '所有單元'}</a>
+      <a class="back" href="#/">${icon.back} 所有單元</a>
       <div class="eyebrow">Lesson ${meta.lesson} · ${vocab ? '單字片語測驗' : '課文理解'}</div>
-      <h1>${esc(meta.title)}${levelName ? `<span class="h-level">${esc(levelName)}</span>` : ''}</h1>
+      <h1>${esc(meta.title)}</h1>
       <div class="sub"><span class="en">${esc(meta.topic || '')}</span><span>${sub}</span>${data.sample ? '<span class="badge">範例資料</span>' : ''}</div>
     </div>`;
 }
@@ -136,42 +142,14 @@ async function renderUnit(id, sub) {
 
   const levels = openLevels(meta);
   if (!levels.length) { locked(); return; }
-  const lv = levelById(sub);
-  if (!lv || !levels.includes(lv)) { renderLevelPicker(meta, data, levels); return; }
-
-  document.title = `${meta.title} · ${lv.name} — B5 Practice`;
-  app.innerHTML = `${headHTML(meta, data, lv.name)}
-    <nav class="tabs" aria-label="等級">${levels.map((l) => `<a class="tab ${l === lv ? 'active' : ''}" href="#/u/${meta.id}/${l.id}" ${l === lv ? 'aria-current="page"' : ''}>
-      <span class="tab-step">${LEVELS.indexOf(l) + 1}</span>${l.name}</a>`).join('')}</nav>
-    <section id="stage"></section>`;
-  cleanup = level.mount(app.querySelector('#stage'), {
-    unit: meta, data, allWords: data.words || [], config, level: lv, levels,
-    questionCount: questionCount(config, meta.id),
-    go: (m) => { location.hash = `#/u/${meta.id}/${m}`; },
-  }) || null;
-}
-
-function renderLevelPicker(meta, data, levels) {
+  // 舊網址（#/u/l1-voc/basic 等）一律導回單元頁
+  if (sub) { location.replace(`#/u/${meta.id}`); return; }
   document.title = `${meta.title} — B5 Practice`;
-  const best = store.best(meta.id);
-  const n = Math.min(questionCount(config, meta.id), (data.words || []).length);
-  const firstTodo = levels.find((l) => !(best[l.id] >= PASS)) || levels[0];
-  app.innerHTML = `${headHTML(meta, data)}
-    <p class="lead">建議從基礎開始，答對率達 ${PASS}% 再挑戰下一級。</p>
-    <div class="level-grid">${levels.map((l) => {
-      const step = LEVELS.indexOf(l) + 1;
-      const b = best[l.id];
-      return `<a class="level-card" href="#/u/${meta.id}/${l.id}">
-        <div class="level-top">
-          <span class="level-step" aria-label="第 ${step} 級">${[1, 2, 3].map((k) => `<i class="${k <= step ? 'on' : ''}"></i>`).join('')}</span>
-          ${b != null ? pillHTML(b >= PASS ? '通過' : '最佳', b) : ''}
-        </div>
-        <h2>${l.name}<span class="en">${l.en}</span></h2>
-        <p>${esc(l.desc)}</p>
-        <ul>${l.items.map((x) => `<li>${esc(x)}</li>`).join('')}<li>每次 ${n} 題</li></ul>
-        <span class="btn ${l === firstTodo ? 'primary' : 'outline'} level-go">開始${l.name}測驗 ${icon.arrowR}</span>
-      </a>`;
-    }).join('')}</div>`;
+  app.innerHTML = `${headHTML(meta, data)}<section id="stage"></section>`;
+  cleanup = vocab.mount(app.querySelector('#stage'), {
+    unit: meta, data, allWords: data.words || [], config, levels,
+    questionCount: questionCount(config, meta.id),
+  }) || null;
 }
 
 /* ---------------- footer ---------------- */

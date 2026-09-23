@@ -1,4 +1,4 @@
-// 單字片語測驗的三個等級
+// 單字片語測驗的三個階段：同一組單字依序連續作答，題型越來越難
 import { sample, shuffle } from './util.js';
 import { buildMC, buildClozeMC, buildSpell } from './components/question.js';
 
@@ -19,7 +19,7 @@ export const LEVELS = [
   },
   {
     id: 'mastery', name: '精熟', en: 'Mastery',
-    desc: '不給選項，自己拼出單字與片語',
+    desc: '沒有選項，自己拼出單字與片語',
     items: ['看中文拼出英文', '例句填空拼寫', '提示每次扣 0.25 分'],
     build: (words) => words.map((w, i) => buildSpell(w, i % 2 ? 'cloze' : 'spell')),
   },
