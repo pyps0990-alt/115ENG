@@ -12,7 +12,13 @@
 var SHEET_SCORES = 'scores';
 var SHEET_SETTINGS = 'settings';
 var SHEET_TEACHERS = 'teachers';
+var SHEET_CONTENT = 'content';
 var CONFIG_CACHE_KEY = 'config-json';
+var CONTENT_HEADER = ['id', 'json', 'updated', 'updatedBy'];
+var MAX_CONTENT_CHARS = 45000; // 試算表單一儲存格上限 50000 字元
+
+// 學生網站的網址：後台「載入網站目前內容」會從這裡讀取內建的題目
+var SITE_URL = 'https://pyps0990-alt.github.io/115ENG/';
 
 var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCount'];
 var SCORES_HEADER = ['serverTime', 'cls', 'seat', 'name', 'unit', 'unitTitle', 'level', 'mode', 'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTime'];
@@ -25,6 +31,9 @@ function doGet(e) {
   var action = e && e.parameter && e.parameter.action;
   if (action === 'config') {
     return json_(readConfigCached_());
+  }
+  if (action === 'content') {
+    return json_(readContentCached_(String(e.parameter.unit || '')));
   }
   var email = currentEmail_();
   if (!isTeacher_(email)) {
@@ -105,6 +114,7 @@ function setup() {
   var me = Session.getEffectiveUser().getEmail();
   if (me && teachers.getLastRow() < 2) teachers.appendRow([me, '建立者']);
   sheet_(SHEET_SCORES, SCORES_HEADER);
+  sheet_(SHEET_CONTENT, CONTENT_HEADER);
   CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
   Logger.log('完成。老師名單：' + me);
 }
@@ -140,6 +150,8 @@ function getAdminData() {
   return {
     email: email,
     units: readSettingsRows_(),
+    content: readContentRows_().map(function (r) { return { id: r.id, updated: r.updated, updatedBy: r.updatedBy, count: r.count }; }),
+    siteUrl: SITE_URL,
     sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl(),
   };
 }
@@ -190,6 +202,127 @@ function getScores(filter) {
 }
 
 /* ------------------------------------------------------------------ */
+/* 匯入內容（單字片語、課文理解）                                        */
+/* ------------------------------------------------------------------ */
+
+function getContent(unitId) {
+  assertTeacher_();
+  var row = findContentRow_(unitId);
+  return row ? { data: JSON.parse(row.json), updated: row.updated, updatedBy: row.updatedBy } : null;
+}
+
+function saveContent(unitId, data) {
+  var email = assertTeacher_();
+  unitId = String(unitId || '').trim();
+  var type = unitType_(unitId);
+  if (!type) throw new Error('找不到單元：' + unitId);
+  var err = validateContent_(type, data);
+  if (err) throw new Error(err);
+  var json = JSON.stringify(data);
+  if (json.length > MAX_CONTENT_CHARS) throw new Error('內容太長（' + json.length + ' 字元），請分成兩個單元。');
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
+    var now = new Date().toISOString();
+    var row = findContentRow_(unitId);
+    var values = [[unitId, json, now, email]];
+    if (row) sh.getRange(row.index, 1, 1, 4).setValues(values);
+    else sh.appendRow(values[0]);
+  } finally {
+    lock.releaseLock();
+  }
+  clearContentCache_(unitId);
+  return { ok: true, count: countOf_(type, data) };
+}
+
+// 刪除匯入的內容，網站改回使用內建題目
+function deleteContent(unitId) {
+  assertTeacher_();
+  var row = findContentRow_(unitId);
+  if (row) sheet_(SHEET_CONTENT, CONTENT_HEADER).deleteRow(row.index);
+  clearContentCache_(unitId);
+  return { ok: true };
+}
+
+function getSiteUrl() {
+  assertTeacher_();
+  return SITE_URL;
+}
+
+function readContentCached_(unitId) {
+  var key = 'content:' + unitId;
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get(key);
+  if (hit) return JSON.parse(hit);
+  var row = findContentRow_(unitId);
+  var out = row ? { ok: true, updated: row.updated, data: JSON.parse(row.json) } : { ok: false };
+  var s = JSON.stringify(out);
+  if (s.length < 90000) cache.put(key, s, 300);
+  return out;
+}
+
+function clearContentCache_(unitId) {
+  var cache = CacheService.getScriptCache();
+  cache.remove('content:' + unitId);
+  cache.remove(CONFIG_CACHE_KEY);
+}
+
+function readContentRows_() {
+  var sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, 4).getValues()
+    .map(function (r, i) {
+      var id = String(r[0]).trim();
+      if (!id) return null;
+      var data = {};
+      try { data = JSON.parse(r[1]); } catch (err) { return null; }
+      var type = unitType_(id) || (data.words ? 'vocab' : 'reading');
+      return { index: i + 2, id: id, json: String(r[1]), updated: String(r[2]), updatedBy: String(r[3]), count: countOf_(type, data), topic: String(data.topic || '') };
+    })
+    .filter(Boolean);
+}
+
+function findContentRow_(unitId) {
+  var rows = readContentRows_();
+  for (var i = 0; i < rows.length; i++) if (rows[i].id === unitId) return rows[i];
+  return null;
+}
+
+function unitType_(unitId) {
+  var rows = readSettingsRows_();
+  for (var i = 0; i < rows.length; i++) if (rows[i].id === unitId) return rows[i].type;
+  return '';
+}
+
+function countOf_(type, data) {
+  return type === 'vocab' ? (data.words || []).length : (data.questions || []).length;
+}
+
+// 伺服器端的最後把關（詳細檢查在後台頁面上進行）
+function validateContent_(type, d) {
+  if (!d || typeof d !== 'object') return '資料格式錯誤';
+  if (type === 'vocab') {
+    if (!Array.isArray(d.words) || d.words.length < 4) return '單字片語至少要 4 個';
+    for (var i = 0; i < d.words.length; i++) {
+      var w = d.words[i];
+      if (!w.word || !w.zh) return '第 ' + (i + 1) + ' 個缺少英文或中文';
+      if (!/\[[^\]]+\]/.test(w.example || '')) return '「' + w.word + '」的例句沒有用 [ ] 標出要考的字';
+    }
+    return '';
+  }
+  if (!Array.isArray(d.passage) || !d.passage.length) return '缺少文章';
+  if (!Array.isArray(d.questions) || !d.questions.length) return '至少要 1 題';
+  for (var j = 0; j < d.questions.length; j++) {
+    var q = d.questions[j];
+    if (!q.q || !Array.isArray(q.options) || q.options.length < 2) return '第 ' + (j + 1) + ' 題不完整';
+    if (!(q.answer >= 0 && q.answer < q.options.length)) return '第 ' + (j + 1) + ' 題沒有設定正確答案';
+  }
+  return '';
+}
+
+/* ------------------------------------------------------------------ */
 /* Config                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -200,6 +333,11 @@ function readConfigCached_() {
   var cfg = { units: {}, updated: new Date().toISOString() };
   readSettingsRows_().forEach(function (u) {
     cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount };
+  });
+  // 老師匯入過的單元：網站會改讀試算表裡的內容
+  cfg.content = {};
+  readContentRows_().forEach(function (r) {
+    cfg.content[r.id] = { updated: r.updated, count: r.count, topic: r.topic };
   });
   cache.put(CONFIG_CACHE_KEY, JSON.stringify(cfg), 60);
   return cfg;

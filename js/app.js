@@ -1,4 +1,4 @@
-import { loadIndex, loadUnit } from './data.js';
+import { loadIndex, loadUnit, applyImported } from './data.js';
 import { getConfig, unitVisible, modeOn, questionCount } from './remote-config.js';
 import { store } from './storage.js';
 import { esc } from './util.js';
@@ -134,7 +134,7 @@ async function renderUnit(id, sub) {
   if (meta.id !== id) { location.replace(`#/u/${meta.id}${sub ? `/${sub}` : ''}`); return; }
 
   app.innerHTML = '<div class="loading"><span class="spinner"></span>載入中…</div>';
-  const data = await loadUnit(meta.id);
+  const data = await loadUnit(meta.id, config);
 
   if (meta.type === 'reading') {
     if (!modeOn(config, meta.id, 'reading')) { locked(); return; }
@@ -169,6 +169,7 @@ async function boot() {
   renderFooter();
   try {
     [index, config] = await Promise.all([loadIndex(), getConfig()]);
+    applyImported(index, config);
   } catch (err) {
     app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><p>無法載入課程資料（${esc(err.message)}）。<br>請用網頁伺服器開啟，不能直接雙擊 index.html。</p></div>`;
     return;
