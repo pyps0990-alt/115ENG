@@ -113,6 +113,7 @@ node tools/check-content.mjs
 index.html               入口（hash 路由：#/u/<單元>）
 css/style.css            配色與版面
 js/app.js                首頁、單元頁、路由
+js/nav.js                導覽列「選擇單元」下拉選單
 js/levels.js             三段的出題規則
 js/modes/vocab.js        單字片語三段連續測驗
 js/modes/reading.js      課文理解流程

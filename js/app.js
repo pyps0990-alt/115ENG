@@ -9,6 +9,7 @@ import { SCRIPT_URL, ADMIN_URL } from './config.js';
 import { LEVELS, PASS } from './levels.js';
 import * as vocab from './modes/vocab.js';
 import * as reading from './modes/reading.js';
+import { initNav, updateNav } from './nav.js';
 
 const app = document.getElementById('app');
 let index = null;
@@ -24,6 +25,7 @@ async function route() {
   document.getElementById('fx').replaceChildren();
   const [, kind, id, sub] = location.hash.split('/').map(decodeURIComponent);
   window.scrollTo(0, 0);
+  updateNav(kind === 'u' && id ? (findUnit(id) || {}).id : null);
   try {
     if (kind === 'u' && id) await renderUnit(id, sub);
     else renderHome();
@@ -34,6 +36,9 @@ async function route() {
 }
 
 const openLevels = (u) => LEVELS.filter((l) => modeOn(config, u.id, l.id));
+const visibleUnits = () => index.units.filter((u) => unitVisible(config, u.id)
+  && (u.type === 'reading' ? modeOn(config, u.id, 'reading') : openLevels(u).length))
+  .sort((a, b) => a.lesson - b.lesson);
 
 /* ---------------- home ---------------- */
 function renderHome() {
@@ -57,8 +62,7 @@ function renderHome() {
     });
   }
 
-  const visible = index.units.filter((u) => unitVisible(config, u.id)
-    && (u.type === 'reading' ? modeOn(config, u.id, 'reading') : openLevels(u).length));
+  const visible = visibleUnits();
   const lessons = [...new Set(visible.map((u) => u.lesson))].sort((a, b) => a - b);
   const host = app.querySelector('#lessons');
   if (!visible.length) {
@@ -169,6 +173,7 @@ async function boot() {
     app.innerHTML = `<div class="empty"><div class="big">😵</div><p>無法載入課程資料（${esc(err.message)}）。<br>請用網頁伺服器開啟，不能直接雙擊 index.html。</p></div>`;
     return;
   }
+  initNav(visibleUnits());
   window.addEventListener('hashchange', route);
   window.addEventListener('student-changed', () => { if (!document.body.dataset.busy) route(); });
   route();

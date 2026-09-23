@@ -24,6 +24,8 @@ export const icon = {
   search: svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>'),
   lock: svg('<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>'),
   send: svg('<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>'),
+  chevDown: svg('<path d="M6 9l6 6 6-6"/>'),
+  home: svg('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>'),
   arrowR: svg('<path d="M5 12h14M13 6l6 6-6 6"/>'),
   play: svg('<path d="M6 4l14 8-14 8V4z"/>'),
   redo: svg('<path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/>'),

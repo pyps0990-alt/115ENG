@@ -75,9 +75,51 @@ main.container { padding-block: 24px 56px; outline: none; }
 .chip-btn {
   display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 14px; border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .1); color: var(--white);
-  font-size: .9rem; font-weight: 500; max-width: 60vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: .9rem; font-weight: 500; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .chip-btn:hover { background: rgba(255, 255, 255, .18); }
+.top-actions { flex: 1 1 auto; justify-content: flex-end; }
+.chip-btn { max-width: 100%; }
+.chip-btn span { overflow: hidden; text-overflow: ellipsis; }
+
+/* 選擇單元下拉選單 */
+.nav-menu { position: relative; flex: none; }
+.menu-btn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 12px; border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .1); color: var(--white); font-weight: 700; font-size: .92rem; white-space: nowrap;
+}
+.menu-btn:hover, .menu-btn[aria-expanded="true"] { background: rgba(255, 255, 255, .2); }
+.menu-btn .ic:last-child { width: 1em; height: 1em; transition: transform .2s var(--ease); }
+.menu-btn[aria-expanded="true"] .ic:last-child { transform: rotate(180deg); }
+.menu-panel {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; width: min(360px, calc(100vw - 32px));
+  max-height: calc(100vh - 90px); max-height: calc(100dvh - 90px); overflow: auto; overscroll-behavior: contain;
+  padding: 8px; border-radius: 16px; background: var(--white); color: var(--text); box-shadow: 0 12px 40px rgba(15, 23, 42, .25);
+  border: 1px solid var(--line); animation: pop-in .18s var(--ease);
+}
+.menu-group { padding-top: 6px; margin-top: 6px; border-top: 1px solid var(--line); }
+.menu-head { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-family: var(--font-en); font-weight: 900; font-size: .85rem; color: var(--navy); }
+.menu-lnum { display: grid; place-items: center; min-width: 26px; height: 22px; padding: 0 4px; border-radius: 6px; background: var(--navy); color: var(--white); font-size: .72rem; }
+.menu-item { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 10px; border-radius: 10px; color: var(--navy); text-decoration: none; }
+.menu-item:hover, .menu-item:focus-visible { background: var(--wash); outline: none; }
+.menu-item.home { font-weight: 700; }
+.menu-item.current { background: var(--amber-soft); }
+.menu-item.current .menu-ic { background: var(--amber); border-color: var(--amber); color: var(--navy); }
+.menu-ic { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 9px; background: var(--white); border: 1px solid var(--line); }
+.menu-ic .ic { width: 18px; height: 18px; }
+.menu-txt { display: grid; line-height: 1.3; min-width: 0; }
+.menu-txt b { font-size: .92rem; }
+.menu-txt .en { font-size: .8rem; color: var(--steel); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 480px) {
+  /* 手機：選單改成貼齊左右的面板，不會超出畫面 */
+  .nav-menu { position: static; }
+  .menu-panel { position: absolute; top: 100%; left: 12px; right: 12px; width: auto; margin-top: 6px; }
+  .topbar-inner { position: relative; }
+}
+@media (max-width: 360px) {
+  .menu-btn .menu-label { max-width: 6.5em; overflow: hidden; text-overflow: ellipsis; }
+  .chip-btn .ic { display: none; }
+}
 
 /* ===========================================================
    Buttons & small parts
