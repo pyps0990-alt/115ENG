@@ -128,18 +128,19 @@ main.container { padding-block: 24px 56px; outline: none; }
 /* ===========================================================
    Forms
    =========================================================== */
-.field { display: grid; gap: 6px; }
+.field { display: grid; gap: 6px; min-width: 0; }
 .field label { font-size: .85rem; font-weight: 700; color: var(--navy); }
-.field input { min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--white); font-size: 16px; color: var(--navy); }
+.field input { width: 100%; min-width: 0; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--white); font-size: 16px; color: var(--navy); }
 .field input:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 4px var(--navy-soft); }
-.form-grid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+/* minmax(0, 1fr)：輸入框有預設最小寬度，不加的話手機上會把表單撐出畫面 */
+.form-grid { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .form-grid .span2 { grid-column: 1 / -1; }
 .form-err { color: var(--bad-ink); font-size: .85rem; min-height: 1.2em; }
 
 dialog.modal { border: none; padding: 0; border-radius: 20px; width: min(440px, calc(100vw - 32px)); background: var(--white); color: var(--text); box-shadow: var(--shadow); }
 dialog.modal::backdrop { background: rgba(15, 23, 42, .45); }
 dialog.modal[open] { animation: pop-in .28s var(--spring); }
-.modal-body { padding: 24px; display: grid; gap: 14px; }
+.modal-body { padding: 24px; display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
 .modal-body h2 { font-size: 1.2rem; }
 @keyframes pop-in { from { opacity: 0; transform: scale(.95) translateY(8px); } }
 
@@ -150,7 +151,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .hero h1 { font-family: var(--font-en); font-weight: 900; font-size: clamp(2.1rem, 7vw, 3.2rem); letter-spacing: -.02em; }
 .hero p { font-size: 1.05rem; }
 .hello { color: var(--navy); font-weight: 700; }
-.welcome { margin-top: 20px; display: grid; gap: 16px; max-width: 560px; }
+.welcome { margin-top: 20px; display: grid; gap: 16px; max-width: 560px; grid-template-columns: minmax(0, 1fr); }
 .welcome h2 { font-size: 1.2rem; }
 
 /* 課次：寬螢幕兩課並排，窄螢幕一課一列 */
@@ -197,8 +198,8 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 /* ===========================================================
    Gate（測驗前）
    =========================================================== */
-.gate { max-width: 580px; margin: 0 auto; display: grid; gap: 16px; }
-.gate-card { display: grid; gap: 14px; }
+.gate { max-width: 580px; margin: 0 auto; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+.gate-card { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
 .gate h2 { font-size: 1.35rem; }
 .rules { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
 .rules b { color: var(--navy); }
