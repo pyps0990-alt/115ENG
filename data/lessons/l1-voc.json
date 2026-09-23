@@ -1,0 +1,26 @@
+{
+  "title": "L1 VOC",
+  "sample": true,
+  "words": [
+    { "word": "resilient", "pos": "adj.", "zh": "有韌性的；能迅速恢復的", "example": "Children are often more [resilient] than adults think.", "exampleZh": "孩子往往比大人想像的更有韌性。" },
+    { "word": "adversity", "pos": "n.", "zh": "逆境；困境", "example": "She stayed calm in the face of [adversity].", "exampleZh": "她在逆境中仍保持冷靜。" },
+    { "word": "persevere", "pos": "v.", "zh": "堅持不懈", "example": "If you [persevere], you will eventually succeed.", "exampleZh": "只要堅持不懈，你終究會成功。" },
+    { "word": "setback", "pos": "n.", "zh": "挫折；阻礙", "example": "The injury was only a temporary [setback].", "exampleZh": "這次受傷只是暫時的挫折。" },
+    { "word": "cope", "pos": "v.", "zh": "應付；處理（與 with 連用）", "example": "He found it hard to [cope] with the pressure.", "exampleZh": "他覺得很難應付這樣的壓力。" },
+    { "word": "overwhelm", "pos": "v.", "zh": "使不知所措；壓垮", "example": "Don't let the workload [overwhelm] you.", "exampleZh": "別讓工作量把你壓垮。" },
+    { "word": "anxiety", "pos": "n.", "zh": "焦慮", "example": "Many students feel [anxiety] before exams.", "exampleZh": "許多學生在考試前會感到焦慮。" },
+    { "word": "determination", "pos": "n.", "zh": "決心", "example": "Her [determination] impressed everyone on the team.", "exampleZh": "她的決心讓全隊印象深刻。" },
+    { "word": "obstacle", "pos": "n.", "zh": "障礙", "example": "Lack of money was the biggest [obstacle] to his dream.", "exampleZh": "缺錢是他追夢最大的障礙。" },
+    { "word": "motivate", "pos": "v.", "zh": "激勵；給…動機", "example": "Good teachers [motivate] their students to learn.", "exampleZh": "好老師會激勵學生學習。" },
+    { "word": "confront", "pos": "v.", "zh": "面對；正視", "example": "Sooner or later, you must [confront] your fears.", "exampleZh": "你遲早必須面對自己的恐懼。" },
+    { "word": "endure", "pos": "v.", "zh": "忍受；持續", "example": "The villagers had to [endure] a long, cold winter.", "exampleZh": "村民們必須熬過漫長寒冷的冬天。" },
+    { "word": "optimistic", "pos": "adj.", "zh": "樂觀的", "example": "She remains [optimistic] about the future.", "exampleZh": "她對未來依然樂觀。" },
+    { "word": "frustration", "pos": "n.", "zh": "挫折感；沮喪", "example": "He kicked the ball in [frustration].", "exampleZh": "他沮喪地把球踢開。" },
+    { "word": "accomplish", "pos": "v.", "zh": "完成；達成", "example": "We [accomplished] our goal ahead of schedule.", "exampleZh": "我們提前達成了目標。" },
+    { "word": "recover", "pos": "v.", "zh": "恢復；康復", "example": "It took him months to [recover] from the illness.", "exampleZh": "他花了好幾個月才從病中康復。" },
+    { "word": "inspire", "pos": "v.", "zh": "啟發；激勵", "example": "Her story [inspired] millions of readers.", "exampleZh": "她的故事啟發了數百萬名讀者。" },
+    { "word": "perspective", "pos": "n.", "zh": "觀點；看法", "example": "Traveling gives you a new [perspective] on life.", "exampleZh": "旅行讓你對人生有新的看法。" },
+    { "word": "vulnerable", "pos": "adj.", "zh": "脆弱的；易受傷害的", "example": "Young children are especially [vulnerable] to disease.", "exampleZh": "幼童特別容易生病。" },
+    { "word": "thrive", "pos": "v.", "zh": "茁壯成長；興盛", "example": "Some plants [thrive] in dry conditions.", "exampleZh": "有些植物在乾燥的環境中長得很好。" }
+  ]
+}

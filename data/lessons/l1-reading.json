@@ -1,0 +1,17 @@
+{
+  "title": "L1 Reading",
+  "sample": true,
+  "kind": "reading",
+  "instructions": "閱讀下列文章，回答問題。",
+  "passage": [
+    "When Mia failed her first piano competition, she wanted to quit. Her hands had shaken so badly that she forgot the second half of the piece. For weeks, she refused to touch the piano.",
+    "Her grandfather, who had learned to play the violin at the age of sixty, told her a simple story. \"The first time I performed,\" he said, \"I played every note wrong. But the audience clapped anyway, because they could see I was trying.\" Mia laughed, but the story stayed with her.",
+    "Slowly, she returned to practicing. This time, she did not practice to win. She practiced to enjoy the music. A year later, she entered the competition again. She did not win first prize, but she finished the piece with a smile—and that, she said, felt like a victory."
+  ],
+  "questions": [
+    { "q": "Why did Mia want to quit at first?", "options": ["She did not like her piano teacher.", "She performed poorly in a competition.", "Her grandfather told her to stop.", "She wanted to learn the violin instead."], "answer": 1, "explain": "第一段：她在第一次比賽手抖、忘譜，因此想放棄。" },
+    { "q": "What was the main point of the grandfather's story?", "options": ["Mistakes are acceptable when you are trying your best.", "Audiences never notice mistakes.", "It is better to learn music when you are older.", "The violin is easier than the piano."], "answer": 0, "explain": "爺爺想表達：即使出錯，只要努力，大家都看得見。" },
+    { "q": "How did Mia's attitude toward practicing change?", "options": ["She practiced only to beat others.", "She stopped practicing completely.", "She practiced because she enjoyed the music.", "She practiced only when her grandfather watched."], "answer": 2, "explain": "第三段：This time, she did not practice to win. She practiced to enjoy the music." },
+    { "q": "Which word best describes Mia at the end of the story?", "options": ["Disappointed", "Resilient", "Jealous", "Careless"], "answer": 1, "explain": "她從挫折中重新站起來，最適合的形容詞是 resilient（有韌性的）。" }
+  ]
+}

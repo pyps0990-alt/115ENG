@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>B5 Practice</title>
+  <meta name="description" content="Book 5 單字、閱讀、克漏字互動練習">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    try { var t = localStorage.getItem('b5p:theme'); if (t) document.documentElement.dataset.theme = JSON.parse(t); } catch (e) {}
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="#/" class="brand" aria-label="回首頁">
+        <span class="brand-mark">B5</span>
+        <span class="brand-text">Practice</span>
+      </a>
+      <div class="top-actions">
+        <button id="student-chip" class="chip-btn" type="button" hidden></button>
+        <button id="theme-btn" class="icon-btn" type="button" aria-label="切換深色／淺色模式"></button>
+      </div>
+    </div>
+  </header>
+
+  <main id="app" class="container" tabindex="-1">
+    <div class="loading"><span class="spinner"></span>載入中…</div>
+  </main>
+
+  <footer class="site-foot container" id="site-foot"></footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="fx" aria-hidden="true"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    :root { --bg:#f6f4ef; --surface:#fff; --ink:#1d2033; --muted:#6c7087; --line:#e6e2d8; --primary:#4f46e5; --soft:#eceafe; --good:#15803d; --bad:#c62828; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#12141d; --surface:#1b1e2b; --ink:#eceef7; --muted:#9296ad; --line:#2e3246; --primary:#8b85ff; --soft:#26264d; --good:#4ade80; --bad:#f87171; }
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 "Noto Sans TC", system-ui, -apple-system, "Microsoft JhengHei", sans-serif; }
+    header { position:sticky; top:0; z-index:5; background:var(--surface); border-bottom:1px solid var(--line); }
+    .wrap { max-width:1100px; margin:0 auto; padding:12px 16px; }
+    header .wrap { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    h1 { font-size:1.15rem; margin:0; }
+    .who { margin-left:auto; color:var(--muted); font-size:.85rem; }
+    nav { display:flex; gap:6px; }
+    nav button, .btn { border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:10px; padding:8px 14px; font:inherit; font-weight:700; cursor:pointer; }
+    nav button.on { background:var(--ink); color:var(--bg); }
+    .btn.primary { background:var(--primary); color:#fff; border-color:transparent; }
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px; margin-top:16px; overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:.9rem; }
+    th, td { padding:8px 6px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle; white-space:nowrap; }
+    th { color:var(--muted); font-weight:700; font-size:.8rem; }
+    td.title { font-weight:700; white-space:normal; min-width:150px; }
+    .modes { display:flex; gap:4px 10px; flex-wrap:wrap; white-space:normal; min-width:240px; }
+    .modes label { display:inline-flex; gap:4px; align-items:center; font-size:.85rem; }
+    input[type=number] { width:64px; }
+    input[type=number], input[type=date], input[type=text], select { padding:6px 8px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font:inherit; }
+    .switch { display:inline-flex; gap:6px; align-items:center; font-weight:700; }
+    .bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .msg { font-weight:700; }
+    .msg.ok { color:var(--good); } .msg.err { color:var(--bad); }
+    .muted { color:var(--muted); }
+    tr.off td { opacity:.5; }
+    tr.off td:first-child, tr.off td:nth-child(2) { opacity:1; }
+    .stats { display:flex; gap:10px; flex-wrap:wrap; margin:8px 0; }
+    .stat { background:var(--soft); color:var(--primary); border-radius:10px; padding:6px 12px; font-weight:700; }
+  </style>
+</head>
+<body>
+  <header><div class="wrap">
+    <h1>B5 Practice 老師後台</h1>
+    <nav><button class="on" data-tab="settings">單元設定</button><button data-tab="scores">成績</button></nav>
+    <span class="who"><?= email ?></span>
+  </div></header>
+
+  <main class="wrap">
+    <section id="tab-settings">
+      <div class="card">
+        <div class="bar">
+          <button class="btn primary" id="save">儲存設定</button>
+          <span class="msg" id="msg"></span>
+          <span class="muted" style="margin-left:auto">學生網站約 1 分鐘內會套用新設定</span>
+        </div>
+        <table>
+          <thead><tr><th>顯示</th><th>單元</th><th>開放的練習模式</th><th>正式測驗</th><th>題數</th><th>開始日</th><th>截止日</th></tr></thead>
+          <tbody id="units"><tr><td colspan="7" class="muted">載入中…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-scores" hidden>
+      <div class="card">
+        <div class="bar">
+          <label>班級 <input type="text" id="f-cls" placeholder="全部" size="6"></label>
+          <label>單元 <select id="f-unit"><option value="">全部</option></select></label>
+          <button class="btn primary" id="load">查詢</button>
+          <a class="btn" id="sheet" target="_blank" rel="noopener">開啟試算表</a>
+          <span class="msg" id="smsg"></span>
+        </div>
+        <div class="stats" id="stats"></div>
+        <table>
+          <thead><tr><th>時間</th><th>班級</th><th>座號</th><th>姓名</th><th>單元</th><th>分數</th><th>%</th><th>錯題</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="8" class="muted">按「查詢」載入成績</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    var MODES = {
+      vocab: [['list', '單字表'], ['flashcards', '單字卡'], ['mc', '選擇'], ['spell', '拼字'], ['match', '配對'], ['exam', '正式測驗']],
+      passage: [['practice', '練習'], ['exam', '正式測驗']],
+    };
+    var units = [];
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    function $(id) { return document.getElementById(id); }
+
+    document.querySelectorAll('nav button').forEach(function (b) {
+      b.onclick = function () {
+        document.querySelectorAll('nav button').forEach(function (x) { x.classList.toggle('on', x === b); });
+        $('tab-settings').hidden = b.dataset.tab !== 'settings';
+        $('tab-scores').hidden = b.dataset.tab !== 'scores';
+      };
+    });
+
+    function render() {
+      $('units').innerHTML = units.map(function (u, i) {
+        var modes = MODES[u.type] || MODES.passage;
+        return '<tr data-i="' + i + '" class="' + (u.visible ? '' : 'off') + '">' +
+          '<td><input type="checkbox" data-k="visible" ' + (u.visible ? 'checked' : '') + ' aria-label="顯示"></td>' +
+          '<td class="title">' + esc(u.title || u.id) + '<div class="muted" style="font-weight:400;font-size:.8rem">' + esc(u.id) + '</div></td>' +
+          '<td><div class="modes">' + modes.map(function (m) {
+            return '<label><input type="checkbox" data-mode="' + m[0] + '" ' + (u.disabled.indexOf(m[0]) === -1 ? 'checked' : '') + '>' + m[1] + '</label>';
+          }).join('') + '</div></td>' +
+          '<td><label class="switch"><input type="checkbox" data-k="examOpen" ' + (u.examOpen ? 'checked' : '') + '>開放</label></td>' +
+          '<td><input type="number" min="1" max="100" data-k="examCount" value="' + esc(u.examCount) + '"></td>' +
+          '<td><input type="date" data-k="examFrom" value="' + esc(u.examFrom) + '"></td>' +
+          '<td><input type="date" data-k="examTo" value="' + esc(u.examTo) + '"></td></tr>';
+      }).join('') || '<tr><td colspan="7" class="muted">settings 分頁沒有資料，請先在編輯器執行 setup()。</td></tr>';
+      $('f-unit').innerHTML = '<option value="">全部</option>' + units.map(function (u) { return '<option value="' + esc(u.id) + '">' + esc(u.title || u.id) + '</option>'; }).join('');
+    }
+
+    $('units').addEventListener('change', function (e) {
+      var tr = e.target.closest('tr'); if (!tr) return;
+      var u = units[Number(tr.dataset.i)];
+      var t = e.target;
+      if (t.dataset.mode) {
+        u.disabled = u.disabled.filter(function (m) { return m !== t.dataset.mode; });
+        if (!t.checked) u.disabled.push(t.dataset.mode);
+      } else if (t.dataset.k) {
+        u[t.dataset.k] = t.type === 'checkbox' ? t.checked : t.value;
+        if (t.dataset.k === 'visible') tr.classList.toggle('off', !t.checked);
+      }
+      $('msg').textContent = '尚未儲存'; $('msg').className = 'msg';
+    });
+
+    $('save').onclick = function () {
+      $('msg').textContent = '儲存中…'; $('msg').className = 'msg';
+      google.script.run
+        .withSuccessHandler(function () { $('msg').textContent = '✓ 已儲存'; $('msg').className = 'msg ok'; })
+        .withFailureHandler(function (err) { $('msg').textContent = '儲存失敗：' + err.message; $('msg').className = 'msg err'; })
+        .saveSettings(units);
+    };
+
+    $('load').onclick = function () {
+      $('smsg').textContent = '載入中…'; $('smsg').className = 'msg';
+      google.script.run
+        .withSuccessHandler(function (rows) {
+          $('smsg').textContent = '';
+          $('rows').innerHTML = rows.map(function (r) {
+            return '<tr><td>' + esc(r.time) + '</td><td>' + esc(r.cls) + '</td><td>' + esc(r.seat) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.unitTitle || r.unit) +
+              '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td></tr>';
+          }).join('') || '<tr><td colspan="8" class="muted">沒有資料</td></tr>';
+          var n = rows.length;
+          var avg = n ? Math.round(rows.reduce(function (a, r) { return a + Number(r.pct || 0); }, 0) / n) : 0;
+          $('stats').innerHTML = n ? '<span class="stat">筆數 ' + n + '</span><span class="stat">平均 ' + avg + '%</span>' : '';
+        })
+        .withFailureHandler(function (err) { $('smsg').textContent = '載入失敗：' + err.message; $('smsg').className = 'msg err'; })
+        .getScores({ cls: $('f-cls').value.trim(), unit: $('f-unit').value });
+    };
+
+    google.script.run
+      .withSuccessHandler(function (d) { units = d.units; $('sheet').href = d.sheetUrl; render(); })
+      .withFailureHandler(function (err) { $('units').innerHTML = '<tr><td colspan="7" class="msg err">' + esc(err.message) + '</td></tr>'; })
+      .getAdminData();
+  </script>
+</body>
+</html>

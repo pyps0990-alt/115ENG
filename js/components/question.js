@@ -1,0 +1,189 @@
+// 可重複使用的題目元件：選擇題 (renderMC) 與字母框拼字 (renderSpell)。
+// feedback=true：練習模式，作答後立即顯示對錯；false：正式測驗，只記錄作答。
+import { esc, shuffle, clozeParts, lettersOf } from '../util.js';
+import { icon } from '../icons.js';
+import { speak } from '../tts.js';
+
+const KEYS = ['A', 'B', 'C', 'D', 'E'];
+
+export function buildMC(word, pool, dir) {
+  const d = dir === 'mix' ? (Math.random() < 0.5 ? 'en2zh' : 'zh2en') : dir;
+  const pick = (w) => (d === 'en2zh' ? w.zh : w.word);
+  const seen = new Set([pick(word)]);
+  const others = [];
+  for (const w of shuffle(pool)) {
+    if (others.length >= 3) break;
+    if (w.word === word.word || seen.has(pick(w))) continue;
+    seen.add(pick(w));
+    others.push(w);
+  }
+  const options = shuffle([word, ...others]).map(pick);
+  return { type: 'mc', word, dir: d, options, answer: options.indexOf(pick(word)) };
+}
+
+export function buildSpell(word, variant) {
+  if (variant === 'cloze') {
+    const c = clozeParts(word);
+    if (c) return { type: 'spell', variant: 'cloze', word, answer: c.answer, parts: c };
+  }
+  return { type: 'spell', variant: 'spell', word, answer: word.word };
+}
+
+export const gradeMC = (q, chosen) => chosen === q.answer;
+export const gradeSpell = (q, typed) => lettersOf(typed) === lettersOf(q.answer);
+
+export function promptText(q) {
+  if (q.type === 'mc') return q.dir === 'en2zh' ? q.word.word : q.word.zh;
+  return q.variant === 'cloze' ? `${q.parts.before}____${q.parts.after}` : q.word.zh;
+}
+export const answerText = (q) => (q.type === 'mc' ? q.options[q.answer] : q.answer);
+
+/* ---------------- 選擇題 ---------------- */
+export function renderMC(host, q, { feedback = true, selected = null, label = '', onAnswer } = {}) {
+  const en2zh = q.dir === 'en2zh';
+  const card = document.createElement('div');
+  card.className = 'q-card slide-in';
+  card.innerHTML = `
+    <div class="q-head">
+      <div class="q-meta">${esc(label || (en2zh ? '選出正確的中文意思' : '選出正確的英文單字'))}</div>
+      <div class="q-prompt">
+        ${en2zh ? `<span class="w">${esc(q.word.word)}</span><button class="speak" type="button" aria-label="發音">${icon.speaker}</button>`
+                : `<span class="zh">${esc(q.word.zh)}</span>`}
+      </div>
+      <div class="q-sub"><span class="pos">${esc(q.word.pos || '')}</span></div>
+    </div>
+    <div class="options two" role="group" aria-label="選項">
+      ${q.options.map((o, i) => `<button class="opt" type="button" data-i="${i}">
+        <span class="opt-key">${KEYS[i]}</span><span class="opt-text ${en2zh ? '' : 'en'}">${esc(o)}</span>
+        <span class="opt-mark" aria-hidden="true"></span></button>`).join('')}
+    </div>`;
+  host.append(card);
+  card.querySelector('.speak')?.addEventListener('click', () => speak(q.word.word));
+  const opts = [...card.querySelectorAll('.opt')];
+  let done = false;
+
+  const choose = (i) => {
+    if (i < 0 || i >= opts.length) return;
+    if (!feedback) {
+      opts.forEach((o, j) => o.classList.toggle('selected', j === i));
+      onAnswer?.(i);
+      return;
+    }
+    if (done) return;
+    done = true;
+    const ok = i === q.answer;
+    opts.forEach((o, j) => {
+      o.disabled = true;
+      if (j === q.answer) { o.classList.add('correct'); if (!ok) o.classList.add('reveal'); o.querySelector('.opt-mark').innerHTML = icon.check; }
+      else if (j === i) { o.classList.add('wrong'); o.querySelector('.opt-mark').innerHTML = icon.x; }
+      else o.classList.add('dim');
+    });
+    if (en2zh || ok) speak(q.word.word);
+    onAnswer?.(ok, i);
+  };
+  opts.forEach((o) => o.addEventListener('click', () => choose(Number(o.dataset.i))));
+  if (selected != null) opts[selected]?.classList.add('selected');
+  return { choose, el: card };
+}
+
+/* ---------------- 拼字 / 克漏字（字母框） ---------------- */
+export function renderSpell(host, q, { feedback = true, value = '', label = '', onAnswer, onInput } = {}) {
+  const slots = [...q.answer].map((ch) => (/[a-z]/i.test(ch) ? { letter: ch.toLowerCase() } : { sep: ch }));
+  const target = slots.filter((s) => s.letter).map((s) => s.letter);
+  const n = target.length;
+  const w = q.word;
+
+  const head = q.variant === 'cloze'
+    ? `<div class="q-meta">${esc(label || '依句意拼出空格中的單字')}</div>
+       <div class="q-sentence">${esc(q.parts.before)}<span class="blank"></span>${esc(q.parts.after)}</div>
+       <div class="q-sub"><span>${esc(w.exampleZh || '')}</span></div>
+       <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${esc(w.zh)}</span><span>· ${n} 個字母</span></div>`
+    : `<div class="q-meta">${esc(label || '看中文，拼出英文單字')}</div>
+       <div class="q-prompt"><span class="zh">${esc(w.zh)}</span></div>
+       <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${n} 個字母・開頭是 ${esc(target[0].toUpperCase())}</span></div>`;
+
+  const card = document.createElement('div');
+  card.className = 'q-card slide-in';
+  card.innerHTML = `
+    <div class="q-head">${head}</div>
+    <div class="spell-area">
+      <div class="boxes" style="--n:${Math.max(slots.length, 6)}">${slots.map((s) => (s.letter ? '<span class="lbox"></span>'
+        : `<span class="lsep ${s.sep === ' ' ? 'sp' : ''}">${s.sep === ' ' ? '' : esc(s.sep)}</span>`)).join('')}</div>
+      <input class="spell-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="輸入答案">
+    </div>
+    ${feedback ? `<div class="q-foot">
+      <button class="btn small ghost" type="button" data-hint>${icon.bulb} 提示</button>
+      <button class="btn primary" type="button" data-check>檢查 ${icon.check}</button>
+    </div>` : ''}
+    <div class="answer-line" hidden></div>`;
+  host.append(card);
+
+  const input = card.querySelector('.spell-input');
+  const boxesEl = card.querySelector('.boxes');
+  const boxes = [...card.querySelectorAll('.lbox')];
+  let hints = 0;
+  let checked = false;
+
+  const letters = () => lettersOf(input.value).slice(0, n);
+  const paint = () => {
+    const l = letters();
+    const focused = document.activeElement === input;
+    boxes.forEach((b, i) => {
+      b.textContent = l[i] || '';
+      b.classList.toggle('filled', !!l[i] && i >= hints);
+      b.classList.toggle('hinted', i < hints);
+      b.classList.toggle('cursor', focused && !checked && i === l.length);
+    });
+  };
+  input.addEventListener('input', () => {
+    if (checked) return;
+    let l = lettersOf(input.value);
+    const prefix = target.slice(0, hints).join('');
+    if (!l.startsWith(prefix)) l = prefix + l.slice(hints);
+    l = l.slice(0, n);
+    if (input.value !== l) input.value = l;
+    paint();
+    onInput?.(l);
+  });
+  input.addEventListener('focus', paint);
+  input.addEventListener('blur', paint);
+  if (value) { input.value = lettersOf(value).slice(0, n); }
+
+  const check = () => {
+    if (checked || !feedback) return;
+    const typed = letters();
+    if (!typed.length) { input.focus(); return; }
+    checked = true;
+    input.disabled = true;
+    const ok = typed === target.join('');
+    card.querySelector('.q-foot').hidden = true;
+    if (ok) {
+      boxes.forEach((b, i) => { b.style.animationDelay = `${i * 70}ms`; b.classList.remove('filled', 'hinted', 'cursor'); b.classList.add('ok'); });
+      speak(q.answer);
+    } else {
+      boxesEl.classList.add('shake');
+      boxes.forEach((b, i) => { b.classList.remove('cursor'); if (typed[i] !== target[i]) b.classList.add('bad'); });
+      const line = card.querySelector('.answer-line');
+      line.hidden = false;
+      line.innerHTML = `正確答案：<b>${esc(q.answer)}</b>${q.variant === 'cloze' ? ` <span class="muted">（${esc(w.word)}）</span>` : ''}`;
+    }
+    onAnswer?.(ok, { hints, typed });
+  };
+  const hint = () => {
+    if (checked || hints >= n - 1) return;
+    hints++;
+    const rest = letters().slice(hints);
+    input.value = (target.slice(0, hints).join('') + rest).slice(0, n);
+    paint();
+    input.focus();
+  };
+
+  card.querySelector('[data-check]')?.addEventListener('click', check);
+  card.querySelector('[data-hint]')?.addEventListener('click', hint);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); check(); }
+  });
+  paint();
+  setTimeout(() => input.focus({ preventScroll: true }), 50);
+  return { check, focus: () => input.focus(), value: letters, get hints() { return hints; }, get checked() { return checked; }, el: card };
+}
