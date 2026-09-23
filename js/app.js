@@ -10,6 +10,7 @@ import { LEVELS, PASS } from './levels.js';
 import * as vocab from './modes/vocab.js';
 import * as reading from './modes/reading.js';
 import { initNav, updateNav } from './nav.js';
+import { flushOutbox } from './submit.js';
 
 const app = document.getElementById('app');
 let index = null;
@@ -175,6 +176,9 @@ async function boot() {
     return;
   }
   initNav(visibleUnits());
+  // 之前沒送成功的成績：開站時與恢復連線時自動補送
+  flushOutbox();
+  window.addEventListener('online', () => flushOutbox());
   window.addEventListener('hashchange', route);
   window.addEventListener('student-changed', () => { if (!document.body.dataset.busy) route(); });
   route();

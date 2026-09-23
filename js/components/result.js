@@ -31,7 +31,8 @@ export function renderResult(host, { title, pct, scoreText, pills = [], wrong = 
     <div class="btn-row center" data-actions></div>
     ${wrong.length ? `<div class="wrong-list"><h3>要再複習的 ${wrong.length} 題</h3>
       ${wrong.map((w) => `<div class="wrong-item"><span class="p">${esc(w.p)}</span><span class="a">${esc(w.a)}</span>
-        ${w.y != null && w.y !== '' ? `<span class="y">你的答案：${esc(w.y)}</span>` : ''}</div>`).join('')}</div>` : ''}`;
+        ${w.y != null && w.y !== '' ? `<span class="y">你的答案：${esc(w.y)}</span>` : ''}
+        ${w.x ? `<span class="x">${esc(w.x)}</span>` : ''}</div>`).join('')}</div>` : ''}`;
   const row = box.querySelector('[data-actions]');
   actions.forEach((a) => {
     const b = document.createElement('button');

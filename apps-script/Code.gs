@@ -21,7 +21,10 @@ var MAX_CONTENT_CHARS = 45000; // 試算表單一儲存格上限 50000 字元
 var SITE_URL = 'https://pyps0990-alt.github.io/115ENG/';
 
 var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCount'];
-var SCORES_HEADER = ['serverTime', 'cls', 'seat', 'name', 'unit', 'unitTitle', 'level', 'mode', 'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTime'];
+var SCORES_HEADER = ['serverTime', 'cls', 'seat', 'name', 'unit', 'unitTitle', 'level', 'mode', 'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTime', 'attemptId'];
+var SHEET_DETAILS = 'details';
+var DETAILS_HEADER = ['serverTime', 'attemptId', 'cls', 'seat', 'name', 'unit', 'stage', 'kind', 'n', 'question', 'correct', 'yours', 'ok', 'points', 'hints'];
+var CLASS_SHEET_PREFIX = '班級 ';
 
 /* ------------------------------------------------------------------ */
 /* Web App entry points                                                */
@@ -58,8 +61,12 @@ function doPost(e) {
   try {
     var d = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (!d.name || !d.cls || !d.unit) return json_({ ok: false, error: 'missing fields' });
-    sheet_(SHEET_SCORES, SCORES_HEADER).appendRow([
-      new Date(),
+    var attemptId = String(d.attemptId || '').slice(0, 64);
+    // 學生端網路不穩時會補送，同一筆成績只寫一次
+    if (attemptId && seenAttempt_(attemptId)) return json_({ ok: true, duplicate: true });
+    var now = new Date();
+    var row = [
+      now,
       cell_(d.cls, 8),
       cell_(d.seat, 4),
       cell_(d.name, 40),
@@ -76,13 +83,42 @@ function doPost(e) {
       cell_((d.wrong || []).join(', '), 1000),
       num_(d.durationSec),
       cell_(d.clientTs, 30),
-    ]);
+      cell_(attemptId, 64),
+    ];
+    sheet_(SHEET_SCORES, SCORES_HEADER).appendRow(row);
+    // 依班級分頁（班級只接受 3–4 位數字）
+    var cls = String(d.cls || '').trim();
+    if (/^\d{3,4}$/.test(cls)) sheet_(CLASS_SHEET_PREFIX + cls, SCORES_HEADER).appendRow(row);
+    // 每題作答明細
+    var details = Array.isArray(d.details) ? d.details.slice(0, 120) : [];
+    if (details.length) {
+      var rows = details.map(function (x) {
+        return [
+          now, cell_(attemptId, 64), cell_(d.cls, 8), cell_(d.seat, 4), cell_(d.name, 40), cell_(d.unit, 60),
+          cell_(x.stage, 20), cell_(x.kind, 20), num_(x.n), cell_(x.q, 300), cell_(x.correct, 200), cell_(x.yours, 200),
+          x.ok ? '✓' : '✗', num_(x.points), num_(x.hints),
+        ];
+      });
+      var ds = sheet_(SHEET_DETAILS, DETAILS_HEADER);
+      ds.getRange(ds.getLastRow() + 1, 1, rows.length, DETAILS_HEADER.length).setValues(rows);
+    }
+    if (attemptId) CacheService.getScriptCache().put('att:' + attemptId, '1', 21600);
     return json_({ ok: true });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
   } finally {
     lock.releaseLock();
   }
+}
+
+function seenAttempt_(id) {
+  if (CacheService.getScriptCache().get('att:' + id)) return true;
+  var sh = sheet_(SHEET_SCORES, SCORES_HEADER);
+  var last = sh.getLastRow();
+  if (last < 2) return false;
+  var col = SCORES_HEADER.indexOf('attemptId') + 1;
+  var from = Math.max(2, last - 499);
+  return sh.getRange(from, col, last - from + 1, 1).getValues().some(function (r) { return String(r[0]) === id; });
 }
 
 /* ------------------------------------------------------------------ */
@@ -115,6 +151,7 @@ function setup() {
   if (me && teachers.getLastRow() < 2) teachers.appendRow([me, '建立者']);
   sheet_(SHEET_SCORES, SCORES_HEADER);
   sheet_(SHEET_CONTENT, CONTENT_HEADER);
+  sheet_(SHEET_DETAILS, DETAILS_HEADER);
   CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
   Logger.log('完成。老師名單：' + me);
 }

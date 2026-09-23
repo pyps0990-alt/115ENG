@@ -1,6 +1,6 @@
 // 可重複使用的題目元件：選擇題 (renderMC) 與字母框拼字 (renderSpell)。
 // feedback=true：練習模式，作答後立即顯示對錯；false：正式測驗，只記錄作答。
-import { esc, shuffle, clozeParts, lettersOf } from '../util.js';
+import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample } from '../util.js';
 import { icon } from '../icons.js';
 import { speak } from '../tts.js';
 
@@ -216,4 +216,56 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   paint();
   setTimeout(() => input.focus({ preventScroll: true }), 50);
   return { check, focus: () => input.focus(), value: letters, get hints() { return hints; }, get checked() { return checked; }, el: card };
+}
+
+/* ---------------- 答錯時的解析 ---------------- */
+function spellDiff(typed, answer) {
+  const a = lettersOf(answer);
+  const t = lettersOf(typed);
+  if (!t) return '沒有作答';
+  const wrong = [];
+  for (let i = 0; i < Math.min(a.length, t.length); i++) if (a[i] !== t[i]) wrong.push(i + 1);
+  const parts = [];
+  if (wrong.length) parts.push(`第 ${wrong.slice(0, 5).join('、')}${wrong.length > 5 ? '…' : ''} 個字母拼錯`);
+  if (t.length < a.length) parts.push(`少了 ${a.length - t.length} 個字母`);
+  if (t.length > a.length) parts.push(`多了 ${t.length - a.length} 個字母`);
+  return parts.join('，');
+}
+
+// 找出學生選到的選項是清單裡哪個字
+function chosenWord(q, chosen, pool) {
+  if (chosen == null) return null;
+  if (q.dir === 'en2zh') return pool.find((w) => w.zh === chosen);
+  if (q.dir === 'cloze') return pool.find((w) => { const c = clozeParts(w); return c && c.answer.toLowerCase() === String(chosen).toLowerCase(); });
+  return pool.find((w) => w.word === chosen);
+}
+
+// 回傳 { html, text }：html 顯示在題目下方，text 用在總成績單與試算表
+export function explainWrong(q, chosen, pool = []) {
+  const w = q.word;
+  const lines = [];
+  const text = [];
+  lines.push(`<div class="xp-main"><span class="xp-word en">${esc(w.word)}</span><span class="pos">${esc(w.pos || '')}</span><span class="xp-zh">${esc(w.zh)}</span></div>`);
+  text.push(`${w.word}：${w.zh}`);
+  if (q.type === 'mc') {
+    const other = chosenWord(q, chosen, pool);
+    if (other && other.word !== w.word) {
+      const msg = q.dir === 'en2zh'
+        ? `你選的「${esc(chosen)}」是 <b class="en">${esc(other.word)}</b> 的意思`
+        : `你選的 <b class="en">${esc(chosen)}</b> 意思是「${esc(other.zh)}」`;
+      lines.push(`<p class="xp-yours">${msg}</p>`);
+      text.push(q.dir === 'en2zh' ? `你選的是 ${other.word} 的意思` : `你選的 ${chosen} 是「${other.zh}」`);
+    }
+  } else {
+    const d = spellDiff(chosen, q.answer);
+    const typed = lettersOf(chosen || '');
+    lines.push(`<p class="xp-yours">${typed ? `你拼成 <b class="en">${esc(typed)}</b>` : '沒有作答'}${typed && d ? `・${esc(d)}` : ''}</p>`);
+    if (d) text.push(d);
+  }
+  if (w.example) {
+    lines.push(`<p class="xp-ex en">${exampleHTML(w.example)}</p>`);
+    if (w.exampleZh) lines.push(`<p class="xp-exzh">${esc(w.exampleZh)}</p>`);
+    text.push(plainExample(w.example));
+  }
+  return { html: `<div class="explain xp slide-in"><div class="xp-head">${icon.bulb} 解析</div>${lines.join('')}</div>`, text: text.join('｜') };
 }

@@ -2,7 +2,7 @@
 import { store } from '../storage.js';
 import { esc, nowStamp, wait, shuffle } from '../util.js';
 import { icon } from '../icons.js';
-import { renderMC, renderSpell, promptText, answerText } from '../components/question.js';
+import { renderMC, renderSpell, promptText, answerText, explainWrong } from '../components/question.js';
 import { renderResult } from '../components/result.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { submitScore } from '../submit.js';
@@ -46,6 +46,7 @@ export function mount(stage, ctx) {
     const stages = stagesIn.map(({ level, words }) => ({ level, qs: level.build(shuffle(words), all), points: 0, wrong: [] }));
     const total = stages.reduce((s, x) => s + x.qs.length, 0);
     let si = 0; let qi = 0; let done = 0; let streak = 0; let bestStreak = 0;
+    const details = [];
     let current = null;
     let inCard = false;
     const t0 = Date.now();
@@ -101,6 +102,10 @@ export function mount(stage, ctx) {
     function answered(q, ok, got, yours, hints = 0) {
       const s = stages[si];
       s.points += got;
+      details.push({
+        stage: s.level.name, n: qi + 1, kind: q.type === 'mc' ? (q.dir === 'en2zh' ? '英→中' : q.dir === 'cloze' ? '例句選字' : '中→英') : (q.variant === 'cloze' ? '例句拼寫' : '拼字'),
+        q: promptText(q), correct: answerText(q), yours: yours == null ? '' : String(yours), ok, points: got, hints,
+      });
       const fb = stage.querySelector('[data-fb]');
       const st = stage.querySelector('[data-streak]');
       if (ok) {
@@ -110,8 +115,10 @@ export function mount(stage, ctx) {
         st.classList.remove('bump'); void st.offsetWidth; st.classList.add('bump');
       } else {
         streak = 0;
-        s.wrong.push({ q, yours });
+        const xp = explainWrong(q, yours, all);
+        s.wrong.push({ q, yours, xp: xp.text });
         store.addWrong(unitId, q.word.word);
+        stage.querySelector('[data-q]').insertAdjacentHTML('beforeend', xp.html);
         fb.className = 'feedback no';
         fb.innerHTML = q.type === 'mc' ? `${icon.x} 正確答案：<b class="en">${esc(answerText(q))}</b>` : `${icon.x} 再記一下`;
       }
@@ -197,7 +204,7 @@ export function mount(stage, ctx) {
         extraHTML: bars + (official
           ? `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`
           : '<p class="muted">錯題練習不會送出成績</p>'),
-        wrong: wrong.map((w) => ({ p: `〔${w.level.name}〕${promptText(w.q)}`, a: answerText(w.q), y: w.yours })),
+        wrong: wrong.map((w) => ({ p: `〔${w.level.name}〕${promptText(w.q)}`, a: answerText(w.q), y: w.yours, x: w.xp })),
         actions,
       });
       if (!official) return;
@@ -208,6 +215,7 @@ export function mount(stage, ctx) {
         score: Number(fmt(points)), total, pct, durationSec,
         basic: per.basic || '', advanced: per.advanced || '', mastery: per.mastery || '',
         wrong: [...new Set(wrong.map((w) => w.q.word.word))],
+        details,
       });
       const slot = box.querySelector('[data-submit]');
       if (slot) slot.innerHTML = submitStateHTML(res.status);

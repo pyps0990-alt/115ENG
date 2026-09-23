@@ -400,6 +400,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .submit-state { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 12px; font-weight: 700; font-size: .92rem; }
 .submit-state.sending { background: var(--navy-soft); color: var(--navy); }
 .submit-state.sent { background: var(--amber-soft); color: var(--amber-ink); }
+.submit-state.queued { background: var(--amber-soft); color: var(--amber-ink); }
 .submit-state.error, .submit-state.disabled { background: var(--wash); color: var(--navy); border: 1px dashed var(--line-strong); }
 .stamp-card { width: 100%; padding: 14px 16px; border-radius: 14px; border: 2px dashed var(--line); font-size: .9rem; display: grid; gap: 2px; }
 .stamp-card b { font-size: 1rem; color: var(--navy); }
@@ -435,6 +436,18 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .pq .opt-text.en { font-size: 1rem; font-weight: 600; }
 .explain { padding: 12px 14px; border-radius: 12px; background: var(--wash); font-size: .92rem; animation: fade-up .3s var(--ease); }
 .explain b { color: var(--navy); }
+/* 答錯解析卡（單字片語） */
+.xp { display: grid; gap: 6px; margin-top: 10px; background: var(--white); border: 1.5px solid var(--line); border-radius: 16px; padding: 14px 16px; }
+.xp-head { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--amber-ink); font-size: .88rem; }
+.xp-head .ic { color: var(--amber); }
+.xp-main { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.xp-word { font-weight: 900; font-size: 1.2rem; color: var(--navy); }
+.xp-zh { font-weight: 700; color: var(--navy); }
+.xp-yours { color: var(--bad-ink); font-size: .92rem; }
+.xp-yours b { color: var(--bad-ink); }
+.xp-ex { color: var(--navy); }
+.xp-exzh { font-size: .88rem; }
+.wrong-item .x { grid-column: 1 / -1; font-size: .85rem; color: var(--steel); }
 .ex-head { display: inline-flex; align-items: center; gap: 4px; }
 .ex-head .ic { width: 16px; height: 16px; stroke-width: 3; }
 .ex-head.ok .ic { color: var(--amber); }

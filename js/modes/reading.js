@@ -136,6 +136,12 @@ export function mount(stage, ctx) {
         unit: ctx.unit.id, unitTitle: ctx.unit.title, mode: 'reading', level: '課文理解',
         score: score(), total: qs.length, pct, durationSec,
         wrong: answers.map((a, i) => (a === qs[i].answer ? null : `Q${i + 1}`)).filter(Boolean),
+        details: qs.map((q, i) => ({
+          stage: '課文理解', n: i + 1, kind: q.skill || '', q: q.q || '',
+          correct: `${KEYS[q.answer]}. ${q.options[q.answer]}`,
+          yours: answers[i] == null ? '' : `${KEYS[answers[i]]}. ${q.options[answers[i]]}`,
+          ok: answers[i] === q.answer, points: answers[i] === q.answer ? 1 : 0, hints: 0,
+        })),
       });
       const s = box.querySelector('[data-submit]');
       if (s) s.innerHTML = submitStateHTML(res.status);

@@ -37,6 +37,7 @@ export function submitStateHTML(status) {
   const map = {
     sending: ['sending', '成績傳送中…'],
     sent: ['sent', `${icon.check} 成績已送出給老師`],
+    queued: ['queued', `${icon.clock} 目前沒有網路，成績已暫存在這台裝置，恢復連線後會自動補送`],
     error: ['error', `${icon.alert} 傳送失敗，請截圖這個畫面繳交`],
     disabled: ['disabled', `${icon.camera} 請截圖這個畫面繳交給老師`],
   };
