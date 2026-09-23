@@ -20,7 +20,7 @@ export const LEVELS = [
   {
     id: 'mastery', name: '精熟', en: 'Mastery',
     desc: '沒有選項，自己拼出單字與片語',
-    items: ['看中文拼出英文', '例句填空拼寫', '提示每次扣 0.25 分'],
+    items: ['看中文拼出英文', '例句填空拼寫', '提示最多 2 次，每次扣 0.25 分'],
     build: (words) => words.map((w, i) => buildSpell(w, i % 2 ? 'cloze' : 'spell')),
   },
 ];

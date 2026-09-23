@@ -4,6 +4,9 @@ import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample } from '
 import { icon } from '../icons.js';
 import { speak } from '../tts.js';
 
+// 拼字題每題最多提示 2 次（每次扣 0.25 分），用完按鈕變暗
+export const MAX_HINTS = 2;
+
 const KEYS = ['A', 'B', 'C', 'D', 'E'];
 
 export function buildMC(word, pool, dir) {
@@ -142,7 +145,7 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
       <input class="spell-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="輸入答案">
     </div>
     ${feedback ? `<div class="q-foot">
-      <button class="btn small ghost" type="button" data-hint>${icon.bulb} 提示</button>
+      <button class="btn small ghost" type="button" data-hint>${icon.bulb} 提示 <span class="hint-left"></span></button>
       <button class="btn primary" type="button" data-check>檢查 ${icon.check}</button>
     </div>` : ''}
     <div class="answer-line" hidden></div>`;
@@ -153,6 +156,15 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   const boxes = [...card.querySelectorAll('.lbox')];
   let hints = 0;
   let checked = false;
+  const maxHints = Math.min(MAX_HINTS, n - 1);
+  const hintBtn = card.querySelector('[data-hint]');
+  const paintHint = () => {
+    if (!hintBtn) return;
+    const left = maxHints - hints;
+    hintBtn.querySelector('.hint-left').textContent = `(${left})`;
+    hintBtn.disabled = left <= 0;
+    hintBtn.setAttribute('aria-label', left > 0 ? `提示，還剩 ${left} 次` : '提示已用完');
+  };
 
   const letters = () => lettersOf(input.value).slice(0, n);
   const paint = () => {
@@ -200,8 +212,9 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
     onAnswer?.(ok, { hints, typed });
   };
   const hint = () => {
-    if (checked || hints >= n - 1) return;
+    if (checked || hints >= maxHints) return;
     hints++;
+    paintHint();
     const rest = letters().slice(hints);
     input.value = (target.slice(0, hints).join('') + rest).slice(0, n);
     paint();
@@ -209,7 +222,8 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   };
 
   card.querySelector('[data-check]')?.addEventListener('click', check);
-  card.querySelector('[data-hint]')?.addEventListener('click', hint);
+  hintBtn?.addEventListener('click', hint);
+  paintHint();
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); check(); }
   });

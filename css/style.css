@@ -70,6 +70,8 @@ main.container { padding-block: 24px 56px; outline: none; }
    Top bar（深海藍）
    =========================================================== */
 .topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--navy); color: var(--white); }
+/* 在頁面頂端往下拉（iPhone 回彈）時，導覽列上方露出的區域也填成深藍，不會出現白邊 */
+.topbar::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 100vh; background: var(--navy); pointer-events: none; }
 .topbar-inner { max-width: 1200px; margin: 0 auto; padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); display: flex; align-items: center; gap: 12px; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--white); font-family: var(--font-en); font-weight: 900; font-size: 1.15rem; letter-spacing: .01em; }
 .brand-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--amber); color: var(--navy); font-size: .95rem; }
@@ -141,6 +143,7 @@ main.container { padding-block: 24px 56px; outline: none; }
 .btn.ghost:hover { background: var(--wash); }
 .btn.small { min-height: 38px; padding: 0 14px; font-size: .9rem; border-radius: 10px; }
 .btn[disabled] { opacity: .45; pointer-events: none; }
+.hint-left { font-variant-numeric: tabular-nums; opacity: .8; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
 .btn-row.center { justify-content: center; }
 
@@ -479,7 +482,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 }
 /* 手機橫放等矮螢幕：導覽列不固定、壓縮垂直間距，讓題目留在畫面內 */
 @media (max-height: 520px) and (orientation: landscape) {
-  .topbar { position: static; }
+  .topbar { position: relative; }
   .topbar-inner { padding-block: 4px; }
   .brand-mark { width: 30px; height: 30px; }
   .brand { padding-block: 4px; margin-block: -4px; }
