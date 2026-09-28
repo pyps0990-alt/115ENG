@@ -51,6 +51,8 @@ export function flushOutbox() {
 }
 
 export async function submitScore(payload) {
+  // 老師預覽（沒有學生登入）不送成績，避免試算表出現空白列
+  if (!store.student()) return { status: 'disabled' };
   const item = { ...payload, attemptId: payload.attemptId || newAttemptId() };
   // 另外存一份到 Firestore，跟送去老師試算表互不影響
   import('./firebase.js').then((fb) => fb.saveScoreToFirestore(item, (store.student() || {}).key)).catch((e) => console.warn(e));
