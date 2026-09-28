@@ -129,6 +129,18 @@
     .btn.ai.busy { opacity:.7; cursor:progress; }
     ::-webkit-scrollbar { height:10px; width:10px; }
     ::-webkit-scrollbar-thumb { background:#CBD5E1; border-radius:99px; }
+    /* 按鈕回饋：按下縮一下、處理中轉圈；所有狀態訊息同時浮在畫面下方 */
+    .btn:active:not([disabled]) { transform:scale(.96); }
+    .btn.busy { position:relative; color:transparent !important; pointer-events:none; }
+    .btn.busy::after { content:''; position:absolute; inset:0; margin:auto; width:16px; height:16px; border-radius:50%;
+      border:2px solid var(--ink); border-right-color:transparent; animation:btnspin .7s linear infinite; }
+    .btn.primary.busy::after { border-color:#fff; border-right-color:transparent; }
+    @keyframes btnspin { to { transform:rotate(360deg); } }
+    #toast { position:fixed; left:50%; bottom:24px; transform:translate(-50%, 20px); opacity:0; z-index:99; max-width:min(560px, calc(100vw - 32px));
+      background:var(--ink); color:#fff; padding:12px 18px; border-radius:12px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.25);
+      transition:opacity .2s ease, transform .2s ease; pointer-events:none; }
+    #toast.show { opacity:1; transform:translate(-50%, 0); }
+    #toast.ok { background:#15803D; } #toast.err { background:#B91C1C; }
   </style>
 </head>
 <body>
@@ -206,7 +218,7 @@
 
         <div class="bar" style="margin-top:14px">
           <button class="btn" id="imp-check" type="button">預覽與檢查</button>
-          <label title="取消勾選：只修正錯字等小改動，學生的完成與檢討狀態保留"><input type="checkbox" id="imp-reset" checked> 重製學生在這個單元的進度（要重新測驗、檢討）</label>
+          <label title="取消勾選：只修正錯字等小改動，學生的完成與檢討狀態保留"><input type="checkbox" id="imp-progress" checked> 重製學生在這個單元的進度（要重新測驗、檢討）</label>
           <button class="btn primary" id="imp-save" type="button" disabled>儲存到網站</button>
           <span class="msg" id="imp-msg"></span>
         </div>
@@ -270,7 +282,37 @@
     </section>
   </main>
 
+  <div id="toast" role="status" aria-live="polite"></div>
   <script>
+    // 通用回饋：記住剛按的按鈕；任何 .msg 狀態文字一變，就浮出提示，「…」結尾表示處理中（按鈕轉圈）
+    (function () {
+      var lastBtn = null, timer = null, toast = document.getElementById('toast');
+      document.addEventListener('click', function (e) {
+        var b = e.target.closest && e.target.closest('.btn');
+        if (b && !b.disabled) lastBtn = b;
+      }, true);
+      function show(el) {
+        var t = el.textContent.trim();
+        if (!t || t === '尚未儲存') return;
+        var busy = /…\s*(（.*）)?$/.test(t);
+        if (lastBtn) lastBtn.classList.toggle('busy', busy);
+        if (!busy) lastBtn = null;
+        toast.textContent = t;
+        toast.className = 'show' + (/\berr\b/.test(el.className) ? ' err' : /\bok\b/.test(el.className) || /^✓/.test(t) ? ' ok' : '');
+        clearTimeout(timer);
+        if (!busy) timer = setTimeout(function () { toast.className = toast.className.replace('show', ''); }, 3500);
+      }
+      new MutationObserver(function (list) {
+        var seen = [];
+        list.forEach(function (m) {
+          var el = m.target.nodeType === 3 ? m.target.parentElement : m.target;
+          el = el && el.closest && el.closest('.msg, .form-err');
+          if (el && seen.indexOf(el) < 0) seen.push(el);
+        });
+        setTimeout(function () { seen.forEach(show); }, 0);
+      }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class'] });
+    })();
+
     var MODES = {
       vocab: [['basic', '基礎'], ['advanced', '進階'], ['mastery', '精熟']],
       reading: [['reading', '課文理解']],
@@ -506,10 +548,10 @@
       var u = impUnit(); if (!u) return;
       $('imp-msg').textContent = '讀取中…'; $('imp-msg').className = 'msg';
       google.script.run.withSuccessHandler(function (res) {
-        if (res && res.data) { fillForm(u, res.data); $('imp-msg').textContent = '已載入匯入的內容'; return; }
+        if (res && res.data) { fillForm(u, res.data); $('imp-msg').textContent = '✓ 已載入匯入的內容'; $('imp-msg').className = 'msg ok'; return; }
         fetch(siteUrl.replace(/\/?$/, '/') + 'data/lessons/' + encodeURIComponent(u.id) + '.json', { cache: 'no-store' })
           .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-          .then(function (d) { fillForm(u, d); $('imp-msg').textContent = '已載入網站內建內容，可以直接修改'; })
+          .then(function (d) { fillForm(u, d); $('imp-msg').textContent = '✓ 已載入網站內建內容，可以直接修改'; $('imp-msg').className = 'msg ok'; })
           .catch(function () { $('imp-msg').textContent = '讀不到網站內建內容，請直接貼上新內容'; $('imp-msg').className = 'msg err'; });
       }).withFailureHandler(function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; }).getContent(u.id);
     };
@@ -627,15 +669,16 @@
         $('imp-msg').textContent = '✓ 已儲存，學生重新打開網頁就會看到新內容'; $('imp-msg').className = 'msg ok';
       }).withFailureHandler(function (err) {
         $('imp-save').disabled = false; $('imp-msg').textContent = '儲存失敗：' + err.message; $('imp-msg').className = 'msg err';
-      }).saveContent(u.id, pending, $('imp-reset').checked);
+      }).saveContent(u.id, pending, $('imp-progress').checked);
     };
     $('imp-reset').onclick = function () {
       var u = impUnit(); if (!u) return;
       if (!confirm('確定要刪除「' + (u.title || u.id) + '」匯入的內容，改回網站內建內容嗎？')) return;
+      $('imp-msg').textContent = '還原中…'; $('imp-msg').className = 'msg';
       google.script.run.withSuccessHandler(function () {
         content = content.filter(function (x) { return x.id !== u.id; });
-        impStatus(); $('imp-msg').textContent = '已還原成網站內建內容'; $('imp-msg').className = 'msg ok';
-      }).withFailureHandler(function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; }).deleteContent(u.id, $('imp-reset').checked);
+        impStatus(); $('imp-msg').textContent = '✓ 已還原成網站內建內容'; $('imp-msg').className = 'msg ok';
+      }).withFailureHandler(function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; }).deleteContent(u.id, $('imp-progress').checked);
     };
 
     /* ---------------- AI 出題（Gemini） ---------------- */
