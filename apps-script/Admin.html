@@ -65,6 +65,20 @@
       font:inherit; transition:border-color .15s ease, box-shadow .15s ease;
     }
     input:focus, select:focus, textarea:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(245,158,11,.18); }
+    input[type=checkbox] {
+      appearance:none; -webkit-appearance:none; width:19px; height:19px; margin:0;
+      border:1.5px solid #CBD5E1; border-radius:6px; background:#fff; cursor:pointer;
+      display:inline-grid; place-content:center; transition:background .15s ease, border-color .15s ease; flex:none;
+    }
+    input[type=checkbox]::before {
+      content:''; width:11px; height:11px; transform:scale(0);
+      transition:transform .1s ease; box-shadow:inset 1em 1em #fff;
+      clip-path:polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+    }
+    input[type=checkbox]:checked { background:var(--ink); border-color:var(--ink); }
+    input[type=checkbox]:checked::before { transform:scale(1); }
+    input[type=checkbox]:focus-visible { box-shadow:0 0 0 3px rgba(30,58,138,.18); }
+    input[type=checkbox]:hover { border-color:var(--ink); }
     .switch { display:inline-flex; gap:6px; align-items:center; font-weight:700; }
     .bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .msg { font-weight:700; }
