@@ -261,15 +261,13 @@
     });
 
     function titleCellHTML(u) {
-      if (!u.custom) {
-        return esc(u.title || u.id) + '<div class="muted" style="font-weight:400;font-size:.8rem">' + esc(u.id) + '</div>';
+      var meta = '<span>' + esc(u.id) + '</span>';
+      if (u.custom) {
+        meta += '<label style="font-weight:400;display:inline-flex;gap:4px;align-items:center">課次 <input type="number" min="1" max="99" data-k="lesson" value="' + esc(u.lesson) + '" style="width:52px"></label>' +
+          '<label style="font-weight:400;display:inline-flex;gap:4px;align-items:center">類型 <select data-k="type"><option value="vocab"' + (u.type === 'vocab' ? ' selected' : '') + '>單字片語</option><option value="reading"' + (u.type === 'reading' ? ' selected' : '') + '>課文理解</option></select></label>';
       }
-      return '<input type="text" data-k="title" value="' + esc(u.title) + '" style="font-weight:700;margin-bottom:4px">' +
-        '<div class="muted" style="font-size:.8rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
-        '<span>' + esc(u.id) + '</span>' +
-        '<label style="font-weight:400;display:inline-flex;gap:4px;align-items:center">課次 <input type="number" min="1" max="99" data-k="lesson" value="' + esc(u.lesson) + '" style="width:52px"></label>' +
-        '<label style="font-weight:400;display:inline-flex;gap:4px;align-items:center">類型 <select data-k="type"><option value="vocab"' + (u.type === 'vocab' ? ' selected' : '') + '>單字片語</option><option value="reading"' + (u.type === 'reading' ? ' selected' : '') + '>課文理解</option></select></label>' +
-        '</div>';
+      return '<input type="text" data-k="title" value="' + esc(u.title || u.id) + '" style="font-weight:700;margin-bottom:4px">' +
+        '<div class="muted" style="font-size:.8rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' + meta + '</div>';
     }
 
     function render() {
