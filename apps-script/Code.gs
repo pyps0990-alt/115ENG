@@ -340,10 +340,16 @@ function saveCustomUnits(units) {
         Math.min(100, Math.max(1, Number(u.questionCount) || 10)),
       ];
     });
+  // 被刪掉的單元：連同代號一起清除（匯入的題目、Firestore 上的題目），代號可以重新使用。
+  // 學生成績不在這裡刪，留到學期結算時由老師決定。
+  var keep = {};
+  rows.forEach(function (r) { keep[r[0]] = true; });
+  var removed = readCustomUnitsRows_().map(function (u) { return u.id; }).filter(function (id) { return !keep[id]; });
   var sh = sheet_(SHEET_CUSTOM_UNITS, CUSTOM_UNITS_HEADER);
   var last = sh.getLastRow();
   if (last > 1) sh.getRange(2, 1, last - 1, CUSTOM_UNITS_FIELDS.length).clearContent();
   if (rows.length) sh.getRange(2, 1, rows.length, CUSTOM_UNITS_FIELDS.length).setValues(rows);
+  removed.forEach(purgeUnit_);
   publishConfig_();
   return { ok: true, savedAt: new Date().toISOString() };
 }
@@ -462,6 +468,94 @@ function deleteContent(unitId) {
   clearContentCache_(unitId);
   publishConfig_();
   return { ok: true };
+}
+
+function purgeUnit_(unitId) {
+  var row = findContentRow_(unitId);
+  if (row) sheet_(SHEET_CONTENT, CONTENT_HEADER).deleteRow(row.index);
+  clearContentCache_(unitId);
+  firestoreRequest_('delete', FIRESTORE_DOCS + encodeURIComponent('content_' + unitId));
+}
+
+/* ------------------------------------------------------------------ */
+/* 學期結算：先備份，再由老師選擇要清除哪些資料                         */
+/* ------------------------------------------------------------------ */
+
+// 把整份試算表複製一份到老師的雲端硬碟（成績、明細、成績單都在裡面）
+function backupSpreadsheet() {
+  assertTeacher_();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var name = ss.getName() + ' 成績備份 ' + Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyy-MM-dd HHmm');
+  var copy = ss.copy(name);
+  return { ok: true, name: name, url: copy.getUrl() };
+}
+
+// opts: { sheets: 試算表成績, attempts: Firestore 作答與檢討紀錄, roster: 學生名單 }
+// Firestore 資料很多時一次刪不完：回傳 done:false，後台會自動再呼叫一次。
+function semesterReset(opts) {
+  assertTeacher_();
+  opts = opts || {};
+  var out = { done: true, sheets: 0, docs: 0 };
+  if (opts.sheets && !opts.skipSheets) {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    ss.getSheets().forEach(function (sh) {
+      var n = sh.getName();
+      if (n === SHEET_SCORES || n === SHEET_DETAILS) {
+        if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+        out.sheets++;
+      } else if (n.indexOf(CLASS_SHEET_PREFIX) === 0 || n.indexOf(GRADEBOOK_PREFIX) === 0) {
+        ss.deleteSheet(sh);
+        out.sheets++;
+      }
+    });
+  }
+  var groups = [];
+  if (opts.attempts || opts.roster) groups.push('attempts', 'reviews');
+  if (opts.roster) groups.push('vault', 'seats');
+  var deadline = Date.now() + 240000;
+  for (var g = 0; g < groups.length; g++) {
+    while (true) {
+      if (Date.now() > deadline) { out.done = false; return out; }
+      var names = firestoreList_(groups[g], 300);
+      if (!names.length) break;
+      firestoreDelete_(names);
+      out.docs += names.length;
+    }
+  }
+  return out;
+}
+
+function firestoreRequest_(method, url, body) {
+  var res = UrlFetchApp.fetch(url, {
+    method: method,
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    payload: body ? JSON.stringify(body) : undefined,
+    muteHttpExceptions: true,
+  });
+  var code = res.getResponseCode();
+  if (code >= 300 && code !== 404) throw new Error('Firestore 錯誤 ' + code + '：' + res.getContentText().slice(0, 300));
+  return code === 404 ? null : JSON.parse(res.getContentText() || 'null');
+}
+
+var FIRESTORE_ROOT = 'https://firestore.googleapis.com/v1/projects/eng-3385e/databases/(default)/documents';
+
+// 列出某個集合名稱（不論在哪一層）的文件路徑
+function firestoreList_(collectionId, limit) {
+  var res = firestoreRequest_('post', FIRESTORE_ROOT + ':runQuery', {
+    structuredQuery: {
+      from: [{ collectionId: collectionId, allDescendants: true }],
+      select: { fields: [{ fieldPath: '__name__' }] },
+      limit: limit,
+    },
+  }) || [];
+  return res.filter(function (r) { return r.document; }).map(function (r) { return r.document.name; });
+}
+
+function firestoreDelete_(names) {
+  firestoreRequest_('post', FIRESTORE_ROOT + ':commit', {
+    writes: names.map(function (n) { return { delete: n }; }),
+  });
 }
 
 function getSiteUrl() {

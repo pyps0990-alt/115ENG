@@ -134,7 +134,7 @@
 <body>
   <header><div class="wrap">
     <h1>B5 Practice 老師後台</h1>
-    <nav><button class="on" data-tab="settings">單元設定</button><button data-tab="import">匯入內容</button><button data-tab="roster">學生名單</button><button data-tab="scores">成績</button></nav>
+    <nav><button class="on" data-tab="settings">單元設定</button><button data-tab="import">匯入內容</button><button data-tab="roster">學生名單</button><button data-tab="scores">成績</button><button data-tab="semester">學期結算</button></nav>
     <span class="who"><?= email ?></span>
   </div></header>
 
@@ -240,6 +240,23 @@
         </table>
       </div>
     </section>
+    <section id="tab-semester" hidden>
+      <div class="card">
+        <h2 style="margin-top:0">學期結算</h2>
+        <div class="help">學期結束、成績都登記完之後再使用。步驟一先把整份試算表複製一份到你的雲端硬碟當備份；備份完成後才能清除資料。清除後無法復原。</div>
+        <h3>步驟一：備份成績</h3>
+        <div class="bar"><button class="btn primary" id="sem-backup" type="button">建立成績備份</button><span class="msg" id="sem-bmsg"></span></div>
+        <h3>步驟二：選擇要清除的資料</h3>
+        <label style="display:block;margin:6px 0"><input type="checkbox" id="sem-sheets" checked> 試算表成績：scores、details 分頁的成績列，以及所有「班級 xxx」「成績單 xxx」分頁</label>
+        <label style="display:block;margin:6px 0"><input type="checkbox" id="sem-attempts" checked> 學生作答紀錄（Firestore）：每次測驗、檢討狀態；學生網站上的最佳分數與「已完成」標記會歸零</label>
+        <label style="display:block;margin:6px 0"><input type="checkbox" id="sem-roster"> 學生名單（Firestore）：下學期換班級時再勾，清除後學生要等老師重新匯入名單才能登入</label>
+        <div class="bar" style="margin-top:12px">
+          <label>請輸入「確認刪除」 <input type="text" id="sem-confirm" size="8" autocomplete="off"></label>
+          <button class="btn" id="sem-reset" type="button" disabled>清除資料</button>
+          <span class="msg" id="sem-msg"></span>
+        </div>
+      </div>
+    </section>
   </main>
 
   <script>
@@ -251,7 +268,7 @@
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
     function $(id) { return document.getElementById(id); }
 
-    var TABS = ['settings', 'import', 'roster', 'scores'];
+    var TABS = ['settings', 'import', 'roster', 'scores', 'semester'];
     document.querySelectorAll('nav button').forEach(function (b) {
       b.onclick = function () {
         document.querySelectorAll('nav button').forEach(function (x) { x.classList.toggle('on', x === b); });
@@ -303,7 +320,7 @@
       var btn = e.target.closest('[data-del]'); if (!btn) return;
       var tr = btn.closest('tr'); var i = Number(tr.dataset.i);
       var u = units[i];
-      if (!confirm('確定要刪除「' + (u.title || u.id) + '」嗎？（已匯入的內容不會被刪除，只是網站上不會再顯示這個單元）')) return;
+      if (!confirm('確定要刪除「' + (u.title || u.id) + '」嗎？（按「儲存設定」後，這個單元的代號和匯入的題目會一起清除；學生成績會保留到「學期結算」時再決定要不要刪除）')) return;
       units.splice(i, 1);
       render();
       impInit();
@@ -688,6 +705,39 @@
       }).withFailureHandler(function (err) {
         aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
       }).aiFillVocab(todo.map(function (t) { return t.word; }));
+    };
+
+    var semBacked = false;
+    function semCheck() { $('sem-reset').disabled = !(semBacked && $('sem-confirm').value.trim() === '確認刪除'); }
+    $('sem-confirm').oninput = semCheck;
+    $('sem-backup').onclick = function () {
+      var btn = this; btn.disabled = true;
+      $('sem-bmsg').textContent = '備份中…'; $('sem-bmsg').className = 'msg';
+      google.script.run.withSuccessHandler(function (r) {
+        btn.disabled = false; semBacked = true; semCheck();
+        $('sem-bmsg').innerHTML = '✓ 已備份：<a href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(r.name) + '</a>'; $('sem-bmsg').className = 'msg ok';
+      }).withFailureHandler(function (err) {
+        btn.disabled = false; $('sem-bmsg').textContent = '備份失敗：' + err.message; $('sem-bmsg').className = 'msg err';
+      }).backupSpreadsheet();
+    };
+    $('sem-reset').onclick = function () {
+      var opts = { sheets: $('sem-sheets').checked, attempts: $('sem-attempts').checked, roster: $('sem-roster').checked };
+      if (!opts.sheets && !opts.attempts && !opts.roster) { $('sem-msg').textContent = '請至少勾選一項'; $('sem-msg').className = 'msg err'; return; }
+      if (!confirm('確定要清除勾選的資料嗎？清除後無法復原（備份檔不受影響）。')) return;
+      var btn = this; btn.disabled = true;
+      var total = 0, sheets = 0;
+      function run(o) {
+        $('sem-msg').textContent = '清除中…' + (total ? '（已刪除 ' + total + ' 筆紀錄）' : ''); $('sem-msg').className = 'msg';
+        google.script.run.withSuccessHandler(function (r) {
+          total += r.docs; sheets += r.sheets;
+          if (!r.done) { run({ sheets: o.sheets, attempts: o.attempts, roster: o.roster, skipSheets: true }); return; }
+          $('sem-confirm').value = ''; semCheck();
+          $('sem-msg').textContent = '✓ 完成：清除 ' + sheets + ' 個分頁的成績、' + total + ' 筆 Firestore 紀錄'; $('sem-msg').className = 'msg ok';
+        }).withFailureHandler(function (err) {
+          semCheck(); $('sem-msg').textContent = '清除失敗：' + err.message + '（可以再按一次繼續）'; $('sem-msg').className = 'msg err';
+        }).semesterReset(o);
+      }
+      run(opts);
     };
 
     google.script.run
