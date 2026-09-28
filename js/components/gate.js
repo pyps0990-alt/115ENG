@@ -5,7 +5,7 @@ import { icon } from '../icons.js';
 import { mountInlineForm, openStudentDialog, studentLabel } from '../student.js';
 import { SCRIPT_URL } from '../config.js';
 
-export function testGate(stage, { eyebrow, title, rules = [], best, onStart }) {
+export function testGate(stage, { eyebrow, title, rules = [], best, review = false, onStart }) {
   const draw = () => {
     stage.innerHTML = '';
     const s = store.student();
@@ -16,18 +16,21 @@ export function testGate(stage, { eyebrow, title, rules = [], best, onStart }) {
       mountInlineForm(wrap, { title: '開始測驗前，請先填寫基本資料', desc: '測驗成績會依這些資料送給老師，請確認正確。', button: '下一步', onSave: draw });
       return;
     }
+    const isReview = typeof review === 'function' ? review() : review;
+    const bestNow = typeof best === 'function' ? best() : best;
     const box = document.createElement('div');
     box.className = 'gate';
     box.innerHTML = `<div class="card gate-card">
-        <div><div class="eyebrow">${esc(eyebrow)}</div><h2>${esc(title)}</h2></div>
+        <div><div class="eyebrow">${esc(eyebrow)}${isReview ? ' · 複習' : ''}</div><h2>${esc(title)}</h2></div>
         <ul class="rules">${rules.map((r) => `<li>${r}</li>`).join('')}
+          ${isReview ? '<li>你已經完成這個單元的正式測驗，這次是<b>複習</b>，成績會標記為複習送給老師</li>' : ''}
           <li>${SCRIPT_URL ? '完成後成績會自動傳送給老師' : '完成後請截圖成績單繳交給老師'}</li></ul>
-        ${best != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${best}%</b></div>` : ''}
-        <div class="who">${icon.user}<span>${esc(studentLabel(s))}</span><button class="btn small ghost edit" type="button">修改</button></div>
-        <div class="btn-row"><button class="btn primary" type="button" data-start>${icon.play} 開始測驗</button></div>
+        ${bestNow != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${bestNow}%</b></div>` : ''}
+        <div class="who">${icon.user}<span>${esc(studentLabel(s))}</span><button class="btn small ghost edit" type="button">切換</button></div>
+        <div class="btn-row"><button class="btn primary" type="button" data-start>${icon.play} ${isReview ? '開始複習' : '開始測驗'}</button></div>
       </div>`;
     box.querySelector('.edit').onclick = () => openStudentDialog(draw);
-    box.querySelector('[data-start]').onclick = () => onStart(s);
+    box.querySelector('[data-start]').onclick = () => onStart(s, isReview);
     stage.append(box);
   };
   draw();

@@ -11,6 +11,7 @@ import * as vocab from './modes/vocab.js';
 import * as reading from './modes/reading.js';
 import { initNav, updateNav } from './nav.js';
 import { flushOutbox } from './submit.js';
+import { loadHistory, watchStaff, staffSignIn, staffSignOut, importRoster } from './firebase.js';
 
 const app = document.getElementById('app');
 let index = null;
@@ -26,9 +27,14 @@ async function route() {
   document.getElementById('fx').replaceChildren();
   const [, kind, id, sub] = location.hash.split('/').map(decodeURIComponent);
   window.scrollTo(0, 0);
+  // 還沒確認身分：隱藏單元選單，單元網址一律導回首頁填資料
+  const loggedIn = !!store.student();
+  document.getElementById('nav-menu').hidden = !loggedIn || !visibleUnits().length;
+  if (kind === 'u' && !loggedIn) { location.replace('#/'); return; }
   updateNav(kind === 'u' && id ? (findUnit(id) || {}).id : null);
   try {
     if (kind === 'u' && id) await renderUnit(id, sub);
+    else if (kind === 'teacher') renderTeacher();
     else renderHome();
   } catch (err) {
     console.error(err);
@@ -55,12 +61,15 @@ function renderHome() {
     <div id="welcome-slot"></div>
     <div id="lessons"></div>`;
 
+  // 還沒確認身分：只顯示基本資料表單，確認後才載入單元與這位學生的紀錄
   if (!s) {
     mountInlineForm(app.querySelector('#welcome-slot'), {
       title: '輸入你的基本資料',
-      desc: '不用登入。資料只存在這台裝置，測驗完成後會和成績一起送給老師。',
+      desc: '填寫班級、座號、姓名和老師給你的密碼。確認後會載入你之前的測驗紀錄。',
+      button: '確認',
       onSave: () => renderHome(),
     });
+    return;
   }
 
   const visible = visibleUnits();
@@ -96,10 +105,12 @@ function tileHTML(u) {
     status = best.reading == null ? '<span class="lv-pill">尚未作答</span>' : pillHTML('最佳', best.reading);
   }
   const stages = openLevels(u).map((l) => l.name).join(' → ');
+  const done = store.done(u.id);
   return `<a class="unit-tile ${vocab ? 't-vocab' : 't-reading'}" href="#/u/${esc(u.id)}">
       <div class="tile-top">
         <span class="tile-icon">${vocab ? icon.cards : icon.book}</span>
         <span class="tile-kind">${vocab ? '單字片語測驗' : '課文理解'}</span>
+        ${done ? `<span class="badge done">${icon.check} 已完成 · 可複習</span>` : ''}
         ${u.sample ? '<span class="badge">範例</span>' : ''}
       </div>
       <h3 class="en">${esc(u.topic || u.title)}</h3>
@@ -159,13 +170,92 @@ async function renderUnit(id, sub) {
 
 /* ---------------- footer ---------------- */
 function renderFooter() {
+  document.getElementById('site-foot').innerHTML = '<span>B5 Practice · 內湖高中英文科</span><a href="#/teacher">老師登入</a>';
+}
+
+/* ---------------- teacher ---------------- */
+// 老師用 Google 帳號登入；Firestore 的 admins 名單內才顯示後台連結與名單匯入。
+// 真正的權限由 Firestore 規則與 Apps Script 後台的帳號檢查把關，這裡只負責顯示。
+function parseRoster(text) {
+  return text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((line, i) => {
+    const [seatRaw = '', name = '', pin = ''] = line.split(/[\t,，\s]+/);
+    const seat = seatRaw.replace(/^0+(?=\d)/, '');
+    const ok = /^\d{1,2}$/.test(seat) && !!name && /^\d{4,8}$/.test(pin);
+    return { line: i + 1, seat, name, pin, ok };
+  });
+}
+
+function renderTeacher() {
+  document.title = '老師登入 — B5 Practice';
+  app.innerHTML = '<div class="loading"><span class="spinner"></span>確認登入狀態…</div>';
   const admin = ADMIN_URL || SCRIPT_URL;
-  document.getElementById('site-foot').innerHTML = `<span>B5 Practice · 內湖高中英文科</span>${admin ? `<a href="${esc(admin)}" target="_blank" rel="noopener">老師後台</a>` : ''}`;
+  cleanup = watchStaff((staff) => {
+    if (!staff) {
+      app.innerHTML = `<section class="card teacher">
+          <div class="eyebrow">Teacher</div><h2>老師登入</h2>
+          <p class="muted">請用老師名單內的 Google 帳號登入。</p>
+          <div class="btn-row"><button class="btn primary" type="button" data-in>${icon.user} 用 Google 帳號登入</button></div>
+          <p class="form-err" aria-live="polite"></p></section>`;
+      app.querySelector('[data-in]').onclick = () => staffSignIn().catch((e) => { app.querySelector('.form-err').textContent = `登入失敗：${e.message}`; });
+      return;
+    }
+    if (!staff.role) {
+      app.innerHTML = `<section class="card teacher">
+          <div class="eyebrow">Teacher</div><h2>沒有權限</h2>
+          <p class="muted">${esc(staff.email)} 不在老師名單中，請聯絡管理員。</p>
+          <div class="btn-row"><button class="btn ghost" type="button" data-out>登出</button></div></section>`;
+      app.querySelector('[data-out]').onclick = () => staffSignOut();
+      return;
+    }
+    app.innerHTML = `<section class="card teacher">
+        <div class="eyebrow">${staff.role === 'admin' ? '管理員' : '老師'}</div>
+        <h2>${esc(staff.email)}</h2>
+        <div class="btn-row">
+          ${admin ? `<a class="btn primary" href="${esc(admin)}" target="_blank" rel="noopener">開啟老師後台 ${icon.arrowR}</a>` : ''}
+          <button class="btn ghost" type="button" data-out>登出</button>
+        </div>
+      </section>
+      <section class="card teacher">
+        <div class="eyebrow">Roster</div><h2>匯入學生名單與密碼</h2>
+        <p class="muted">每行一位學生：<b>座號　姓名　密碼</b>（用 Tab、空白或逗號隔開，可從試算表直接複製三欄貼上）。密碼 4～8 位數字，建議 6 位以上比較不容易被猜到。重新匯入同一位學生會更新姓名；換密碼時舊密碼仍可登入，需要停用請聯絡管理員。</p>
+        <div class="form-grid">
+          <div class="field"><label for="ro-cls">班級</label><input id="ro-cls" inputmode="numeric" maxlength="4" placeholder="例：306"></div>
+        </div>
+        <textarea id="ro-text" class="roster-text" spellcheck="false" placeholder="1	王偉同	482915&#10;3	吳雨哲	730641"></textarea>
+        <div class="btn-row"><button class="btn primary" type="button" data-import>匯入</button><span class="form-err" data-msg aria-live="polite"></span></div>
+        <div data-report></div>
+      </section>`;
+    app.querySelector('[data-out]').onclick = () => staffSignOut();
+    app.querySelector('[data-import]').onclick = async (e) => {
+      const btn = e.currentTarget;
+      const msg = app.querySelector('[data-msg]');
+      const cls = app.querySelector('#ro-cls').value.trim();
+      if (!/^\d{3,4}$/.test(cls)) { msg.textContent = '班級請填 3～4 位數字'; return; }
+      const rows = parseRoster(app.querySelector('#ro-text').value);
+      const good = rows.filter((r) => r.ok);
+      app.querySelector('[data-report]').innerHTML = `<table class="roster-report"><thead><tr><th>行</th><th>座號</th><th>姓名</th><th>狀態</th></tr></thead><tbody>${
+        rows.map((r) => `<tr><td>${r.line}</td><td>${esc(r.seat)}</td><td>${esc(r.name)}</td><td>${r.ok ? '✓' : '✗ 座號、姓名或密碼格式錯誤'}</td></tr>`).join('')}</tbody></table>`;
+      if (!good.length) { msg.textContent = '沒有可匯入的資料'; return; }
+      btn.disabled = true;
+      msg.textContent = `匯入中…（${good.length} 位）`;
+      try {
+        await importRoster(cls, good);
+        msg.textContent = `✓ 已匯入 ${good.length} 位${rows.length > good.length ? `，${rows.length - good.length} 行格式錯誤未匯入` : ''}`;
+      } catch (err) {
+        msg.textContent = `匯入失敗：${err.message}`;
+      } finally {
+        btn.disabled = false;
+      }
+    };
+  });
 }
 
 /* ---------------- boot ---------------- */
 async function boot() {
   if (!ttsSupported) document.body.classList.add('no-tts');
+  // 舊版只存在裝置上、沒有經過密碼確認的學生資料：要求重新登入
+  const saved = store.student();
+  if (saved && !saved.key) { store.setStudent(null); store.resetProgress(); }
   renderStudentChip();
   renderFooter();
   try {
@@ -183,6 +273,14 @@ async function boot() {
   window.addEventListener('hashchange', route);
   window.addEventListener('student-changed', () => { if (!document.body.dataset.busy) route(); });
   route();
+  // 以 Firestore 為準：每次進站重新讀取紀錄（例如在別台裝置做過的測驗）
+  const s = store.student();
+  if (s && s.key) {
+    loadHistory(s.key).then((h) => {
+      store.applyHistory(h);
+      if (!document.body.dataset.busy) route();
+    }).catch(() => { /* 離線時沿用裝置上的紀錄 */ });
+  }
 }
 
 boot();

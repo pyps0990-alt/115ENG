@@ -1,50 +1,53 @@
-// Firestore：學生基本資料 + 成績另外存一份，避免只靠這台裝置的 localStorage。
-// 資料結構：班級 > 座號 > 單元 > 每次測驗的作答細項（歷史紀錄，不覆蓋）
-//   classes/{cls}/seats/{seat}                                 學生基本資料
-//   classes/{cls}/seats/{seat}/units/{unitId}/attempts/{attemptId}  每次測驗成績＋逐題明細
-// attemptId 當文件 ID：同一次測驗重複送出只會嘗試覆蓋同一筆，Firestore 規則不允許更新歷史紀錄，
-// 所以效果等同「擋掉重複」，不會佔用容量；不同次測驗會各自累積成一筆新紀錄。
+// Firestore / Firebase Auth
+//   vault/{key}                         學生帳本：key = SHA-256(班級|座號|密碼)，老師匯入名單時建立
+//   vault/{key}/attempts/{attemptId}    該生每次測驗紀錄（學生憑密碼讀回，確認做過哪些單元）
+//   classes/{cls}/seats/{seat}/units/{unit}/attempts/{attemptId}   老師在主控台依班級瀏覽用
+//   admins/{email}                      老師／管理員名單（在 Firebase 主控台手動新增）
+// 不知道密碼就算不出 key，也不能列出 vault，所以讀不到別人的紀錄。
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
 import {
-  getFirestore, doc, setDoc, serverTimestamp,
+  getFirestore, doc, getDoc, getDocs, setDoc, collection, writeBatch, serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+} from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
 
-const firebaseConfig = {
+const app = initializeApp({
   apiKey: 'AIzaSyC0HFF3YjrsONdvYwTrofihkqNGiQjjdyc',
   authDomain: 'eng-3385e.firebaseapp.com',
   projectId: 'eng-3385e',
   storageBucket: 'eng-3385e.firebasestorage.app',
   messagingSenderId: '396514115433',
   appId: '1:396514115433:web:2bbe5d62c272bb69fa87f8',
-};
-
-let dbPromise = null;
-function getDb() {
-  if (!dbPromise) {
-    dbPromise = Promise.resolve().then(() => getFirestore(initializeApp(firebaseConfig)));
-  }
-  return dbPromise;
-}
+});
+const db = getFirestore(app);
+const auth = getAuth(app);
 
 const clean = (s, max) => String(s == null ? '' : s).trim().slice(0, max);
 
-// 班級+座號當文件 ID：同一個學生重複填寫基本資料只會更新同一筆
-export async function saveStudentProfile(s) {
-  if (!s || !s.cls || !s.seat) return;
-  const cls = clean(s.cls, 8);
-  const seat = clean(s.seat, 4);
-  if (!cls || !seat) return;
-  try {
-    const db = await getDb();
-    await setDoc(doc(db, 'classes', cls, 'seats', seat), {
-      cls, seat, name: clean(s.name, 40), updatedAt: serverTimestamp(),
-    }, { merge: true });
-  } catch (err) {
-    console.warn('Firestore 學生資料寫入失敗（不影響測驗與送出老師試算表）', err);
-  }
+export async function studentKey(cls, seat, pin) {
+  const bytes = new TextEncoder().encode(`${clean(cls, 8)}|${clean(seat, 4)}|${clean(pin, 12)}`);
+  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-// 每題作答細項的欄位跟 Google 試算表 details 分頁一樣：段落、題型、題號、題目、正確答案、學生答案、對錯、得分、提示次數
+/* ---------------- 學生 ---------------- */
+
+// 回傳 { ok: true, key, name } 或 { ok: false, reason }
+export async function verifyStudent({ cls, seat, name, pin }) {
+  const key = await studentKey(cls, seat, pin);
+  const snap = await getDoc(doc(db, 'vault', key));
+  if (!snap.exists()) return { ok: false, reason: 'notfound' };
+  const saved = snap.data();
+  if (clean(saved.name, 40) !== clean(name, 40)) return { ok: false, reason: 'name' };
+  return { ok: true, key, name: saved.name };
+}
+
+export async function loadHistory(key) {
+  const snap = await getDocs(collection(db, 'vault', key, 'attempts'));
+  return snap.docs.map((d) => d.data());
+}
+
 function cleanDetails(list) {
   if (!Array.isArray(list)) return [];
   return list.slice(0, 150).map((x) => ({
@@ -60,35 +63,67 @@ function cleanDetails(list) {
   }));
 }
 
-export async function saveScoreToFirestore(payload) {
-  if (!payload || !payload.attemptId || !payload.cls || !payload.seat || !payload.unit) return;
+// 同時寫進學生帳本（讓學生讀回）與班級路徑（老師瀏覽）。attemptId 當文件 ID，重複送出不會多一筆。
+export async function saveScoreToFirestore(payload, key) {
   const cls = clean(payload.cls, 8);
   const seat = clean(payload.seat, 4);
   const unit = clean(payload.unit, 60);
   const attemptId = clean(payload.attemptId, 64);
   if (!cls || !seat || !unit || !attemptId) return;
-  try {
-    const db = await getDb();
-    const ref = doc(db, 'classes', cls, 'seats', seat, 'units', unit, 'attempts', attemptId);
-    await setDoc(ref, {
-      cls, seat, unit, attemptId,
-      name: clean(payload.name, 40),
-      unitTitle: clean(payload.unitTitle, 80),
-      level: clean(payload.level, 20),
-      mode: clean(payload.mode, 30),
-      score: Number(payload.score) || 0,
-      total: Number(payload.total) || 0,
-      pct: Number(payload.pct) || 0,
-      basic: payload.basic == null ? '' : clean(payload.basic, 12),
-      advanced: payload.advanced == null ? '' : clean(payload.advanced, 12),
-      mastery: payload.mastery == null ? '' : clean(payload.mastery, 12),
-      wrong: Array.isArray(payload.wrong) ? payload.wrong.slice(0, 60).map((w) => clean(w, 60)) : [],
-      durationSec: Number(payload.durationSec) || 0,
-      clientTs: payload.clientTs ? clean(payload.clientTs, 30) : null,
-      details: cleanDetails(payload.details),
-      createdAt: serverTimestamp(),
-    });
-  } catch (err) {
-    console.warn('Firestore 成績寫入失敗（不影響送到老師試算表）', err);
+  const record = {
+    cls, seat, unit, attemptId,
+    name: clean(payload.name, 40),
+    unitTitle: clean(payload.unitTitle, 80),
+    level: clean(payload.level, 40),
+    mode: clean(payload.mode, 30),
+    review: !!payload.review,
+    score: Number(payload.score) || 0,
+    total: Number(payload.total) || 0,
+    pct: Number(payload.pct) || 0,
+    basic: clean(payload.basic, 12),
+    advanced: clean(payload.advanced, 12),
+    mastery: clean(payload.mastery, 12),
+    wrong: Array.isArray(payload.wrong) ? payload.wrong.slice(0, 60).map((w) => clean(w, 60)) : [],
+    durationSec: Number(payload.durationSec) || 0,
+    clientTs: clean(payload.clientTs, 30),
+    details: cleanDetails(payload.details),
+    createdAt: serverTimestamp(),
+  };
+  const writes = [setDoc(doc(db, 'classes', cls, 'seats', seat, 'units', unit, 'attempts', attemptId), record)];
+  if (key) writes.push(setDoc(doc(db, 'vault', key, 'attempts', attemptId), record));
+  const results = await Promise.allSettled(writes);
+  results.forEach((r) => { if (r.status === 'rejected') console.warn('Firestore 成績寫入失敗（不影響送到老師試算表）', r.reason); });
+}
+
+/* ---------------- 老師 ---------------- */
+
+// cb(null) 未登入；cb({ email, role }) 已登入，role 為 'teacher'、'admin' 或 null（不在名單）
+export function watchStaff(cb) {
+  return onAuthStateChanged(auth, async (user) => {
+    if (!user) { cb(null); return; }
+    const email = String(user.email || '').toLowerCase();
+    let role = null;
+    try {
+      const snap = await getDoc(doc(db, 'admins', email));
+      if (snap.exists()) role = snap.data().role === 'admin' ? 'admin' : 'teacher';
+    } catch { /* 不在名單時規則會拒絕讀取 */ }
+    cb({ email, role });
+  });
+}
+
+export const staffSignIn = () => signInWithPopup(auth, new GoogleAuthProvider());
+export const staffSignOut = () => signOut(auth);
+
+// rows: [{ seat, name, pin }]；只有 admins 名單內的帳號能寫入 vault
+export async function importRoster(cls, rows) {
+  const c = clean(cls, 8);
+  const batch = writeBatch(db);
+  for (const r of rows) {
+    const seat = clean(r.seat, 4);
+    const name = clean(r.name, 40);
+    const key = await studentKey(c, seat, r.pin);
+    batch.set(doc(db, 'vault', key), { cls: c, seat, name, updatedAt: serverTimestamp() });
+    batch.set(doc(db, 'classes', c, 'seats', seat), { cls: c, seat, name, updatedAt: serverTimestamp() }, { merge: true });
   }
+  await batch.commit();
 }

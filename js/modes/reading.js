@@ -29,11 +29,12 @@ export function mount(stage, ctx) {
       `共 <b>${qs.length}</b> 題，題目經過改寫，要理解文意才答得出來`,
       '交卷後才公布答案與解析',
     ],
-    best: store.best(ctx.unit.id).reading,
-    onStart: (s) => run(s),
+    best: () => store.best(ctx.unit.id).reading,
+    review: () => store.done(ctx.unit.id),
+    onStart: (s, review) => run(s, review),
   });
 
-  function run(student) {
+  function run(student, review = false) {
     const answers = new Array(qs.length).fill(null);
     let graded = false;
     const t0 = Date.now();
@@ -128,12 +129,12 @@ export function mount(stage, ctx) {
         scoreText: `${score()} / ${qs.length}`,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, '往下看每題解析'],
         extraHTML: `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`,
-        actions: [{ label: '重新作答', icon: icon.redo, onClick: () => { run(student); window.scrollTo({ top: 0, behavior: 'smooth' }); } }],
+        actions: [{ label: '再複習一次', icon: icon.redo, onClick: () => { run(student, true); window.scrollTo({ top: 0, behavior: 'smooth' }); } }],
       });
       slot.scrollIntoView({ behavior: 'smooth', block: 'start' });
       const res = await submitScore({
         clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
-        unit: ctx.unit.id, unitTitle: ctx.unit.title, mode: 'reading', level: '課文理解',
+        unit: ctx.unit.id, unitTitle: ctx.unit.title, mode: 'reading', review, level: review ? '複習 · 課文理解' : '課文理解',
         score: score(), total: qs.length, pct, durationSec,
         wrong: answers.map((a, i) => (a === qs[i].answer ? null : `Q${i + 1}`)).filter(Boolean),
         details: qs.map((q, i) => ({

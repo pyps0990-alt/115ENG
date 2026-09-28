@@ -186,6 +186,21 @@ main.container { padding-block: 24px 56px; outline: none; }
 .form-grid .span2 { grid-column: 1 / -1; }
 .form-err { color: var(--bad-ink); font-size: .85rem; min-height: 1.2em; }
 
+.badge.done { gap: 4px; border: 1px solid transparent; background: var(--amber-soft); color: var(--amber-ink); }
+.badge.done .ic { width: 12px; height: 12px; }
+
+/* 老師頁面 */
+.card.teacher { display: grid; gap: 14px; max-width: 720px; margin: 24px auto 0; }
+.card.teacher h2 { word-break: break-all; }
+.roster-text {
+  width: 100%; min-height: 220px; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--line);
+  background: var(--white); color: var(--navy); font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; resize: vertical;
+}
+.roster-text:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 4px var(--navy-soft); }
+.roster-report { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.roster-report th, .roster-report td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+.roster-report th { color: var(--steel); font-weight: 700; }
+
 dialog.modal { border: none; padding: 0; border-radius: 20px; width: min(440px, calc(100vw - 32px)); background: var(--white); color: var(--text); box-shadow: var(--shadow); }
 dialog.modal::backdrop { background: rgba(15, 23, 42, .45); }
 dialog.modal[open] { animation: pop-in .28s var(--spring); }

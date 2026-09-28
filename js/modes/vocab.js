@@ -29,8 +29,9 @@ export function mount(stage, ctx) {
       ...levels.map((l, i) => `第 ${i + 1} 段 <b>${l.name}</b>：${esc(l.desc)}`),
       `三段總分達 <b>${PASS}%</b> 就算通過`,
     ],
-    best: store.best(unitId).vocab,
-    onStart: (s) => play(s, levels.map((l) => ({ level: l, words: pickedWords() })), true),
+    best: () => store.best(unitId).vocab,
+    review: () => store.done(unitId),
+    onStart: (s, review) => play(s, levels.map((l) => ({ level: l, words: pickedWords() })), true, review),
   });
 
   let picked = null;
@@ -40,8 +41,8 @@ export function mount(stage, ctx) {
     return picked;
   }
 
-  // stagesIn: [{ level, words }]；official=false 為錯題練習，不送出成績
-  function play(student, stagesIn, official) {
+  // stagesIn: [{ level, words }]；official=false 為錯題練習，不送出成績；review=true 為做過正式測驗後的複習
+  function play(student, stagesIn, official, review = false) {
     picked = null;
     const stages = stagesIn.map(({ level, words }) => ({ level, qs: level.build(shuffle(words), all), points: 0, wrong: [] }));
     const total = stages.reduce((s, x) => s + x.qs.length, 0);
@@ -59,7 +60,7 @@ export function mount(stage, ctx) {
         <ol class="stepper" aria-label="測驗進度">${stages.map((s, i) => `<li data-step="${i}">
           <span class="step-dot">${i + 1}</span><span class="step-name">${s.level.name}</span><span class="step-score"></span></li>`).join('')}</ol>
         <div class="quiz-bar">
-          ${official ? '' : '<span class="level-chip">錯題練習</span>'}
+          ${official ? (review ? '<span class="level-chip">複習</span>' : '') : '<span class="level-chip">錯題練習</span>'}
           <div class="bar"><span></span></div>
           <span class="quiz-stat" data-n></span>
           <span class="quiz-stat streak" data-streak title="連續答對">${icon.flame}<b>0</b></span>
@@ -195,9 +196,9 @@ export function mount(stage, ctx) {
           onClick: () => play(student, stages.filter((s) => s.wrong.length).map((s) => ({ level: s.level, words: s.wrong.map((w) => w.q.word) })), false),
         });
       }
-      actions.push({ label: '重新測驗', icon: icon.shuffle, primary: !wrong.length, onClick: () => play(student, levels.map((l) => ({ level: l, words: pickedWords() })), true) });
+      actions.push({ label: '再複習一次', icon: icon.shuffle, primary: !wrong.length, onClick: () => play(student, levels.map((l) => ({ level: l, words: pickedWords() })), true, true) });
       const box = renderResult(stage, {
-        title: official ? (passed ? '三段測驗通過！' : '三段測驗完成') : '錯題練習完成',
+        title: !official ? '錯題練習完成' : `${review ? '複習' : '三段測驗'}${passed ? '通過！' : '完成'}`,
         pct,
         scoreText: `${fmt(points)} / ${total}`,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
@@ -210,8 +211,8 @@ export function mount(stage, ctx) {
       if (!official) return;
       const res = await submitScore({
         clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
-        unit: unitId, unitTitle: ctx.unit.title, mode: 'vocab',
-        level: stages.map((s) => s.level.name).join('→'),
+        unit: unitId, unitTitle: ctx.unit.title, mode: 'vocab', review,
+        level: `${review ? '複習 · ' : ''}${stages.map((s) => s.level.name).join('→')}`,
         score: Number(fmt(points)), total, pct, durationSec,
         basic: per.basic || '', advanced: per.advanced || '', mastery: per.mastery || '',
         wrong: [...new Set(wrong.map((w) => w.q.word.word))],

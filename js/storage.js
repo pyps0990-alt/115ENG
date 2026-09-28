@@ -41,5 +41,39 @@ export const store = {
     if (!(mode in b) || pct > b[mode]) { b[mode] = pct; write(`best:${unit}`, b); return true; }
     return false;
   },
+
+  // 已經做過正式測驗的單元，之後改成「複習」
+  done: (unit) => read(`done:${unit}`, false),
+  setDone: (unit) => write(`done:${unit}`, true),
+
+  // 換人登入時清掉上一位學生留在這台裝置的進度（scoresOnly：只清成績，保留錯題本）
+  resetProgress(scoresOnly = false) {
+    const re = scoresOnly ? /^b5p:(best|last|done):/ : /^b5p:(best|last|done|wrong):/;
+    try {
+      Object.keys(localStorage).filter((k) => re.test(k)).forEach((k) => localStorage.removeItem(k));
+    } catch { /* ignore */ }
+  },
+
+  // 用 Firestore 讀回的紀錄重建本機成績
+  applyHistory(attempts) {
+    this.resetProgress(true);
+    const pctOf = (s) => {
+      const m = /^'?(\d+(?:\.\d+)?)\s*\/\s*(\d+)/.exec(String(s || ''));
+      return m && Number(m[2]) ? Math.round((Number(m[1]) / Number(m[2])) * 100) : null;
+    };
+    const latest = {};
+    attempts.forEach((a) => {
+      if (!a.unit) return;
+      const mode = a.mode === 'reading' ? 'reading' : 'vocab';
+      this.setBest(a.unit, mode, Number(a.pct) || 0);
+      this.setDone(a.unit);
+      if (mode === 'vocab' && (!latest[a.unit] || String(a.clientTs) > String(latest[a.unit].clientTs))) latest[a.unit] = a;
+    });
+    Object.entries(latest).forEach(([unit, a]) => {
+      const last = {};
+      ['basic', 'advanced', 'mastery'].forEach((k) => { const p = pctOf(a[k]); if (p != null) last[k] = p; });
+      this.setLast(unit, last);
+    });
+  },
 };
 

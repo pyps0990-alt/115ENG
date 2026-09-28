@@ -106,34 +106,31 @@ node tools/check-content.mjs
 
 > `firebase.json` 只上傳網站需要的靜態檔案（`index.html`、`css/`、`js/`、`data/`），排除 `apps-script/`、`docs/`、`tools/` 等開發用檔案。
 
-## 學生資料另存一份到 Firestore
+## 學生登入與 Firestore
 
-除了送到老師試算表，學生的基本資料與每次測驗成績也會**另外**寫一份到 Firebase 的 Firestore 資料庫（`js/firebase.js`），跟老師試算表互不影響、互相獨立。資料結構是「班級 → 座號 → 單元 → 每次測驗」：
+學生第一次進站只會看到基本資料表單：**班級、座號、姓名、密碼**（密碼由老師發）。確認身分後，網站會從 Firestore 讀回這位學生的測驗紀錄，所以換裝置、清除瀏覽器資料都不會遺失，也能看出哪些單元已經做過。做過正式測驗的單元，按鈕會變成「**開始複習**」，複習的成績一樣會送出，但在試算表的「階段」欄會標記「複習」。
+
+資料結構（`js/firebase.js`）：
 
 ```
-classes/{班級}/seats/{座號}                                          學生基本資料（姓名、更新時間）
-classes/{班級}/seats/{座號}/units/{單元}/attempts/{attemptId}         每次測驗的成績與逐題明細
+vault/{key}                                       學生帳本，key = SHA-256(班級|座號|密碼)
+vault/{key}/attempts/{attemptId}                  該生每次測驗（學生讀回自己的紀錄）
+classes/{班級}/seats/{座號}/units/{單元}/attempts/{attemptId}   同一份紀錄，依班級整理給老師看
+admins/{email}                                    老師／管理員名單
 ```
 
-- 學生基本資料：同一個班級/座號重複填寫只會更新同一筆
-- 每次測驗：用 `attemptId` 當文件 ID，同一次測驗重複送出（例如離線補送）會被規則擋下來（視為「修改歷史紀錄」，不允許），效果等同防止重複；不同次測驗會各自保留成一筆新紀錄，不會覆蓋掉之前的
-- 每筆測驗紀錄包含逐題明細（`details`）：段落、題型、題目、正確答案、學生答案、對錯、得分、提示次數，跟老師試算表 `details` 分頁欄位相同
+不知道密碼就算不出 key，規則也不允許列出 `vault`，所以讀不到別人的紀錄。`attemptId` 當文件 ID，同一次測驗重複送出不會多一筆。
 
-寫入失敗（例如離線）只會在瀏覽器主控台印警告，不會影響測驗流程，也不影響原本送到老師試算表的成績。
+### 設定步驟（一次性）
 
-### 設定步驟
+1. Firebase 主控台 → **Authentication → 登入方式**，啟用 **Google**。
+2. **Firestore Database → 規則**：貼上 `firestore.rules` 並發布。
+3. **Firestore Database → 資料**：新增集合 `admins`，每位老師一份文件，文件 ID 是**小寫的 Google 帳號 email**，欄位 `role`（字串）填 `teacher` 或 `admin`。
+4. `firebase deploy --only hosting`。
 
-1. [Firebase 主控台](https://console.firebase.google.com/project/eng-3385e) → **建構 → Firestore Database → 建立資料庫**，位置選 `asia-east1`。
-2. 切到 **規則** 分頁，把 `firestore.rules` 的內容貼上並「發布」。這份規則不開放公開讀取（老師可直接在主控台查看資料），只允許新增/更新，不能刪除。
-3. 前端已經內建好 Firebase 專案設定（`js/firebase.js`），改完後 `firebase deploy --only hosting` 即可生效。
+### 老師頁面
 
-### 查看資料
-
-Firebase 主控台 → Firestore Database → 資料分頁，可以直接瀏覽 `classes` 底下的班級/座號/單元/測驗紀錄。
-
-### 老師後台匯入學生名單
-
-老師後台（Admin.html）多一個「**學生名單**」分頁：選班級、貼上「座號＋姓名」（可從 Excel/試算表直接複製兩欄貼上，或自己打字用 Tab／逗號隔開，每行一個），按「匯入這個班級」就會直接寫進 Firestore。用「班級-座號」當唯一識別，重複匯入同一個座號只會更新姓名，不會產生重複資料；學生之後在網站上填寫的班級/座號/姓名只要一致，就會沿用、更新這份資料。
+網站頁尾「老師登入」（`#/teacher`）：用 Google 帳號登入，在 `admins` 名單內才會看到「開啟老師後台」按鈕與**名單匯入**。名單每行一位：`座號　姓名　密碼`（可從試算表複製三欄貼上），密碼 4～8 位數字，建議 6 位以上。改密碼時重新匯入即可，但舊密碼仍能登入，要停用得到主控台刪除舊的 `vault` 文件。
 
 ## 老師後台與成績（Google Apps Script）
 
