@@ -89,6 +89,14 @@ export function watchConfig(current) {
       if (!sameConfig(c, cur)) window.dispatchEvent(new CustomEvent('config-updated', { detail: c }));
     }).catch(() => { /* 離線：下次再試 */ });
   };
+  // 即時同步：Firestore 一有新設定就推過來（網頁在背景載入 Firebase，不影響首頁速度）
+  const live = () => import('./firebase.js').then((fb) => fb.watchPublicConfig((c) => {
+    if (!c || !c.units) return;
+    const next = { ...c, source: 'firestore' };
+    writeCache(next);
+    if (!sameConfig(next, cur)) window.dispatchEvent(new CustomEvent('config-updated', { detail: next }));
+  })).catch(() => { /* 沒有即時同步也能用：回到前景時仍會檢查 */ });
+  if (SCRIPT_URL) (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(live);
   document.addEventListener('visibilitychange', check);
   window.addEventListener('pageshow', (e) => { if (e.persisted) check(); });
   window.addEventListener('focus', check);

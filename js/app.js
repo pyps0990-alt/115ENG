@@ -293,9 +293,9 @@ async function boot() {
   window.addEventListener('config-updated', (e) => {
     config = e.detail;
     build();
-    // 只在首頁重畫；老師頁、單元頁不打斷（下次切換頁面時就會用新設定）
+    // 作答中不打斷（交卷後換頁就會用新設定）；老師頁不需要重畫
     const kind = location.hash.split('/')[1] || '';
-    if (!kind && !document.body.dataset.busy) route();
+    if (kind !== 'teacher' && !document.body.dataset.busy) route();
   });
   watchConfig(config);
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
@@ -309,9 +309,9 @@ async function boot() {
   if (s && s.key) {
     firebase().then((fb) => fb.loadHistory(s.key)).then((h) => {
       store.applyHistory(h.attempts, h.reviews);
-      // 只在首頁重畫；老師頁、單元頁不打斷（下次切換頁面時就會用新設定）
+      // 作答中不打斷（交卷後換頁就會用新設定）；老師頁不需要重畫
     const kind = location.hash.split('/')[1] || '';
-    if (!kind && !document.body.dataset.busy) route();
+    if (kind !== 'teacher' && !document.body.dataset.busy) route();
     }).catch(() => { /* 離線時沿用裝置上的紀錄 */ });
   }
 }

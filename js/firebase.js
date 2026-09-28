@@ -6,7 +6,7 @@
 // 名單上沒有的班級/座號/姓名組合算不出存在的 key，所以進不去；規則也不允許列出 vault。
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
 import {
-  getFirestore, doc, getDoc, getDocs, setDoc, collection, writeBatch, serverTimestamp,
+  getFirestore, doc, getDoc, onSnapshot, getDocs, setDoc, collection, writeBatch, serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
@@ -137,4 +137,13 @@ export async function importRoster(cls, rows) {
     batch.set(doc(db, 'classes', c, 'seats', seat), { cls: c, seat, name, updatedAt: serverTimestamp() }, { merge: true });
   }
   await batch.commit();
+}
+
+/* ---------------- 老師設定即時同步 ---------------- */
+// public/config 由 Apps Script 在老師儲存時寫入；有變動時 Firestore 會立即推給正在使用的學生
+export function watchPublicConfig(cb) {
+  return onSnapshot(doc(db, 'public', 'config'), (snap) => {
+    if (!snap.exists()) return;
+    try { cb(JSON.parse(snap.data().json)); } catch { /* ignore */ }
+  }, (e) => console.warn('即時同步失敗', e));
 }
