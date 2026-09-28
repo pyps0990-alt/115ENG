@@ -1,4 +1,4 @@
-import { loadIndex, loadUnit, applyImported } from './data.js';
+import { loadIndex, loadUnit, applyImported, addCustomUnits } from './data.js';
 import { getConfig, unitVisible, modeOn, questionCount } from './remote-config.js';
 import { store } from './storage.js';
 import { esc } from './util.js';
@@ -170,6 +170,7 @@ async function boot() {
   renderFooter();
   try {
     [index, config] = await Promise.all([loadIndex(), getConfig()]);
+    addCustomUnits(index, config);
     applyImported(index, config);
   } catch (err) {
     app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><p>無法載入課程資料（${esc(err.message)}）。<br>請用網頁伺服器開啟，不能直接雙擊 index.html。</p></div>`;

@@ -129,9 +129,18 @@
           <span class="muted" style="margin-left:auto">學生網站約 1 分鐘內會套用新設定</span>
         </div>
         <table>
-          <thead><tr><th>顯示</th><th>單元</th><th>包含的階段／測驗</th><th>每段題數</th></tr></thead>
-          <tbody id="units"><tr><td colspan="4" class="muted">載入中…</td></tr></tbody>
+          <thead><tr><th>顯示</th><th>單元</th><th>包含的階段／測驗</th><th>每段題數</th><th>操作</th></tr></thead>
+          <tbody id="units"><tr><td colspan="5" class="muted">載入中…</td></tr></tbody>
         </table>
+        <div class="bar" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
+          <input type="text" id="nu-id" placeholder="代號，例如 l5-voc" size="14">
+          <input type="text" id="nu-title" placeholder="標題，例如 L5 單字片語" size="18">
+          <label style="display:flex;align-items:center;gap:6px;font-weight:400">課次 <input type="number" id="nu-lesson" min="1" max="99" value="5" style="width:64px"></label>
+          <select id="nu-type"><option value="vocab">單字片語</option><option value="reading">課文理解</option></select>
+          <button class="btn" id="nu-add" type="button">＋ 新增單元</button>
+          <span class="msg" id="nu-msg"></span>
+        </div>
+        <div class="help" style="margin-top:12px">新增單元後記得按上方「儲存設定」。新單元一開始沒有內容，請切到「匯入內容」分頁選擇這個單元，貼上單字或文章後儲存，學生網站才看得到實際題目。</div>
       </div>
     </section>
 
@@ -222,17 +231,30 @@
       };
     });
 
+    function titleCellHTML(u) {
+      if (!u.custom) {
+        return esc(u.title || u.id) + '<div class="muted" style="font-weight:400;font-size:.8rem">' + esc(u.id) + '</div>';
+      }
+      return '<input type="text" data-k="title" value="' + esc(u.title) + '" style="font-weight:700;margin-bottom:4px">' +
+        '<div class="muted" style="font-size:.8rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+        '<span>' + esc(u.id) + '</span>' +
+        '<label style="font-weight:400;display:inline-flex;gap:4px;align-items:center">課次 <input type="number" min="1" max="99" data-k="lesson" value="' + esc(u.lesson) + '" style="width:52px"></label>' +
+        '<label style="font-weight:400;display:inline-flex;gap:4px;align-items:center">類型 <select data-k="type"><option value="vocab"' + (u.type === 'vocab' ? ' selected' : '') + '>單字片語</option><option value="reading"' + (u.type === 'reading' ? ' selected' : '') + '>課文理解</option></select></label>' +
+        '</div>';
+    }
+
     function render() {
       $('units').innerHTML = units.map(function (u, i) {
         var modes = MODES[u.type] || MODES.reading;
         return '<tr data-i="' + i + '" class="' + (u.visible ? '' : 'off') + '">' +
           '<td><input type="checkbox" data-k="visible" ' + (u.visible ? 'checked' : '') + ' aria-label="顯示"></td>' +
-          '<td class="title">' + esc(u.title || u.id) + '<div class="muted" style="font-weight:400;font-size:.8rem">' + esc(u.id) + '</div></td>' +
+          '<td class="title">' + titleCellHTML(u) + '</td>' +
           '<td><div class="modes">' + modes.map(function (m) {
             return '<label><input type="checkbox" data-mode="' + m[0] + '" ' + (u.disabled.indexOf(m[0]) === -1 ? 'checked' : '') + '>' + m[1] + '</label>';
           }).join('') + '</div></td>' +
-          '<td>' + (u.type === 'vocab' ? '<input type="number" min="1" max="100" data-k="questionCount" value="' + esc(u.questionCount) + '">' : '<span class="muted">依文章題數</span>') + '</td></tr>';
-      }).join('') || '<tr><td colspan="4" class="muted">settings 分頁沒有資料，請先在編輯器執行 setup()。</td></tr>';
+          '<td>' + (u.type === 'vocab' ? '<input type="number" min="1" max="100" data-k="questionCount" value="' + esc(u.questionCount) + '">' : '<span class="muted">依文章題數</span>') + '</td>' +
+          '<td>' + (u.custom ? '<button class="btn" data-del="1" type="button">刪除</button>' : '') + '</td></tr>';
+      }).join('') || '<tr><td colspan="5" class="muted">settings 分頁沒有資料，請先在編輯器執行 setup()。</td></tr>';
       $('f-unit').innerHTML = '<option value="">全部</option>' + units.map(function (u) { return '<option value="' + esc(u.id) + '">' + esc(u.title || u.id) + '</option>'; }).join('');
     }
 
@@ -244,18 +266,53 @@
         u.disabled = u.disabled.filter(function (m) { return m !== t.dataset.mode; });
         if (!t.checked) u.disabled.push(t.dataset.mode);
       } else if (t.dataset.k) {
-        u[t.dataset.k] = t.type === 'checkbox' ? t.checked : t.value;
+        u[t.dataset.k] = t.type === 'checkbox' ? t.checked : (t.type === 'number' ? Number(t.value) : t.value);
         if (t.dataset.k === 'visible') tr.classList.toggle('off', !t.checked);
+        if (t.dataset.k === 'type') { render(); impInit(); $('msg').textContent = '尚未儲存'; $('msg').className = 'msg'; return; }
       }
       $('msg').textContent = '尚未儲存'; $('msg').className = 'msg';
     });
 
+    $('units').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-del]'); if (!btn) return;
+      var tr = btn.closest('tr'); var i = Number(tr.dataset.i);
+      var u = units[i];
+      if (!confirm('確定要刪除「' + (u.title || u.id) + '」嗎？（已匯入的內容不會被刪除，只是網站上不會再顯示這個單元）')) return;
+      units.splice(i, 1);
+      render();
+      impInit();
+      $('msg').textContent = '尚未儲存'; $('msg').className = 'msg';
+    });
+
+    $('nu-add').onclick = function () {
+      var id = $('nu-id').value.trim();
+      var title = $('nu-title').value.trim();
+      var lesson = Math.max(1, Number($('nu-lesson').value) || 1);
+      var type = $('nu-type').value;
+      var msg = $('nu-msg');
+      if (!/^[a-z0-9-]+$/i.test(id)) { msg.textContent = '代號只能用英文字母、數字、連字號'; msg.className = 'msg err'; return; }
+      if (units.some(function (u) { return u.id === id; })) { msg.textContent = '這個代號已經存在了'; msg.className = 'msg err'; return; }
+      if (!title) { msg.textContent = '請填標題'; msg.className = 'msg err'; return; }
+      units.push({ id: id, title: title, type: type, lesson: lesson, topic: '', visible: true, disabled: [], questionCount: 10, custom: true });
+      $('nu-id').value = ''; $('nu-title').value = '';
+      msg.textContent = '已新增「' + title + '」，記得按「儲存設定」'; msg.className = 'msg ok';
+      render();
+      impInit();
+    };
+
     $('save').onclick = function () {
       $('msg').textContent = '儲存中…'; $('msg').className = 'msg';
-      google.script.run
-        .withSuccessHandler(function () { $('msg').textContent = '✓ 已儲存'; $('msg').className = 'msg ok'; })
-        .withFailureHandler(function (err) { $('msg').textContent = '儲存失敗：' + err.message; $('msg').className = 'msg err'; })
-        .saveSettings(units);
+      var builtIn = units.filter(function (u) { return !u.custom; });
+      var custom = units.filter(function (u) { return u.custom; });
+      var pending = 2, failed = null;
+      function done() {
+        pending--;
+        if (pending > 0) return;
+        if (failed) { $('msg').textContent = '儲存失敗：' + failed; $('msg').className = 'msg err'; }
+        else { $('msg').textContent = '✓ 已儲存'; $('msg').className = 'msg ok'; }
+      }
+      google.script.run.withSuccessHandler(done).withFailureHandler(function (err) { failed = err.message; done(); }).saveSettings(builtIn);
+      google.script.run.withSuccessHandler(done).withFailureHandler(function (err) { failed = err.message; done(); }).saveCustomUnits(custom);
     };
 
     $('load').onclick = function () {
@@ -551,9 +608,12 @@
     };
 
     google.script.run
-      .withSuccessHandler(function (d) { units = d.units; content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit();
-        google.script.run.withSuccessHandler(aiPaint).withFailureHandler(function () {}).getAiStatus(); })
-      .withFailureHandler(function (err) { $('units').innerHTML = '<tr><td colspan="4" class="msg err">' + esc(err.message) + '</td></tr>'; })
+      .withSuccessHandler(function (d) {
+        units = (d.units || []).concat(d.customUnits || []);
+        content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit();
+        google.script.run.withSuccessHandler(aiPaint).withFailureHandler(function () {}).getAiStatus();
+      })
+      .withFailureHandler(function (err) { $('units').innerHTML = '<tr><td colspan="5" class="msg err">' + esc(err.message) + '</td></tr>'; })
       .getAdminData();
   </script>
 </body>

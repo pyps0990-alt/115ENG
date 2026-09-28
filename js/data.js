@@ -28,6 +28,18 @@ export async function loadUnit(id, config) {
   return getJSON(`data/lessons/${encodeURIComponent(id)}.json`);
 }
 
+// 把老師後台「新增單元」建立的全新課次併進單元清單（網站原本沒有的 id）
+export function addCustomUnits(index, config) {
+  const list = (config && config.customUnits) || [];
+  list.forEach((u) => {
+    if (index.units.some((x) => x.id === u.id)) return;
+    index.units.push({
+      id: u.id, lesson: u.lesson || 1, type: u.type === 'reading' ? 'reading' : 'vocab',
+      title: u.title || u.id, topic: u.topic || '', count: 0, sample: false,
+    });
+  });
+}
+
 // 把匯入內容的題數、主題套到單元清單上，並拿掉「範例」標記
 export function applyImported(index, config) {
   const content = (config && config.content) || {};

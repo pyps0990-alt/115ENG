@@ -23,6 +23,11 @@ var SITE_URL = 'https://pyps0990-alt.github.io/115ENG/';
 
 var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCount'];
 
+// 老師後台「新增單元」建立的全新單元（網站原本沒有的課次），跟 settings（只調整既有單元的顯示/題數）分開存放。
+var SHEET_CUSTOM_UNITS = 'custom_units';
+var CUSTOM_UNITS_FIELDS = ['id', 'title', 'type', 'lesson', 'topic', 'visible', 'disabled', 'questionCount'];
+var CUSTOM_UNITS_HEADER = ['單元代號', '標題', '類型', '課次', '主題', '顯示', '停用的段落', '每段題數'];
+
 // SCORES_FIELDS／DETAILS_FIELDS：程式內部用的欄位代號，順序要跟 doPost 組 row 的順序一致，不能改。
 // SCORES_HEADER／DETAILS_HEADER：實際寫進試算表第一列的中文欄名，只影響顯示，跟 FIELDS 一一對應。
 var SCORES_FIELDS = ['serverTime', 'cls', 'seat', 'name', 'unit', 'unitTitle', 'level', 'mode', 'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTime', 'attemptId'];
@@ -234,6 +239,7 @@ function setup() {
   sheet_(SHEET_SCORES, SCORES_HEADER);
   sheet_(SHEET_CONTENT, CONTENT_HEADER);
   sheet_(SHEET_DETAILS, DETAILS_HEADER);
+  sheet_(SHEET_CUSTOM_UNITS, CUSTOM_UNITS_HEADER);
   CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
   Logger.log('完成。老師名單：' + me);
 }
@@ -270,6 +276,7 @@ function getAdminData() {
   return {
     email: email,
     units: readSettingsRows_(),
+    customUnits: readCustomUnitsRows_(),
     content: readContentRows_().map(function (r) { return { id: r.id, updated: r.updated, updatedBy: r.updatedBy, count: r.count }; }),
     siteUrl: SITE_URL,
     sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl(),
@@ -292,6 +299,49 @@ function saveSettings(units) {
   if (rows.length) {
     sh.getRange(2, 1, rows.length, SETTINGS_HEADER.length).setValues(rows);
   }
+  CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
+  return { ok: true, savedAt: new Date().toISOString() };
+}
+
+// 老師後台「新增單元」：讀取／整批覆寫全新單元清單。id 只接受英數字與連字號，
+// 網站前端會把這些單元併進首頁與課次清單；內容仍要靠「匯入內容」分頁填入才會有實際題目。
+function readCustomUnitsRows_() {
+  var sh = sheet_(SHEET_CUSTOM_UNITS, CUSTOM_UNITS_HEADER);
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, CUSTOM_UNITS_FIELDS.length).getValues()
+    .filter(function (r) { return String(r[0]).trim(); })
+    .map(function (r) {
+      return {
+        id: String(r[0]).trim(),
+        title: String(r[1] || r[0]),
+        type: String(r[2]) === 'reading' ? 'reading' : 'vocab',
+        lesson: Math.max(1, Number(r[3]) || 1),
+        topic: String(r[4] || ''),
+        visible: bool_(r[5], true),
+        disabled: String(r[6] || '').split(',').map(function (s) { return s.trim(); }).filter(String),
+        questionCount: Number(r[7]) || 10,
+        custom: true,
+      };
+    });
+}
+
+function saveCustomUnits(units) {
+  assertTeacher_();
+  var rows = (units || [])
+    .filter(function (u) { return /^[a-z0-9-]+$/i.test(String(u.id || '').trim()); })
+    .map(function (u) {
+      return [
+        String(u.id).trim(), String(u.title || u.id), (u.type === 'reading' ? 'reading' : 'vocab'),
+        Math.max(1, Number(u.lesson) || 1), String(u.topic || ''),
+        u.visible !== false, (u.disabled || []).join(','),
+        Math.min(100, Math.max(1, Number(u.questionCount) || 10)),
+      ];
+    });
+  var sh = sheet_(SHEET_CUSTOM_UNITS, CUSTOM_UNITS_HEADER);
+  var last = sh.getLastRow();
+  if (last > 1) sh.getRange(2, 1, last - 1, CUSTOM_UNITS_FIELDS.length).clearContent();
+  if (rows.length) sh.getRange(2, 1, rows.length, CUSTOM_UNITS_FIELDS.length).setValues(rows);
   CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
   return { ok: true, savedAt: new Date().toISOString() };
 }
@@ -654,6 +704,14 @@ function readConfigCached_() {
   if (hit) return JSON.parse(hit);
   var cfg = { units: {}, updated: new Date().toISOString() };
   readSettingsRows_().forEach(function (u) {
+    cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount };
+  });
+  // 老師後台新增的全新單元：網站前端會把這些併進課次清單（見 js/data.js 的 addCustomUnits）
+  var customUnits = readCustomUnitsRows_();
+  cfg.customUnits = customUnits.map(function (u) {
+    return { id: u.id, title: u.title, type: u.type, lesson: u.lesson, topic: u.topic };
+  });
+  customUnits.forEach(function (u) {
     cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount };
   });
   // 老師匯入過的單元：網站會改讀試算表裡的內容
