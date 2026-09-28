@@ -2,8 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 學生基本資料：班級+座號當文件 ID，只能新增/更新自己這筆，不能刪除、不能公開讀取
-    match /students/{id} {
+    match /classes/{cls}/seats/{seat} {
+      // 學生基本資料：班級/座號當路徑，只能新增/更新自己這筆，不開放公開讀取
       allow read: if false;
       allow create, update: if
         request.resource.data.keys().hasOnly(['cls', 'seat', 'name', 'updatedAt']) &&
@@ -11,17 +11,17 @@ service cloud.firestore {
         request.resource.data.seat is string && request.resource.data.seat.size() <= 4 &&
         request.resource.data.name is string && request.resource.data.name.size() <= 40;
       allow delete: if false;
-    }
 
-    // 成績：attemptId 當文件 ID，天生防止重複；不開放讀取、不能刪除
-    match /scores/{id} {
-      allow read: if false;
-      allow create: if
-        request.resource.data.keys().hasAll(['cls', 'seat', 'name', 'unit', 'attemptId']) &&
-        request.resource.data.attemptId is string && request.resource.data.attemptId.size() <= 64;
-      // 更新時只能覆蓋「同一筆」（attemptId 不能被改成別人的），防止竄改別的紀錄
-      allow update: if request.resource.data.attemptId == resource.data.attemptId;
-      allow delete: if false;
+      match /units/{unitId}/attempts/{attemptId} {
+        // 每次測驗成績＋逐題明細：只能新增，不能修改或刪除歷史紀錄。
+        // 同一個 attemptId 重複送出會被 Firestore 當成「更新」擋下來，效果等同防止重複紀錄。
+        allow read: if false;
+        allow create: if
+          request.resource.data.keys().hasAll(['cls', 'seat', 'unit', 'attemptId', 'score', 'total', 'pct', 'details']) &&
+          request.resource.data.attemptId is string && request.resource.data.attemptId.size() <= 64 &&
+          request.resource.data.details is list && request.resource.data.details.size() <= 150;
+        allow update, delete: if false;
+      }
     }
   }
 }
