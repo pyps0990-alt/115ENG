@@ -170,7 +170,8 @@ async function renderUnit(id, sub) {
 
 /* ---------------- footer ---------------- */
 function renderFooter() {
-  document.getElementById('site-foot').innerHTML = '<span>B5 Practice · 內湖高中英文科</span><a href="#/teacher">老師登入</a>';
+  // 老師入口不放在學生畫面上，避免誤觸；老師直接開 #/teacher（存成書籤）
+  document.getElementById('site-foot').innerHTML = '<span>B5 Practice · 內湖高中英文科</span>';
 }
 
 /* ---------------- teacher ---------------- */
