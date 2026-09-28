@@ -461,6 +461,7 @@ function saveContent(unitId, data) {
     lock.releaseLock();
   }
   clearContentCache_(unitId);
+  markReset_(unitId);
   // 版本號用設定裡的 updated（跟網站比對用的是同一個值）
   var cfg = publishConfig_();
   var v = (cfg.content[unitId] || {}).updated || now;
@@ -474,8 +475,17 @@ function deleteContent(unitId) {
   var row = findContentRow_(unitId);
   if (row) sheet_(SHEET_CONTENT, CONTENT_HEADER).deleteRow(row.index);
   clearContentCache_(unitId);
+  markReset_(unitId);
   publishConfig_();
   return { ok: true };
+}
+
+// 題目內容更新或刪除時記下重製時間：學生網站會忽略這個時間之前的作答與檢討紀錄
+function markReset_(unitId) {
+  var props = PropertiesService.getScriptProperties();
+  var map = JSON.parse(props.getProperty('RESET_AT') || '{}');
+  map[unitId] = new Date().toISOString();
+  props.setProperty('RESET_AT', JSON.stringify(map));
 }
 
 function purgeUnit_(unitId) {
@@ -989,6 +999,13 @@ function readConfigCached_() {
   });
   customUnits.forEach(function (u) {
     cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount, since: u.createdAt || '' };
+  });
+  // 題目更新過的單元：重製時間取較晚的一個
+  var resets = JSON.parse(PropertiesService.getScriptProperties().getProperty('RESET_AT') || '{}');
+  Object.keys(resets).forEach(function (id) {
+    if (!cfg.units[id]) cfg.units[id] = {};
+    var cur = cfg.units[id].since || '';
+    if (resets[id] > cur) cfg.units[id].since = resets[id];
   });
   // 老師匯入過的單元：網站會改讀試算表裡的內容
   cfg.content = {};
