@@ -2,7 +2,8 @@
  * B5 Practice — 成績回傳與老師後台（Google Apps Script，綁定在一份 Google 試算表上）
  *
  *   GET  ?action=config  → 學生網站讀取顯示設定（JSON，不需要登入）
- *   POST (text/plain JSON) → 學生完成測驗（單字片語三段連續、課文理解），寫入 scores 總表、「班級 xxx」分頁與 details（每題明細），用 attemptId 去除重複
+ *   POST (text/plain JSON) → 學生完成測驗（單字片語三段連續、課文理解），寫入 scores 總表、「班級 xxx」分頁與 details（每題明細），用 attemptId 去除重複；
+ *                            同時更新「成績單 xxx」矩陣式分頁（老師預先用選單建立名單後才會寫入，只保留每個單元的最高分）
  *   GET  （不帶參數）     → 老師後台；只有 teachers 分頁白名單裡的 Google 帳號能進入
  *
  * 使用方式：這個檔案和 Admin.html 貼進試算表的 Apps Script，執行一次 setup()，再部署成網頁應用程式。
@@ -89,6 +90,8 @@ function doPost(e) {
     // 依班級分頁（班級只接受 3–4 位數字）
     var cls = String(d.cls || '').trim();
     if (/^\d{3,4}$/.test(cls)) sheet_(CLASS_SHEET_PREFIX + cls, SCORES_HEADER).appendRow(row);
+    // 矩陣式成績單（老師預先建立好名單才會寫入，見「成績單 XXX」分頁）
+    writeGradebook_(cls, d.seat, d.unit, d.pct);
     // 每題作答明細
     var details = Array.isArray(d.details) ? d.details.slice(0, 120) : [];
     if (details.length) {
@@ -109,6 +112,80 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* 矩陣式成績單（成績單 XXX）——老師預先建立名單，系統只填格子，不新增學生列   */
+/* ------------------------------------------------------------------ */
+
+var GRADEBOOK_PREFIX = '成績單 ';
+var GRADEBOOK_BASE_HEADER = ['班級', '座號', '姓名'];
+
+// 寫入（或更新）一格分數：找到「座號」對應的列、「單元」對應的欄，只有比原分數高才覆蓋。
+// 找不到分頁、找不到座號（名單裡沒有這個學生）都直接略過，不會自動新增列。
+function writeGradebook_(cls, seat, unit, pct) {
+  var clsTrim = String(cls || '').trim();
+  if (!/^\d{3,4}$/.test(clsTrim)) return;
+  var seatTrim = String(seat || '').trim();
+  var unitTrim = String(unit || '').trim();
+  if (!seatTrim || !unitTrim) return;
+
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(GRADEBOOK_PREFIX + clsTrim);
+  if (!sh) return; // 老師還沒用選單建立這個班級的成績單分頁
+
+  var lastRow = sh.getLastRow();
+  var lastCol = sh.getLastColumn();
+  if (lastRow < 2 || lastCol < GRADEBOOK_BASE_HEADER.length) return;
+
+  var seatValues = sh.getRange(2, 2, lastRow - 1, 1).getValues();
+  var rowIdx = -1;
+  for (var i = 0; i < seatValues.length; i++) {
+    if (String(seatValues[i][0]).trim() === seatTrim) { rowIdx = i + 2; break; }
+  }
+  if (rowIdx === -1) return; // 名單裡沒有這個座號
+
+  var unitColCount = lastCol - GRADEBOOK_BASE_HEADER.length;
+  var colIdx = -1;
+  if (unitColCount > 0) {
+    var header = sh.getRange(1, GRADEBOOK_BASE_HEADER.length + 1, 1, unitColCount).getValues()[0];
+    for (var j = 0; j < header.length; j++) {
+      if (String(header[j]).trim() === unitTrim) { colIdx = GRADEBOOK_BASE_HEADER.length + 1 + j; break; }
+    }
+  }
+  if (colIdx === -1) {
+    colIdx = lastCol + 1;
+    sh.getRange(1, colIdx).setValue(unitTrim).setFontWeight('bold');
+  }
+
+  var cell = sh.getRange(rowIdx, colIdx);
+  var next = Number(pct);
+  var current = Number(cell.getValue());
+  if (isFinite(next) && (!isFinite(current) || next > current)) {
+    cell.setValue(next);
+  }
+}
+
+// 選單用：建立一個班級的成績單範本分頁（班級/座號/姓名 三欄），老師貼上名單後即可使用。
+function createGradebookSheet() {
+  var ui = SpreadsheetApp.getUi();
+  var res = ui.prompt('建立班級成績單', '請輸入班級（例如 306）：', ui.ButtonSet.OK_CANCEL);
+  if (res.getSelectedButton() !== ui.Button.OK) return;
+  var cls = String(res.getResponseText() || '').trim();
+  if (!/^\d{3,4}$/.test(cls)) {
+    ui.alert('班級請填 3–4 位數字，例如 306。');
+    return;
+  }
+  var name = GRADEBOOK_PREFIX + cls;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName(name)) {
+    ui.alert('「' + name + '」已經存在了。');
+    return;
+  }
+  var sh = ss.insertSheet(name);
+  sh.getRange(1, 1, 1, GRADEBOOK_BASE_HEADER.length).setValues([GRADEBOOK_BASE_HEADER]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  sh.setFrozenColumns(GRADEBOOK_BASE_HEADER.length);
+  ui.alert('建好了，請在「' + name + '」分頁的班級/座號/姓名欄貼上這個班的學生名單（從第 2 列開始），之後學生測驗完分數就會自動填進對應欄位。');
 }
 
 function seenAttempt_(id) {
@@ -161,6 +238,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('B5 Practice')
     .addItem('初始化（建立分頁）', 'setup')
+    .addItem('建立班級成績單', 'createGradebookSheet')
     .addItem('開啟老師後台', 'openAdmin')
     .addToUi();
 }
