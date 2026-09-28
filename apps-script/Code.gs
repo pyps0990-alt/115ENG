@@ -919,14 +919,19 @@ function aiCall_(prompt, schema) {
   var chain = [chosen].concat(AI_FALLBACK_MODELS.filter(function (m) { return m !== chosen; }));
   var lastErr = null;
   for (var i = 0; i < chain.length; i++) {
-    try {
-      return aiCallOnce_(chain[i], key, prompt, schema);
-    } catch (e) {
-      lastErr = e;
-      if (!/^RETRY:/.test(e.message)) throw e;
+    // 「目前忙碌中」通常過幾秒就好了，同一個模型先重試一次，還是忙才換下一個模型
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        return aiCallOnce_(chain[i], key, prompt, schema);
+      } catch (e) {
+        lastErr = e;
+        if (!/^RETRY:/.test(e.message)) throw e;
+        if (attempt === 0 && /^RETRY:BUSY/.test(e.message)) { Utilities.sleep(1500); continue; }
+        break;
+      }
     }
   }
-  throw new Error(String(lastErr.message).replace(/^RETRY:/, '') + '（已試過 ' + chain.length + ' 個模型都額滿或不可用，請稍後再試）');
+  throw new Error(String(lastErr.message).replace(/^RETRY:(BUSY)?/, '') + '（已試過 ' + chain.length + ' 個模型都額滿或忙碌中，請稍後再試）');
 }
 
 function aiCallOnce_(model, key, prompt, schema) {
@@ -949,6 +954,7 @@ function aiCallOnce_(model, key, prompt, schema) {
     if (code === 403) throw new Error('這組金鑰沒有權限使用 Gemini（學校帳號可能被管理員關閉，可改用個人 Gmail 申請）：' + msg);
     if (code === 404) throw new Error('RETRY:找不到模型「' + model + '」');
     if (code === 429) throw new Error('RETRY:「' + model + '」用量已達上限');
+    if (code === 500 || code === 503) throw new Error('RETRY:BUSY「' + model + '」目前使用的人太多');
     throw new Error('Gemini 錯誤 ' + code + '：' + msg);
   }
   var data = JSON.parse(body);
