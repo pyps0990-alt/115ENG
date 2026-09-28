@@ -2,7 +2,6 @@
 // feedback=true：練習模式，作答後立即顯示對錯；false：正式測驗，只記錄作答。
 import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample } from '../util.js';
 import { icon } from '../icons.js';
-import { speak } from '../tts.js';
 
 // 拼字題每題最多提示 2 次（每次扣 0.25 分），用完按鈕變暗
 export const MAX_HINTS = 2;
@@ -72,7 +71,7 @@ export function renderMC(host, q, { feedback = true, selected = null, label = ''
   const cloze = q.dir === 'cloze';
   const meta = label || (en2zh ? '選出正確的中文意思' : cloze ? '選出最適合填入空格的字詞' : '選出正確的英文字詞');
   const prompt = en2zh
-    ? `<div class="q-prompt"><span class="w">${esc(q.word.word)}</span><button class="speak" type="button" aria-label="發音">${icon.speaker}</button></div>
+    ? `<div class="q-prompt"><span class="w">${esc(q.word.word)}</span></div>
        <div class="q-sub"><span class="pos">${esc(q.word.pos || '')}</span></div>`
     : cloze
       ? `<div class="q-sentence">${esc(q.parts.before)}<span class="blank"></span>${esc(q.parts.after)}</div>`
@@ -91,7 +90,6 @@ export function renderMC(host, q, { feedback = true, selected = null, label = ''
         <span class="opt-mark" aria-hidden="true"></span></button>`).join('')}
     </div>`;
   host.append(card);
-  card.querySelector('.speak')?.addEventListener('click', () => speak(q.word.word));
   const opts = [...card.querySelectorAll('.opt')];
   let done = false;
 
@@ -111,7 +109,6 @@ export function renderMC(host, q, { feedback = true, selected = null, label = ''
       else if (j === i) { o.classList.add('wrong'); o.querySelector('.opt-mark').innerHTML = icon.x; }
       else o.classList.add('dim');
     });
-    if (en2zh || ok) speak(cloze ? q.options[q.answer] : q.word.word);
     onAnswer?.(ok, i);
   };
   opts.forEach((o) => o.addEventListener('click', () => choose(Number(o.dataset.i))));
@@ -201,7 +198,6 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
     card.querySelector('.q-foot').hidden = true;
     if (ok) {
       boxes.forEach((b, i) => { b.style.animationDelay = `${i * 70}ms`; b.classList.remove('filled', 'hinted', 'cursor'); b.classList.add('ok'); });
-      speak(q.answer);
     } else {
       boxesEl.classList.add('shake');
       boxes.forEach((b, i) => { b.classList.remove('cursor'); if (typed[i] !== target[i]) b.classList.add('bad'); });

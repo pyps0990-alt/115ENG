@@ -2,7 +2,6 @@ const svg = (p) => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="curr
 
 export const icon = {
   back: svg('<path d="M15 18l-6-6 6-6"/>'),
-  speaker: svg('<path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/><path d="M19 5a10 10 0 010 14"/>'),
   check: svg('<path d="M20 6L9 17l-5-5"/>'),
   x: svg('<path d="M18 6L6 18M6 6l12 12"/>'),
   flip: svg('<path d="M3 12a9 9 0 0115-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 01-15 6.7L3 16"/><path d="M3 21v-5h5"/>'),

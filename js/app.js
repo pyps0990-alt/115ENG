@@ -3,7 +3,6 @@ import { getConfig, unitVisible, modeOn, questionCount } from './remote-config.j
 import { store } from './storage.js';
 import { esc } from './util.js';
 import { icon } from './icons.js';
-import { ttsSupported } from './tts.js';
 import { renderStudentChip, mountInlineForm } from './student.js';
 import { SCRIPT_URL, ADMIN_URL } from './config.js';
 import { LEVELS, PASS } from './levels.js';
@@ -253,7 +252,6 @@ function renderTeacher() {
 
 /* ---------------- boot ---------------- */
 async function boot() {
-  if (!ttsSupported) document.body.classList.add('no-tts');
   // 舊版只存在裝置上、沒有跟老師名單確認過的學生資料：要求重新登入
   const saved = store.student();
   if (saved && !saved.key) { store.setStudent(null); store.resetProgress(); }

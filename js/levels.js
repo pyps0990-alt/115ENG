@@ -8,7 +8,7 @@ export const LEVELS = [
   {
     id: 'basic', name: '基礎', en: 'Basic',
     desc: '看英文，選出中文意思',
-    items: ['英 → 中 四選一', '可以聽發音'],
+    items: ['英 → 中 四選一'],
     build: (words, pool) => words.map((w) => buildMC(w, pool, 'en2zh')),
   },
   {

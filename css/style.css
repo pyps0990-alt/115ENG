@@ -151,10 +151,6 @@ main.container { padding-block: 24px 56px; outline: none; }
 .eyebrow { font-family: var(--font-en); font-size: .76rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--steel); }
 .badge { display: inline-flex; align-items: center; padding: 1px 9px; border-radius: 999px; font-size: .72rem; font-weight: 700; background: var(--white); color: var(--steel); border: 1px dashed var(--line-strong); white-space: nowrap; }
 .pos { display: inline-block; padding: 1px 10px; border-radius: 999px; font-family: var(--font-en); font-style: italic; font-size: .82rem; font-weight: 800; background: var(--navy-soft); color: var(--navy); }
-.speak { display: inline-grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; border: none; background: var(--navy-soft); color: var(--navy); transition: transform .15s var(--spring); }
-.speak:hover { transform: scale(1.08); }
-.speak:active { transform: scale(.92); }
-.no-tts .speak { display: none; }
 
 .loading { display: flex; align-items: center; gap: 10px; justify-content: center; padding: 80px 0; }
 .spinner { width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--navy); animation: spin .8s linear infinite; }
