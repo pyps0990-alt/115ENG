@@ -8,21 +8,22 @@ export const PASS = 80;
 export const LEVELS = [
   {
     id: 'basic', name: '基礎', en: 'Basic',
-    desc: '看英文，選出中文意思',
-    items: ['英 → 中 四選一'],
-    build: (words, pool) => words.map((w) => buildMC(w, pool, 'en2zh')),
+    desc: '英文選中文、或中文選英文，題型隨機出現',
+    items: ['英 ↔ 中 四選一（隨機方向）'],
+    build: (words, pool) => words.map((w) => buildMC(w, pool, 'mix')),
   },
   {
     id: 'advanced', name: '進階', en: 'Advanced',
-    desc: '看中文選英文，並在例句中選出正確字詞',
+    desc: '中文選英文、或例句選字詞，題型隨機出現',
     items: ['中 → 英 四選一', '例句填空四選一（含詞形變化）'],
-    build: (words, pool) => words.map((w, i) => (i % 2 ? buildClozeMC(w, pool) : buildMC(w, pool, 'zh2en'))),
+    // 每個字獨立擲一次骰子決定題型：同一個字這次考例句、下次考中翻英都有可能
+    build: (words, pool) => words.map((w) => (Math.random() < 0.5 ? buildClozeMC(w, pool) : buildMC(w, pool, 'zh2en'))),
   },
   {
     id: 'mastery', name: '精熟', en: 'Mastery',
-    desc: '沒有選項，自己拼出單字與片語',
+    desc: '沒有選項，自己拼出單字或片語，題型隨機出現',
     items: ['看中文拼出英文', '例句填空拼寫', '提示最多 2 次，每次扣 0.25 分'],
-    build: (words) => words.map((w, i) => buildSpell(w, i % 2 ? 'cloze' : 'spell')),
+    build: (words) => words.map((w) => buildSpell(w, Math.random() < 0.5 ? 'cloze' : 'spell')),
   },
 ];
 
