@@ -27,6 +27,9 @@ export function mount(stage, ctx) {
   function reviewItemHTML(d) {
     const w = all.find((x) => x.word === d.word) || { word: d.word || '' };
     const yours = String(d.yours || '').trim();
+    // 例句題顯示當時考的那句（同一個字可能存了不只一句例句），不是字典裡的第一句
+    const exEn = d.exampleEn || w.example;
+    const exZh = d.exampleZh || w.exampleZh;
     return `<div class="rv-card">
         <div class="rv-meta">${esc(d.stage || '')}・${esc(d.kind || '')}</div>
         <div class="rv-prompt ${/[a-z]/i.test(d.q || d.question || '') ? 'en' : ''}">${esc(d.q || d.question || '')}</div>
@@ -34,8 +37,8 @@ export function mount(stage, ctx) {
         <div class="rv-row ok"><span>正確答案</span><b class="en">${esc(d.correct || '')}</b></div>
         ${d.err ? `<p class="xp-tip"><span class="xp-tag">${esc(d.err)}</span>${esc(ERR_TIPS[d.err] || '')}</p>` : ''}
         <div class="xp-main"><span class="xp-word en">${esc(w.word)}</span>${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>
-        ${w.example ? `<p class="xp-ex en">${exampleHTML(w.example)}</p>` : ''}
-        ${w.exampleZh ? `<p class="xp-exzh">${esc(w.exampleZh)}</p>` : ''}
+        ${exEn ? `<p class="xp-ex en">${exampleHTML(exEn)}</p>` : ''}
+        ${exZh ? `<p class="xp-exzh">${esc(exZh)}</p>` : ''}
       </div>`;
   }
 
@@ -135,10 +138,14 @@ export function mount(stage, ctx) {
     function answered(q, ok, got, yours, hints = 0) {
       const s = stages[si];
       s.points += got;
+      // 例句題把當時考的那句一起記下來，逐題檢討時要顯示同一句，不是字典裡預設那句
+      const clozeQ = (q.type === 'mc' && q.dir === 'cloze') || (q.type === 'spell' && q.variant === 'cloze');
       details.push({
         stage: s.level.name, n: qi + 1, kind: q.type === 'mc' ? (q.dir === 'en2zh' ? '英→中' : q.dir === 'cloze' ? '例句選字' : '中→英') : (q.variant === 'cloze' ? '例句拼寫' : '拼字'),
         q: promptText(q), correct: answerText(q), yours: yours == null ? '' : String(yours), ok, points: got, hints,
         word: q.word.word, err: ok ? '' : classifyError(q, yours, all),
+        exampleEn: clozeQ ? `${q.parts.before}[${q.parts.answer}]${q.parts.after}` : '',
+        exampleZh: clozeQ ? (q.exampleZh || '') : '',
       });
       const fb = stage.querySelector('[data-fb]');
       const st = stage.querySelector('[data-streak]');

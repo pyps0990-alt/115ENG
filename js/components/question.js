@@ -1,6 +1,6 @@
 // 可重複使用的題目元件：選擇題 (renderMC) 與字母框拼字 (renderSpell)。
 // feedback=true：練習模式，作答後立即顯示對錯；false：正式測驗，只記錄作答。
-import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample } from '../util.js';
+import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample, pickExample } from '../util.js';
 import { icon } from '../icons.js';
 
 // 拼字題每題最多提示 2 次（每次扣 0.25 分），用完按鈕變暗
@@ -26,8 +26,10 @@ export function buildMC(word, pool, dir) {
 }
 
 // 進階：例句挖空，四選一（選項是其他字詞在例句中的形式）
+// 這個字如果存了不只一句例句，每次隨機挑一句出題，同樣的字、同樣題型內容也不會一樣
 export function buildClozeMC(word, pool) {
-  const c = clozeParts(word);
+  const ex = pickExample(word);
+  const c = clozeParts({ ...word, example: ex.ex });
   if (!c) return buildMC(word, pool, 'zh2en');
   const key = (s) => s.toLowerCase();
   const seen = new Set([key(c.answer)]);
@@ -44,13 +46,14 @@ export function buildClozeMC(word, pool) {
   const cap = /^[A-Z]/.test(c.answer) && !c.before.trim();
   const fix = (s) => (cap ? s.charAt(0).toUpperCase() + s.slice(1) : s.charAt(0).toLowerCase() + s.slice(1));
   const options = shuffle([c.answer, ...others.map(fix)]);
-  return { type: 'mc', word, dir: 'cloze', parts: c, options, answer: options.indexOf(c.answer) };
+  return { type: 'mc', word, dir: 'cloze', parts: c, options, answer: options.indexOf(c.answer), exampleZh: ex.zh };
 }
 
 export function buildSpell(word, variant) {
   if (variant === 'cloze') {
-    const c = clozeParts(word);
-    if (c) return { type: 'spell', variant: 'cloze', word, answer: c.answer, parts: c };
+    const ex = pickExample(word);
+    const c = clozeParts({ ...word, example: ex.ex });
+    if (c) return { type: 'spell', variant: 'cloze', word, answer: c.answer, parts: c, exampleZh: ex.zh };
   }
   return { type: 'spell', variant: 'spell', word, answer: word.word };
 }
@@ -126,7 +129,7 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   const head = q.variant === 'cloze'
     ? `<div class="q-meta">${esc(label || '依句意拼出空格中的單字')}</div>
        <div class="q-sentence">${esc(q.parts.before)}<span class="blank"></span>${esc(q.parts.after)}</div>
-       <div class="q-sub"><span>${esc(w.exampleZh || '')}</span></div>
+       <div class="q-sub"><span>${esc(q.exampleZh || w.exampleZh || '')}</span></div>
        <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${esc(w.zh)}</span><span>· ${n} 個字母</span></div>`
     : `<div class="q-meta">${esc(label || '看中文，拼出英文單字')}</div>
        <div class="q-prompt"><span class="zh">${esc(w.zh)}</span></div>
@@ -308,10 +311,14 @@ export function explainWrong(q, chosen, pool = []) {
     lines.push(`<p class="xp-yours">${typed ? `你拼成 <b class="en">${esc(typed)}</b>` : '沒有作答'}${typed && d ? `・${esc(d)}` : ''}</p>`);
     if (d) text.push(d);
   }
-  if (w.example) {
-    lines.push(`<p class="xp-ex en">${exampleHTML(w.example)}</p>`);
-    if (w.exampleZh) lines.push(`<p class="xp-exzh">${esc(w.exampleZh)}</p>`);
-    text.push(plainExample(w.example));
+  // 這題是例句題的話，顯示的例句要跟剛才考的那句一致（同一個字可能存了不只一句）
+  const clozeQ = (q.type === 'mc' && q.dir === 'cloze') || (q.type === 'spell' && q.variant === 'cloze');
+  const exEn = clozeQ ? `${q.parts.before}[${q.parts.answer}]${q.parts.after}` : w.example;
+  const exZh = clozeQ ? q.exampleZh : w.exampleZh;
+  if (exEn) {
+    lines.push(`<p class="xp-ex en">${exampleHTML(exEn)}</p>`);
+    if (exZh) lines.push(`<p class="xp-exzh">${esc(exZh)}</p>`);
+    text.push(plainExample(exEn));
   }
   return { html: `<div class="explain xp slide-in"><div class="xp-head">${icon.bulb} 解析</div>${lines.join('')}</div>`, text: text.join('｜'), err };
 }

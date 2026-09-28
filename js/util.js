@@ -59,6 +59,13 @@ export function clozeParts(w) {
 
 export const lettersOf = (s) => String(s).toLowerCase().replace(/[^a-z]/g, '');
 
+// 一個字如果存了不只一句例句（老師手動輸入或 AI 補充），每次出題隨機挑一句，
+// 讓同一個字、同一種題型，每次考的句子內容也不一樣。只有一句時就是原本那句。
+export function pickExample(w) {
+  const list = Array.isArray(w.examples) && w.examples.length ? w.examples : [{ ex: w.example || '', zh: w.exampleZh || '' }];
+  return list[Math.floor(Math.random() * list.length)];
+}
+
 // 把一段文章切成句子；課文題目的 ref（"段-句"，從 1 開始）依這個切法編號。
 // 老師後台（Admin.html）與 Apps Script（Code.gs）有同一套規則，改這裡要一起改。
 export const splitSentences = (p) => (String(p).match(/[^.!?]+(?:[.!?]+["'”’)\]]*|$)/g) || []).map((s) => s.trim()).filter(Boolean);

@@ -710,7 +710,11 @@ function validateContent_(type, d) {
     for (var i = 0; i < d.words.length; i++) {
       var w = d.words[i];
       if (!w.word || !w.zh) return '第 ' + (i + 1) + ' 個缺少英文或中文';
-      if (!/\[[^\]]+\]/.test(w.example || '')) return '「' + w.word + '」的例句沒有用 [ ] 標出要考的字';
+      // 一個字可能存了不只一句例句（examples 陣列），每一句都要各自標出要考的字
+      var exs = (Array.isArray(w.examples) && w.examples.length) ? w.examples : [{ ex: w.example }];
+      for (var e = 0; e < exs.length; e++) {
+        if (!/\[[^\]]+\]/.test(exs[e].ex || '')) return '「' + w.word + '」的例句沒有用 [ ] 標出要考的字';
+      }
     }
     return '';
   }
@@ -824,6 +828,42 @@ function aiGenerateReading(passage, count, title) {
 }
 
 // 單字片語：補上詞性、中文、例句（用 [ ] 標出目標字）與例句翻譯
+// 幫已經有例句的字，多生一句「內容不同」的例句：讓同一個字、同一種題型，每次考的內容也不一樣。
+// items: [{ word, zh, example }]（example 是現有的第一句，給 AI 當參考、避免重複出同樣情境）
+function aiAddExamples(items) {
+  assertTeacher_();
+  items = (items || []).filter(function (x) { return x && x.word && x.zh && x.example; }).slice(0, 60);
+  if (!items.length) throw new Error('請先填好每個字的英文、中文與至少一句例句');
+  var schema = {
+    type: 'OBJECT',
+    properties: {
+      items: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: { word: { type: 'STRING' }, example: { type: 'STRING' }, exampleZh: { type: 'STRING' } },
+          required: ['word', 'example', 'exampleZh'],
+        },
+      },
+    },
+    required: ['items'],
+  };
+  var prompt = [
+    'You are an English teacher preparing extra practice sentences for 11th-grade students in Taiwan.',
+    'For each word or phrase below, its Chinese meaning and an EXISTING example sentence are given.',
+    'Write ONE NEW example sentence for it, in a clearly different context/situation than the existing one, CEFR B1–B2, 8–16 words,',
+    'with the target word or phrase (an inflected form is fine — past tense, plural, -ing, etc.) wrapped exactly once in square brackets,',
+    'e.g. "She [adapted] quickly to her new school." Also give a natural Traditional Chinese translation.',
+    '',
+    'Words:',
+    items.map(function (x, i) { return (i + 1) + '. ' + x.word + '（' + x.zh + '）existing example: ' + x.example; }).join('\n'),
+  ].join('\n');
+  var out = (aiCall_(prompt, schema).items || []).map(function (x) {
+    return { word: String(x.word || '').trim(), example: String(x.example || '').trim(), exampleZh: String(x.exampleZh || '').trim() };
+  }).filter(function (x) { return x.word && x.example; });
+  return { items: out };
+}
+
 function aiFillVocab(items) {
   assertTeacher_();
   items = (items || []).map(function (x) { return String(x || '').trim(); }).filter(String).slice(0, 60);

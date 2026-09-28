@@ -75,6 +75,8 @@ function cleanDetails(list) {
     hints: Number(x.hints) || 0,
     word: clean(x.word, 80),
     err: clean(x.err, 20),
+    exampleEn: clean(x.exampleEn, 200),
+    exampleZh: clean(x.exampleZh, 200),
   }));
 }
 

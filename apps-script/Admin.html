@@ -198,9 +198,14 @@
           <div class="help">
             每行一個單字或片語，欄位順序：<b>英文、詞性、中文、例句、例句翻譯（可省略）</b>。<br>
             從 Excel 或 Google 試算表選取這幾欄直接複製貼上即可；也可以自己打字，用 <code>|</code> 隔開。<br>
-            例句中要考的部分用 <code>[ ]</code> 括起來，例如 <code>The team [bounced back] quickly.</code>；沒括的話會自動找出來。含空格或詞性寫 <code>phr.</code> 的會當成片語。
+            例句中要考的部分用 <code>[ ]</code> 括起來，例如 <code>The team [bounced back] quickly.</code>；沒括的話會自動找出來。含空格或詞性寫 <code>phr.</code> 的會當成片語。<br>
+            <b>同一個字可以放不只一句例句</b>：在例句欄用 <code>;</code> 隔開幾句（例句翻譯欄也用 <code>;</code> 對應隔開），學生每次考這個字的例句題會隨機抽一句，不會每次都一樣。
           </div>
-          <div class="bar"><button class="btn ai" id="ai-vocab" type="button">✦ AI 補齊詞性、中文與例句</button><span class="muted">可以只輸入英文，每行一個；已經填好的行不會被改動。</span></div>
+          <div class="bar">
+            <button class="btn ai" id="ai-vocab" type="button">✦ AI 補齊詞性、中文與例句</button>
+            <button class="btn ai" id="ai-more-ex" type="button">✦ AI 幫每個字多加一句例句</button>
+            <span class="muted">已經填好的行不會被改動；多加例句是額外補在原本的例句後面。</span>
+          </div>
           <label>單字片語<textarea id="v-text" spellcheck="false" placeholder="resilient&#9;adj.&#9;有韌性的&#9;Children are often more [resilient] than adults think.&#9;孩子往往比大人想像的更有韌性。&#10;bounce back | phr. | （挫折後）很快恢復 | The team [bounced back] after losing. | 球隊很快重新振作。"></textarea></label>
         </div>
 
@@ -534,7 +539,10 @@
     function fillForm(u, d) {
       if (u.type === 'vocab') {
         $('v-topic').value = d.topic || '';
-        $('v-text').value = (d.words || []).map(function (w) { return [w.word, w.pos || '', w.zh, w.example || '', w.exampleZh || ''].join('\t'); }).join('\n');
+        $('v-text').value = (d.words || []).map(function (w) {
+          var exs = (w.examples && w.examples.length) ? w.examples : [{ ex: w.example || '', zh: w.exampleZh || '' }];
+          return [w.word, w.pos || '', w.zh, exs.map(function (e) { return e.ex; }).join(' ; '), exs.map(function (e) { return e.zh || ''; }).join(' ; ')].join('\t');
+        }).join('\n');
       } else {
         $('r-title').value = d.title || ''; $('r-topic').value = d.topic || '';
         $('r-passage').value = (d.passage || []).join('\n\n');
@@ -572,16 +580,27 @@
       var seen = {}, seenZh = {}, rows = [], words = [];
       lines.forEach(function (line, i) {
         var c = (line.indexOf('\t') >= 0 ? line.split('\t') : line.split('|')).map(function (x) { return x.trim(); });
-        var w = { word: c[0] || '', pos: c[1] || '', zh: c[2] || '', example: c[3] || '', exampleZh: c[4] || '' };
+        var w = { word: c[0] || '', pos: c[1] || '', zh: c[2] || '' };
         w.type = /phr/i.test(w.pos) || /\s/.test(w.word) ? 'phrase' : 'word';
         if (w.type === 'phrase' && !w.pos) w.pos = 'phr.';
         var st = 'ok', msg = '';
+        // 例句欄可以放不只一句，用 ; 分隔；每句都各自要能標出要考的字（同一個字之後每次出題會隨機挑一句）
+        var exParts = (c[3] || '').split(/;|；/).map(function (x) { return x.trim(); }).filter(Boolean);
+        var zhParts = (c[4] || '').split(/;|；/).map(function (x) { return x.trim(); });
         if (!w.word || !w.zh) { st = 'err'; msg = '缺少英文或中文'; }
-        else if (!w.example) { st = 'err'; msg = '缺少例句'; }
+        else if (!exParts.length) { st = 'err'; msg = '缺少例句'; }
         else {
-          var b = autoBracket(w.word, w.example);
-          if (!b) { st = 'err'; msg = '例句裡找不到這個字，請用 [ ] 標出要考的部分'; }
-          else { w.example = b.ex; if (b.auto) { st = 'warn'; msg = '已自動標出要考的部分'; } }
+          var examples = [];
+          for (var k = 0; k < exParts.length && st !== 'err'; k++) {
+            var b = autoBracket(w.word, exParts[k]);
+            if (!b) { st = 'err'; msg = (exParts.length > 1 ? '第 ' + (k + 1) + ' 句' : '') + '例句裡找不到這個字，請用 [ ] 標出要考的部分'; break; }
+            examples.push({ ex: b.ex, zh: zhParts[k] || '' });
+            if (b.auto) { st = 'warn'; msg = msg || '已自動標出要考的部分'; }
+          }
+          if (st !== 'err') {
+            w.example = examples[0].ex; w.exampleZh = examples[0].zh;
+            if (examples.length > 1) w.examples = examples;
+          }
         }
         var key = w.word.toLowerCase();
         if (st !== 'err' && seen[key]) { st = 'err'; msg = '和第 ' + seen[key] + ' 行重複'; }
@@ -598,8 +617,10 @@
         (global ? '<p class="st-err">' + global + '</p>' : '') +
         '<table><thead><tr><th>#</th><th>英文</th><th>詞性</th><th>中文</th><th>例句</th><th>狀態</th></tr></thead><tbody>' +
         rows.map(function (r) {
+          var exN = (r.w.examples || []).length;
           return '<tr><td>' + r.n + '</td><td><b>' + esc(r.w.word) + '</b></td><td>' + esc(r.w.pos) + '</td><td>' + esc(r.w.zh) + '</td><td>' +
-            esc(r.w.example).replace(/\[([^\]]+)\]/g, '<mark>$1</mark>') + '</td><td class="st-' + r.st + '">' + (r.st === 'ok' ? '✓' : esc(r.msg)) + '</td></tr>';
+            esc(r.w.example || '').replace(/\[([^\]]+)\]/g, '<mark>$1</mark>') + (exN > 1 ? ' <span class="pill" title="這個字有 ' + exN + ' 句例句，每次出題隨機挑一句">+' + (exN - 1) + '句</span>' : '') +
+            '</td><td class="st-' + r.st + '">' + (r.st === 'ok' ? '✓' : esc(r.msg)) + '</td></tr>';
         }).join('') + '</tbody></table>';
       return errs || global ? null : data;
     }
@@ -759,6 +780,44 @@
       }).withFailureHandler(function (err) {
         aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
       }).aiFillVocab(todo.map(function (t) { return t.word; }));
+    };
+
+    $('ai-more-ex').onclick = function () {
+      if (!needAi()) return;
+      var lines = $('v-text').value.split(/\r?\n/);
+      var todo = [];
+      lines.forEach(function (line, i) {
+        if (!line.trim()) return;
+        var sep = line.indexOf('\t') >= 0 ? '\t' : '|';
+        var c = line.split(sep).map(function (x) { return x.trim(); });
+        if (i === 0 && /^(word|英文|單字|片語)$/i.test(c[0])) return;
+        var ex0 = (c[3] || '').split(/;|；/)[0];
+        if (c[0] && c[2] && ex0) todo.push({ i: i, sep: sep, word: c[0], zh: c[2], example: ex0 });
+      });
+      if (!todo.length) { $('imp-msg').textContent = '請先填好每個字的英文、中文與至少一句例句，才能請 AI 多加一句'; $('imp-msg').className = 'msg err'; return; }
+      var btn = $('ai-more-ex'), label = btn.textContent;
+      aiBusy(btn, true, label); impDirty();
+      google.script.run.withSuccessHandler(function (res) {
+        aiBusy(btn, false, label);
+        var byWord = {};
+        (res.items || []).forEach(function (x) { byWord[x.word.toLowerCase()] = x; });
+        var filled = 0;
+        todo.forEach(function (t) {
+          var extra = byWord[t.word.toLowerCase()];
+          if (!extra || !extra.example) return;
+          var c = lines[t.i].split(t.sep).map(function (x) { return x.trim(); });
+          while (c.length < 5) c.push('');
+          c[3] = (c[3] ? c[3] + ' ; ' : '') + extra.example;
+          c[4] = (c[4] ? c[4] + ' ; ' : '') + extra.exampleZh;
+          lines[t.i] = c.join(t.sep === '\t' ? '\t' : ' | ');
+          filled++;
+        });
+        $('v-text').value = lines.join('\n');
+        $('imp-check').click();
+        $('imp-msg').textContent = 'AI 幫 ' + filled + ' 個字多加了一句例句，請確認後再儲存'; $('imp-msg').className = 'msg ok';
+      }).withFailureHandler(function (err) {
+        aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
+      }).aiAddExamples(todo.map(function (t) { return { word: t.word, zh: t.zh, example: t.example }; }));
     };
 
     function puCheck() { $('pu-go').disabled = !($('pu-id').value.trim() && $('pu-pass').value); }
