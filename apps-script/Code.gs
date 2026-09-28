@@ -439,7 +439,7 @@ function getContent(unitId) {
   return row ? { data: JSON.parse(row.json), updated: row.updated, updatedBy: row.updatedBy } : null;
 }
 
-function saveContent(unitId, data) {
+function saveContent(unitId, data, reset) {
   var email = assertTeacher_();
   unitId = String(unitId || '').trim();
   var type = unitType_(unitId);
@@ -461,7 +461,7 @@ function saveContent(unitId, data) {
     lock.releaseLock();
   }
   clearContentCache_(unitId);
-  markReset_(unitId);
+  if (reset !== false) markReset_(unitId);
   // 版本號用設定裡的 updated（跟網站比對用的是同一個值）
   var cfg = publishConfig_();
   var v = (cfg.content[unitId] || {}).updated || now;
@@ -470,12 +470,12 @@ function saveContent(unitId, data) {
 }
 
 // 刪除匯入的內容，網站改回使用內建題目
-function deleteContent(unitId) {
+function deleteContent(unitId, reset) {
   assertTeacher_();
   var row = findContentRow_(unitId);
   if (row) sheet_(SHEET_CONTENT, CONTENT_HEADER).deleteRow(row.index);
   clearContentCache_(unitId);
-  markReset_(unitId);
+  if (reset !== false) markReset_(unitId);
   publishConfig_();
   return { ok: true };
 }
