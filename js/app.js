@@ -29,7 +29,11 @@ async function route() {
   window.scrollTo(0, 0);
   // 還沒確認身分：隱藏單元選單，單元網址一律導回首頁填資料
   const loggedIn = !!store.student();
-  document.getElementById('nav-menu').hidden = !loggedIn || !visibleUnits().length;
+  // 老師頁是獨立頁面：不顯示單元選單和學生名牌
+  const teacher = kind === 'teacher';
+  document.getElementById('nav-menu').hidden = teacher || !loggedIn || !visibleUnits().length;
+  if (teacher) document.getElementById('student-chip').hidden = true;
+  else renderStudentChip();
   if (kind === 'u' && !loggedIn) { location.replace('#/'); return; }
   updateNav(kind === 'u' && id ? (findUnit(id) || {}).id : null);
   try {
