@@ -735,9 +735,10 @@ function validateContent_(type, d) {
 
 var AI_KEY_PROP = 'GEMINI_API_KEY';
 var AI_MODEL_PROP = 'GEMINI_MODEL';
-var AI_DEFAULT_MODEL = 'gemini-2.5-flash';
-// 用量用完（429）或模型暫時不可用（404）時，自動依序改試這些模型，不用手動改設定
-var AI_FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
+var AI_DEFAULT_MODEL = 'gemini-3.8-flash';
+// 用量用完（429）或模型暫時不可用（404）時，自動依序改試這些模型，不用手動改設定。
+// 依序從最新的穩定 Flash 版本試到較舊、額度通常比較寬的版本（AI Studio「模型」頁上標示「穩定」的那些）。
+var AI_FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
 var AI_MAX_COPY = 6; // 和課文連續相同的英文字數上限（與後台、tools/check-content.mjs 一致）
 var SKILLS = ['主旨', '細節', '字義', '推論', '態度'];
 
