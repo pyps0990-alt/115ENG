@@ -76,6 +76,24 @@ export async function getConfig() {
   try { return await fresh; } catch { return fetchDefault(); }
 }
 
+// iOS Safari 切回分頁、從背景回來時不會重新載入頁面：回到前景時再檢查一次設定（最多 20 秒一次）
+let lastCheck = Date.now();
+export function watchConfig(current) {
+  let cur = current;
+  window.addEventListener('config-updated', (e) => { cur = e.detail; });
+  const check = () => {
+    if (!SCRIPT_URL || document.visibilityState !== 'visible' || Date.now() - lastCheck < 20000) return;
+    lastCheck = Date.now();
+    fetchRemote().then((c) => {
+      writeCache(c);
+      if (!sameConfig(c, cur)) window.dispatchEvent(new CustomEvent('config-updated', { detail: c }));
+    }).catch(() => { /* 離線：下次再試 */ });
+  };
+  document.addEventListener('visibilitychange', check);
+  window.addEventListener('pageshow', (e) => { if (e.persisted) check(); });
+  window.addEventListener('focus', check);
+}
+
 const unitCfg = (c, id) => (c && c.units && c.units[id]) || {};
 
 export const unitVisible = (c, id) => unitCfg(c, id).visible !== false;

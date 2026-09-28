@@ -1,5 +1,5 @@
 import { loadIndex, loadUnit, applyImported, addCustomUnits } from './data.js';
-import { getConfig, unitVisible, modeOn, questionCount } from './remote-config.js';
+import { getConfig, watchConfig, unitVisible, modeOn, questionCount } from './remote-config.js';
 import { store } from './storage.js';
 import { esc } from './util.js';
 import { icon } from './icons.js';
@@ -297,6 +297,7 @@ async function boot() {
     const kind = location.hash.split('/')[1] || '';
     if (!kind && !document.body.dataset.busy) route();
   });
+  watchConfig(config);
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();
   window.addEventListener('online', () => flushOutbox());
