@@ -2,7 +2,6 @@
 import { esc } from '../util.js';
 import { icon } from '../icons.js';
 import { store } from '../storage.js';
-import { markReviewed } from '../firebase.js';
 
 // items: [{ html, mount?(el) }]；emptyText：沒有題目要檢討時顯示的文字
 export function mountReview(host, { title, items, emptyText = '這次全部答對，沒有需要檢討的題目。', onDone, onExit }) {
@@ -40,5 +39,7 @@ export function mountReview(host, { title, items, emptyText = '這次全部答�
 // 第一次正式測驗檢討完：記在裝置上，也寫回 Firestore（換裝置也記得）
 export function completeReview(unit) {
   store.setReviewed(unit);
-  markReviewed((store.student() || {}).key, unit).catch((e) => console.warn('Firestore 檢討紀錄寫入失敗', e));
+  import('../firebase.js')
+    .then((fb) => fb.markReviewed((store.student() || {}).key, unit))
+    .catch((e) => console.warn('Firestore 檢討紀錄寫入失敗', e));
 }

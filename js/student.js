@@ -1,7 +1,6 @@
 import { store } from './storage.js';
 import { esc, el } from './util.js';
 import { icon } from './icons.js';
-import { verifyStudent, loadHistory } from './firebase.js';
 
 export const studentLabel = (s) => (s ? `${s.cls} 班 ${s.seat} 號 ${s.name}` : '');
 
@@ -42,6 +41,7 @@ async function login(form) {
   btn.disabled = true;
   err.textContent = '確認身分中…';
   try {
+    const { verifyStudent, loadHistory } = await import('./firebase.js');
     const res = await verifyStudent(s);
     if (!res.ok) {
       err.textContent = '老師的名單裡找不到這組班級、座號和姓名，請確認有沒有打錯字，或詢問老師。';

@@ -1,5 +1,4 @@
 import { SCRIPT_URL } from './config.js';
-import { saveScoreToFirestore } from './firebase.js';
 import { store } from './storage.js';
 
 // 成績先放進這台裝置的等待清單，再送到 Apps Script；網路失敗時留在清單裡，
@@ -53,7 +52,8 @@ export function flushOutbox() {
 
 export async function submitScore(payload) {
   const item = { ...payload, attemptId: payload.attemptId || newAttemptId() };
-  saveScoreToFirestore(item, (store.student() || {}).key); // 另外存一份到 Firestore，跟送去老師試算表互不影響
+  // 另外存一份到 Firestore，跟送去老師試算表互不影響
+  import('./firebase.js').then((fb) => fb.saveScoreToFirestore(item, (store.student() || {}).key)).catch((e) => console.warn(e));
   if (item.unit) store.setDone(item.unit);
   if (!SCRIPT_URL) return { status: 'disabled' };
   writeBox([...readBox().filter((x) => x.attemptId !== item.attemptId), item]);

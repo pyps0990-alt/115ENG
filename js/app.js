@@ -10,7 +10,8 @@ import * as vocab from './modes/vocab.js';
 import * as reading from './modes/reading.js';
 import { initNav, updateNav } from './nav.js';
 import { flushOutbox } from './submit.js';
-import { loadHistory, watchStaff, staffSignIn, staffSignOut, importRoster } from './firebase.js';
+// Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
+const firebase = () => import('./firebase.js');
 
 const app = document.getElementById('app');
 let index = null;
@@ -191,7 +192,13 @@ function renderTeacher() {
   document.title = '老師登入 — B5 Practice';
   app.innerHTML = '<div class="loading"><span class="spinner"></span>確認登入狀態…</div>';
   const admin = ADMIN_URL || SCRIPT_URL;
-  cleanup = watchStaff((staff) => {
+  let unsub = null;
+  let left = false;
+  cleanup = () => { left = true; if (unsub) unsub(); };
+  firebase().then((fb) => {
+    if (left) return;
+    const { watchStaff, staffSignIn, staffSignOut, importRoster } = fb;
+    unsub = watchStaff((staff) => {
     if (!staff) {
       app.innerHTML = `<section class="card teacher">
           <div class="eyebrow">Teacher</div><h2>老師登入</h2>
@@ -249,6 +256,9 @@ function renderTeacher() {
         btn.disabled = false;
       }
     };
+    });
+  }).catch((e) => {
+    app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><p>無法載入登入元件（${esc(e.message)}），請確認網路後重新整理。</p></div>`;
   });
 }
 
@@ -259,15 +269,26 @@ async function boot() {
   if (saved && !saved.key) { store.setStudent(null); store.resetProgress(); }
   renderStudentChip();
   renderFooter();
-  try {
-    [index, config] = await Promise.all([loadIndex(), getConfig()]);
+  let base;
+  const build = () => {
+    index = structuredClone(base);
     addCustomUnits(index, config);
     applyImported(index, config);
+    initNav(visibleUnits());
+  };
+  try {
+    [base, config] = await Promise.all([loadIndex(), getConfig()]);
+    build();
   } catch (err) {
     app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><p>無法載入課程資料（${esc(err.message)}）。<br>請用網頁伺服器開啟，不能直接雙擊 index.html。</p></div>`;
     return;
   }
-  initNav(visibleUnits());
+  // 先用上次存下的設定畫出畫面；背景抓到老師的新設定後再重畫（測驗進行中不打斷）
+  window.addEventListener('config-updated', (e) => {
+    config = e.detail;
+    build();
+    if (!document.body.dataset.busy) route();
+  });
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();
   window.addEventListener('online', () => flushOutbox());
@@ -277,7 +298,7 @@ async function boot() {
   // 以 Firestore 為準：每次進站重新讀取紀錄（例如在別台裝置做過的測驗）
   const s = store.student();
   if (s && s.key) {
-    loadHistory(s.key).then((h) => {
+    firebase().then((fb) => fb.loadHistory(s.key)).then((h) => {
       store.applyHistory(h.attempts, h.reviews);
       if (!document.body.dataset.busy) route();
     }).catch(() => { /* 離線時沿用裝置上的紀錄 */ });

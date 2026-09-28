@@ -15,14 +15,24 @@ import { SCRIPT_URL } from './config.js';
 
 export const loadIndex = () => getJSON('data/lessons/index.json');
 
-// 老師在後台匯入過的單元，改讀試算表裡的內容；讀不到時退回網站內建的 JSON
+// 老師在後台匯入過的單元，改讀試算表裡的內容；讀不到時退回網站內建的 JSON。
+// 匯入內容依「更新時間」存在裝置上：老師沒改過就不用再等 Apps Script，改過會自動抓新版。
 export async function loadUnit(id, config) {
   const imported = config && config.content && config.content[id];
   if (imported && SCRIPT_URL) {
-    const url = `${SCRIPT_URL}${SCRIPT_URL.includes('?') ? '&' : '?'}action=content&unit=${encodeURIComponent(id)}&v=${encodeURIComponent(imported.updated || '')}`;
+    const key = `b5p:content:${id}`;
+    const version = String(imported.updated || '');
+    try {
+      const saved = JSON.parse(localStorage.getItem(key) || 'null');
+      if (saved && saved.v === version && saved.data) return saved.data;
+    } catch { /* ignore */ }
+    const url = `${SCRIPT_URL}${SCRIPT_URL.includes('?') ? '&' : '?'}action=content&unit=${encodeURIComponent(id)}&v=${encodeURIComponent(version)}`;
     try {
       const res = await getJSON(url);
-      if (res && res.ok && res.data) return res.data;
+      if (res && res.ok && res.data) {
+        try { localStorage.setItem(key, JSON.stringify({ v: version, data: res.data })); } catch { /* 空間不足時就不存 */ }
+        return res.data;
+      }
     } catch { /* fall back */ }
   }
   return getJSON(`data/lessons/${encodeURIComponent(id)}.json`);

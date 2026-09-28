@@ -144,7 +144,7 @@
         <div class="bar">
           <button class="btn primary" id="save">儲存設定</button>
           <span class="msg" id="msg"></span>
-          <span class="muted" style="margin-left:auto">學生網站約 1 分鐘內會套用新設定</span>
+          <span class="muted" style="margin-left:auto">儲存後立即生效，學生重新打開網頁就會看到</span>
         </div>
         <table>
           <thead><tr><th>顯示</th><th>單元</th><th>包含的階段／測驗</th><th>每段題數</th><th>操作</th></tr></thead>
@@ -596,7 +596,7 @@
       google.script.run.withSuccessHandler(function (res) {
         content = content.filter(function (x) { return x.id !== u.id; }).concat([{ id: u.id, updated: new Date().toISOString(), count: res.count }]);
         impStatus();
-        $('imp-msg').textContent = '✓ 已儲存，學生網站約 1 分鐘內更新'; $('imp-msg').className = 'msg ok';
+        $('imp-msg').textContent = '✓ 已儲存，學生重新打開網頁就會看到新內容'; $('imp-msg').className = 'msg ok';
       }).withFailureHandler(function (err) {
         $('imp-save').disabled = false; $('imp-msg').textContent = '儲存失敗：' + err.message; $('imp-msg').className = 'msg err';
       }).saveContent(u.id, pending);
