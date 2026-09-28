@@ -49,7 +49,8 @@ async function login(form) {
     }
     const student = { cls: s.cls, seat: s.seat, name: res.name, key: res.key };
     if ((store.student() || {}).key !== res.key) store.resetProgress();
-    store.applyHistory(await loadHistory(res.key));
+    const h = await loadHistory(res.key);
+    store.applyHistory(h.attempts, h.reviews);
     store.setStudent(student);
     err.textContent = '';
     renderStudentChip();

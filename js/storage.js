@@ -46,17 +46,35 @@ export const store = {
   done: (unit) => read(`done:${unit}`, false),
   setDone: (unit) => write(`done:${unit}`, true),
 
-  // 換人登入時清掉上一位學生留在這台裝置的進度（scoresOnly：只清成績，保留錯題本）
+  // 第一次正式測驗的逐題作答（檢討用）：{ mode, details }
+  first: (unit) => read(`first:${unit}`, null),
+  setFirst: (unit, v) => write(`first:${unit}`, v),
+
+  // 第一次正式測驗是否已經檢討完；檢討完才能開始複習
+  reviewed: (unit) => read(`reviewed:${unit}`, false),
+  setReviewed: (unit) => write(`reviewed:${unit}`, true),
+
+  // 換人登入時清掉上一位學生留在這台裝置的進度（scoresOnly：只清成績，保留錯題本與檢討狀態）
   resetProgress(scoresOnly = false) {
-    const re = scoresOnly ? /^b5p:(best|last|done):/ : /^b5p:(best|last|done|wrong):/;
+    const re = scoresOnly ? /^b5p:(best|last|done|first):/ : /^b5p:(best|last|done|first|reviewed|wrong):/;
     try {
       Object.keys(localStorage).filter((k) => re.test(k)).forEach((k) => localStorage.removeItem(k));
     } catch { /* ignore */ }
   },
 
-  // 用 Firestore 讀回的紀錄重建本機成績
-  applyHistory(attempts) {
+  // 用 Firestore 讀回的紀錄重建本機成績；reviews 是已檢討完的單元 id
+  applyHistory(attempts, reviews = []) {
     this.resetProgress(true);
+    reviews.forEach((u) => this.setReviewed(u));
+    const firsts = {};
+    attempts.forEach((a) => {
+      if (!a.unit) return;
+      const cur = firsts[a.unit];
+      // 優先用正式測驗（非複習）中最早的一次
+      const better = !cur || (cur.review && !a.review) || (!!cur.review === !!a.review && String(a.clientTs) < String(cur.clientTs));
+      if (better) firsts[a.unit] = a;
+    });
+    Object.entries(firsts).forEach(([unit, a]) => this.setFirst(unit, { mode: a.mode, details: a.details || [] }));
     const pctOf = (s) => {
       const m = /^'?(\d+(?:\.\d+)?)\s*\/\s*(\d+)/.exec(String(s || ''));
       return m && Number(m[2]) ? Math.round((Number(m[1]) / Number(m[2])) * 100) : null;

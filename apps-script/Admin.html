@@ -426,6 +426,9 @@
       });
       return html;
     }
+    // 跟網站一樣：引號統一、不分大小寫
+    function normQ(s) { return String(s).replace(/[‘’]/g, "'").replace(/[“”]/g, '"').toLowerCase(); }
+    function inPassage(key, paras) { var k = normQ(key); return paras.some(function (p) { return normQ(p).indexOf(k) >= 0; }); }
     function refreshRefs() {
       [].forEach.call($('r-qs').querySelectorAll('.q-ref'), function (sel) { sel.innerHTML = refOptionsHTML(sel.value); });
     }
@@ -444,8 +447,10 @@
           return '<label><input type="radio" name="' + name + '" value="' + j + '"' + (q.answer === j ? ' checked' : '') + ' title="設為正確答案"> ' + 'ABCD'[j] + ' <input type="text" class="q-opt" placeholder="選項 ' + 'ABCD'[j] + '"></label>';
         }).join('') + '</div>' +
         '<textarea class="q-explain" rows="2" placeholder="中文解析（交卷後顯示給學生）"></textarea>' +
-        '<select class="q-ref" title="學生交卷後可以點「看原文依據」，文章會捲到這句並標亮">' + refOptionsHTML(q.ref || '') + '</select>';
+        '<input type="text" class="q-key" placeholder="關鍵字句：從文章直接複製最能證明答案的那一段（可以是半句），學生檢討時會精準標亮">' +
+        '<select class="q-ref" title="沒有填關鍵字句時，改標亮這整句">' + refOptionsHTML(q.ref || '') + '</select>';
       box.querySelector('.q-text').value = q.q || '';
+      box.querySelector('.q-key').value = q.key || '';
       box.querySelectorAll('.q-opt').forEach(function (el, j) { el.value = (q.options || [])[j] || ''; });
       box.querySelector('.q-explain').value = q.explain || '';
       box.querySelector('.del').onclick = function () { box.remove(); numberQs(); impDirty(); };
@@ -561,6 +566,13 @@
         q.options = opts; q.answer = ans;
         var ref = box.querySelector('.q-ref').value;
         if (ref) q.ref = ref;
+        var key = box.querySelector('.q-key').value.replace(/\s+/g, ' ').trim();
+        if (key) {
+          if (!inPassage(key, passage)) issues.push(['err', tag + '：關鍵字句在文章裡找不到，請直接從文章複製（不要改字）']);
+          else q.key = key;
+        } else if (!ref && q.skill !== '主旨') {
+          issues.push(['warn', tag + '：沒有設定原文依據，學生檢討時看不到「看原文依據」']);
+        }
         qs.push(q);
       });
       if (!qs.length) issues.push(['err', '至少要 1 題']);

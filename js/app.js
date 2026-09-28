@@ -109,7 +109,8 @@ function tileHTML(u) {
       <div class="tile-top">
         <span class="tile-icon">${vocab ? icon.cards : icon.book}</span>
         <span class="tile-kind">${vocab ? '單字片語測驗' : '課文理解'}</span>
-        ${done ? `<span class="badge done">${icon.check} 已完成 · 可複習</span>` : ''}
+        ${done && !store.reviewed(u.id) ? `<span class="badge todo">${icon.bulb} 待檢討</span>` : ''}
+        ${done && store.reviewed(u.id) ? `<span class="badge done">${icon.check} 已完成 · 可複習</span>` : ''}
         ${u.sample ? '<span class="badge">範例</span>' : ''}
       </div>
       <h3 class="en">${esc(u.topic || u.title)}</h3>
@@ -276,7 +277,7 @@ async function boot() {
   const s = store.student();
   if (s && s.key) {
     loadHistory(s.key).then((h) => {
-      store.applyHistory(h);
+      store.applyHistory(h.attempts, h.reviews);
       if (!document.body.dataset.busy) route();
     }).catch(() => { /* 離線時沿用裝置上的紀錄 */ });
   }

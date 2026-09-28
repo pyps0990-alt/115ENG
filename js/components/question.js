@@ -277,7 +277,7 @@ export function classifyError(q, chosen, pool = []) {
   return '不熟悉';
 }
 
-const ERR_TIPS = {
+export const ERR_TIPS = {
   意思混淆: '這兩個字容易搞混，對照一下各自的意思和例句',
   詞形錯誤: '字選對了，注意句子需要的形式（時態、單複數、詞性變化）',
   拼字錯誤: '意思想對了，拼字再檢查一次',

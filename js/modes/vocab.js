@@ -2,9 +2,11 @@
 import { store } from '../storage.js';
 import { esc, nowStamp, wait, shuffle } from '../util.js';
 import { icon } from '../icons.js';
-import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError } from '../components/question.js';
+import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError, ERR_TIPS } from '../components/question.js';
 import { renderResult } from '../components/result.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
+import { mountReview, completeReview } from '../components/review.js';
+import { exampleHTML } from '../util.js';
 import { submitScore } from '../submit.js';
 import { PASS, pickWords } from '../levels.js';
 
@@ -21,7 +23,35 @@ export function mount(stage, ctx) {
   let onKey = null;
   const unload = (e) => { e.preventDefault(); e.returnValue = ''; };
 
-  testGate(stage, {
+  // 逐題檢討答錯的字；details 是那次測驗的逐題紀錄（剛做完的，或從 Firestore 讀回的第一次測驗）
+  function reviewItemHTML(d) {
+    const w = all.find((x) => x.word === d.word) || { word: d.word || '' };
+    const yours = String(d.yours || '').trim();
+    return `<div class="rv-card">
+        <div class="rv-meta">${esc(d.stage || '')}・${esc(d.kind || '')}</div>
+        <div class="rv-prompt ${/[a-z]/i.test(d.q || d.question || '') ? 'en' : ''}">${esc(d.q || d.question || '')}</div>
+        <div class="rv-row no"><span>你的答案</span><b class="en">${yours ? esc(yours) : '（未作答）'}</b></div>
+        <div class="rv-row ok"><span>正確答案</span><b class="en">${esc(d.correct || '')}</b></div>
+        ${d.err ? `<p class="xp-tip"><span class="xp-tag">${esc(d.err)}</span>${esc(ERR_TIPS[d.err] || '')}</p>` : ''}
+        <div class="xp-main"><span class="xp-word en">${esc(w.word)}</span>${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>
+        ${w.example ? `<p class="xp-ex en">${exampleHTML(w.example)}</p>` : ''}
+        ${w.exampleZh ? `<p class="xp-exzh">${esc(w.exampleZh)}</p>` : ''}
+      </div>`;
+  }
+
+  function startReview(details) {
+    document.getElementById('fx').replaceChildren();
+    const firstTime = !store.reviewed(unitId);
+    mountReview(stage, {
+      title: `${ctx.unit.title}｜${firstTime ? '檢討' : '再看一次檢討'}`,
+      items: (details || []).filter((d) => !d.ok).map((d) => ({ html: reviewItemHTML(d) })),
+      onDone: () => { if (firstTime) completeReview(unitId); gate.redraw(); window.scrollTo(0, 0); },
+      onExit: () => { gate.redraw(); window.scrollTo(0, 0); },
+    });
+    window.scrollTo(0, 0);
+  }
+
+  const gate = testGate(stage, {
     eyebrow: levels.map((l) => l.en).join(' → '),
     title: `${ctx.unit.title}連續測驗`,
     rules: [
@@ -31,7 +61,9 @@ export function mount(stage, ctx) {
     ],
     best: () => store.best(unitId).vocab,
     review: () => store.done(unitId),
+    reviewed: () => store.reviewed(unitId),
     onStart: (s, review) => play(s, levels.map((l) => ({ level: l, words: pickedWords() })), true, review),
+    onReview: () => startReview((store.first(unitId) || {}).details),
   });
 
   let picked = null;
@@ -190,14 +222,22 @@ export function mount(stage, ctx) {
           <span class="bar"><span style="width:${p}%"></span></span><span class="sb-score">${fmt(s.points)}/${s.qs.length}</span></div>`;
       }).join('')}</div>`;
       const passed = pct >= PASS;
+      const firstTest = official && !review;
+      if (firstTest) store.setFirst(unitId, { mode: 'vocab', details });
       const actions = [];
-      if (wrong.length) {
-        actions.push({
-          label: `練習錯的 ${wrong.length} 題`, icon: icon.redo, primary: true,
-          onClick: () => play(student, stages.filter((s) => s.wrong.length).map((s) => ({ level: s.level, words: s.wrong.map((w) => w.q.word) })), false),
-        });
+      if (firstTest) {
+        // 第一次正式測驗：先檢討，檢討完才能複習
+        actions.push({ label: '開始檢討', icon: icon.bulb, primary: true, onClick: () => startReview(details) });
+      } else {
+        if (wrong.length) {
+          actions.push({
+            label: `練習錯的 ${wrong.length} 題`, icon: icon.redo, primary: true,
+            onClick: () => play(student, stages.filter((s) => s.wrong.length).map((s) => ({ level: s.level, words: s.wrong.map((w) => w.q.word) })), false),
+          });
+        }
+        if (official) actions.push({ label: '逐題檢討', icon: icon.bulb, onClick: () => startReview(details) });
+        actions.push({ label: '再複習一次', icon: icon.shuffle, primary: !wrong.length, onClick: () => play(student, levels.map((l) => ({ level: l, words: pickedWords() })), true, true) });
       }
-      actions.push({ label: '再複習一次', icon: icon.shuffle, primary: !wrong.length, onClick: () => play(student, levels.map((l) => ({ level: l, words: pickedWords() })), true, true) });
       const box = renderResult(stage, {
         title: !official ? '錯題練習完成' : `${review ? '複習' : '三段測驗'}${passed ? '通過！' : '完成'}`,
         pct,
@@ -206,7 +246,8 @@ export function mount(stage, ctx) {
         extraHTML: bars + (official
           ? `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`
           : '<p class="muted">錯題練習不會送出成績</p>'),
-        wrong: wrong.map((w) => ({ p: `〔${w.level.name}〕${promptText(w.q)}`, a: answerText(w.q), y: w.yours, x: w.xp })),
+        // 正式測驗的錯題改用逐題檢討，這裡只在錯題練習時列出
+        wrong: official ? [] : wrong.map((w) => ({ p: `〔${w.level.name}〕${promptText(w.q)}`, a: answerText(w.q), y: w.yours, x: w.xp })),
         actions,
       });
       if (!official) return;

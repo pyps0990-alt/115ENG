@@ -35,6 +35,10 @@ for (const u of index.units) {
       if (!Array.isArray(q.options) || q.options.length < 2) errors.push(`${tag}: 選項不足`);
       if (!(q.answer >= 0 && q.answer < q.options.length)) errors.push(`${tag}: answer 超出範圍`);
       if (!q.explain) warns.push(`${tag}: 沒有詳解`);
+      const normQ = (s) => String(s).replace(/[‘’]/g, "'").replace(/[“”]/g, '"').toLowerCase();
+      if (q.key && !(d.passage || []).some((p) => normQ(p).includes(normQ(q.key.replace(/\s+/g, ' ').trim())))) {
+        errors.push(`${tag}: 關鍵字句在文章裡找不到：「${q.key}」`);
+      }
       [['題目', q.q], ...q.options.map((o, j) => [`選項 ${'ABCDE'[j]}`, o])].forEach(([label, text]) => {
         const s = longestShared(words(text), passage);
         if (s.n >= MAX_COPY) errors.push(`${tag} ${label} 照抄文章 ${s.n} 個字：「${s.text}」`);

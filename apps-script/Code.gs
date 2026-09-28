@@ -589,8 +589,9 @@ function aiGenerateReading(passage, count, title) {
             answer: { type: 'INTEGER' },
             explain: { type: 'STRING' },
             ref: { type: 'STRING' },
+            key: { type: 'STRING' },
           },
-          required: ['skill', 'q', 'options', 'answer', 'explain', 'ref'],
+          required: ['skill', 'q', 'options', 'answer', 'explain', 'ref', 'key'],
         },
       },
     },
@@ -607,6 +608,7 @@ function aiGenerateReading(passage, count, title) {
     '- For 字義 questions you may quote the single target word or short phrase in quotation marks.',
     '- Every sentence in the passage is labelled [paragraph-sentence], e.g. [2-3] is paragraph 2, sentence 3.',
     '- "ref" is the label (without brackets, e.g. "2-3") of the ONE sentence that best supports the correct answer. For 主旨 questions with no single supporting sentence, use "".',
+    '- "key" is the exact words copied from the passage (3–25 words, within one paragraph, may cross a sentence boundary, without the [x-y] labels) that directly prove the correct answer — the precise clue a teacher would underline, not the whole sentence if only part of it matters. This is the ONLY field that must be copied verbatim. For 主旨 questions use "".',
     '- "explain" is a short explanation in Traditional Chinese (Taiwan usage), saying which paragraph supports the answer and why.',
     '- Keep the English at a CEFR B1–B2 level.',
     '',
@@ -618,12 +620,12 @@ function aiGenerateReading(passage, count, title) {
   var refs = {};
   passage.forEach(function (p, i) { splitSentences_(p).forEach(function (s, j) { refs[(i + 1) + '-' + (j + 1)] = true; }); });
   var result = aiCall_(prompt, schema);
-  var qs = cleanQuestions_(result.questions || [], refs);
+  var qs = cleanQuestions_(result.questions || [], refs, passage);
   var copied = copiedParts_(qs, pw);
   if (copied.length) {
     // 有照抄就請 AI 改寫一次
     var retry = prompt + '\n\nYour previous answer copied these phrases from the passage. Rewrite so that no question or option copies ' + (AI_MAX_COPY - 1) + '+ consecutive words:\n- ' + copied.join('\n- ');
-    qs = cleanQuestions_((aiCall_(retry, schema).questions) || [], refs);
+    qs = cleanQuestions_((aiCall_(retry, schema).questions) || [], refs, passage);
   }
   if (!qs.length) throw new Error('AI 沒有產生可用的題目，請再試一次');
   return { questions: qs.slice(0, count) };
@@ -709,7 +711,11 @@ function aiCall_(prompt, schema) {
   }
 }
 
-function cleanQuestions_(qs, refs) {
+// 引號統一、不分大小寫（跟網站比對關鍵字句的方式一樣）
+function normQ_(s) { return String(s).replace(/[‘’]/g, "'").replace(/[“”]/g, '"').toLowerCase(); }
+
+function cleanQuestions_(qs, refs, paras) {
+  var normParas = (paras || []).map(normQ_);
   return qs.map(function (q) {
     var options = (q.options || []).map(function (o) { return String(o || '').trim(); }).filter(String).slice(0, 4);
     var answer = Number(q.answer);
@@ -722,6 +728,9 @@ function cleanQuestions_(qs, refs) {
       explain: String(q.explain || '').trim(),
     };
     if (refs && refs[ref]) out.ref = ref;
+    // AI 給的關鍵字句必須真的出現在文章裡（同一段），找不到就不要
+    var key = String(q.key || '').replace(/\[\d+-\d+\]\s*/g, '').replace(/\s+/g, ' ').trim();
+    if (key && normParas.some(function (p) { return p.indexOf(normQ_(key)) >= 0; })) out.key = key;
     return out;
   }).filter(function (q) { return q.q && q.options.length >= 2 && q.answer >= 0; });
 }

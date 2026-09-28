@@ -32,6 +32,15 @@ service cloud.firestore {
           && request.resource.data.details is list && request.resource.data.details.size() <= 150;
         allow update, delete: if false;
       }
+
+      // 已完成檢討的單元（文件 ID 是單元 id）；完成檢討後才能開始複習
+      match /reviews/{unitId} {
+        allow read: if true;
+        allow create, update: if exists(/databases/$(database)/documents/vault/$(key))
+          && request.resource.data.keys().hasOnly(['unit', 'at'])
+          && request.resource.data.unit == unitId;
+        allow delete: if false;
+      }
     }
 
     // 依班級整理的資料：給老師在主控台瀏覽，網站不讀取

@@ -43,9 +43,18 @@ export async function verifyStudent({ cls, seat, name }) {
   return { ok: true, key, name: snap.data().name };
 }
 
+// 回傳 { attempts: [...], reviews: [已檢討完的單元 id] }
 export async function loadHistory(key) {
-  const snap = await getDocs(collection(db, 'vault', key, 'attempts'));
-  return snap.docs.map((d) => d.data());
+  const [a, r] = await Promise.all([
+    getDocs(collection(db, 'vault', key, 'attempts')),
+    getDocs(collection(db, 'vault', key, 'reviews')),
+  ]);
+  return { attempts: a.docs.map((d) => d.data()), reviews: r.docs.map((d) => d.id) };
+}
+
+export async function markReviewed(key, unit) {
+  if (!key || !unit) return;
+  await setDoc(doc(db, 'vault', key, 'reviews', clean(unit, 60)), { unit: clean(unit, 60), at: serverTimestamp() });
 }
 
 function cleanDetails(list) {

@@ -465,10 +465,37 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .xp-tip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--text); font-size: .88rem; }
 .xp-tag { flex: none; padding: 1px 10px; border-radius: 999px; background: var(--bad-soft); color: var(--bad-ink); font-weight: 700; font-size: .78rem; }
 
-/* 課文理解：解析對回原文 */
+/* 課文理解：解析對回原文（mark 是精準的關鍵字句，.sent 是整句） */
 .sent { border-radius: 4px; transition: background .3s var(--ease), box-shadow .3s var(--ease); }
-.sent.evidence { background: var(--amber-soft); box-shadow: 0 0 0 3px var(--amber-soft); color: var(--amber-ink); }
+.sent.evidence, mark.evidence {
+  background: var(--amber-soft); box-shadow: 0 0 0 3px var(--amber-soft); color: var(--amber-ink);
+  border-radius: 4px; font-weight: 700; animation: fade-up .3s var(--ease);
+}
 .ref-btn { display: inline-flex; margin-top: 8px; }
+
+/* 測驗前關卡：還沒檢討時的提示 */
+.badge.todo { gap: 4px; border: 1px solid transparent; background: var(--bad-soft); color: var(--bad-ink); }
+.badge.todo .ic { width: 12px; height: 12px; }
+.gate-note { display: flex; align-items: center; gap: 6px; margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--amber-soft); color: var(--amber-ink); font-size: .9rem; font-weight: 500; }
+.gate-note .ic { width: 16px; height: 16px; flex: none; }
+
+/* 逐題檢討 */
+.review { display: grid; gap: 14px; align-content: start; }
+.review-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.review-head h2 { font-size: 1.15rem; }
+.review-count { margin-left: auto; font-family: var(--font-en); font-weight: 800; color: var(--navy); }
+.review-bar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.review-bar > span { display: block; height: 100%; background: var(--amber); border-radius: inherit; transition: width .3s var(--ease); }
+.review-nav { display: flex; justify-content: space-between; gap: 10px; }
+.rv-pq .opt { pointer-events: none; animation: none; }
+.rv-pq .explain p { margin: 6px 0 0; }
+.rv-card { display: grid; gap: 10px; padding: 18px; border-radius: 18px; border: 1.5px solid var(--line); background: var(--white); animation: fade-up .3s var(--ease); }
+.rv-meta { font-size: .8rem; font-weight: 700; color: var(--steel); }
+.rv-prompt { font-size: 1.15rem; font-weight: 700; color: var(--navy); }
+.rv-row { display: flex; gap: 10px; align-items: baseline; padding: 8px 12px; border-radius: 10px; }
+.rv-row span { flex: none; font-size: .82rem; font-weight: 700; }
+.rv-row.no { background: var(--bad-soft); color: var(--bad-ink); }
+.rv-row.ok { background: var(--amber-soft); color: var(--amber-ink); }
 .xp-ex { color: var(--navy); }
 .xp-exzh { font-size: .88rem; }
 .wrong-item .x { grid-column: 1 / -1; font-size: .85rem; color: var(--steel); }
