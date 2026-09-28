@@ -19,7 +19,7 @@ var CONTENT_HEADER = ['id', 'json', 'updated', 'updatedBy'];
 var MAX_CONTENT_CHARS = 45000; // 試算表單一儲存格上限 50000 字元
 
 // 學生網站的網址：後台「載入網站目前內容」會從這裡讀取內建的題目
-var SITE_URL = 'https://pyps0990-alt.github.io/115ENG/';
+var SITE_URL = 'https://eng-3385e.web.app/';
 
 var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCount'];
 
@@ -219,12 +219,6 @@ function seenAttempt_(id) {
 var DEFAULT_UNITS = [
   ['l1-voc', 'L1 單字片語', 'vocab'],
   ['l1-reading', 'L1 課文理解', 'reading'],
-  ['l2-voc', 'L2 單字片語', 'vocab'],
-  ['l2-reading', 'L2 課文理解', 'reading'],
-  ['l3-voc', 'L3 單字片語', 'vocab'],
-  ['l3-reading', 'L3 課文理解', 'reading'],
-  ['l4-voc', 'L4 單字片語', 'vocab'],
-  ['l4-reading', 'L4 課文理解', 'reading'],
 ];
 
 function setup() {
