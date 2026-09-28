@@ -60,9 +60,14 @@ export const store = {
   reviewed: (unit) => read(`reviewed:${unit}`, false),
   setReviewed: (unit) => write(`reviewed:${unit}`, true),
 
+  // 抽題用的「摸彩袋」：每個單元（依分類）一份，抽完全部才重新洗牌補滿，
+  // 確保同一位學生在補滿一輪之前，所有單字／片語都會抽到、不會提早重複
+  bag: (key) => read(`bag:${key}`, []),
+  setBag: (key, arr) => write(`bag:${key}`, arr),
+
   // 換人登入時清掉上一位學生留在這台裝置的進度（scoresOnly：只清成績，保留錯題本與檢討狀態）
   resetProgress(scoresOnly = false) {
-    const re = scoresOnly ? /^b5p:(best|last|done|first):/ : /^b5p:(best|last|done|first|reviewed|wrong):/;
+    const re = scoresOnly ? /^b5p:(best|last|done|first):/ : /^b5p:(best|last|done|first|reviewed|wrong|bag):/;
     try {
       Object.keys(localStorage).filter((k) => re.test(k)).forEach((k) => localStorage.removeItem(k));
     } catch { /* ignore */ }

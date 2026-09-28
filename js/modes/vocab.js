@@ -69,7 +69,7 @@ export function mount(stage, ctx) {
   let picked = null;
   function pickedWords() {
     // 三段共用同一組單字，第一次呼叫時抽字
-    if (!picked) picked = pickWords(all, n);
+    if (!picked) picked = pickWords(all, n, unitId);
     return picked;
   }
 
