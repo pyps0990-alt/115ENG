@@ -25,6 +25,8 @@ async function route() {
   if (cleanup) { try { cleanup(); } catch { /* ignore */ } cleanup = null; }
   delete document.body.dataset.busy;
   document.getElementById('fx').replaceChildren();
+  // 首頁不顯示「#/」，網址保持乾淨（replaceState 不會再觸發 hashchange）
+  if (location.hash === '#/' || location.hash === '#') history.replaceState(null, '', location.pathname + location.search);
   const [, kind, id, sub] = location.hash.split('/').map(decodeURIComponent);
   window.scrollTo(0, 0);
   // 還沒確認身分：隱藏單元選單，單元網址一律導回首頁填資料
