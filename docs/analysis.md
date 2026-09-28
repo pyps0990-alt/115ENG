@@ -86,4 +86,4 @@
 
 1. 用後台「匯入內容」替換 L1–L4 的範例資料；或把課本內容貼給 Claude 轉成 `data/lessons/` 的 JSON。
 2. 部署 Apps Script，把網址填進 `js/config.js`。
-3. 開啟 GitHub Pages，再嵌入或連結到原本的 Google Sites。
+3. 部署到 Firebase Hosting（`firebase deploy --only hosting`），再嵌入或連結到原本的 Google Sites。
