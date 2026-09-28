@@ -22,9 +22,14 @@ var MAX_CONTENT_CHARS = 45000; // 試算表單一儲存格上限 50000 字元
 var SITE_URL = 'https://pyps0990-alt.github.io/115ENG/';
 
 var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCount'];
-var SCORES_HEADER = ['serverTime', 'cls', 'seat', 'name', 'unit', 'unitTitle', 'level', 'mode', 'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTime', 'attemptId'];
+
+// SCORES_FIELDS／DETAILS_FIELDS：程式內部用的欄位代號，順序要跟 doPost 組 row 的順序一致，不能改。
+// SCORES_HEADER／DETAILS_HEADER：實際寫進試算表第一列的中文欄名，只影響顯示，跟 FIELDS 一一對應。
+var SCORES_FIELDS = ['serverTime', 'cls', 'seat', 'name', 'unit', 'unitTitle', 'level', 'mode', 'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTime', 'attemptId'];
+var SCORES_HEADER = ['時間', '班級', '座號', '姓名', '單元', '單元名稱', '階段', '模式', '得分', '總分', '百分比', '基礎', '進階', '精熟', '錯題', '作答秒數', '送出時間(裝置)', '記錄編號'];
 var SHEET_DETAILS = 'details';
-var DETAILS_HEADER = ['serverTime', 'attemptId', 'cls', 'seat', 'name', 'unit', 'stage', 'kind', 'n', 'question', 'correct', 'yours', 'ok', 'points', 'hints'];
+var DETAILS_FIELDS = ['serverTime', 'attemptId', 'cls', 'seat', 'name', 'unit', 'stage', 'kind', 'n', 'question', 'correct', 'yours', 'ok', 'points', 'hints'];
+var DETAILS_HEADER = ['時間', '記錄編號', '班級', '座號', '姓名', '單元', '段落', '題型', '題號', '題目', '正確答案', '學生答案', '對錯', '得分', '提示次數'];
 var CLASS_SHEET_PREFIX = '班級 ';
 
 /* ------------------------------------------------------------------ */
@@ -193,7 +198,7 @@ function seenAttempt_(id) {
   var sh = sheet_(SHEET_SCORES, SCORES_HEADER);
   var last = sh.getLastRow();
   if (last < 2) return false;
-  var col = SCORES_HEADER.indexOf('attemptId') + 1;
+  var col = SCORES_FIELDS.indexOf('attemptId') + 1;
   var from = Math.max(2, last - 499);
   return sh.getRange(from, col, last - from + 1, 1).getValues().some(function (r) { return String(r[0]) === id; });
 }
