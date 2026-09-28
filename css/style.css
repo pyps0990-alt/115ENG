@@ -564,3 +564,11 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 @media (prefers-reduced-motion: reduce) {
   .unit-tile.tile-out, .unit-tile.tile-in { animation: none; }
 }
+
+/* 選單裡每個單元的狀態 */
+.menu-st-slot { margin-left: auto; flex: none; }
+.menu-st { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 99px; font-size: .74rem; font-weight: 700; white-space: nowrap;
+  background: var(--wash); color: var(--steel); border: 1px solid var(--line); }
+.menu-st .ic { width: 12px; height: 12px; }
+.menu-st.todo { background: var(--amber-soft); color: #92400E; border-color: var(--amber); }
+.menu-st.ok { background: #DCFCE7; color: #166534; border-color: #86EFAC; }
