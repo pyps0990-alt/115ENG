@@ -65,7 +65,7 @@ function renderHome() {
   if (!s) {
     mountInlineForm(app.querySelector('#welcome-slot'), {
       title: '輸入你的基本資料',
-      desc: '填寫班級、座號、姓名和老師給你的密碼。確認後會載入你之前的測驗紀錄。',
+      desc: '填寫班級、座號和姓名，要跟老師的名單一致。確認後會載入你之前的測驗紀錄。',
       button: '確認',
       onSave: () => renderHome(),
     });
@@ -178,10 +178,11 @@ function renderFooter() {
 // 真正的權限由 Firestore 規則與 Apps Script 後台的帳號檢查把關，這裡只負責顯示。
 function parseRoster(text) {
   return text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((line, i) => {
-    const [seatRaw = '', name = '', pin = ''] = line.split(/[\t,，\s]+/);
+    const [seatRaw = '', ...rest] = line.split(/[\t,，\s]+/);
     const seat = seatRaw.replace(/^0+(?=\d)/, '');
-    const ok = /^\d{1,2}$/.test(seat) && !!name && /^\d{4,8}$/.test(pin);
-    return { line: i + 1, seat, name, pin, ok };
+    const name = rest.join('');
+    const ok = /^\d{1,2}$/.test(seat) && !!name;
+    return { line: i + 1, seat, name, ok };
   });
 }
 
@@ -216,12 +217,12 @@ function renderTeacher() {
         </div>
       </section>
       <section class="card teacher">
-        <div class="eyebrow">Roster</div><h2>匯入學生名單與密碼</h2>
-        <p class="muted">每行一位學生：<b>座號　姓名　密碼</b>（用 Tab、空白或逗號隔開，可從試算表直接複製三欄貼上）。密碼 4～8 位數字，建議 6 位以上比較不容易被猜到。重新匯入同一位學生會更新姓名；換密碼時舊密碼仍可登入，需要停用請聯絡管理員。</p>
+        <div class="eyebrow">Roster</div><h2>匯入學生名單</h2>
+        <p class="muted">每行一位學生：<b>座號　姓名</b>（用 Tab、空白或逗號隔開，可從試算表直接複製兩欄貼上）。學生要輸入跟名單完全一樣的班級、座號、姓名才能登入。重複匯入同一位學生不會產生重複資料；改名字要重新匯入，舊名字仍可登入，需要停用請到 Firebase 主控台刪除。</p>
         <div class="form-grid">
           <div class="field"><label for="ro-cls">班級</label><input id="ro-cls" inputmode="numeric" maxlength="4" placeholder="例：306"></div>
         </div>
-        <textarea id="ro-text" class="roster-text" spellcheck="false" placeholder="1	王偉同	482915&#10;3	吳雨哲	730641"></textarea>
+        <textarea id="ro-text" class="roster-text" spellcheck="false" placeholder="1	王偉同&#10;3	吳雨哲"></textarea>
         <div class="btn-row"><button class="btn primary" type="button" data-import>匯入</button><span class="form-err" data-msg aria-live="polite"></span></div>
         <div data-report></div>
       </section>`;
@@ -234,7 +235,7 @@ function renderTeacher() {
       const rows = parseRoster(app.querySelector('#ro-text').value);
       const good = rows.filter((r) => r.ok);
       app.querySelector('[data-report]').innerHTML = `<table class="roster-report"><thead><tr><th>行</th><th>座號</th><th>姓名</th><th>狀態</th></tr></thead><tbody>${
-        rows.map((r) => `<tr><td>${r.line}</td><td>${esc(r.seat)}</td><td>${esc(r.name)}</td><td>${r.ok ? '✓' : '✗ 座號、姓名或密碼格式錯誤'}</td></tr>`).join('')}</tbody></table>`;
+        rows.map((r) => `<tr><td>${r.line}</td><td>${esc(r.seat)}</td><td>${esc(r.name)}</td><td>${r.ok ? '✓' : '✗ 座號或姓名格式錯誤'}</td></tr>`).join('')}</tbody></table>`;
       if (!good.length) { msg.textContent = '沒有可匯入的資料'; return; }
       btn.disabled = true;
       msg.textContent = `匯入中…（${good.length} 位）`;
@@ -253,7 +254,7 @@ function renderTeacher() {
 /* ---------------- boot ---------------- */
 async function boot() {
   if (!ttsSupported) document.body.classList.add('no-tts');
-  // 舊版只存在裝置上、沒有經過密碼確認的學生資料：要求重新登入
+  // 舊版只存在裝置上、沒有跟老師名單確認過的學生資料：要求重新登入
   const saved = store.student();
   if (saved && !saved.key) { store.setStudent(null); store.resetProgress(); }
   renderStudentChip();

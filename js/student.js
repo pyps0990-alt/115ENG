@@ -12,10 +12,8 @@ export function formHTML(s = {}) {
         <input id="f-cls" name="cls" inputmode="numeric" autocomplete="off" placeholder="例：201" maxlength="6" value="${esc(s.cls || '')}" required></div>
       <div class="field"><label for="f-seat">座號</label>
         <input id="f-seat" name="seat" inputmode="numeric" autocomplete="off" placeholder="例：7" maxlength="3" value="${esc(s.seat || '')}" required></div>
-      <div class="field"><label for="f-name">姓名</label>
+      <div class="field span2"><label for="f-name">姓名</label>
         <input id="f-name" name="name" autocomplete="off" placeholder="你的名字" maxlength="20" value="${esc(s.name || '')}" required></div>
-      <div class="field"><label for="f-pin">密碼</label>
-        <input id="f-pin" name="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="老師給的密碼" maxlength="8" required></div>
     </div>
     <div class="form-err" aria-live="polite"></div>`;
 }
@@ -26,13 +24,11 @@ export function readForm(form) {
     cls: String(f.get('cls') || '').trim(),
     seat: String(f.get('seat') || '').trim().replace(/^0+(?=\d)/, ''),
     name: String(f.get('name') || '').trim(),
-    pin: String(f.get('pin') || '').trim(),
   };
   const err = form.querySelector('.form-err');
   if (!/^\d{3,4}$/.test(s.cls)) { err.textContent = '班級請輸入 3～4 位數字，例如 201。'; return null; }
   if (!/^\d{1,2}$/.test(s.seat)) { err.textContent = '座號請輸入 1～2 位數字。'; return null; }
   if (!s.name) { err.textContent = '請輸入姓名。'; return null; }
-  if (!/^\d{4,8}$/.test(s.pin)) { err.textContent = '密碼是老師給你的 4～8 位數字。'; return null; }
   err.textContent = '';
   return s;
 }
@@ -48,9 +44,7 @@ async function login(form) {
   try {
     const res = await verifyStudent(s);
     if (!res.ok) {
-      err.textContent = res.reason === 'name'
-        ? '姓名跟老師的名單不一致，請確認有沒有打錯字。'
-        : '找不到這組班級、座號和密碼，請確認後再試，或詢問老師。';
+      err.textContent = '老師的名單裡找不到這組班級、座號和姓名，請確認有沒有打錯字，或詢問老師。';
       return null;
     }
     const student = { cls: s.cls, seat: s.seat, name: res.name, key: res.key };
@@ -88,7 +82,7 @@ export function mountInlineForm(host, { title, desc, button = '開始練習', on
 export function openStudentDialog(onSave) {
   const d = el(`<dialog class="modal"><form class="modal-body" novalidate>
       <h2>切換學生</h2>
-      <p class="muted" style="margin:0">輸入班級、座號、姓名和老師給的密碼，會載入這位學生的紀錄。</p>
+      <p class="muted" style="margin:0">輸入班級、座號和姓名，會載入這位學生的紀錄。</p>
       ${formHTML(store.student() || {})}
       <div class="btn-row" style="justify-content:flex-end">
         <button class="btn ghost" type="button" data-close>取消</button>

@@ -1,9 +1,9 @@
 // Firestore / Firebase Auth
-//   vault/{key}                         學生帳本：key = SHA-256(班級|座號|密碼)，老師匯入名單時建立
-//   vault/{key}/attempts/{attemptId}    該生每次測驗紀錄（學生憑密碼讀回，確認做過哪些單元）
+//   vault/{key}                         學生帳本：key = SHA-256(班級|座號|姓名)，老師匯入名單時建立
+//   vault/{key}/attempts/{attemptId}    該生每次測驗紀錄（學生登入後讀回，確認做過哪些單元）
 //   classes/{cls}/seats/{seat}/units/{unit}/attempts/{attemptId}   老師在主控台依班級瀏覽用
 //   admins/{email}                      老師／管理員名單（在 Firebase 主控台手動新增）
-// 不知道密碼就算不出 key，也不能列出 vault，所以讀不到別人的紀錄。
+// 名單上沒有的班級/座號/姓名組合算不出存在的 key，所以進不去；規則也不允許列出 vault。
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
 import {
   getFirestore, doc, getDoc, getDocs, setDoc, collection, writeBatch, serverTimestamp,
@@ -25,22 +25,22 @@ const auth = getAuth(app);
 
 const clean = (s, max) => String(s == null ? '' : s).trim().slice(0, max);
 
-export async function studentKey(cls, seat, pin) {
-  const bytes = new TextEncoder().encode(`${clean(cls, 8)}|${clean(seat, 4)}|${clean(pin, 12)}`);
+const normName = (s) => clean(s, 40).replace(/\s+/g, '');
+
+export async function studentKey(cls, seat, name) {
+  const bytes = new TextEncoder().encode(`${clean(cls, 8)}|${clean(seat, 4)}|${normName(name)}`);
   const hash = await crypto.subtle.digest('SHA-256', bytes);
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /* ---------------- 學生 ---------------- */
 
-// 回傳 { ok: true, key, name } 或 { ok: false, reason }
-export async function verifyStudent({ cls, seat, name, pin }) {
-  const key = await studentKey(cls, seat, pin);
+// 回傳 { ok: true, key, name } 或 { ok: false }
+export async function verifyStudent({ cls, seat, name }) {
+  const key = await studentKey(cls, seat, name);
   const snap = await getDoc(doc(db, 'vault', key));
-  if (!snap.exists()) return { ok: false, reason: 'notfound' };
-  const saved = snap.data();
-  if (clean(saved.name, 40) !== clean(name, 40)) return { ok: false, reason: 'name' };
-  return { ok: true, key, name: saved.name };
+  if (!snap.exists()) return { ok: false };
+  return { ok: true, key, name: snap.data().name };
 }
 
 export async function loadHistory(key) {
@@ -114,14 +114,14 @@ export function watchStaff(cb) {
 export const staffSignIn = () => signInWithPopup(auth, new GoogleAuthProvider());
 export const staffSignOut = () => signOut(auth);
 
-// rows: [{ seat, name, pin }]；只有 admins 名單內的帳號能寫入 vault
+// rows: [{ seat, name }]；只有 admins 名單內的帳號能寫入 vault
 export async function importRoster(cls, rows) {
   const c = clean(cls, 8);
   const batch = writeBatch(db);
   for (const r of rows) {
     const seat = clean(r.seat, 4);
     const name = clean(r.name, 40);
-    const key = await studentKey(c, seat, r.pin);
+    const key = await studentKey(c, seat, name);
     batch.set(doc(db, 'vault', key), { cls: c, seat, name, updatedAt: serverTimestamp() });
     batch.set(doc(db, 'classes', c, 'seats', seat), { cls: c, seat, name, updatedAt: serverTimestamp() }, { merge: true });
   }

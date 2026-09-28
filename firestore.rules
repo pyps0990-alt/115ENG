@@ -14,8 +14,8 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
-    // 學生帳本：key = SHA-256(班級|座號|密碼)。知道 key 才讀得到，不能列出全部。
-    // 只有老師能建立（匯入名單），學生用密碼算出 key 來確認身分。
+    // 學生帳本：key = SHA-256(班級|座號|姓名)。知道 key 才讀得到，不能列出全部。
+    // 只有老師能建立（匯入名單），學生用班級、座號、姓名算出 key 來確認身分。
     match /vault/{key} {
       allow get: if true;
       allow list: if false;
