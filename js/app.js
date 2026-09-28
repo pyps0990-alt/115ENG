@@ -222,7 +222,7 @@ function renderTeacher() {
         <div class="form-grid">
           <div class="field"><label for="ro-cls">班級</label><input id="ro-cls" inputmode="numeric" maxlength="4" placeholder="例：306"></div>
         </div>
-        <textarea id="ro-text" class="roster-text" spellcheck="false" placeholder="1	王偉同&#10;3	吳雨哲"></textarea>
+        <textarea id="ro-text" class="roster-text" spellcheck="false" placeholder="1	王小明&#10;3	李小華"></textarea>
         <div class="btn-row"><button class="btn primary" type="button" data-import>匯入</button><span class="form-err" data-msg aria-live="polite"></span></div>
         <div data-report></div>
       </section>`;
