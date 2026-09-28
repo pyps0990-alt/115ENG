@@ -12,12 +12,6 @@ import { initNav, updateNav } from './nav.js';
 import { flushOutbox } from './submit.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
-const STAFF_KEY = 'b5p:staff';
-const isStaff = () => { try { return sessionStorage.getItem(STAFF_KEY) === '1'; } catch { return false; } };
-function setStaff(on) {
-  try { if (on) sessionStorage.setItem(STAFF_KEY, '1'); else sessionStorage.removeItem(STAFF_KEY); } catch { /* ignore */ }
-  document.getElementById('nav-menu').hidden = !(store.student() || on) || !visibleUnits().length;
-}
 
 const app = document.getElementById('app');
 let index = null;
@@ -34,8 +28,7 @@ async function route() {
   const [, kind, id, sub] = location.hash.split('/').map(decodeURIComponent);
   window.scrollTo(0, 0);
   // 還沒確認身分：隱藏單元選單，單元網址一律導回首頁填資料
-  // 老師用 Google 帳號登入後（這個分頁內）也能看單元選單、預覽題目
-  const loggedIn = !!store.student() || isStaff();
+  const loggedIn = !!store.student();
   document.getElementById('nav-menu').hidden = !loggedIn || !visibleUnits().length;
   if (kind === 'u' && !loggedIn) { location.replace('#/'); return; }
   updateNav(kind === 'u' && id ? (findUnit(id) || {}).id : null);
@@ -206,7 +199,6 @@ function renderTeacher() {
     if (left) return;
     const { watchStaff, staffSignIn, staffSignOut, importRoster } = fb;
     unsub = watchStaff((staff) => {
-    setStaff(!!(staff && staff.role));
     if (!staff) {
       app.innerHTML = `<section class="card teacher">
           <div class="eyebrow">Teacher</div><h2>老師登入</h2>
