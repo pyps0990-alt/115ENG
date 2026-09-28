@@ -106,6 +106,25 @@ node tools/check-content.mjs
 
 > `firebase.json` 只上傳網站需要的靜態檔案（`index.html`、`css/`、`js/`、`data/`），排除 `apps-script/`、`docs/`、`tools/` 等開發用檔案。
 
+## 學生資料另存一份到 Firestore
+
+除了送到老師試算表，學生的基本資料與每次測驗成績也會**另外**寫一份到 Firebase 的 Firestore 資料庫（`js/firebase.js`），兩邊互不影響、互相獨立：
+
+- `students`：用「班級-座號」當文件 ID，學生填寫基本資料只會更新同一筆，不會因為重填而產生重複紀錄
+- `scores`：用 `attemptId` 當文件 ID，重複送出（例如離線補送）只會覆蓋同一筆，天生防止重複
+
+寫入失敗（例如離線）只會在瀏覽器主控台印警告，不會影響測驗流程，也不影響原本送到老師試算表的成績。
+
+### 設定步驟
+
+1. [Firebase 主控台](https://console.firebase.google.com/project/eng-3385e) → **建構 → Firestore Database → 建立資料庫**，位置選 `asia-east1`。
+2. 切到 **規則** 分頁，把 `firestore.rules` 的內容貼上並「發布」。這份規則不開放公開讀取（老師可直接在主控台查看資料），只允許新增/更新，不能刪除。
+3. 前端已經內建好 Firebase 專案設定（`js/firebase.js`），改完後 `firebase deploy --only hosting` 即可生效。
+
+### 查看資料
+
+Firebase 主控台 → Firestore Database → 資料分頁，可以直接瀏覽 `students`、`scores` 兩個集合。
+
 ## 老師後台與成績（Google Apps Script）
 
 1. 開啟（或建立）一份 Google 試算表 → **擴充功能 → Apps Script**。

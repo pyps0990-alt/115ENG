@@ -1,4 +1,5 @@
 import { SCRIPT_URL } from './config.js';
+import { saveScoreToFirestore } from './firebase.js';
 
 // 成績先放進這台裝置的等待清單，再送到 Apps Script；網路失敗時留在清單裡，
 // 之後開站、恢復連線或下次送成績時自動補送。每筆有 attemptId，伺服器會去除重複。
@@ -50,8 +51,9 @@ export function flushOutbox() {
 }
 
 export async function submitScore(payload) {
-  if (!SCRIPT_URL) return { status: 'disabled' };
   const item = { ...payload, attemptId: payload.attemptId || newAttemptId() };
+  saveScoreToFirestore(item); // 另外存一份到 Firestore，跟送去老師試算表互不影響
+  if (!SCRIPT_URL) return { status: 'disabled' };
   writeBox([...readBox().filter((x) => x.attemptId !== item.attemptId), item]);
   if (flushing) await flushing.catch(() => {});
   await flushOutbox();

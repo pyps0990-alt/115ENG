@@ -1,6 +1,7 @@
 import { store } from './storage.js';
 import { esc, el } from './util.js';
 import { icon } from './icons.js';
+import { saveStudentProfile } from './firebase.js';
 
 export const studentLabel = (s) => (s ? `${s.cls} 班 ${s.seat} 號 ${s.name}` : '');
 
@@ -44,6 +45,7 @@ export function mountInlineForm(host, { title, desc, button = '開始練習', on
     const s = readForm(card);
     if (!s) return;
     store.setStudent(s);
+    saveStudentProfile(s);
     renderStudentChip();
     onSave?.(s);
   });
@@ -68,6 +70,7 @@ export function openStudentDialog(onSave) {
     const s = readForm(form);
     if (!s) return;
     store.setStudent(s);
+    saveStudentProfile(s);
     renderStudentChip();
     d.close();
     onSave?.(s);
