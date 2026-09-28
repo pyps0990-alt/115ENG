@@ -462,6 +462,13 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .xp-zh { font-weight: 700; color: var(--navy); }
 .xp-yours { color: var(--bad-ink); font-size: .92rem; }
 .xp-yours b { color: var(--bad-ink); }
+.xp-tip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--text); font-size: .88rem; }
+.xp-tag { flex: none; padding: 1px 10px; border-radius: 999px; background: var(--bad-soft); color: var(--bad-ink); font-weight: 700; font-size: .78rem; }
+
+/* 課文理解：解析對回原文 */
+.sent { border-radius: 4px; transition: background .3s var(--ease), box-shadow .3s var(--ease); }
+.sent.evidence { background: var(--amber-soft); box-shadow: 0 0 0 3px var(--amber-soft); color: var(--amber-ink); }
+.ref-btn { display: inline-flex; margin-top: 8px; }
 .xp-ex { color: var(--navy); }
 .xp-exzh { font-size: .88rem; }
 .wrong-item .x { grid-column: 1 / -1; font-size: .85rem; color: var(--steel); }

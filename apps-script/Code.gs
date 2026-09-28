@@ -33,8 +33,8 @@ var CUSTOM_UNITS_HEADER = ['單元代號', '標題', '類型', '課次', '主題
 var SCORES_FIELDS = ['serverTime', 'cls', 'seat', 'name', 'unit', 'unitTitle', 'level', 'mode', 'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTime', 'attemptId'];
 var SCORES_HEADER = ['時間', '班級', '座號', '姓名', '單元', '單元名稱', '階段', '模式', '得分', '總分', '百分比', '基礎', '進階', '精熟', '錯題', '作答秒數', '送出時間(裝置)', '記錄編號'];
 var SHEET_DETAILS = 'details';
-var DETAILS_FIELDS = ['serverTime', 'attemptId', 'cls', 'seat', 'name', 'unit', 'stage', 'kind', 'n', 'question', 'correct', 'yours', 'ok', 'points', 'hints'];
-var DETAILS_HEADER = ['時間', '記錄編號', '班級', '座號', '姓名', '單元', '段落', '題型', '題號', '題目', '正確答案', '學生答案', '對錯', '得分', '提示次數'];
+var DETAILS_FIELDS = ['serverTime', 'attemptId', 'cls', 'seat', 'name', 'unit', 'stage', 'kind', 'n', 'question', 'correct', 'yours', 'ok', 'points', 'hints', 'word', 'err'];
+var DETAILS_HEADER = ['時間', '記錄編號', '班級', '座號', '姓名', '單元', '段落', '題型', '題號', '題目', '正確答案', '學生答案', '對錯', '得分', '提示次數', '單字／題目', '錯誤類型'];
 var CLASS_SHEET_PREFIX = '班級 ';
 
 /* ------------------------------------------------------------------ */
@@ -109,10 +109,14 @@ function doPost(e) {
         return [
           now, cell_(attemptId, 64), cell_(d.cls, 8), cell_(d.seat, 4), cell_(d.name, 40), cell_(d.unit, 60),
           cell_(x.stage, 20), cell_(x.kind, 20), num_(x.n), cell_(x.q, 300), cell_(x.correct, 200), cell_(x.yours, 200),
-          x.ok ? '✓' : '✗', num_(x.points), num_(x.hints),
+          x.ok ? '✓' : '✗', num_(x.points), num_(x.hints), cell_(x.word, 80), cell_(x.err, 20),
         ];
       });
       var ds = sheet_(SHEET_DETAILS, DETAILS_HEADER);
+      // 舊版建立的 details 分頁欄位比較少：補上新欄位的標題
+      if (ds.getLastColumn() < DETAILS_HEADER.length) {
+        ds.getRange(1, 1, 1, DETAILS_HEADER.length).setValues([DETAILS_HEADER]).setFontWeight('bold');
+      }
       ds.getRange(ds.getLastRow() + 1, 1, rows.length, DETAILS_HEADER.length).setValues(rows);
     }
     if (attemptId) CacheService.getScriptCache().put('att:' + attemptId, '1', 21600);
@@ -340,6 +344,48 @@ function saveCustomUnits(units) {
   return { ok: true, savedAt: new Date().toISOString() };
 }
 
+// 老師後台「錯題分析」：從 details 統計全班最常答錯的單字／題目，以及錯誤類型分布
+function getWrongStats(filter) {
+  assertTeacher_();
+  filter = filter || {};
+  var sh = sheet_(SHEET_DETAILS, DETAILS_HEADER);
+  var last = sh.getLastRow();
+  var empty = { top: [], errTypes: {}, answered: 0 };
+  if (last < 2) return empty;
+  var from = Math.max(2, last - 19999);
+  var rows = sh.getRange(from, 1, last - from + 1, DETAILS_FIELDS.length).getValues();
+  var col = function (k) { return DETAILS_FIELDS.indexOf(k); };
+  var cCls = col('cls'), cUnit = col('unit'), cWord = col('word'), cOk = col('ok'), cErr = col('err'), cCorrect = col('correct');
+  var titles = {};
+  readSettingsRows_().concat(readCustomUnitsRows_()).forEach(function (u) { titles[u.id] = u.title; });
+  var groups = {}, errTypes = {}, answered = 0;
+  rows.forEach(function (r) {
+    var word = String(r[cWord] || '').trim();
+    if (!word) return;
+    if (filter.cls && String(r[cCls]).trim() !== String(filter.cls).trim()) return;
+    if (filter.unit && String(r[cUnit]) !== filter.unit) return;
+    answered++;
+    var key = r[cUnit] + '\u0001' + word;
+    var g = groups[key] || (groups[key] = { unit: String(r[cUnit]), word: word, total: 0, wrong: 0, errs: {}, answer: '' });
+    g.total++;
+    if (String(r[cOk]) === '✓') return;
+    g.wrong++;
+    var e = String(r[cErr] || '').trim();
+    if (e) { g.errs[e] = (g.errs[e] || 0) + 1; errTypes[e] = (errTypes[e] || 0) + 1; }
+    if (!g.answer) g.answer = String(r[cCorrect] || '');
+  });
+  var top = Object.keys(groups).map(function (k) { return groups[k]; })
+    .filter(function (g) { return g.wrong > 0; })
+    .sort(function (a, b) { return b.wrong - a.wrong || b.wrong / b.total - a.wrong / a.total; })
+    .slice(0, 15)
+    .map(function (g) {
+      var main = Object.keys(g.errs).sort(function (a, b) { return g.errs[b] - g.errs[a]; })[0] || '';
+      return { unit: g.unit, unitTitle: titles[g.unit] || g.unit, word: g.word, total: g.total, wrong: g.wrong,
+        rate: Math.round((g.wrong / g.total) * 100), mainErr: main };
+    });
+  return { top: top, errTypes: errTypes, answered: answered };
+}
+
 function getScores(filter) {
   assertTeacher_();
   filter = filter || {};
@@ -455,7 +501,7 @@ function findContentRow_(unitId) {
 }
 
 function unitType_(unitId) {
-  var rows = readSettingsRows_();
+  var rows = readSettingsRows_().concat(readCustomUnitsRows_());
   for (var i = 0; i < rows.length; i++) if (rows[i].id === unitId) return rows[i].type;
   return '';
 }
@@ -526,7 +572,9 @@ function aiGenerateReading(passage, count, title) {
   passage = (passage || []).map(String).filter(function (p) { return p.trim(); });
   if (!passage.length) throw new Error('請先貼上文章');
   count = Math.max(1, Math.min(10, Number(count) || 5));
-  var text = passage.map(function (p, i) { return '[' + (i + 1) + '] ' + p; }).join('\n\n');
+  var text = passage.map(function (p, i) {
+    return splitSentences_(p).map(function (s, j) { return '[' + (i + 1) + '-' + (j + 1) + '] ' + s; }).join(' ');
+  }).join('\n\n');
   var schema = {
     type: 'OBJECT',
     properties: {
@@ -540,8 +588,9 @@ function aiGenerateReading(passage, count, title) {
             options: { type: 'ARRAY', items: { type: 'STRING' } },
             answer: { type: 'INTEGER' },
             explain: { type: 'STRING' },
+            ref: { type: 'STRING' },
           },
-          required: ['skill', 'q', 'options', 'answer', 'explain'],
+          required: ['skill', 'q', 'options', 'answer', 'explain', 'ref'],
         },
       },
     },
@@ -556,7 +605,9 @@ function aiGenerateReading(passage, count, title) {
     '- Wrong options must be plausible and similar in length, but clearly wrong according to the passage. Do not use "All of the above" or "None of the above".',
     '- Paraphrase. Never copy ' + (AI_MAX_COPY - 1) + ' or more consecutive words from the passage into a question or an option. Students must understand the passage, not match words.',
     '- For 字義 questions you may quote the single target word or short phrase in quotation marks.',
-    '- "explain" is a short explanation in Traditional Chinese (Taiwan usage), saying which paragraph ([1], [2]...) supports the answer and why.',
+    '- Every sentence in the passage is labelled [paragraph-sentence], e.g. [2-3] is paragraph 2, sentence 3.',
+    '- "ref" is the label (without brackets, e.g. "2-3") of the ONE sentence that best supports the correct answer. For 主旨 questions with no single supporting sentence, use "".',
+    '- "explain" is a short explanation in Traditional Chinese (Taiwan usage), saying which paragraph supports the answer and why.',
     '- Keep the English at a CEFR B1–B2 level.',
     '',
     'Passage:',
@@ -564,13 +615,15 @@ function aiGenerateReading(passage, count, title) {
   ].join('\n');
 
   var pw = aiWords_(passage.join(' '));
+  var refs = {};
+  passage.forEach(function (p, i) { splitSentences_(p).forEach(function (s, j) { refs[(i + 1) + '-' + (j + 1)] = true; }); });
   var result = aiCall_(prompt, schema);
-  var qs = cleanQuestions_(result.questions || []);
+  var qs = cleanQuestions_(result.questions || [], refs);
   var copied = copiedParts_(qs, pw);
   if (copied.length) {
     // 有照抄就請 AI 改寫一次
     var retry = prompt + '\n\nYour previous answer copied these phrases from the passage. Rewrite so that no question or option copies ' + (AI_MAX_COPY - 1) + '+ consecutive words:\n- ' + copied.join('\n- ');
-    qs = cleanQuestions_((aiCall_(retry, schema).questions) || []);
+    qs = cleanQuestions_((aiCall_(retry, schema).questions) || [], refs);
   }
   if (!qs.length) throw new Error('AI 沒有產生可用的題目，請再試一次');
   return { questions: qs.slice(0, count) };
@@ -656,18 +709,26 @@ function aiCall_(prompt, schema) {
   }
 }
 
-function cleanQuestions_(qs) {
+function cleanQuestions_(qs, refs) {
   return qs.map(function (q) {
     var options = (q.options || []).map(function (o) { return String(o || '').trim(); }).filter(String).slice(0, 4);
     var answer = Number(q.answer);
-    return {
+    var ref = String(q.ref || '').replace(/[\[\]\s]/g, '');
+    var out = {
       skill: SKILLS.indexOf(q.skill) >= 0 ? q.skill : '細節',
       q: String(q.q || '').trim(),
       options: options,
       answer: answer >= 0 && answer < options.length ? answer : -1,
       explain: String(q.explain || '').trim(),
     };
+    if (refs && refs[ref]) out.ref = ref;
+    return out;
   }).filter(function (q) { return q.q && q.options.length >= 2 && q.answer >= 0; });
+}
+
+// 跟網站 js/util.js 的 splitSentences 同一套切句規則，課文題目的 ref（段-句）才對得上
+function splitSentences_(p) {
+  return (String(p).match(/[^.!?]+(?:[.!?]+["'”’)\]]*|$)/g) || []).map(function (s) { return s.trim(); }).filter(String);
 }
 
 function aiWords_(s) { return String(s).toLowerCase().replace(/[“”"]/g, ' ').match(/[a-z0-9']+/g) || []; }

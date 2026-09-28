@@ -60,6 +60,8 @@ function cleanDetails(list) {
     ok: !!x.ok,
     points: Number(x.points) || 0,
     hints: Number(x.hints) || 0,
+    word: clean(x.word, 80),
+    err: clean(x.err, 20),
   }));
 }
 

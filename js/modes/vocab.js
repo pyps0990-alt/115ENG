@@ -2,7 +2,7 @@
 import { store } from '../storage.js';
 import { esc, nowStamp, wait, shuffle } from '../util.js';
 import { icon } from '../icons.js';
-import { renderMC, renderSpell, promptText, answerText, explainWrong } from '../components/question.js';
+import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError } from '../components/question.js';
 import { renderResult } from '../components/result.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { submitScore } from '../submit.js';
@@ -106,6 +106,7 @@ export function mount(stage, ctx) {
       details.push({
         stage: s.level.name, n: qi + 1, kind: q.type === 'mc' ? (q.dir === 'en2zh' ? '英→中' : q.dir === 'cloze' ? '例句選字' : '中→英') : (q.variant === 'cloze' ? '例句拼寫' : '拼字'),
         q: promptText(q), correct: answerText(q), yours: yours == null ? '' : String(yours), ok, points: got, hints,
+        word: q.word.word, err: ok ? '' : classifyError(q, yours, all),
       });
       const fb = stage.querySelector('[data-fb]');
       const st = stage.querySelector('[data-streak]');

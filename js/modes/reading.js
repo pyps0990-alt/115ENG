@@ -1,6 +1,6 @@
 // 課文理解：先讀文章，再作答閱讀測驗；交卷後顯示解析並送出成績
 import { store } from '../storage.js';
-import { esc, nowStamp, confirmDialog } from '../util.js';
+import { esc, nowStamp, confirmDialog, splitSentences } from '../util.js';
 import { icon } from '../icons.js';
 import { renderResult } from '../components/result.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
@@ -47,7 +47,8 @@ export function mount(stage, ctx) {
         <article class="passage-card">
           <div class="eyebrow">Passage · ${nWords} words</div>
           <h2 class="passage-title en">${esc(data.title || '')}</h2>
-          ${(data.passage || []).map((p, i) => `<p><span class="pnum">${i + 1}</span>${esc(p)}</p>`).join('')}
+          ${(data.passage || []).map((p, i) => `<p><span class="pnum">${i + 1}</span>${
+    splitSentences(p).map((s, j) => `<span class="sent" data-ref="${i + 1}-${j + 1}">${esc(s)}</span>`).join(' ')}</p>`).join('')}
         </article>
         <section class="pq-list" aria-label="閱讀測驗">
           <div class="pq-intro"><span class="eyebrow">Questions</span><span class="muted">讀完文章後作答，可以隨時回頭查看</span></div>
@@ -86,7 +87,7 @@ export function mount(stage, ctx) {
     });
 
     foot.addEventListener('click', async () => {
-      if (graded) { run(student); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+      if (graded) { run(student, true); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
       const blank = answers.filter((a) => a == null).length;
       const ok = await confirmDialog({
         title: '確定要交卷嗎？',
@@ -110,7 +111,16 @@ export function mount(stage, ctx) {
       });
       const ex = card.querySelector('.explain');
       ex.hidden = false;
-      ex.innerHTML = `<b class="ex-head ${ok ? 'ok' : 'no'}">${ok ? `${icon.check} 答對` : answers[i] == null ? `${icon.x} 未作答・正解 ${KEYS[q.answer]}` : `${icon.x} 正解 ${KEYS[q.answer]}`}</b>　${esc(q.explain || '')}`;
+      const evidence = q.ref && stage.querySelector(`.sent[data-ref="${q.ref}"]`);
+      ex.innerHTML = `<b class="ex-head ${ok ? 'ok' : 'no'}">${ok ? `${icon.check} 答對` : answers[i] == null ? `${icon.x} 未作答・正解 ${KEYS[q.answer]}` : `${icon.x} 正解 ${KEYS[q.answer]}`}</b>　${esc(q.explain || '')}${
+        evidence ? `<button class="btn small ghost ref-btn" type="button">${icon.book} 看原文依據（第 ${q.ref.split('-')[0]} 段）</button>` : ''}`;
+      if (evidence) {
+        ex.querySelector('.ref-btn').onclick = () => {
+          stage.querySelectorAll('.sent.evidence').forEach((s) => s.classList.remove('evidence'));
+          evidence.classList.add('evidence');
+          evidence.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        };
+      }
     }
 
     async function finish() {
@@ -138,7 +148,7 @@ export function mount(stage, ctx) {
         score: score(), total: qs.length, pct, durationSec,
         wrong: answers.map((a, i) => (a === qs[i].answer ? null : `Q${i + 1}`)).filter(Boolean),
         details: qs.map((q, i) => ({
-          stage: '課文理解', n: i + 1, kind: q.skill || '', q: q.q || '',
+          stage: '課文理解', n: i + 1, kind: q.skill || '', q: q.q || '', word: `Q${i + 1} ${String(q.q || '').slice(0, 50)}`,
           correct: `${KEYS[q.answer]}. ${q.options[q.answer]}`,
           yours: answers[i] == null ? '' : `${KEYS[answers[i]]}. ${q.options[answers[i]]}`,
           ok: answers[i] === q.answer, points: answers[i] === q.answer ? 1 : 0, hints: 0,

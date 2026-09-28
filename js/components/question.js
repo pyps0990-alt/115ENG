@@ -250,13 +250,49 @@ function chosenWord(q, chosen, pool) {
   return pool.find((w) => w.word === chosen);
 }
 
-// 回傳 { html, text }：html 顯示在題目下方，text 用在總成績單與試算表
+// 錯誤原因：意思混淆（選到或拼成別的字）、詞形錯誤（字對了但形式不對）、拼字錯誤（差幾個字母）、不熟悉、未作答
+const stem = (s) => s.replace(/(ies|ied|ying|ing|es|ed|s|d)$/, '').replace(/i$/, 'y');
+
+function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+  }
+  return d[a.length][b.length];
+}
+
+export function classifyError(q, chosen, pool = []) {
+  if (chosen == null || String(chosen).trim() === '') return '未作答';
+  if (q.type === 'mc') return '意思混淆';
+  const typed = lettersOf(chosen);
+  const ans = lettersOf(q.answer);
+  const base = lettersOf(q.word.word);
+  if (!typed) return '未作答';
+  if (typed !== ans && (typed === base || (ans.length > 3 && stem(typed) === stem(ans)))) return '詞形錯誤';
+  if (pool.some((w) => w.word !== q.word.word && lettersOf(w.word) === typed)) return '意思混淆';
+  if (editDistance(typed, ans) <= Math.max(1, Math.floor(ans.length / 4))) return '拼字錯誤';
+  return '不熟悉';
+}
+
+const ERR_TIPS = {
+  意思混淆: '這兩個字容易搞混，對照一下各自的意思和例句',
+  詞形錯誤: '字選對了，注意句子需要的形式（時態、單複數、詞性變化）',
+  拼字錯誤: '意思想對了，拼字再檢查一次',
+  不熟悉: '這個字還不熟，多看幾次例句加深印象',
+  未作答: '這題沒有作答，先記住正確答案',
+};
+
+// 回傳 { html, text, err }：html 顯示在題目下方，text 用在總成績單與試算表，err 是錯誤類型
 export function explainWrong(q, chosen, pool = []) {
   const w = q.word;
-  const lines = [];
+  const err = classifyError(q, chosen, pool);
+  const lines = [`<p class="xp-tip"><span class="xp-tag">${esc(err)}</span>${esc(ERR_TIPS[err] || '')}</p>`];
   const text = [];
   lines.push(`<div class="xp-main"><span class="xp-word en">${esc(w.word)}</span><span class="pos">${esc(w.pos || '')}</span><span class="xp-zh">${esc(w.zh)}</span></div>`);
-  text.push(`${w.word}：${w.zh}`);
+  text.push(`〔${err}〕${w.word}：${w.zh}`);
   if (q.type === 'mc') {
     const other = chosenWord(q, chosen, pool);
     if (other && other.word !== w.word) {
@@ -277,5 +313,5 @@ export function explainWrong(q, chosen, pool = []) {
     if (w.exampleZh) lines.push(`<p class="xp-exzh">${esc(w.exampleZh)}</p>`);
     text.push(plainExample(w.example));
   }
-  return { html: `<div class="explain xp slide-in"><div class="xp-head">${icon.bulb} 解析</div>${lines.join('')}</div>`, text: text.join('｜') };
+  return { html: `<div class="explain xp slide-in"><div class="xp-head">${icon.bulb} 解析</div>${lines.join('')}</div>`, text: text.join('｜'), err };
 }

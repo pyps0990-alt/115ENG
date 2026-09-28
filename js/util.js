@@ -59,6 +59,10 @@ export function clozeParts(w) {
 
 export const lettersOf = (s) => String(s).toLowerCase().replace(/[^a-z]/g, '');
 
+// 把一段文章切成句子；課文題目的 ref（"段-句"，從 1 開始）依這個切法編號。
+// 老師後台（Admin.html）與 Apps Script（Code.gs）有同一套規則，改這裡要一起改。
+export const splitSentences = (p) => (String(p).match(/[^.!?]+(?:[.!?]+["'”’)\]]*|$)/g) || []).map((s) => s.trim()).filter(Boolean);
+
 export function confirmDialog({ title, body, ok = '確定', cancel = '取消' }) {
   return new Promise((resolve) => {
     const d = el(`<dialog class="modal"><form method="dialog" class="modal-body">

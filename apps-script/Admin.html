@@ -88,6 +88,10 @@
     tr.off td:first-child, tr.off td:nth-child(2) { opacity:1; }
     .stats { display:flex; gap:10px; flex-wrap:wrap; margin:4px 0 14px; }
     .stat { background:var(--soft); color:var(--good); border-radius:10px; padding:7px 14px; font-weight:700; box-shadow:var(--shadow-sm); }
+    #wstats { margin:10px 0 18px; }
+    .rate-bar { display:inline-block; width:70px; height:8px; border-radius:99px; background:var(--line); overflow:hidden; vertical-align:middle; }
+    .rate-bar > span { display:block; height:100%; background:var(--bad); border-radius:inherit; }
+    .qcard .q-ref { font-size:.85rem; color:var(--muted); }
     /* 匯入內容 */
     .imp-grid { display:grid; gap:14px; margin-top:16px; }
     .imp-grid label { display:grid; gap:6px; font-weight:700; font-size:.9rem; }
@@ -224,9 +228,11 @@
           <label>班級 <input type="text" id="f-cls" placeholder="全部" size="6"></label>
           <label>單元 <select id="f-unit"><option value="">全部</option></select></label>
           <button class="btn primary" id="load">查詢</button>
+          <button class="btn" id="wload" type="button">錯題分析</button>
           <a class="btn" id="sheet" target="_blank" rel="noopener">開啟試算表</a>
           <span class="msg" id="smsg"></span>
         </div>
+        <div id="wstats"></div>
         <div class="stats" id="stats"></div>
         <table>
           <thead><tr><th>時間</th><th>班級</th><th>座號</th><th>姓名</th><th>單元</th><th>分數</th><th>%</th><th>基礎</th><th>進階</th><th>精熟</th><th>錯題</th></tr></thead>
@@ -352,6 +358,26 @@
         .getScores({ cls: $('f-cls').value.trim(), unit: $('f-unit').value });
     };
 
+    $('wload').onclick = function () {
+      $('smsg').textContent = '分析中…'; $('smsg').className = 'msg';
+      google.script.run
+        .withSuccessHandler(function (d) {
+          $('smsg').textContent = '';
+          if (!d.top.length) { $('wstats').innerHTML = '<p class="muted">目前的篩選條件下還沒有答錯的紀錄。</p>'; return; }
+          var types = Object.keys(d.errTypes).sort(function (a, b) { return d.errTypes[b] - d.errTypes[a]; });
+          $('wstats').innerHTML =
+            '<h3 style="margin:8px 0">全班最常答錯（共 ' + d.answered + ' 題次作答）</h3>' +
+            (types.length ? '<div class="stats">' + types.map(function (t) { return '<span class="stat">' + esc(t) + ' ' + d.errTypes[t] + '</span>'; }).join('') + '</div>' : '') +
+            '<table><thead><tr><th>#</th><th>單字／題目</th><th>單元</th><th>答錯／作答</th><th>答錯率</th><th>主要錯誤</th></tr></thead><tbody>' +
+            d.top.map(function (r, i) {
+              return '<tr><td>' + (i + 1) + '</td><td style="white-space:normal;font-weight:700">' + esc(r.word) + '</td><td>' + esc(r.unitTitle) + '</td><td>' + r.wrong + ' / ' + r.total +
+                '</td><td><span class="rate-bar"><span style="width:' + r.rate + '%"></span></span> ' + r.rate + '%</td><td>' + esc(r.mainErr || '—') + '</td></tr>';
+            }).join('') + '</tbody></table>';
+        })
+        .withFailureHandler(function (err) { $('smsg').textContent = '分析失敗：' + err.message; $('smsg').className = 'msg err'; })
+        .getWrongStats({ cls: $('f-cls').value.trim(), unit: $('f-unit').value });
+    };
+
     /* ---------------- 匯入內容 ---------------- */
     var content = [], siteUrl = '', pending = null;
     var SKILLS = ['主旨', '細節', '字義', '推論', '態度', '其他'];
@@ -383,6 +409,28 @@
     ['imp-vocab', 'imp-reading'].forEach(function (id) { $(id).addEventListener('input', impDirty); $(id).addEventListener('change', impDirty); });
 
     // ----- 閱讀題目表單 -----
+    // 切句規則要跟網站 js/util.js 的 splitSentences 一致，ref（段-句）才對得上
+    function splitSentences(p) {
+      return (String(p).match(/[^.!?]+(?:[.!?]+["'”’)\]]*|$)/g) || []).map(function (s) { return s.trim(); }).filter(Boolean);
+    }
+    function passageParas() {
+      return $('r-passage').value.split(/\n\s*\n/).map(function (p) { return p.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean);
+    }
+    function refOptionsHTML(selected) {
+      var html = '<option value="">原文依據：不指定</option>';
+      passageParas().forEach(function (p, i) {
+        splitSentences(p).forEach(function (s, j) {
+          var v = (i + 1) + '-' + (j + 1);
+          html += '<option value="' + v + '"' + (v === selected ? ' selected' : '') + '>第 ' + (i + 1) + ' 段第 ' + (j + 1) + ' 句：' + esc(s.length > 60 ? s.slice(0, 60) + '…' : s) + '</option>';
+        });
+      });
+      return html;
+    }
+    function refreshRefs() {
+      [].forEach.call($('r-qs').querySelectorAll('.q-ref'), function (sel) { sel.innerHTML = refOptionsHTML(sel.value); });
+    }
+    $('r-passage').addEventListener('change', refreshRefs);
+
     function addQ(q) {
       q = q || { skill: '細節', q: '', options: ['', '', '', ''], answer: -1, explain: '' };
       var i = $('r-qs').children.length;
@@ -395,7 +443,8 @@
         '<div class="opts">' + [0, 1, 2, 3].map(function (j) {
           return '<label><input type="radio" name="' + name + '" value="' + j + '"' + (q.answer === j ? ' checked' : '') + ' title="設為正確答案"> ' + 'ABCD'[j] + ' <input type="text" class="q-opt" placeholder="選項 ' + 'ABCD'[j] + '"></label>';
         }).join('') + '</div>' +
-        '<textarea class="q-explain" rows="2" placeholder="中文解析（交卷後顯示給學生）"></textarea>';
+        '<textarea class="q-explain" rows="2" placeholder="中文解析（交卷後顯示給學生）"></textarea>' +
+        '<select class="q-ref" title="學生交卷後可以點「看原文依據」，文章會捲到這句並標亮">' + refOptionsHTML(q.ref || '') + '</select>';
       box.querySelector('.q-text').value = q.q || '';
       box.querySelectorAll('.q-opt').forEach(function (el, j) { el.value = (q.options || [])[j] || ''; });
       box.querySelector('.q-explain').value = q.explain || '';
@@ -510,6 +559,8 @@
           else if (s.n === 5) issues.push(['warn', tag + '（' + pair[0] + '）和文章連續 5 個字相同：「' + s.text + '」']);
         });
         q.options = opts; q.answer = ans;
+        var ref = box.querySelector('.q-ref').value;
+        if (ref) q.ref = ref;
         qs.push(q);
       });
       if (!qs.length) issues.push(['err', '至少要 1 題']);
