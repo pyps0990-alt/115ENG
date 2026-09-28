@@ -525,6 +525,67 @@ function semesterReset(opts) {
   return out;
 }
 
+// 危險功能：清除某個單元的所有成績（試算表＋Firestore）。預設關閉：
+// 管理者要先在 Apps Script「專案設定 → 指令碼屬性」新增 PURGE_PASSPHRASE（通關密語），輸入相同密語才能執行。
+function purgeUnitScores(unitId, passphrase) {
+  assertTeacher_();
+  var secret = PropertiesService.getScriptProperties().getProperty('PURGE_PASSPHRASE');
+  if (!secret) throw new Error('這個功能尚未啟用：請管理者在 Apps Script 專案設定的「指令碼屬性」新增 PURGE_PASSPHRASE。');
+  if (String(passphrase || '') !== secret) throw new Error('通關密語錯誤。');
+  unitId = String(unitId || '').trim();
+  if (!/^[a-z0-9-]+$/i.test(unitId)) throw new Error('單元代號格式錯誤。');
+  var out = { rows: 0, docs: 0, done: true };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.getSheets().forEach(function (sh) {
+    var n = sh.getName();
+    var col = (n === SHEET_SCORES || n.indexOf(CLASS_SHEET_PREFIX) === 0) ? SCORES_FIELDS.indexOf('unit') + 1
+      : n === SHEET_DETAILS ? DETAILS_FIELDS.indexOf('unit') + 1 : 0;
+    if (col) {
+      var last = sh.getLastRow();
+      if (last < 2) return;
+      var vals = sh.getRange(2, col, last - 1, 1).getValues();
+      for (var i = vals.length - 1; i >= 0; i--) {
+        if (String(vals[i][0]).trim() !== unitId) continue;
+        var j = i; while (j > 0 && String(vals[j - 1][0]).trim() === unitId) j--;
+        sh.deleteRows(j + 2, i - j + 1); out.rows += i - j + 1; i = j;
+      }
+    } else if (n.indexOf(GRADEBOOK_PREFIX) === 0 && sh.getLastColumn() > GRADEBOOK_BASE_HEADER.length) {
+      var head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+      for (var c = head.length - 1; c >= GRADEBOOK_BASE_HEADER.length; c--) {
+        if (String(head[c]).trim() === unitId) sh.deleteColumn(c + 1);
+      }
+    }
+  });
+  // Firestore：這個單元的作答紀錄與檢討狀態
+  var deadline = Date.now() + 240000;
+  var after = null;
+  while (true) {
+    if (Date.now() > deadline) { out.done = false; return out; }
+    var page = firestorePage_('attempts', ['unit'], after, 300);
+    if (!page.length) break;
+    var hit = page.filter(function (d) { return d.fields && d.fields.unit && d.fields.unit.stringValue === unitId; })
+      .map(function (d) { return d.name; });
+    if (hit.length) { firestoreDelete_(hit); out.docs += hit.length; }
+    after = page[page.length - 1].name;
+  }
+  var reviews = firestoreList_('reviews', 5000).filter(function (n) { return /\/reviews\/([^/]+)$/.exec(n)[1] === unitId; });
+  for (var k = 0; k < reviews.length; k += 300) { firestoreDelete_(reviews.slice(k, k + 300)); out.docs += Math.min(300, reviews.length - k); }
+  return out;
+}
+
+// 依文件路徑排序、一頁一頁讀出某個集合名稱的所有文件（只取指定欄位）
+function firestorePage_(collectionId, fields, afterName, limit) {
+  var q = {
+    from: [{ collectionId: collectionId, allDescendants: true }],
+    select: { fields: fields.map(function (f) { return { fieldPath: f }; }) },
+    orderBy: [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }],
+    limit: limit,
+  };
+  if (afterName) q.startAt = { values: [{ referenceValue: afterName }], before: false };
+  var res = firestoreRequest_('post', FIRESTORE_ROOT + ':runQuery', { structuredQuery: q }) || [];
+  return res.filter(function (r) { return r.document; }).map(function (r) { return r.document; });
+}
+
 function firestoreRequest_(method, url, body) {
   var res = UrlFetchApp.fetch(url, {
     method: method,
