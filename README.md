@@ -79,11 +79,32 @@ node tools/check-content.mjs
 
 換成真正的內容後，記得把 `data/lessons/index.json` 裡對應單元的 `"sample": true` 拿掉，並更新 `count`。
 
-## 發布到 GitHub Pages
+## 發布到 Firebase Hosting
 
-1. GitHub repo → **Settings → Pages** → Source 選 **Deploy from a branch**，Branch 選 `main`，資料夾選 `/ (root)`。
-2. 網址會是 `https://<帳號>.github.io/<repo>/`。
-3. 在原本的 Google Sites 用「插入 → 嵌入 → 依網址」貼上這個網址，或把導覽連結改到新網站。
+專案已設定為部署到 Firebase 專案 `eng-3385e`（設定檔：`firebase.json`、`.firebaserc`）。
+
+1. 本機安裝 Firebase CLI（需要 Node.js）：
+
+   ```bash
+   npm install -g firebase-tools
+   ```
+
+2. 登入你的 Google 帳號：
+
+   ```bash
+   firebase login
+   ```
+
+3. 在專案根目錄部署：
+
+   ```bash
+   firebase deploy --only hosting
+   ```
+
+4. 部署完成後，網址會是 `https://eng-3385e.web.app`（或 `https://eng-3385e.firebaseapp.com`）。
+5. 在原本的 Google Sites 用「插入 → 嵌入 → 依網址」貼上這個網址，或把導覽連結改到新網站。
+
+> `firebase.json` 只上傳網站需要的靜態檔案（`index.html`、`css/`、`js/`、`data/`），排除 `apps-script/`、`docs/`、`tools/` 等開發用檔案。
 
 ## 老師後台與成績（Google Apps Script）
 
