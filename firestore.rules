@@ -8,6 +8,12 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/admins/$(request.auth.token.email.lower()));
     }
 
+    // 老師後台儲存時由 Apps Script（專案擁有者權限）寫入的公開設定與題目；網站只讀
+    match /public/{doc} {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
     // 名單只在 Firebase 主控台手動維護；登入的人只能讀自己那一筆（用來判斷是不是老師）
     match /admins/{email} {
       allow get: if request.auth != null && request.auth.token.email.lower() == email;

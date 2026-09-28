@@ -21,6 +21,10 @@ var MAX_CONTENT_CHARS = 45000; // 試算表單一儲存格上限 50000 字元
 // 學生網站的網址：後台「載入網站目前內容」會從這裡讀取內建的題目
 var SITE_URL = 'https://eng-3385e.web.app/';
 
+// 老師儲存後，把設定與匯入內容同步寫到 Firestore（public 集合），學生網站直接從 Firestore 讀，
+// 不用等 Apps Script 開機（約 2～5 秒）。寫入失敗時學生網站會退回讀 Apps Script，不影響功能。
+var FIRESTORE_DOCS = 'https://firestore.googleapis.com/v1/projects/eng-3385e/databases/(default)/documents/public/';
+
 var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCount'];
 
 // 老師後台「新增單元」建立的全新單元（網站原本沒有的課次），跟 settings（只調整既有單元的顯示/題數）分開存放。
@@ -297,7 +301,7 @@ function saveSettings(units) {
   if (rows.length) {
     sh.getRange(2, 1, rows.length, SETTINGS_HEADER.length).setValues(rows);
   }
-  CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
+  publishConfig_();
   return { ok: true, savedAt: new Date().toISOString() };
 }
 
@@ -340,7 +344,7 @@ function saveCustomUnits(units) {
   var last = sh.getLastRow();
   if (last > 1) sh.getRange(2, 1, last - 1, CUSTOM_UNITS_FIELDS.length).clearContent();
   if (rows.length) sh.getRange(2, 1, rows.length, CUSTOM_UNITS_FIELDS.length).setValues(rows);
-  CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
+  publishConfig_();
   return { ok: true, savedAt: new Date().toISOString() };
 }
 
@@ -430,11 +434,11 @@ function saveContent(unitId, data) {
   if (err) throw new Error(err);
   var json = JSON.stringify(data);
   if (json.length > MAX_CONTENT_CHARS) throw new Error('內容太長（' + json.length + ' 字元），請分成兩個單元。');
+  var now = new Date().toISOString();
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
     var sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
-    var now = new Date().toISOString();
     var row = findContentRow_(unitId);
     var values = [[unitId, json, now, email]];
     if (row) sh.getRange(row.index, 1, 1, 4).setValues(values);
@@ -443,6 +447,10 @@ function saveContent(unitId, data) {
     lock.releaseLock();
   }
   clearContentCache_(unitId);
+  // 版本號用設定裡的 updated（跟網站比對用的是同一個值）
+  var cfg = publishConfig_();
+  var v = (cfg.content[unitId] || {}).updated || now;
+  publishDoc_('content_' + unitId, JSON.stringify({ v: v, data: data }));
   return { ok: true, count: countOf_(type, data) };
 }
 
@@ -452,6 +460,7 @@ function deleteContent(unitId) {
   var row = findContentRow_(unitId);
   if (row) sheet_(SHEET_CONTENT, CONTENT_HEADER).deleteRow(row.index);
   clearContentCache_(unitId);
+  publishConfig_();
   return { ok: true };
 }
 
@@ -761,6 +770,36 @@ function copiedParts_(qs, pw) {
 /* ------------------------------------------------------------------ */
 /* Config                                                              */
 /* ------------------------------------------------------------------ */
+
+function publishDoc_(docId, json) {
+  try {
+    var res = UrlFetchApp.fetch(FIRESTORE_DOCS + encodeURIComponent(docId), {
+      method: 'patch',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      payload: JSON.stringify({ fields: { json: { stringValue: json } } }),
+      muteHttpExceptions: true,
+    });
+    if (res.getResponseCode() >= 300) Logger.log('Firestore 同步失敗 ' + docId + '：' + res.getContentText());
+  } catch (e) {
+    Logger.log('Firestore 同步失敗 ' + docId + '：' + e);
+  }
+}
+
+function publishConfig_() {
+  CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
+  var cfg = readConfigCached_();
+  publishDoc_('config', JSON.stringify(cfg));
+  return cfg;
+}
+
+// 手動全部同步一次（第一次設定、或 Firestore 資料不見時）：在編輯器選這個函式按「執行」
+function syncToFirestore() {
+  publishConfig_();
+  readContentRows_().forEach(function (r) {
+    publishDoc_('content_' + r.id, JSON.stringify({ v: r.updated, data: JSON.parse(r.json) }));
+  });
+}
 
 function readConfigCached_() {
   var cache = CacheService.getScriptCache();

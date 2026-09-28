@@ -12,6 +12,7 @@ async function getJSON(url) {
 }
 
 import { SCRIPT_URL } from './config.js';
+import { firestoreDoc } from './remote-config.js';
 
 export const loadIndex = () => getJSON('data/lessons/index.json');
 
@@ -26,6 +27,13 @@ export async function loadUnit(id, config) {
       const saved = JSON.parse(localStorage.getItem(key) || 'null');
       if (saved && saved.v === version && saved.data) return saved.data;
     } catch { /* ignore */ }
+    try {
+      const d = await firestoreDoc(`content_${id}`);
+      if (d && String(d.v) === version && d.data) {
+        try { localStorage.setItem(key, JSON.stringify({ v: version, data: d.data })); } catch { /* ignore */ }
+        return d.data;
+      }
+    } catch { /* 改問 Apps Script */ }
     const url = `${SCRIPT_URL}${SCRIPT_URL.includes('?') ? '&' : '?'}action=content&unit=${encodeURIComponent(id)}&v=${encodeURIComponent(version)}`;
     try {
       const res = await getJSON(url);

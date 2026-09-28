@@ -8,6 +8,7 @@ import { SCRIPT_URL } from './config.js';
 
 const DEFAULT_COUNT = 10;
 const CACHE_KEY = 'b5p:config';
+const FIRESTORE = 'https://firestore.googleapis.com/v1/projects/eng-3385e/databases/(default)/documents/public/';
 
 async function fetchTimeout(url, ms) {
   const ctrl = new AbortController();
@@ -26,7 +27,23 @@ function writeCache(c) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch { /* ignore */ }
 }
 
+// 老師儲存時 Apps Script 會同步一份到 Firestore：直接讀它，約 0.2 秒（Apps Script 要 2～5 秒）
+export async function firestoreDoc(id, ms = 4000) {
+  const r = await fetchTimeout(`${FIRESTORE}${encodeURIComponent(id)}`, ms);
+  if (!r.ok) throw new Error(String(r.status));
+  const j = await r.json();
+  return JSON.parse(j.fields.json.stringValue);
+}
+
 async function fetchRemote() {
+  try {
+    const c = await firestoreDoc('config');
+    if (c && c.units) return { ...c, source: 'firestore' };
+  } catch { /* 還沒同步過或讀取失敗：改問 Apps Script */ }
+  return fetchGas();
+}
+
+async function fetchGas() {
   const r = await fetchTimeout(`${SCRIPT_URL}${SCRIPT_URL.includes('?') ? '&' : '?'}action=config`, 10000);
   if (!r.ok) throw new Error(String(r.status));
   const j = await r.json();
