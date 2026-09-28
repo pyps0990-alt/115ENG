@@ -242,12 +242,12 @@
     </section>
     <section id="tab-semester" hidden>
       <div class="card" style="border:2px solid var(--bad)">
-        <h2 style="margin-top:0;color:var(--bad)">⚠ 清除單一單元的所有成績</h2>
-        <div class="help">會刪除這個單元在試算表（scores、details、班級分頁、成績單欄位）和 Firestore 的所有成績與檢討紀錄，無法復原。建議先到下方建立成績備份。這個功能預設關閉，要輸入管理者設定的通關密語才能使用。</div>
+        <h2 style="margin-top:0;color:var(--bad)">⚠ 刪除單元的所有紀錄</h2>
+        <div class="help">會刪除這個單元的所有紀錄：單元本身（設定、匯入的題目、代號）、試算表成績（scores、details、班級分頁、成績單欄位）、Firestore 的作答與檢討紀錄。學生網站上也會立刻消失，無法復原。建議先到下方建立成績備份。這個功能預設關閉，要輸入管理者設定的通關密語才能使用。</div>
         <div class="bar" style="margin-top:12px">
           <label>單元代號 <input type="text" id="pu-id" size="12" autocomplete="off" placeholder="例：l2-voc"></label>
           <label>通關密語 <input type="password" id="pu-pass" size="12" autocomplete="off"></label>
-          <button class="btn" id="pu-go" type="button" disabled style="color:var(--bad);border-color:var(--bad)">清除這個單元的所有成績</button>
+          <button class="btn" id="pu-go" type="button" disabled style="color:var(--bad);border-color:var(--bad)">刪除這個單元的所有紀錄</button>
           <span class="msg" id="pu-msg"></span>
         </div>
       </div>
@@ -721,7 +721,7 @@
     $('pu-id').oninput = puCheck; $('pu-pass').oninput = puCheck;
     $('pu-go').onclick = function () {
       var id = $('pu-id').value.trim();
-      if (!confirm('確定要清除「' + id + '」的所有成績嗎？這個動作無法復原。')) return;
+      if (!confirm('確定要刪除「' + id + '」的所有紀錄（單元、題目、成績）嗎？這個動作無法復原。')) return;
       if (prompt('請再輸入一次單元代號確認：') !== id) { $('pu-msg').textContent = '代號不一致，已取消'; $('pu-msg').className = 'msg err'; return; }
       var btn = this; btn.disabled = true;
       var rows = 0, docs = 0;
@@ -730,8 +730,9 @@
         google.script.run.withSuccessHandler(function (r) {
           rows += r.rows; docs += r.docs;
           if (!r.done) { run(); return; }
-          $('pu-pass').value = ''; puCheck();
-          $('pu-msg').textContent = '✓ 已清除 ' + rows + ' 列試算表成績、' + docs + ' 筆 Firestore 紀錄'; $('pu-msg').className = 'msg ok';
+          $('pu-pass').value = ''; $('pu-id').value = ''; puCheck();
+          units = units.filter(function (u) { return u.id !== id; }); content = content.filter(function (x) { return x.id !== id; }); render(); impInit();
+          $('pu-msg').textContent = '✓ 已刪除單元「' + id + '」：' + rows + ' 列試算表成績、' + docs + ' 筆 Firestore 紀錄'; $('pu-msg').className = 'msg ok';
         }).withFailureHandler(function (err) {
           puCheck(); $('pu-msg').textContent = err.message; $('pu-msg').className = 'msg err';
         }).purgeUnitScores(id, $('pu-pass').value);

@@ -525,7 +525,7 @@ function semesterReset(opts) {
   return out;
 }
 
-// 危險功能：清除某個單元的所有成績（試算表＋Firestore）。預設關閉：
+// 危險功能：刪除某個單元的所有紀錄（成績、作答明細、檢討狀態、單元設定、匯入題目；試算表＋Firestore）。預設關閉：
 // 管理者要先在 Apps Script「專案設定 → 指令碼屬性」新增 PURGE_PASSPHRASE（通關密語），輸入相同密語才能執行。
 function purgeUnitScores(unitId, passphrase) {
   assertTeacher_();
@@ -570,6 +570,16 @@ function purgeUnitScores(unitId, passphrase) {
   }
   var reviews = firestoreList_('reviews', 5000).filter(function (n) { return /\/reviews\/([^/]+)$/.exec(n)[1] === unitId; });
   for (var k = 0; k < reviews.length; k += 300) { firestoreDelete_(reviews.slice(k, k + 300)); out.docs += Math.min(300, reviews.length - k); }
+  // 單元本身：設定列、自訂單元列、匯入的題目（試算表與 Firestore），全部清除後代號可重新使用
+  [[SHEET_SETTINGS, SETTINGS_HEADER], [SHEET_CUSTOM_UNITS, CUSTOM_UNITS_HEADER]].forEach(function (t) {
+    var sh = sheet_(t[0], t[1]);
+    var last = sh.getLastRow();
+    if (last < 2) return;
+    var ids = sh.getRange(2, 1, last - 1, 1).getValues();
+    for (var r = ids.length - 1; r >= 0; r--) if (String(ids[r][0]).trim() === unitId) sh.deleteRow(r + 2);
+  });
+  purgeUnit_(unitId);
+  publishConfig_();
   return out;
 }
 
