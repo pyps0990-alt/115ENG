@@ -29,8 +29,8 @@ var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCo
 
 // 老師後台「新增單元」建立的全新單元（網站原本沒有的課次），跟 settings（只調整既有單元的顯示/題數）分開存放。
 var SHEET_CUSTOM_UNITS = 'custom_units';
-var CUSTOM_UNITS_FIELDS = ['id', 'title', 'type', 'lesson', 'topic', 'visible', 'disabled', 'questionCount'];
-var CUSTOM_UNITS_HEADER = ['單元代號', '標題', '類型', '課次', '主題', '顯示', '停用的段落', '每段題數'];
+var CUSTOM_UNITS_FIELDS = ['id', 'title', 'type', 'lesson', 'topic', 'visible', 'disabled', 'questionCount', 'createdAt'];
+var CUSTOM_UNITS_HEADER = ['單元代號', '標題', '類型', '課次', '主題', '顯示', '停用的段落', '每段題數', '建立時間'];
 
 // SCORES_FIELDS／DETAILS_FIELDS：程式內部用的欄位代號，順序要跟 doPost 組 row 的順序一致，不能改。
 // SCORES_HEADER／DETAILS_HEADER：實際寫進試算表第一列的中文欄名，只影響顯示，跟 FIELDS 一一對應。
@@ -323,6 +323,7 @@ function readCustomUnitsRows_() {
         visible: bool_(r[5], true),
         disabled: String(r[6] || '').split(',').map(function (s) { return s.trim(); }).filter(String),
         questionCount: Number(r[7]) || 10,
+        createdAt: r[8] instanceof Date ? r[8].toISOString() : String(r[8] || ''),
         custom: true,
       };
     });
@@ -330,6 +331,11 @@ function readCustomUnitsRows_() {
 
 function saveCustomUnits(units) {
   assertTeacher_();
+  // 建立時間：已存在的單元沿用，新單元（包括刪掉後用同代號重建的）用現在時間。
+  // 學生網站會忽略建立時間之前的作答與檢討紀錄，舊紀錄不會讓新單元跳過「先檢討才能複習」。
+  var created = {};
+  readCustomUnitsRows_().forEach(function (u) { created[u.id] = u.createdAt; });
+  var nowIso = new Date().toISOString();
   var rows = (units || [])
     .filter(function (u) { return /^[a-z0-9-]+$/i.test(String(u.id || '').trim()); })
     .map(function (u) {
@@ -338,6 +344,7 @@ function saveCustomUnits(units) {
         Math.max(1, Number(u.lesson) || 1), String(u.topic || ''),
         u.visible !== false, (u.disabled || []).join(','),
         Math.min(100, Math.max(1, Number(u.questionCount) || 10)),
+        (String(u.id).trim() in created) ? created[String(u.id).trim()] : nowIso,
       ];
     });
   // 被刪掉的單元：連同代號一起清除（匯入的題目、Firestore 上的題目），代號可以重新使用。
@@ -347,8 +354,9 @@ function saveCustomUnits(units) {
   var removed = readCustomUnitsRows_().map(function (u) { return u.id; }).filter(function (id) { return !keep[id]; });
   var sh = sheet_(SHEET_CUSTOM_UNITS, CUSTOM_UNITS_HEADER);
   var last = sh.getLastRow();
+  sh.getRange(1, 1, 1, CUSTOM_UNITS_HEADER.length).setValues([CUSTOM_UNITS_HEADER]).setFontWeight('bold');
   if (last > 1) sh.getRange(2, 1, last - 1, CUSTOM_UNITS_FIELDS.length).clearContent();
-  if (rows.length) sh.getRange(2, 1, rows.length, CUSTOM_UNITS_FIELDS.length).setValues(rows);
+  if (rows.length) sh.getRange(2, 1, rows.length, CUSTOM_UNITS_FIELDS.length).setNumberFormat('@').setValues(rows);
   removed.forEach(purgeUnit_);
   publishConfig_();
   return { ok: true, savedAt: new Date().toISOString() };
@@ -980,7 +988,7 @@ function readConfigCached_() {
     return { id: u.id, title: u.title, type: u.type, lesson: u.lesson, topic: u.topic };
   });
   customUnits.forEach(function (u) {
-    cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount };
+    cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount, since: u.createdAt || '' };
   });
   // 老師匯入過的單元：網站會改讀試算表裡的內容
   cfg.content = {};

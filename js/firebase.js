@@ -49,7 +49,11 @@ export async function loadHistory(key) {
     getDocs(collection(db, 'vault', key, 'attempts')),
     getDocs(collection(db, 'vault', key, 'reviews')),
   ]);
-  return { attempts: a.docs.map((d) => d.data()), reviews: r.docs.map((d) => d.id) };
+  const ms = (t) => (t && t.toMillis ? t.toMillis() : 0);
+  return {
+    attempts: a.docs.map((d) => ({ ...d.data(), at: ms(d.data().createdAt) || Date.parse(d.data().clientTs) || 0 })),
+    reviews: r.docs.map((d) => ({ id: d.id, at: ms(d.data().at) })),
+  };
 }
 
 export async function markReviewed(key, unit) {

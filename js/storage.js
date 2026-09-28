@@ -16,7 +16,13 @@ function write(key, value) {
   } catch { /* ignore */ }
 }
 
+// 單元建立時間（老師刪掉單元再用同代號重建時會更新）：之前的紀錄都不算
+let since = {};
+const fresh = (unit, at) => !since[unit] || !at || at >= since[unit];
+
 export const store = {
+  setSince(map) { since = map || {}; },
+
   student: () => read('student', null),
   setStudent: (s) => write('student', s),
 
@@ -63,9 +69,13 @@ export const store = {
   },
 
   // 用 Firestore 讀回的紀錄重建本機成績；reviews 是已檢討完的單元 id
-  applyHistory(attempts, reviews = []) {
-    this.resetProgress(true);
-    reviews.forEach((u) => this.setReviewed(u));
+  // 以 Firestore 為準：檢討狀態也一起重建（不沿用這台裝置上舊的標記）
+  applyHistory(allAttempts, reviews = []) {
+    try {
+      Object.keys(localStorage).filter((k) => /^b5p:(best|last|done|first|reviewed):/.test(k)).forEach((k) => localStorage.removeItem(k));
+    } catch { /* ignore */ }
+    reviews.forEach((r) => { if (fresh(r.id, r.at)) this.setReviewed(r.id); });
+    const attempts = allAttempts.filter((a) => fresh(a.unit, a.at));
     const firsts = {};
     attempts.forEach((a) => {
       if (!a.unit) return;

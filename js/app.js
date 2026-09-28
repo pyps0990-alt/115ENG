@@ -302,6 +302,9 @@ async function boot() {
     addCustomUnits(index, config);
     applyImported(index, config);
     initNav(visibleUnits());
+    const since = {};
+    Object.entries((config && config.units) || {}).forEach(([id, u]) => { const t = Date.parse(u.since); if (t) since[id] = t; });
+    store.setSince(since);
   };
   try {
     [base, config] = await Promise.all([loadIndex(), getConfig()]);
@@ -312,8 +315,17 @@ async function boot() {
   }
   // 先用上次存下的設定畫出畫面；背景抓到老師的新設定後再重畫（測驗進行中不打斷）
   window.addEventListener('config-updated', (e) => {
+    const prevSince = JSON.stringify(Object.entries(config.units || {}).map(([k, u]) => [k, u.since]));
     config = e.detail;
     build();
+    // 老師刪掉單元又用同代號重建：重新讀一次紀錄，舊的完成／檢討標記不再算數
+    const s = store.student();
+    if (s && s.key && prevSince !== JSON.stringify(Object.entries(config.units || {}).map(([k, u]) => [k, u.since]))) {
+      firebase().then((fb) => fb.loadHistory(s.key)).then((h) => {
+        store.applyHistory(h.attempts, h.reviews);
+        if (!document.body.dataset.busy && (location.hash.split('/')[1] || '') !== 'teacher') route();
+      }).catch(() => {});
+    }
     // 作答中不打斷（交卷後換頁就會用新設定）；老師頁不需要重畫
     const kind = location.hash.split('/')[1] || '';
     if (kind === 'teacher' || document.body.dataset.busy) return;
