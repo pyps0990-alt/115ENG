@@ -129,7 +129,11 @@ classes/{班級}/seats/{座號}/units/{單元}/attempts/{attemptId}         每�
 
 ### 查看資料
 
-Firebase 主控台 → Firestore Database → 資料分頁，可以直接瀏覽 `students`、`scores` 兩個集合。
+Firebase 主控台 → Firestore Database → 資料分頁，可以直接瀏覽 `classes` 底下的班級/座號/單元/測驗紀錄。
+
+### 老師後台匯入學生名單
+
+老師後台（Admin.html）多一個「**學生名單**」分頁：選班級、貼上「座號＋姓名」（可從 Excel/試算表直接複製兩欄貼上，或自己打字用 Tab／逗號隔開，每行一個），按「匯入這個班級」就會直接寫進 Firestore。用「班級-座號」當唯一識別，重複匯入同一個座號只會更新姓名，不會產生重複資料；學生之後在網站上填寫的班級/座號/姓名只要一致，就會沿用、更新這份資料。
 
 ## 老師後台與成績（Google Apps Script）
 

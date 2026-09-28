@@ -116,7 +116,7 @@
 <body>
   <header><div class="wrap">
     <h1>B5 Practice 老師後台</h1>
-    <nav><button class="on" data-tab="settings">單元設定</button><button data-tab="import">匯入內容</button><button data-tab="scores">成績</button></nav>
+    <nav><button class="on" data-tab="settings">單元設定</button><button data-tab="import">匯入內容</button><button data-tab="roster">學生名單</button><button data-tab="scores">成績</button></nav>
     <span class="who"><?= email ?></span>
   </div></header>
 
@@ -195,6 +195,22 @@
       </div>
     </section>
 
+    <section id="tab-roster" hidden>
+      <div class="card">
+        <div class="help">貼上班級學生名單，會直接寫進 Firestore（跟學生自己在網站填寫的是同一份資料，用「班級-座號」當唯一識別，重複匯入同一個座號只會更新姓名，不會產生重複）。學生之後打開網站，只要班級/座號/姓名跟這裡一致，就會沿用這份資料。</div>
+        <div class="bar" style="margin-top:14px">
+          <label>班級 <input type="text" id="ro-cls" placeholder="例：306" size="8"></label>
+          <button class="btn primary" id="ro-import" type="button">匯入這個班級</button>
+          <span class="msg" id="ro-msg"></span>
+        </div>
+        <label style="display:grid;gap:6px;margin-top:12px;font-weight:700;font-size:.9rem">
+          學生名單（每行一個，格式：座號、姓名，用 Tab 或空白隔開；也可以直接從 Excel／試算表選取兩欄複製貼上）
+          <textarea id="ro-text" spellcheck="false" style="min-height:220px;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;width:100%;padding:8px 10px;border-radius:10px;border:1px solid var(--line)" placeholder="01&#9;王偉同&#10;03&#9;吳雨哲&#10;04&#9;吳重毅"></textarea>
+        </label>
+        <div id="ro-report" class="report"></div>
+      </div>
+    </section>
+
     <section id="tab-scores" hidden>
       <div class="card">
         <div class="bar">
@@ -222,12 +238,11 @@
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
     function $(id) { return document.getElementById(id); }
 
+    var TABS = ['settings', 'import', 'roster', 'scores'];
     document.querySelectorAll('nav button').forEach(function (b) {
       b.onclick = function () {
         document.querySelectorAll('nav button').forEach(function (x) { x.classList.toggle('on', x === b); });
-        $('tab-settings').hidden = b.dataset.tab !== 'settings';
-        $('tab-scores').hidden = b.dataset.tab !== 'scores';
-        $('tab-import').hidden = b.dataset.tab !== 'import';
+        TABS.forEach(function (t) { var el = $('tab-' + t); if (el) el.hidden = b.dataset.tab !== t; });
       };
     });
 
@@ -615,6 +630,61 @@
       })
       .withFailureHandler(function (err) { $('units').innerHTML = '<tr><td colspan="5" class="msg err">' + esc(err.message) + '</td></tr>'; })
       .getAdminData();
+  </script>
+
+  <script type="module">
+    // 學生名單匯入：直接用瀏覽器寫入 Firestore（跟學生網站用同一組設定、同一份規則，
+    // 寫入權限本來就開放給任何裝置新增/更新自己的班級-座號資料，老師後台在這裡用同樣的方式批次寫入）。
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
+    import { getFirestore, doc, writeBatch, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+
+    var firebaseConfig = {
+      apiKey: 'AIzaSyC0HFF3YjrsONdvYwTrofihkqNGiQjjdyc',
+      authDomain: 'eng-3385e.firebaseapp.com',
+      projectId: 'eng-3385e',
+      storageBucket: 'eng-3385e.firebasestorage.app',
+      messagingSenderId: '396514115433',
+      appId: '1:396514115433:web:2bbe5d62c272bb69fa87f8',
+    };
+    var db = getFirestore(initializeApp(firebaseConfig));
+    var $ = function (id) { return document.getElementById(id); };
+    var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+
+    function parseRoster(text) {
+      return text.split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean).map(function (line, i) {
+        var parts = line.split(/\t|,|，| {2,}/).map(function (s) { return s.trim(); }).filter(Boolean);
+        var seat = parts[0] || '';
+        var name = parts.slice(1).join(' ').trim();
+        var ok = /^\d{1,2}$/.test(seat) && !!name;
+        return { line: i + 1, seat: seat, name: name, ok: ok, raw: line };
+      });
+    }
+
+    $('ro-import').onclick = function () {
+      var cls = $('ro-cls').value.trim();
+      var msg = $('ro-msg');
+      if (!/^\d{3,4}$/.test(cls)) { msg.textContent = '班級請填 3–4 位數字，例如 306'; msg.className = 'msg err'; return; }
+      var rows = parseRoster($('ro-text').value);
+      var bad = rows.filter(function (r) { return !r.ok; });
+      var good = rows.filter(function (r) { return r.ok; });
+      $('ro-report').innerHTML = '<table><thead><tr><th>行</th><th>座號</th><th>姓名</th><th>狀態</th></tr></thead><tbody>' +
+        rows.map(function (r) {
+          return '<tr><td>' + r.line + '</td><td>' + esc(r.seat) + '</td><td>' + esc(r.name) + '</td>' +
+            '<td class="' + (r.ok ? 'st-ok' : 'st-err') + '">' + (r.ok ? '✓ 可匯入' : '✗ 座號或姓名格式錯誤') + '</td></tr>';
+        }).join('') + '</tbody></table>';
+      if (!good.length) { msg.textContent = '沒有可匯入的資料'; msg.className = 'msg err'; return; }
+      msg.textContent = '匯入中…（' + good.length + ' 筆）'; msg.className = 'msg';
+      var batch = writeBatch(db);
+      good.forEach(function (r) {
+        batch.set(doc(db, 'classes', cls, 'seats', r.seat), { cls: cls, seat: r.seat, name: r.name, updatedAt: serverTimestamp() }, { merge: true });
+      });
+      batch.commit().then(function () {
+        msg.textContent = '✓ 已匯入 ' + good.length + ' 筆' + (bad.length ? '（' + bad.length + ' 行格式錯誤，未匯入，見下方報表）' : '');
+        msg.className = 'msg ok';
+      }).catch(function (err) {
+        msg.textContent = '匯入失敗：' + err.message; msg.className = 'msg err';
+      });
+    };
   </script>
 </body>
 </html>
