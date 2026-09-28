@@ -552,3 +552,15 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* 老師即時更新單元：隱藏時淡出縮小、新開放時淡入 */
+.unit-tile.tile-out { animation: tile-out .38s ease forwards; pointer-events: none; }
+.unit-tile.tile-in { animation: tile-in .5s cubic-bezier(.2,.8,.2,1.2) both; }
+@keyframes tile-out { to { opacity: 0; transform: scale(.85); filter: blur(2px); } }
+@keyframes tile-in {
+  from { opacity: 0; transform: scale(.85) translateY(10px); }
+  60% { box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 25%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .unit-tile.tile-out, .unit-tile.tile-in { animation: none; }
+}

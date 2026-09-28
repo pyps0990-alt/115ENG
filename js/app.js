@@ -112,7 +112,7 @@ function tileHTML(u) {
   }
   const stages = openLevels(u).map((l) => l.name).join(' → ');
   const done = store.done(u.id);
-  return `<a class="unit-tile ${vocab ? 't-vocab' : 't-reading'}" href="#/u/${esc(u.id)}">
+  return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'}" href="#/u/${esc(u.id)}">
       <div class="tile-top">
         <span class="tile-icon">${vocab ? icon.cards : icon.book}</span>
         <span class="tile-kind">${vocab ? '單字片語測驗' : '課文理解'}</span>
@@ -268,6 +268,27 @@ function renderTeacher() {
   });
 }
 
+// 首頁即時更新：被隱藏的單元先淡出縮小，新開放的單元淡入
+function animateHome() {
+  const tiles = [...app.querySelectorAll('.unit-tile[data-id]')];
+  const before = new Set(tiles.map((t) => t.dataset.id));
+  const after = new Set(visibleUnits().map((u) => u.id));
+  const leaving = tiles.filter((t) => !after.has(t.dataset.id));
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const redraw = () => {
+    const y = window.scrollY;
+    route();
+    window.scrollTo(0, y); // 即時更新不要跳回頂端
+    if (!before.size) return;
+    app.querySelectorAll('.unit-tile[data-id]').forEach((t) => {
+      if (!before.has(t.dataset.id)) t.classList.add('tile-in');
+    });
+  };
+  if (!leaving.length || reduce) { redraw(); return; }
+  leaving.forEach((t) => t.classList.add('tile-out'));
+  setTimeout(redraw, 380);
+}
+
 /* ---------------- boot ---------------- */
 async function boot() {
   // 舊版只存在裝置上、沒有跟老師名單確認過的學生資料：要求重新登入
@@ -295,7 +316,9 @@ async function boot() {
     build();
     // 作答中不打斷（交卷後換頁就會用新設定）；老師頁不需要重畫
     const kind = location.hash.split('/')[1] || '';
-    if (kind !== 'teacher' && !document.body.dataset.busy) route();
+    if (kind === 'teacher' || document.body.dataset.busy) return;
+    if (kind) { route(); return; }
+    animateHome();
   });
   watchConfig(config);
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
