@@ -736,6 +736,8 @@ function validateContent_(type, d) {
 var AI_KEY_PROP = 'GEMINI_API_KEY';
 var AI_MODEL_PROP = 'GEMINI_MODEL';
 var AI_DEFAULT_MODEL = 'gemini-2.5-flash';
+// 用量用完（429）或模型暫時不可用（404）時，自動依序改試這些模型，不用手動改設定
+var AI_FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'];
 var AI_MAX_COPY = 6; // 和課文連續相同的英文字數上限（與後台、tools/check-content.mjs 一致）
 var SKILLS = ['主旨', '細節', '字義', '推論', '態度'];
 
@@ -906,11 +908,27 @@ function aiFillVocab(items) {
   return { words: out };
 }
 
+// 依序試這個模型鏈：目前這次用量用完（429）或這個模型暫時不可用（404）就自動改下一個，
+// 直到成功或全部試過；其他種類的錯誤（金鑰錯誤、沒有權限等）不用重試，直接回報。
 function aiCall_(prompt, schema) {
   var props = PropertiesService.getScriptProperties();
   var key = props.getProperty(AI_KEY_PROP);
   if (!key) throw new Error('還沒有設定 Gemini API 金鑰，請先在「AI 設定」填入');
-  var model = props.getProperty(AI_MODEL_PROP) || AI_DEFAULT_MODEL;
+  var chosen = props.getProperty(AI_MODEL_PROP) || AI_DEFAULT_MODEL;
+  var chain = [chosen].concat(AI_FALLBACK_MODELS.filter(function (m) { return m !== chosen; }));
+  var lastErr = null;
+  for (var i = 0; i < chain.length; i++) {
+    try {
+      return aiCallOnce_(chain[i], key, prompt, schema);
+    } catch (e) {
+      lastErr = e;
+      if (!/^RETRY:/.test(e.message)) throw e;
+    }
+  }
+  throw new Error(String(lastErr.message).replace(/^RETRY:/, '') + '（已試過 ' + chain.length + ' 個模型都額滿或不可用，請稍後再試）');
+}
+
+function aiCallOnce_(model, key, prompt, schema) {
   var res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent', {
     method: 'post',
     contentType: 'application/json',
@@ -928,8 +946,8 @@ function aiCall_(prompt, schema) {
     try { msg = JSON.parse(body).error.message; } catch (err) { msg = body.slice(0, 200); }
     if (code === 400 && /API key/i.test(msg)) throw new Error('API 金鑰無效，請到「AI 設定」重新填入');
     if (code === 403) throw new Error('這組金鑰沒有權限使用 Gemini（學校帳號可能被管理員關閉，可改用個人 Gmail 申請）：' + msg);
-    if (code === 404) throw new Error('找不到模型「' + model + '」，請到「AI 設定」改成目前可用的模型名稱');
-    if (code === 429) throw new Error('Gemini 用量已達上限（免費額度），請過幾分鐘再試');
+    if (code === 404) throw new Error('RETRY:找不到模型「' + model + '」');
+    if (code === 429) throw new Error('RETRY:「' + model + '」用量已達上限');
     throw new Error('Gemini 錯誤 ' + code + '：' + msg);
   }
   var data = JSON.parse(body);
