@@ -70,11 +70,55 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
+/* ------------------------------------------------------------------ */
+/* 老師後台 API：網站 #/teacher 用 Firebase 登入後，帶登入憑證呼叫這裡      */
+/* （取代直接打開 Apps Script 網頁，Safari 也能穩定使用）                 */
+/* ------------------------------------------------------------------ */
+var FIREBASE_WEB_KEY = 'AIzaSyC0HFF3YjrsONdvYwTrofihkqNGiQjjdyc';
+var API_EMAIL = null;
+
+// 用 Google 的 Identity Toolkit 驗證 Firebase 登入憑證，回傳登入的 email（有快取，5 分鐘內不重查）
+function verifyIdToken_(token) {
+  token = String(token || '');
+  if (!token) throw new Error('請先登入');
+  var cache = CacheService.getScriptCache();
+  var ck = 'tok:' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token)).slice(0, 40);
+  var hit = cache.get(ck);
+  if (hit) return hit;
+  var res = UrlFetchApp.fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + FIREBASE_WEB_KEY, {
+    method: 'post', contentType: 'application/json', payload: JSON.stringify({ idToken: token }), muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() !== 200) throw new Error('登入已過期，請重新整理頁面');
+  var u = (JSON.parse(res.getContentText()).users || [])[0];
+  var email = u && u.email ? String(u.email).toLowerCase() : '';
+  if (!email || u.emailVerified === false) throw new Error('無法確認登入帳號');
+  cache.put(ck, email, 300);
+  return email;
+}
+
+function handleApi_(d) {
+  var fns = {
+    getAdminData: getAdminData, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
+    getScores: getScores, getWrongStats: getWrongStats,
+  };
+  try {
+    API_EMAIL = verifyIdToken_(d.idToken);
+    var fn = fns[d.api];
+    if (!fn) throw new Error('不支援的操作：' + d.api);
+    return json_({ ok: true, data: fn.apply(null, d.args || []) });
+  } catch (err) {
+    return json_({ ok: false, error: err.message });
+  }
+}
+
 function doPost(e) {
+  var body = {};
+  try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { body = {}; }
+  if (body.api) return handleApi_(body);
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    var d = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    var d = body;
     if (!d.name || !d.cls || !d.unit) return json_({ ok: false, error: 'missing fields' });
     var attemptId = String(d.attemptId || '').slice(0, 64);
     // 學生端網路不穩時會補送，同一筆成績只寫一次
@@ -1173,6 +1217,7 @@ function readSettingsRows_() {
 /* ------------------------------------------------------------------ */
 
 function currentEmail_() {
+  if (API_EMAIL) return API_EMAIL;
   try {
     return String(Session.getActiveUser().getEmail() || '').toLowerCase();
   } catch (err) {
@@ -1180,14 +1225,22 @@ function currentEmail_() {
   }
 }
 
+// 老師名單：試算表 teachers 分頁，或 Firestore 的 admins（網站老師頁用的那份），任一份有就算
 function isTeacher_(email) {
   if (!email) return false;
   var sh = sheet_(SHEET_TEACHERS, ['email', 'note']);
   var last = sh.getLastRow();
-  if (last < 2) return false;
-  return sh.getRange(2, 1, last - 1, 1).getValues().some(function (r) {
+  if (last >= 2 && sh.getRange(2, 1, last - 1, 1).getValues().some(function (r) {
     return String(r[0]).trim().toLowerCase() === email;
-  });
+  })) return true;
+  var cache = CacheService.getScriptCache();
+  var ck = 'adm:' + email;
+  var hit = cache.get(ck);
+  if (hit) return hit === '1';
+  var ok = false;
+  try { ok = !!firestoreRequest_('get', FIRESTORE_ROOT + '/admins/' + encodeURIComponent(email)); } catch (err) { ok = false; }
+  cache.put(ck, ok ? '1' : '0', 300);
+  return ok;
 }
 
 function assertTeacher_() {

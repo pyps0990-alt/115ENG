@@ -226,7 +226,7 @@ function renderTeacher() {
   cleanup = () => { left = true; if (unsub) unsub(); };
   firebase().then((fb) => {
     if (left) return;
-    const { watchStaff, staffSignIn, staffSignOut, importRoster } = fb;
+    const { watchStaff, staffSignIn, staffSignOut, importRoster, staffIdToken } = fb;
     unsub = watchStaff((staff) => {
     if (!staff) {
       app.innerHTML = `<section class="card teacher">
@@ -249,10 +249,10 @@ function renderTeacher() {
         <div class="eyebrow">${staff.role === 'admin' ? '管理員' : '老師'}</div>
         <h2>${esc(staff.email)}</h2>
         <div class="btn-row">
-          ${admin ? `<a class="btn primary" href="${esc(admin)}" target="_blank" rel="noopener">開啟老師後台 ${icon.arrowR}</a>` : ''}
           <button class="btn ghost" type="button" data-out>登出</button>
         </div>
       </section>
+      <div data-admin><div class="loading"><span class="spinner"></span>載入後台…</div></div>
       <section class="card teacher">
         <div class="eyebrow">Roster</div><h2>匯入學生名單</h2>
         <p class="muted">每行一位學生：<b>座號　姓名</b>（用 Tab、空白或逗號隔開，可從試算表直接複製兩欄貼上）。學生要輸入跟名單完全一樣的班級、座號、姓名才能登入。重複匯入同一位學生不會產生重複資料；改名字要重新匯入，舊名字仍可登入，需要停用請到 Firebase 主控台刪除。</p>
@@ -264,6 +264,9 @@ function renderTeacher() {
         <div data-report></div>
       </section>`;
     app.querySelector('[data-out]').onclick = () => staffSignOut();
+    // 後台程式只在確認是老師之後才下載
+    import('./admin.js').then((m) => m.mountAdmin(app.querySelector('[data-admin]'), { getToken: staffIdToken, legacyUrl: admin }))
+      .catch((e) => { app.querySelector('[data-admin]').innerHTML = `<p class="form-err">後台載入失敗：${esc(e.message)}</p>`; });
     app.querySelector('[data-import]').onclick = async (e) => {
       const btn = e.currentTarget;
       const msg = app.querySelector('[data-msg]');

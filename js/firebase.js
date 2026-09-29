@@ -130,6 +130,8 @@ export function watchStaff(cb) {
 
 export const staffSignIn = () => signInWithPopup(auth, new GoogleAuthProvider());
 export const staffSignOut = () => signOut(auth);
+// 老師後台呼叫 Apps Script 時附上的登入憑證（伺服器端會再驗證一次身分）
+export const staffIdToken = () => (auth.currentUser ? auth.currentUser.getIdToken() : Promise.reject(new Error('請先登入')));
 
 // rows: [{ seat, name }]；只有 admins 名單內的帳號能寫入 vault
 export async function importRoster(cls, rows) {
