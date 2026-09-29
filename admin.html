@@ -61,10 +61,12 @@
     tbody tr:hover td { background:var(--surface); }
     tbody tr:last-child td { border-bottom:none; }
     td.title { font-weight:700; white-space:normal; min-width:150px; }
+    td.window label { display:flex; gap:6px; align-items:center; font-size:.8rem; color:var(--muted); margin:2px 0; }
+    td.window input { padding:5px 8px; font-size:.85rem; }
     .modes { display:flex; gap:4px 10px; flex-wrap:wrap; white-space:normal; min-width:240px; }
     .modes label { display:inline-flex; gap:4px; align-items:center; font-size:.85rem; }
     input[type=number] { width:68px; }
-    input[type=number], input[type=date], input[type=text], select {
+    input[type=number], input[type=date], input[type=datetime-local], input[type=text], select {
       padding:8px 10px; border-radius:9px; border:1px solid var(--line); background:#fff; color:var(--ink);
       font:inherit; transition:border-color .15s ease, box-shadow .15s ease;
     }
@@ -168,8 +170,8 @@
           <span class="muted" style="margin-left:auto">儲存後立即生效，學生重新打開網頁就會看到</span>
         </div>
         <table>
-          <thead><tr><th>顯示</th><th>單元</th><th>包含的階段／測驗</th><th>每段題數</th><th>操作</th></tr></thead>
-          <tbody id="units"><tr><td colspan="5" class="muted">載入中…</td></tr></tbody>
+          <thead><tr><th>顯示</th><th>單元</th><th>包含的階段／測驗</th><th>每段題數</th><th>開放時段</th><th>操作</th></tr></thead>
+          <tbody id="units"><tr><td colspan="6" class="muted">載入中…</td></tr></tbody>
         </table>
         <div class="bar" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
           <input type="text" id="nu-id" placeholder="代號，例如 l5-voc" size="14">
@@ -179,7 +181,7 @@
           <button class="btn" id="nu-add" type="button">＋ 新增單元</button>
           <span class="msg" id="nu-msg"></span>
         </div>
-        <div class="help" style="margin-top:12px">新增單元後記得按上方「儲存設定」。新單元一開始沒有內容，請切到「匯入內容」分頁選擇這個單元，貼上單字或文章後儲存，學生網站才看得到實際題目。</div>
+        <div class="help" style="margin-top:12px">開放時段留空＝不限制。設定開放時間後，時間到之前學生只看得到「幾月幾日開放」；過了截止時間就不能再做正式測驗，已經做過的學生仍可以檢討和複習。新增單元後記得按上方「儲存設定」。新單元一開始沒有內容，請切到「匯入內容」分頁選擇這個單元，貼上單字或文章後儲存，學生網站才看得到實際題目。</div>
       </div>
     </section>
 
@@ -385,8 +387,10 @@
             return '<label><input type="checkbox" data-mode="' + m[0] + '" ' + (u.disabled.indexOf(m[0]) === -1 ? 'checked' : '') + '>' + m[1] + '</label>';
           }).join('') + '</div></td>' +
           '<td>' + (u.type === 'vocab' ? '<input type="number" min="1" max="100" data-k="questionCount" value="' + esc(u.questionCount) + '">' : '<span class="muted">依文章題數</span>') + '</td>' +
+          '<td class="window"><label>開放 <input type="datetime-local" data-k="openAt" value="' + esc(u.openAt || '') + '"></label>' +
+            '<label>截止 <input type="datetime-local" data-k="closeAt" value="' + esc(u.closeAt || '') + '"></label></td>' +
           '<td>' + (u.custom ? '<button class="btn" data-del="1" type="button">刪除</button>' : '') + '</td></tr>';
-      }).join('') || '<tr><td colspan="5" class="muted">settings 分頁沒有資料，請先在編輯器執行 setup()。</td></tr>';
+      }).join('') || '<tr><td colspan="6" class="muted">settings 分頁沒有資料，請先在編輯器執行 setup()。</td></tr>';
       $('f-unit').innerHTML = '<option value="">全部</option>' + units.map(function (u) { return '<option value="' + esc(u.id) + '">' + esc(u.title || u.id) + '</option>'; }).join('');
     }
 

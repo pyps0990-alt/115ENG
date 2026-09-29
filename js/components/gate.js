@@ -2,12 +2,14 @@
 import { store } from '../storage.js';
 import { esc } from '../util.js';
 import { icon } from '../icons.js';
+import { fmtWhen } from '../remote-config.js';
 import { mountInlineForm, openStudentDialog, studentLabel } from '../student.js';
 import { SCRIPT_URL } from '../config.js';
 
 // review()：做過正式測驗了嗎；reviewed()：檢討完了嗎。
 // 做過但還沒檢討：只能先檢討，「開始複習」鎖住；檢討完才能複習。
-export function testGate(stage, { eyebrow, title, rules = [], best, review = false, reviewed = true, onStart, onReview }) {
+export function testGate(stage, { eyebrow, title, rules = [], best, review = false, reviewed = true, timeWindow, onStart, onReview }) {
+  let wake = null;
   const draw = () => {
     stage.innerHTML = '';
     const s = store.student();
@@ -22,6 +24,12 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
     const isReviewed = typeof reviewed === 'function' ? reviewed() : reviewed;
     const bestNow = typeof best === 'function' ? best() : best;
     const needReview = isReview && !isReviewed && !!onReview;
+    // 開放時段：還沒開放不能做；截止後不能做正式測驗，做過的人仍可檢討、複習
+    const win = timeWindow ? timeWindow() : { state: 'open' };
+    clearTimeout(wake);
+    if (win.state === 'before' && win.openAt - Date.now() < 86400000) wake = setTimeout(draw, win.openAt - Date.now() + 500);
+    let timeNote = '';
+    if (win.state === 'open' && win.closeAt) timeNote = `${icon.clock} 開放到 ${fmtWhen(win.closeAt)}`;
     let buttons = `<button class="btn primary" type="button" data-start>${icon.play} 開始測驗</button>`;
     if (isReview && needReview) {
       buttons = `<button class="btn primary" type="button" data-review>${icon.bulb} 開始檢討</button>
@@ -29,6 +37,13 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
     } else if (isReview) {
       buttons = `<button class="btn primary" type="button" data-start>${icon.play} 開始複習</button>
         ${onReview ? `<button class="btn ghost" type="button" data-review>${icon.bulb} 再看一次檢討</button>` : ''}`;
+    }
+    if (win.state === 'before') {
+      buttons = `<button class="btn" type="button" data-start disabled>${icon.lock} 尚未開放</button>`;
+      timeNote = `${icon.clock} ${fmtWhen(win.openAt)} 開放`;
+    } else if (win.state === 'after' && !isReview) {
+      buttons = `<button class="btn" type="button" data-start disabled>${icon.lock} 已截止</button>`;
+      timeNote = `${icon.clock} 已於 ${fmtWhen(win.closeAt)} 截止，不能再做正式測驗`;
     }
     const box = document.createElement('div');
     box.className = 'gate';
@@ -39,6 +54,7 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
           <li>${SCRIPT_URL ? '完成後成績會自動傳送給老師' : '完成後請截圖成績單繳交給老師'}</li></ul>
         ${bestNow != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${bestNow}%</b></div>` : ''}
         <div class="who">${icon.user}<span>${esc(studentLabel(s))}</span><button class="btn small ghost edit" type="button">切換</button></div>
+        ${timeNote ? `<p class="gate-note">${timeNote}</p>` : ''}
         ${needReview ? `<p class="gate-note">${icon.lock} 先逐題檢討完第一次測驗，才能開始複習</p>` : ''}
         <div class="btn-row">${buttons}</div>
       </div>`;
@@ -49,7 +65,7 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
     stage.append(box);
   };
   draw();
-  return { redraw: draw };
+  return { redraw: draw, stop: () => clearTimeout(wake) };
 }
 
 export function submitStateHTML(status) {

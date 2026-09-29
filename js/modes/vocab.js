@@ -4,6 +4,7 @@ import { esc, nowStamp, wait, shuffle } from '../util.js';
 import { icon } from '../icons.js';
 import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError, ERR_TIPS } from '../components/question.js';
 import { renderResult } from '../components/result.js';
+import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { exampleHTML } from '../util.js';
@@ -55,6 +56,7 @@ export function mount(stage, ctx) {
   }
 
   const gate = testGate(stage, {
+    timeWindow: () => unitWindow(ctx.config, unitId),
     eyebrow: levels.map((l) => l.en).join(' → '),
     title: `${ctx.unit.title}連續測驗`,
     rules: [

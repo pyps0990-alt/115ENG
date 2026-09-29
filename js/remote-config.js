@@ -109,6 +109,21 @@ const unitCfg = (c, id) => (c && c.units && c.units[id]) || {};
 
 export const unitVisible = (c, id) => unitCfg(c, id).visible !== false;
 
+// 開放時段（老師後台設定，台灣時間）：before＝還沒開放、open＝開放中、after＝已截止
+const twTime = (s) => (s ? Date.parse(`${s}:00+08:00`) : NaN);
+export function unitWindow(c, id, now = Date.now()) {
+  const u = unitCfg(c, id);
+  const open = twTime(u.openAt);
+  const close = twTime(u.closeAt);
+  const state = open > now ? 'before' : close <= now ? 'after' : 'open';
+  return { state, openAt: Number.isNaN(open) ? null : open, closeAt: Number.isNaN(close) ? null : close };
+}
+export function fmtWhen(ms) {
+  const d = new Date(ms);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 export const modeOn = (c, id, mode) => !(unitCfg(c, id).disabled || []).includes(mode);
 
 export function questionCount(c, id) {

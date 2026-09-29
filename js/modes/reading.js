@@ -3,6 +3,7 @@ import { store } from '../storage.js';
 import { esc, nowStamp, confirmDialog, splitSentences } from '../util.js';
 import { icon } from '../icons.js';
 import { renderResult } from '../components/result.js';
+import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore } from '../submit.js';
@@ -28,6 +29,7 @@ export function mount(stage, ctx) {
   const minutes = Math.max(1, Math.round(nWords / 150));
 
   const gate = testGate(stage, {
+    timeWindow: () => unitWindow(ctx.config, unitId),
     eyebrow: 'Reading Comprehension',
     title: `${ctx.unit.title}｜${data.title || ''}`,
     rules: [

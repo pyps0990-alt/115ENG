@@ -25,12 +25,12 @@ var SITE_URL = 'https://eng-3385e.web.app/';
 // 不用等 Apps Script 開機（約 2～5 秒）。寫入失敗時學生網站會退回讀 Apps Script，不影響功能。
 var FIRESTORE_DOCS = 'https://firestore.googleapis.com/v1/projects/eng-3385e/databases/(default)/documents/public/';
 
-var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCount'];
+var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCount', 'openAt', 'closeAt'];
 
 // 老師後台「新增單元」建立的全新單元（網站原本沒有的課次），跟 settings（只調整既有單元的顯示/題數）分開存放。
 var SHEET_CUSTOM_UNITS = 'custom_units';
-var CUSTOM_UNITS_FIELDS = ['id', 'title', 'type', 'lesson', 'topic', 'visible', 'disabled', 'questionCount', 'createdAt'];
-var CUSTOM_UNITS_HEADER = ['單元代號', '標題', '類型', '課次', '主題', '顯示', '停用的段落', '每段題數', '建立時間'];
+var CUSTOM_UNITS_FIELDS = ['id', 'title', 'type', 'lesson', 'topic', 'visible', 'disabled', 'questionCount', 'createdAt', 'openAt', 'closeAt'];
+var CUSTOM_UNITS_HEADER = ['單元代號', '標題', '類型', '課次', '主題', '顯示', '停用的段落', '每段題數', '建立時間', '開放時間', '截止時間'];
 
 // SCORES_FIELDS／DETAILS_FIELDS：程式內部用的欄位代號，順序要跟 doPost 組 row 的順序一致，不能改。
 // SCORES_HEADER／DETAILS_HEADER：實際寫進試算表第一列的中文欄名，只影響顯示，跟 FIELDS 一一對應。
@@ -349,11 +349,14 @@ function saveSettings(units, skipPublish) {
       u.visible !== false,
       (u.disabled || []).join(','),
       Math.min(100, Math.max(1, Number(u.questionCount) || 10)),
+      timeCell_(u.openAt), timeCell_(u.closeAt),
     ];
   });
   var last = sh.getLastRow();
+  sh.getRange(1, 1, 1, SETTINGS_HEADER.length).setValues([SETTINGS_HEADER]).setFontWeight('bold');
   if (last > 1) sh.getRange(2, 1, last - 1, SETTINGS_HEADER.length).clearContent();
   if (rows.length) {
+    sh.getRange(2, 7, rows.length, 2).setNumberFormat('@');
     sh.getRange(2, 1, rows.length, SETTINGS_HEADER.length).setValues(rows);
   }
   if (!skipPublish) publishConfig_();
@@ -379,6 +382,8 @@ function readCustomUnitsRows_() {
         disabled: String(r[6] || '').split(',').map(function (s) { return s.trim(); }).filter(String),
         questionCount: Number(r[7]) || 10,
         createdAt: r[8] instanceof Date ? r[8].toISOString() : String(r[8] || ''),
+        openAt: timeCell_(r[9]),
+        closeAt: timeCell_(r[10]),
         custom: true,
       };
     });
@@ -411,6 +416,7 @@ function saveCustomUnits(units, skipPublish) {
         u.visible !== false, (u.disabled || []).join(','),
         Math.min(100, Math.max(1, Number(u.questionCount) || 10)),
         (String(u.id).trim() in created) ? created[String(u.id).trim()] : nowIso,
+        timeCell_(u.openAt), timeCell_(u.closeAt),
       ];
     });
   // 被刪掉的單元：連同代號一起清除（匯入的題目、Firestore 上的題目），代號可以重新使用。
@@ -1195,7 +1201,7 @@ function readConfigCached_() {
   if (hit) return JSON.parse(hit);
   var cfg = { units: {}, updated: new Date().toISOString() };
   readSettingsRows_().forEach(function (u) {
-    cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount };
+    cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount, openAt: u.openAt, closeAt: u.closeAt };
   });
   // 老師後台新增的全新單元：網站前端會把這些併進課次清單（見 js/data.js 的 addCustomUnits）
   var customUnits = readCustomUnitsRows_();
@@ -1203,7 +1209,7 @@ function readConfigCached_() {
     return { id: u.id, title: u.title, type: u.type, lesson: u.lesson, topic: u.topic };
   });
   customUnits.forEach(function (u) {
-    cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount, since: u.createdAt || '' };
+    cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount, since: u.createdAt || '', openAt: u.openAt, closeAt: u.closeAt };
   });
   // 題目更新過的單元：重製時間取較晚的一個
   var resets = JSON.parse(PropertiesService.getScriptProperties().getProperty('RESET_AT') || '{}');
@@ -1221,6 +1227,13 @@ function readConfigCached_() {
   return cfg;
 }
 
+// 開放時段：存成「2026-10-01T08:00」這種台灣時間字串（空白＝不限制）
+function timeCell_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, 'Asia/Taipei', "yyyy-MM-dd'T'HH:mm");
+  var t = String(v || '').trim();
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(t) ? t : '';
+}
+
 function readSettingsRows_() {
   var sh = sheet_(SHEET_SETTINGS, SETTINGS_HEADER);
   var last = sh.getLastRow();
@@ -1235,6 +1248,8 @@ function readSettingsRows_() {
         visible: bool_(r[3], true),
         disabled: String(r[4] || '').split(',').map(function (s) { return s.trim(); }).filter(String),
         questionCount: Number(r[5]) || 10,
+        openAt: timeCell_(r[6]),
+        closeAt: timeCell_(r[7]),
       };
     });
 }

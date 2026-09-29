@@ -592,3 +592,8 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .notify-item.out { opacity: 0; transform: translateY(8px); transition: opacity .3s, transform .3s; }
 @keyframes notify-in { from { opacity: 0; transform: translateY(12px); } }
 @media (prefers-reduced-motion: reduce) { .notify-item { animation: none; } }
+
+/* 開放時段標籤 */
+.badge.time { gap: 4px; border: 1px solid var(--line); background: var(--wash); color: var(--navy); }
+.badge.time .ic { width: 12px; height: 12px; }
+.badge.time.off { color: var(--bad); border-color: var(--bad-soft); background: var(--bad-soft); }

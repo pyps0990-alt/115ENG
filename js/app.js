@@ -1,5 +1,5 @@
 import { loadIndex, loadUnit, applyImported, addCustomUnits } from './data.js';
-import { getConfig, watchConfig, unitVisible, modeOn, questionCount } from './remote-config.js';
+import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow, fmtWhen } from './remote-config.js';
 import { store } from './storage.js';
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
@@ -99,6 +99,14 @@ function pillHTML(label, b) {
   return `<span class="lv-pill ${cls}">${b != null && b >= PASS ? icon.check : ''}${label}${b != null ? ` ${b}%` : ''}</span>`;
 }
 
+// 開放時段標籤：還沒開放、快截止、已截止
+function windowBadge(id, done) {
+  const w = unitWindow(config, id);
+  if (w.state === 'before') return `<span class="badge time">${icon.lock} ${fmtWhen(w.openAt)} 開放</span>`;
+  if (w.state === 'after') return done ? '' : `<span class="badge time off">已截止</span>`;
+  return w.closeAt ? `<span class="badge time">${icon.clock} 截止 ${fmtWhen(w.closeAt)}</span>` : '';
+}
+
 function tileHTML(u) {
   const best = store.best(u.id);
   const vocab = u.type === 'vocab';
@@ -119,6 +127,7 @@ function tileHTML(u) {
         ${done && !store.reviewed(u.id) ? `<span class="badge todo">${icon.bulb} 待檢討</span>` : ''}
         ${done && store.reviewed(u.id) ? `<span class="badge done">${icon.check} 已完成 · 可複習</span>` : ''}
         ${u.sample ? '<span class="badge">範例</span>' : ''}
+        ${windowBadge(u.id, done)}
       </div>
       <h3 class="en">${esc(u.topic || u.title)}</h3>
       <div class="tile-meta">${vocab ? `${u.count} 個單字與片語 · ${stages}` : `一篇文章 · ${u.count} 題閱讀測驗`}</div>
