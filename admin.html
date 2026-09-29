@@ -434,15 +434,9 @@
       $('msg').textContent = '儲存中…'; $('msg').className = 'msg';
       var builtIn = units.filter(function (u) { return !u.custom; });
       var custom = units.filter(function (u) { return u.custom; });
-      var pending = 2, failed = null;
-      function done() {
-        pending--;
-        if (pending > 0) return;
-        if (failed) { $('msg').textContent = '儲存失敗：' + failed; $('msg').className = 'msg err'; }
-        else { $('msg').textContent = '✓ 已儲存'; $('msg').className = 'msg ok'; }
-      }
-      google.script.run.withSuccessHandler(done).withFailureHandler(function (err) { failed = err.message; done(); }).saveSettings(builtIn);
-      google.script.run.withSuccessHandler(done).withFailureHandler(function (err) { failed = err.message; done(); }).saveCustomUnits(custom);
+      google.script.run.withSuccessHandler(function () { $('msg').textContent = '✓ 已儲存'; $('msg').className = 'msg ok'; })
+        .withFailureHandler(function (err) { $('msg').textContent = '儲存失敗：' + err.message; $('msg').className = 'msg err'; })
+        .saveAllSettings(builtIn, custom);
     };
 
     $('load').onclick = function () {

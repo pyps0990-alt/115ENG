@@ -103,7 +103,7 @@ function verifyIdToken_(token) {
 function handleApi_(d) {
   // 網站版後台可以呼叫的函式（每一個函式內部都會再檢查一次老師身分）
   var fns = {
-    getAdminData: getAdminData, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
+    getAdminData: getAdminData, saveAllSettings: saveAllSettings, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
     getScores: getScores, getWrongStats: getWrongStats,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
     getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey,
@@ -339,7 +339,7 @@ function getAdminData() {
   };
 }
 
-function saveSettings(units) {
+function saveSettings(units, skipPublish) {
   assertTeacher_();
   var sh = sheet_(SHEET_SETTINGS, SETTINGS_HEADER);
   var rows = (units || []).map(function (u) {
@@ -355,7 +355,7 @@ function saveSettings(units) {
   if (rows.length) {
     sh.getRange(2, 1, rows.length, SETTINGS_HEADER.length).setValues(rows);
   }
-  publishConfig_();
+  if (!skipPublish) publishConfig_();
   return { ok: true, savedAt: new Date().toISOString() };
 }
 
@@ -383,7 +383,16 @@ function readCustomUnitsRows_() {
     });
 }
 
-function saveCustomUnits(units) {
+// 單元設定一次存好（內建單元＋自訂單元），只同步一次到 Firestore，比分兩次存快一倍
+function saveAllSettings(builtIn, custom) {
+  assertTeacher_();
+  saveSettings(builtIn, true);
+  saveCustomUnits(custom, true);
+  publishConfig_();
+  return { ok: true, savedAt: new Date().toISOString() };
+}
+
+function saveCustomUnits(units, skipPublish) {
   assertTeacher_();
   // 建立時間：已存在的單元沿用，新單元（包括刪掉後用同代號重建的）用現在時間。
   // 學生網站會忽略建立時間之前的作答與檢討紀錄，舊紀錄不會讓新單元跳過「先檢討才能複習」。
@@ -412,7 +421,7 @@ function saveCustomUnits(units) {
   if (last > 1) sh.getRange(2, 1, last - 1, CUSTOM_UNITS_FIELDS.length).clearContent();
   if (rows.length) sh.getRange(2, 1, rows.length, CUSTOM_UNITS_FIELDS.length).setNumberFormat('@').setValues(rows);
   removed.forEach(purgeUnit_);
-  publishConfig_();
+  if (!skipPublish) publishConfig_();
   return { ok: true, savedAt: new Date().toISOString() };
 }
 
@@ -1238,19 +1247,21 @@ function currentEmail_() {
 // 老師名單：試算表 teachers 分頁，或 Firestore 的 admins（網站老師頁用的那份），任一份有就算
 function isTeacher_(email) {
   if (!email) return false;
+  var cache = CacheService.getScriptCache();
+  var ck = 'adm:' + email;
+  var hit = cache.get(ck);
+  if (hit) return hit === '1';
+  var ok = isTeacherUncached_(email);
+  cache.put(ck, ok ? '1' : '0', 300);
+  return ok;
+}
+function isTeacherUncached_(email) {
   var sh = sheet_(SHEET_TEACHERS, ['email', 'note']);
   var last = sh.getLastRow();
   if (last >= 2 && sh.getRange(2, 1, last - 1, 1).getValues().some(function (r) {
     return String(r[0]).trim().toLowerCase() === email;
   })) return true;
-  var cache = CacheService.getScriptCache();
-  var ck = 'adm:' + email;
-  var hit = cache.get(ck);
-  if (hit) return hit === '1';
-  var ok = false;
-  try { ok = !!firestoreRequest_('get', FIRESTORE_ROOT + '/admins/' + encodeURIComponent(email)); } catch (err) { ok = false; }
-  cache.put(ck, ok ? '1' : '0', 300);
-  return ok;
+  try { return !!firestoreRequest_('get', FIRESTORE_ROOT + '/admins/' + encodeURIComponent(email)); } catch (err) { return false; }
 }
 
 function assertTeacher_() {
