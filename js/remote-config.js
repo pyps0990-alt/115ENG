@@ -76,13 +76,13 @@ export async function getConfig() {
   try { return await fresh; } catch { return fetchDefault(); }
 }
 
-// iOS Safari 切回分頁、從背景回來時不會重新載入頁面：回到前景時再檢查一次設定（最多 20 秒一次）
+// iOS Safari 切回分頁、從背景回來時不會重新載入頁面：回到前景時再檢查一次設定（最多 5 秒一次）
 let lastCheck = Date.now();
 export function watchConfig(current) {
   let cur = current;
   window.addEventListener('config-updated', (e) => { cur = e.detail; });
   const check = () => {
-    if (!SCRIPT_URL || document.visibilityState !== 'visible' || Date.now() - lastCheck < 20000) return;
+    if (!SCRIPT_URL || document.visibilityState !== 'visible' || Date.now() - lastCheck < 5000) return;
     lastCheck = Date.now();
     fetchRemote().then((c) => {
       writeCache(c);
@@ -100,6 +100,9 @@ export function watchConfig(current) {
   document.addEventListener('visibilitychange', check);
   window.addEventListener('pageshow', (e) => { if (e.persisted) check(); });
   window.addEventListener('focus', check);
+  // 保險：手機螢幕暗掉、切 App 或網路不穩時，即時連線會暫停而漏接更新；
+  // 網頁在前景時每 30 秒再主動檢查一次（讀 Firestore 一份很小的文件），最慢 30 秒內一定會更新
+  setInterval(check, 30000);
 }
 
 const unitCfg = (c, id) => (c && c.units && c.units[id]) || {};
