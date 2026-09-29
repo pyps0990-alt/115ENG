@@ -615,3 +615,9 @@ body.scrolled .brand { max-width: 0; opacity: 0; margin-right: -12px; pointer-ev
   .menu-btn { padding: 0 10px; font-size: .86rem; }
 }
 @media (prefers-reduced-motion: reduce) { .brand { transition: none; } }
+/* 手機：選單收合時只顯示三槓圖示，打開時才顯示目前單元與箭頭 */
+@media (max-width: 640px) {
+  .menu-btn[aria-expanded="false"] { width: 44px; padding: 0; justify-content: center; }
+  .menu-btn[aria-expanded="false"] .menu-label, .menu-btn[aria-expanded="false"] .ic:last-child { display: none; }
+  .menu-btn .ic:first-child { width: 20px; height: 20px; }
+}

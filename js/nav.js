@@ -58,7 +58,9 @@ export function initNav(visibleUnits) {
 // 每次換頁時更新按鈕文字與目前所在單元
 export function updateNav(currentId) {
   const u = units.find((x) => x.id === currentId);
-  btn.innerHTML = `${icon.list}<span class="menu-label">${u ? `L${u.lesson} ${kindLabel(u)}` : '選擇單元'}</span>${icon.chevDown}`;
+  const label = u ? `L${u.lesson} ${kindLabel(u)}` : '選擇單元';
+  btn.innerHTML = `${icon.list}<span class="menu-label">${label}</span>${icon.chevDown}`;
+  btn.setAttribute('aria-label', `單元選單：${label}`); // 手機收合時只顯示圖示，給螢幕報讀器用
   items().forEach((a) => {
     const on = a.dataset.id ? a.dataset.id === currentId : !currentId;
     a.classList.toggle('current', on);
