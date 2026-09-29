@@ -416,11 +416,32 @@
       impInit();
     };
 
+    // 用學生的方式（不登入）讀一次 Firestore 上的設定，確認學生網站真的收得到這次的更新
+    function checkStudentSync(updated) {
+      var url = 'https://firestore.googleapis.com/v1/projects/eng-3385e/databases/(default)/documents/public/config';
+      fetch(url, { cache: 'no-store' }).then(function (res) {
+        if (res.status === 403) throw new Error('Firestore 規則還沒開放學生讀取（請到 Firebase 主控台 → Firestore → 規則，貼上最新的 firestore.rules 並發布）');
+        if (res.status === 404) throw new Error('Firestore 上還沒有設定資料（請在 Apps Script 編輯器執行一次 syncToFirestore）');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      }).then(function (doc) {
+        var cfg = JSON.parse(doc.fields.json.stringValue);
+        if (updated && cfg.updated !== updated) throw new Error('Firestore 上的設定不是這次存的版本');
+        $('msg').textContent = '✓ 已儲存，學生網站會即時更新'; $('msg').className = 'msg ok';
+      }).catch(function (err) {
+        $('msg').textContent = '已存進試算表，但學生網站可能無法即時更新：' + err.message; $('msg').className = 'msg err';
+      });
+    }
+
     $('save').onclick = function () {
       $('msg').textContent = '儲存中…'; $('msg').className = 'msg';
       var builtIn = units.filter(function (u) { return !u.custom; });
       var custom = units.filter(function (u) { return u.custom; });
-      google.script.run.withSuccessHandler(function () { $('msg').textContent = '✓ 已儲存'; $('msg').className = 'msg ok'; })
+      google.script.run.withSuccessHandler(function (r) {
+          if (r && r.syncError) { $('msg').textContent = '已存進試算表，但同步到學生網站失敗（學生要重新整理才看得到）：' + r.syncError; $('msg').className = 'msg err'; return; }
+          $('msg').textContent = '已儲存，確認學生網站同步中…'; $('msg').className = 'msg';
+          checkStudentSync(r && r.updated);
+        })
         .withFailureHandler(function (err) { $('msg').textContent = '儲存失敗：' + err.message; $('msg').className = 'msg err'; })
         .saveAllSettings(builtIn, custom);
     };

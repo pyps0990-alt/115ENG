@@ -388,8 +388,10 @@ function saveAllSettings(builtIn, custom) {
   assertTeacher_();
   saveSettings(builtIn, true);
   saveCustomUnits(custom, true);
-  publishConfig_();
-  return { ok: true, savedAt: new Date().toISOString() };
+  LAST_SYNC_ERROR = '';
+  var cfg = publishConfig_();
+  // 回傳同步結果，後台會再從學生的角度讀一次 Firestore，確認學生網站收得到
+  return { ok: true, savedAt: new Date().toISOString(), updated: cfg.updated, syncError: LAST_SYNC_ERROR };
 }
 
 function saveCustomUnits(units, skipPublish) {
@@ -1160,11 +1162,16 @@ function publishDoc_(docId, json) {
       payload: JSON.stringify({ fields: { json: { stringValue: json } } }),
       muteHttpExceptions: true,
     });
-    if (res.getResponseCode() >= 300) Logger.log('Firestore 同步失敗 ' + docId + '：' + res.getContentText());
+    if (res.getResponseCode() >= 300) {
+      LAST_SYNC_ERROR = 'HTTP ' + res.getResponseCode() + '：' + res.getContentText().slice(0, 200);
+      Logger.log('Firestore 同步失敗 ' + docId + '：' + res.getContentText());
+    }
   } catch (e) {
+    LAST_SYNC_ERROR = String(e);
     Logger.log('Firestore 同步失敗 ' + docId + '：' + e);
   }
 }
+var LAST_SYNC_ERROR = '';
 
 function publishConfig_() {
   CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
