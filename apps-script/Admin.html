@@ -203,7 +203,7 @@
           <label>單元 <select id="imp-unit"></select></label>
           <span id="imp-status" class="pill"></span>
           <button class="btn" id="imp-load" type="button">載入目前內容</button>
-          <button class="btn" id="imp-reset" type="button">還原成網站內建內容</button>
+          <button class="btn" id="imp-reset" type="button">清除這個單元的題目</button>
         </div>
 
         <details class="ai-box" id="ai-box">
@@ -595,7 +595,7 @@
       var u = impUnit(); if (!u) return;
       var c = content.filter(function (x) { return x.id === u.id; })[0];
       $('imp-status').className = 'pill' + (c ? ' on' : '');
-      $('imp-status').textContent = c ? '使用匯入內容（' + c.count + (u.type === 'vocab' ? ' 個' : ' 題') + '，' + String(c.updated).slice(0, 10) + '）' : '使用網站內建內容';
+      $('imp-status').textContent = c ? '使用匯入內容（' + c.count + (u.type === 'vocab' ? ' 個' : ' 題') + '，' + String(c.updated).slice(0, 10) + '）' : '還沒有題目';
       $('imp-reset').disabled = !c;
     }
     function impShow() {
@@ -685,10 +685,7 @@
       $('imp-msg').textContent = '讀取中…'; $('imp-msg').className = 'msg';
       google.script.run.withSuccessHandler(function (res) {
         if (res && res.data) { fillForm(u, res.data); $('imp-msg').textContent = '✓ 已載入匯入的內容'; $('imp-msg').className = 'msg ok'; return; }
-        fetch(siteUrl.replace(/\/?$/, '/') + 'data/lessons/' + encodeURIComponent(u.id) + '.json', { cache: 'no-store' })
-          .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-          .then(function (d) { fillForm(u, d); $('imp-msg').textContent = '✓ 已載入網站內建內容，可以直接修改'; $('imp-msg').className = 'msg ok'; })
-          .catch(function () { $('imp-msg').textContent = '讀不到網站內建內容，請直接貼上新內容'; $('imp-msg').className = 'msg err'; });
+        $('imp-msg').textContent = '這個單元還沒有題目，請直接貼上新內容'; $('imp-msg').className = 'msg';
       }).withFailureHandler(function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; }).getContent(u.id);
     };
 
@@ -822,11 +819,11 @@
     };
     $('imp-reset').onclick = function () {
       var u = impUnit(); if (!u) return;
-      if (!confirm('確定要刪除「' + (u.title || u.id) + '」匯入的內容，改回網站內建內容嗎？')) return;
+      if (!confirm('確定要刪除「' + (u.title || u.id) + '」的題目嗎？清除後學生暫時沒有題目可以做，直到重新匯入。')) return;
       $('imp-msg').textContent = '還原中…'; $('imp-msg').className = 'msg';
       google.script.run.withSuccessHandler(function () {
         content = content.filter(function (x) { return x.id !== u.id; });
-        impStatus(); $('imp-msg').textContent = '✓ 已還原成網站內建內容'; $('imp-msg').className = 'msg ok';
+        impStatus(); $('imp-msg').textContent = '✓ 已清除這個單元的題目'; $('imp-msg').className = 'msg ok';
       }).withFailureHandler(function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; }).deleteContent(u.id, $('imp-progress').checked);
     };
 

@@ -49,7 +49,9 @@ async function route() {
 }
 
 const openLevels = (u) => LEVELS.filter((l) => modeOn(config, u.id, l.id));
-const visibleUnits = () => index.units.filter((u) => unitVisible(config, u.id)
+// 還沒有題目的單元不給學生看（老師匯入內容後才出現）
+const hasContent = (id) => !!(config && config.content && config.content[id]);
+const visibleUnits = () => index.units.filter((u) => unitVisible(config, u.id) && hasContent(u.id)
   && (u.type === 'reading' ? modeOn(config, u.id, 'reading') : openLevels(u).length))
   .sort((a, b) => a.lesson - b.lesson);
 
@@ -126,7 +128,6 @@ function tileHTML(u) {
         <span class="tile-kind">${vocab ? '單字片語測驗' : '課文理解'}</span>
         ${done && !store.reviewed(u.id) ? `<span class="badge todo">${icon.bulb} 待檢討</span>` : ''}
         ${done && store.reviewed(u.id) ? `<span class="badge done">${icon.check} 已完成 · 可複習</span>` : ''}
-        ${u.sample ? '<span class="badge">範例</span>' : ''}
         ${windowBadge(u.id, done)}
       </div>
       <h3 class="en">${esc(u.topic || u.title)}</h3>
@@ -145,7 +146,7 @@ function headHTML(meta, data) {
       <a class="back" href="#/">${icon.back} 所有單元</a>
       <div class="eyebrow">Lesson ${meta.lesson} · ${vocab ? '單字片語測驗' : '課文理解'}</div>
       <h1>${esc(meta.title)}</h1>
-      <div class="sub"><span class="en">${esc(meta.topic || '')}</span><span>${sub}</span>${data.sample ? '<span class="badge">範例資料</span>' : ''}</div>
+      <div class="sub"><span class="en">${esc(meta.topic || '')}</span><span>${sub}</span></div>
     </div>`;
 }
 

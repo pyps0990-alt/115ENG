@@ -1,7 +1,4 @@
 {
   "book": "Book 5",
-  "units": [
-    { "id": "l1-voc", "lesson": 1, "type": "vocab", "title": "L1 單字片語", "topic": "Resilience", "count": 25, "sample": true },
-    { "id": "l1-reading", "lesson": 1, "type": "reading", "title": "L1 課文理解", "topic": "Mia's Second Try", "count": 5, "sample": true }
-  ]
+  "units": []
 }

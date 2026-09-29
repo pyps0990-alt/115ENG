@@ -43,7 +43,8 @@ export async function loadUnit(id, config) {
       }
     } catch { /* fall back */ }
   }
-  return getJSON(`data/lessons/${encodeURIComponent(id)}.json`);
+  // 網站沒有內建題目了：老師還沒匯入的單元沒有題目
+  throw new Error('老師還沒有放入這個單元的題目');
 }
 
 // 把老師後台「新增單元」建立的全新課次併進單元清單（網站原本沒有的 id）

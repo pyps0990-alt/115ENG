@@ -283,17 +283,10 @@ function seenAttempt_(id) {
  * 第一次使用時執行一次：建立 settings / teachers / scores / details / content 分頁，
  * 並把目前執行的帳號加入老師名單。之後新增單元時，在 settings 分頁加一列（id 要和 data/lessons/index.json 相同）。
  */
-var DEFAULT_UNITS = [
-  ['l1-voc', 'L1 單字片語', 'vocab'],
-  ['l1-reading', 'L1 課文理解', 'reading'],
-];
-
 function setup() {
-  var settings = sheet_(SHEET_SETTINGS, SETTINGS_HEADER);
-  if (settings.getLastRow() < 2) {
-    var rows = DEFAULT_UNITS.map(function (u) { return [u[0], u[1], u[2], true, '', 10]; });
-    settings.getRange(2, 1, rows.length, SETTINGS_HEADER.length).setValues(rows);
-  }
+  // 網站沒有內建單元了，所有單元都由老師在後台新增
+  // 全新安裝沒有內建單元要轉換；已經在用的（settings 還有資料）留給 migrateBuiltinUnits_ 處理
+  if (sheet_(SHEET_SETTINGS, SETTINGS_HEADER).getLastRow() < 2) PropertiesService.getScriptProperties().setProperty('BUILTIN_MIGRATED', 'setup');
   var teachers = sheet_(SHEET_TEACHERS, ['email', 'note']);
   var me = Session.getEffectiveUser().getEmail();
   if (me && teachers.getLastRow() < 2) teachers.appendRow([me, '建立者']);
@@ -301,6 +294,7 @@ function setup() {
   sheet_(SHEET_CONTENT, CONTENT_HEADER);
   sheet_(SHEET_DETAILS, DETAILS_HEADER);
   sheet_(SHEET_CUSTOM_UNITS, CUSTOM_UNITS_HEADER);
+  sheet_(SHEET_EXTENSIONS, EXTENSIONS_HEADER);
   CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
   Logger.log('完成。老師名單：' + me);
 }
@@ -332,8 +326,47 @@ function openAdmin() {
 /* Functions called from Admin.html via google.script.run              */
 /* ------------------------------------------------------------------ */
 
+// 一次性：把網站原本內建的單元（L1）轉成老師自己的單元，之後可以在後台直接刪除。
+// 沒匯入過的內建題目，會先從網站抓一份存進 content 分頁；學生紀錄全部保留（建立時間留空＝舊紀錄照算）。
+function migrateBuiltinUnits_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('BUILTIN_MIGRATED')) return;
+  var builtins = readSettingsRows_();
+  var have = {};
+  readCustomUnitsRows_().forEach(function (u) { have[u.id] = true; });
+  var csh = sheet_(SHEET_CUSTOM_UNITS, CUSTOM_UNITS_HEADER);
+  builtins.forEach(function (u) {
+    if (have[u.id]) return;
+    var topic = '';
+    var row = findContentRow_(u.id);
+    if (row) {
+      topic = row.topic;
+    } else {
+      try {
+        var res = UrlFetchApp.fetch(SITE_URL.replace(/\/?$/, '/') + 'data/lessons/' + encodeURIComponent(u.id) + '.json', { muteHttpExceptions: true });
+        if (res.getResponseCode() === 200) {
+          var data = JSON.parse(res.getContentText());
+          delete data.sample;
+          topic = String(data.topic || '');
+          sheet_(SHEET_CONTENT, CONTENT_HEADER).appendRow([u.id, JSON.stringify(data), new Date().toISOString(), '內建題目轉入']);
+          clearContentCache_(u.id);
+        }
+      } catch (err) { Logger.log('內建題目轉入失敗 ' + u.id + '：' + err); }
+    }
+    var m = /^l(\d+)/i.exec(u.id);
+    var values = [[u.id, u.title || u.id, u.type === 'reading' ? 'reading' : 'vocab', m ? Number(m[1]) : 1, topic,
+      u.visible !== false, (u.disabled || []).join(','), u.questionCount || 10, '', u.openAt || '', u.closeAt || '']];
+    csh.getRange(csh.getLastRow() + 1, 1, 1, CUSTOM_UNITS_FIELDS.length).setNumberFormat('@').setValues(values);
+  });
+  var ssh = sheet_(SHEET_SETTINGS, SETTINGS_HEADER);
+  if (ssh.getLastRow() > 1) ssh.getRange(2, 1, ssh.getLastRow() - 1, SETTINGS_HEADER.length).clearContent();
+  props.setProperty('BUILTIN_MIGRATED', new Date().toISOString());
+  if (builtins.length) publishConfig_();
+}
+
 function getAdminData() {
   var email = assertTeacher_();
+  migrateBuiltinUnits_();
   return {
     email: email,
     units: readSettingsRows_(),
