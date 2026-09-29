@@ -47,6 +47,9 @@ var CLASS_SHEET_PREFIX = '班級 ';
 
 function doGet(e) {
   var action = e && e.parameter && e.parameter.action;
+  if (action === 'ping') {
+    return json_({ ok: true, version: API_VERSION });
+  }
   if (action === 'config') {
     return json_(readConfigCached_());
   }
@@ -76,6 +79,7 @@ function doGet(e) {
 /* ------------------------------------------------------------------ */
 var FIREBASE_WEB_KEY = 'AIzaSyC0HFF3YjrsONdvYwTrofihkqNGiQjjdyc';
 var API_EMAIL = null;
+var API_VERSION = 'admin-api-2';
 
 // 用 Google 的 Identity Toolkit 驗證 Firebase 登入憑證，回傳登入的 email（有快取，5 分鐘內不重查）
 function verifyIdToken_(token) {

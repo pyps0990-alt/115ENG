@@ -17,7 +17,15 @@ export function mountAdmin(host, { getToken, legacyUrl }) {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ api: name, args, idToken }),
     });
-    const j = await r.json();
+    const text = await r.text();
+    let j;
+    try { j = JSON.parse(text); } catch {
+      // 收到的是網頁不是資料：通常是 Apps Script 還是舊版、需要重新授權，或部署設定不是「任何人」
+      const plain = text.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      let ver = '';
+      try { ver = (await (await fetch(`${SCRIPT_URL}?action=ping`)).json()).version || ''; } catch { ver = ''; }
+      throw new Error(`Apps Script 回應的不是資料（${ver ? `後台版本 ${ver}` : '後台可能還是舊版，請確認 clasp push 與 deploy 都有執行'}）：${plain.slice(0, 160) || `HTTP ${r.status}`}`);
+    }
     if (!j.ok) throw new Error(j.error || '伺服器錯誤');
     return j.data;
   };
