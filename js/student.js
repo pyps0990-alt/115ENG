@@ -109,7 +109,9 @@ export function renderStudentChip() {
   const s = store.student();
   chip.hidden = !s;
   if (s) {
-    chip.innerHTML = `${icon.user}<span>${esc(studentLabel(s))}</span>`;
+    // 上方名牌：完整顯示班級座號姓名，姓名第二個字用〇代替（旁人看螢幕時不會看到全名）
+    const masked = s.name.length >= 2 ? `${s.name[0]}〇${s.name.slice(2)}` : s.name;
+    chip.innerHTML = `${icon.user}<span>${esc(`${s.cls} 班 ${s.seat} 號 ${masked}`)}</span>`;
     chip.title = '切換學生';
     chip.onclick = async () => {
       // 作答中不能切換學生（考試鎖定）

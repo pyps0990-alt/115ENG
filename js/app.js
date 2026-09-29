@@ -345,6 +345,15 @@ async function boot() {
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();
   window.addEventListener('online', () => flushOutbox());
+  // 往下捲動時收起左上角 B5，讓單元選單與學生名牌有足夠空間
+  let scrolled = false;
+  const onScroll = () => {
+    const y = window.scrollY;
+    if (!scrolled && y > 40) { scrolled = true; document.body.classList.add('scrolled'); }
+    else if (scrolled && y < 8) { scrolled = false; document.body.classList.remove('scrolled'); }
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
   // 成績排隊／排到送出時，在畫面右下角通知
   window.addEventListener('score-queued', (e) => notify(`${e.detail.unitTitle || e.detail.unit} 成績已加入排隊，稍後自動送出`, 'wait'));
   window.addEventListener('score-sent', (e) => notify(`${e.detail.unitTitle || e.detail.unit} ${String(e.detail.clientTs || '').slice(11, 16)} 已送出成績`, 'ok'));

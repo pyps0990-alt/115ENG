@@ -597,3 +597,21 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .badge.time { gap: 4px; border: 1px solid var(--line); background: var(--wash); color: var(--navy); }
 .badge.time .ic { width: 12px; height: 12px; }
 .badge.time.off { color: var(--bad); border-color: var(--bad-soft); background: var(--bad-soft); }
+
+/* 導覽列：往下捲動時收起 B5，單元選單往左補上；學生名牌一定完整顯示 */
+.brand { max-width: 220px; overflow: hidden; flex: none; transition: max-width .28s var(--ease), opacity .2s ease, margin .28s var(--ease); }
+body.scrolled .brand { max-width: 0; opacity: 0; margin-right: -12px; pointer-events: none; }
+.nav-menu { flex: 0 1 auto; min-width: 0; }
+.menu-btn { max-width: 100%; min-width: 0; }
+.menu-btn .menu-label { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.top-actions { flex: 0 0 auto; }
+.chip-btn { overflow: visible; }
+.chip-btn span { overflow: visible; text-overflow: clip; white-space: nowrap; }
+@media (max-width: 480px) {
+  .topbar-inner { gap: 8px; }
+  body.scrolled .brand { margin-right: -8px; }
+  .chip-btn { padding: 0 11px; font-size: .84rem; gap: 4px; }
+  .chip-btn .ic { display: none; }
+  .menu-btn { padding: 0 10px; font-size: .86rem; }
+}
+@media (prefers-reduced-motion: reduce) { .brand { transition: none; } }
