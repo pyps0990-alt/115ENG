@@ -29,7 +29,7 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
     clearTimeout(wake);
     if (win.state === 'before' && win.openAt - Date.now() < 86400000) wake = setTimeout(draw, win.openAt - Date.now() + 500);
     let timeNote = '';
-    if (win.state === 'open' && win.closeAt) timeNote = `${icon.clock} 開放到 ${fmtWhen(win.closeAt)}`;
+    if (win.state === 'open' && win.closeAt) timeNote = `${icon.clock} ${win.extended ? '老師開放你補作到' : '開放到'} ${fmtWhen(win.closeAt)}`;
     let buttons = `<button class="btn primary" type="button" data-start>${icon.play} 開始測驗</button>`;
     if (isReview && needReview) {
       buttons = `<button class="btn primary" type="button" data-review>${icon.bulb} 開始檢討</button>

@@ -104,7 +104,7 @@ function windowBadge(id, done) {
   const w = unitWindow(config, id);
   if (w.state === 'before') return `<span class="badge time">${icon.lock} ${fmtWhen(w.openAt)} 開放</span>`;
   if (w.state === 'after') return done ? '' : `<span class="badge time off">已截止</span>`;
-  return w.closeAt ? `<span class="badge time">${icon.clock} 截止 ${fmtWhen(w.closeAt)}</span>` : '';
+  return w.closeAt ? `<span class="badge time">${icon.clock} ${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}</span>` : '';
 }
 
 function tileHTML(u) {

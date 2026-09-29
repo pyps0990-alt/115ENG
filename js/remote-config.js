@@ -5,6 +5,7 @@
 // Apps Script 回應要 1～3 秒：有上次存下的設定就先用它畫畫面，同時在背景抓最新的，
 // 有變動時發出 config-updated 事件讓網站重畫（老師改的設定，學生重新整理或稍等一下就看到）。
 import { SCRIPT_URL } from './config.js';
+import { store } from './storage.js';
 
 const DEFAULT_COUNT = 10;
 const CACHE_KEY = 'b5p:config';
@@ -114,9 +115,14 @@ const twTime = (s) => (s ? Date.parse(`${s}:00+08:00`) : NaN);
 export function unitWindow(c, id, now = Date.now()) {
   const u = unitCfg(c, id);
   const open = twTime(u.openAt);
-  const close = twTime(u.closeAt);
+  let close = twTime(u.closeAt);
+  // 老師有開放補作給這位學生：截止時間延到補作時間
+  const s = store.student();
+  const ext = s && c && c.ext && c.ext[id] ? twTime(c.ext[id][`${s.cls}-${s.seat}`]) : NaN;
+  const extended = !Number.isNaN(ext) && !(ext <= close);
+  if (extended) close = ext;
   const state = open > now ? 'before' : close <= now ? 'after' : 'open';
-  return { state, openAt: Number.isNaN(open) ? null : open, closeAt: Number.isNaN(close) ? null : close };
+  return { state, extended, openAt: Number.isNaN(open) ? null : open, closeAt: Number.isNaN(close) ? null : close };
 }
 export function fmtWhen(ms) {
   const d = new Date(ms);

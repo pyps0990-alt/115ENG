@@ -61,6 +61,10 @@
     tbody tr:hover td { background:var(--surface); }
     tbody tr:last-child td { border-bottom:none; }
     td.title { font-weight:700; white-space:normal; min-width:150px; }
+    .pick { position:absolute; left:0; top:100%; z-index:20; margin-top:4px; min-width:260px; max-height:260px; overflow:auto; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow); }
+    .pick button { display:block; width:100%; text-align:left; border:0; background:none; padding:8px 12px; font:inherit; font-weight:400; color:var(--ink); cursor:pointer; }
+    .pick button:hover, .pick button.on { background:var(--surface); }
+    .pick .muted { padding:8px 12px; }
     td.window label { display:flex; gap:6px; align-items:center; font-size:.8rem; color:var(--muted); margin:2px 0; }
     td.window input { padding:5px 8px; font-size:.85rem; }
     .modes { display:flex; gap:4px 10px; flex-wrap:wrap; white-space:normal; min-width:240px; }
@@ -182,6 +186,23 @@
           <span class="msg" id="nu-msg"></span>
         </div>
         <div class="help" style="margin-top:12px">開放時段留空＝不限制。設定開放時間後，時間到之前學生只看得到「幾月幾日開放」；過了截止時間就不能再做正式測驗，已經做過的學生仍可以檢討和複習。新增單元後記得按上方「儲存設定」。新單元一開始沒有內容，請切到「匯入內容」分頁選擇這個單元，貼上單字或文章後儲存，學生網站才看得到實際題目。</div>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">補作時間</h2>
+        <div class="help">單元截止後，請假或有特殊狀況的學生可以單獨開放補作。搜尋並選擇學生、選單元、設定補作到什麼時候，按「加入」後再按「儲存補作名單」。只有名單上的學生能在截止後做正式測驗，其他學生不受影響。</div>
+        <div class="bar" style="margin-top:12px">
+          <label>單元 <select id="ex-unit"></select></label>
+          <label style="position:relative">學生 <input type="text" id="ex-q" size="16" autocomplete="off" placeholder="搜尋姓名、班級或座號">
+            <div id="ex-pick" class="pick" hidden></div></label>
+          <label>補作到 <input type="datetime-local" id="ex-until"></label>
+          <label>備註 <input type="text" id="ex-note" size="10" placeholder="例：病假"></label>
+          <button class="btn" id="ex-add" type="button">加入</button>
+        </div>
+        <table style="margin-top:12px">
+          <thead><tr><th>單元</th><th>學生</th><th>補作到</th><th>備註</th><th></th></tr></thead>
+          <tbody id="ex-rows"><tr><td colspan="5" class="muted">目前沒有補作名單</td></tr></tbody>
+        </table>
+        <div class="bar" style="margin-top:12px"><button class="btn primary" id="ex-save" type="button">儲存補作名單</button><span class="msg" id="ex-msg"></span></div>
       </div>
     </section>
 
@@ -437,7 +458,8 @@
     };
 
     // 用學生的方式（不登入）讀一次 Firestore 上的設定，確認學生網站真的收得到這次的更新
-    function checkStudentSync(updated) {
+    function checkStudentSync(updated, msgId) {
+      var M = $(msgId || 'msg');
       var url = 'https://firestore.googleapis.com/v1/projects/eng-3385e/databases/(default)/documents/public/config';
       fetch(url, { cache: 'no-store' }).then(function (res) {
         if (res.status === 403) throw new Error('Firestore 規則還沒開放學生讀取（請到 Firebase 主控台 → Firestore → 規則，貼上最新的 firestore.rules 並發布）');
@@ -447,11 +469,81 @@
       }).then(function (doc) {
         var cfg = JSON.parse(doc.fields.json.stringValue);
         if (updated && cfg.updated !== updated) throw new Error('Firestore 上的設定不是這次存的版本');
-        $('msg').textContent = '✓ 已儲存，學生網站會即時更新'; $('msg').className = 'msg ok';
+        M.textContent = '✓ 已儲存，學生網站會即時更新'; M.className = 'msg ok';
       }).catch(function (err) {
-        $('msg').textContent = '已存進試算表，但學生網站可能無法即時更新：' + err.message; $('msg').className = 'msg err';
+        M.textContent = '已存進試算表，但學生網站可能無法即時更新：' + err.message; M.className = 'msg err';
       });
     }
+
+    // ----- 補作時間 -----
+    var exts = [], roster = null, exStudent = null;
+    function unitTitle(id) { var u = units.filter(function (x) { return x.id === id; })[0]; return u ? (u.title || u.id) : id; }
+    function studentName(cls, seat) { var r = (roster || []).filter(function (x) { return x.cls === cls && x.seat === seat; })[0]; return r ? r.name : ''; }
+    function fmtTime(t) { return t ? t.replace('T', ' ') : ''; }
+    function exRender() {
+      var keep = $('ex-unit').value;
+      $('ex-unit').innerHTML = units.map(function (u) { return '<option value="' + esc(u.id) + '">' + esc(u.title || u.id) + '</option>'; }).join('');
+      if (keep) $('ex-unit').value = keep;
+      $('ex-rows').innerHTML = exts.map(function (x, i) {
+        var n = studentName(x.cls, x.seat);
+        return '<tr><td>' + esc(unitTitle(x.unit)) + '</td><td>' + esc(x.cls + ' 班 ' + x.seat + ' 號' + (n ? ' ' + n : '')) + '</td><td>' + esc(fmtTime(x.until)) +
+          '</td><td>' + esc(x.note || '') + '</td><td><button class="btn" type="button" data-exdel="' + i + '">移除</button></td></tr>';
+      }).join('') || '<tr><td colspan="5" class="muted">目前沒有補作名單</td></tr>';
+    }
+    function exPickShow() {
+      var q = $('ex-q').value.trim().toLowerCase();
+      var box = $('ex-pick');
+      if (!roster) { box.innerHTML = '<div class="muted">名單載入中…</div>'; box.hidden = false; return; }
+      var hits = roster.filter(function (r) {
+        return !q || (r.cls + ' ' + r.seat + ' ' + r.name + ' ' + r.cls + '-' + r.seat).toLowerCase().indexOf(q) >= 0;
+      }).slice(0, 50);
+      box.innerHTML = hits.map(function (r) {
+        return '<button type="button" data-cls="' + esc(r.cls) + '" data-seat="' + esc(r.seat) + '" data-name="' + esc(r.name) + '">' + esc(r.cls + ' 班 ' + r.seat + ' 號 ' + r.name) + '</button>';
+      }).join('') || '<div class="muted">找不到符合的學生</div>';
+      box.hidden = false;
+    }
+    function loadRoster() {
+      if (roster) return;
+      google.script.run.withSuccessHandler(function (list) { roster = list || []; exRender(); if (!$('ex-pick').hidden) exPickShow(); })
+        .withFailureHandler(function (err) { roster = []; $('ex-msg').textContent = '名單讀取失敗：' + err.message; $('ex-msg').className = 'msg err'; })
+        .listRoster();
+    }
+    $('ex-q').addEventListener('focus', function () { loadRoster(); exPickShow(); });
+    $('ex-q').addEventListener('input', function () { exStudent = null; exPickShow(); });
+    $('ex-pick').addEventListener('mousedown', function (e) {
+      var b = e.target.closest('button[data-cls]'); if (!b) return;
+      e.preventDefault();
+      exStudent = { cls: b.dataset.cls, seat: b.dataset.seat };
+      $('ex-q').value = b.dataset.cls + ' 班 ' + b.dataset.seat + ' 號 ' + b.dataset.name;
+      $('ex-pick').hidden = true;
+    });
+    $('ex-q').addEventListener('blur', function () { setTimeout(function () { $('ex-pick').hidden = true; }, 150); });
+    $('ex-add').onclick = function () {
+      var m = $('ex-msg');
+      if (!exStudent) { m.textContent = '請從搜尋結果中選擇一位學生'; m.className = 'msg err'; return; }
+      var until = $('ex-until').value;
+      if (!until) { m.textContent = '請設定補作到什麼時候'; m.className = 'msg err'; return; }
+      var unit = $('ex-unit').value;
+      exts = exts.filter(function (x) { return !(x.unit === unit && x.cls === exStudent.cls && x.seat === exStudent.seat); });
+      exts.push({ unit: unit, cls: exStudent.cls, seat: exStudent.seat, until: until, note: $('ex-note').value.trim() });
+      exStudent = null; $('ex-q').value = ''; $('ex-note').value = '';
+      exRender();
+      m.textContent = '已加入，記得按「儲存補作名單」'; m.className = 'msg';
+    };
+    $('ex-rows').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-exdel]'); if (!b) return;
+      exts.splice(Number(b.dataset.exdel), 1); exRender();
+      $('ex-msg').textContent = '已移除，記得按「儲存補作名單」'; $('ex-msg').className = 'msg';
+    });
+    $('ex-save').onclick = function () {
+      $('ex-msg').textContent = '儲存中…'; $('ex-msg').className = 'msg';
+      google.script.run.withSuccessHandler(function (r) {
+        if (r && r.syncError) { $('ex-msg').textContent = '已存進試算表，但同步到學生網站失敗：' + r.syncError; $('ex-msg').className = 'msg err'; return; }
+        $('ex-msg').textContent = '已儲存，確認學生網站同步中…'; $('ex-msg').className = 'msg';
+        checkStudentSync(r && r.updated, 'ex-msg');
+      }).withFailureHandler(function (err) { $('ex-msg').textContent = '儲存失敗：' + err.message; $('ex-msg').className = 'msg err'; })
+        .saveExtensions(exts);
+    };
 
     $('save').onclick = function () {
       $('msg').textContent = '儲存中…'; $('msg').className = 'msg';
@@ -960,7 +1052,8 @@
     google.script.run
       .withSuccessHandler(function (d) {
         units = (d.units || []).concat(d.customUnits || []);
-        content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit();
+        exts = d.extensions || [];
+        content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit(); exRender();
         google.script.run.withSuccessHandler(aiPaint).withFailureHandler(function () {}).getAiStatus();
       })
       .withFailureHandler(function (err) { $('units').innerHTML = '<tr><td colspan="5" class="msg err">' + esc(err.message) + '</td></tr>'; })

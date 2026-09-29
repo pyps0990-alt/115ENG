@@ -29,6 +29,10 @@ var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCo
 
 // 老師後台「新增單元」建立的全新單元（網站原本沒有的課次），跟 settings（只調整既有單元的顯示/題數）分開存放。
 var SHEET_CUSTOM_UNITS = 'custom_units';
+
+// 個別學生的補作時間：這些學生在單元截止後，可以做正式測驗到指定時間
+var SHEET_EXTENSIONS = 'extensions';
+var EXTENSIONS_HEADER = ['單元代號', '班級', '座號', '補作到', '備註'];
 var CUSTOM_UNITS_FIELDS = ['id', 'title', 'type', 'lesson', 'topic', 'visible', 'disabled', 'questionCount', 'createdAt', 'openAt', 'closeAt'];
 var CUSTOM_UNITS_HEADER = ['單元代號', '標題', '類型', '課次', '主題', '顯示', '停用的段落', '每段題數', '建立時間', '開放時間', '截止時間'];
 
@@ -103,7 +107,7 @@ function verifyIdToken_(token) {
 function handleApi_(d) {
   // 網站版後台可以呼叫的函式（每一個函式內部都會再檢查一次老師身分）
   var fns = {
-    getAdminData: getAdminData, saveAllSettings: saveAllSettings, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
+    getAdminData: getAdminData, saveAllSettings: saveAllSettings, saveExtensions: saveExtensions, listRoster: listRoster, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
     getScores: getScores, getWrongStats: getWrongStats,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
     getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey,
@@ -335,9 +339,58 @@ function getAdminData() {
     units: readSettingsRows_(),
     customUnits: readCustomUnitsRows_(),
     content: readContentRows_().map(function (r) { return { id: r.id, updated: r.updated, updatedBy: r.updatedBy, count: r.count }; }),
+    extensions: readExtensions_(),
     siteUrl: SITE_URL,
     sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl(),
   };
+}
+
+function readExtensions_() {
+  var sh = sheet_(SHEET_EXTENSIONS, EXTENSIONS_HEADER);
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, EXTENSIONS_HEADER.length).getValues()
+    .map(function (r) {
+      return { unit: String(r[0]).trim(), cls: String(r[1]).trim(), seat: String(r[2]).trim().replace(/^0+(?=\d)/, ''), until: timeCell_(r[3]), note: String(r[4] || '') };
+    })
+    .filter(function (x) { return x.unit && x.cls && x.seat && x.until; });
+}
+
+// 學生名單（給補作時間的搜尋選單用）：讀 Firestore 的學生帳本，只取班級、座號、姓名
+function listRoster() {
+  assertTeacher_();
+  var out = [], after = null;
+  while (true) {
+    var page = firestorePage_('vault', ['cls', 'seat', 'name'], after, 300);
+    if (!page.length) break;
+    page.forEach(function (d) {
+      if (!/\/documents\/vault\/[^/]+$/.test(d.name)) return;
+      var f = d.fields || {};
+      var v = function (k) { return f[k] ? String(f[k].stringValue || f[k].integerValue || '') : ''; };
+      if (v('cls') && v('seat')) out.push({ cls: v('cls'), seat: v('seat').replace(/^0+(?=\d)/, ''), name: v('name') });
+    });
+    after = page[page.length - 1].name;
+    if (page.length < 300) break;
+  }
+  out.sort(function (a, b) { return a.cls.localeCompare(b.cls) || Number(a.seat) - Number(b.seat); });
+  return out;
+}
+
+// 整批覆寫補作名單，並同步到學生網站
+function saveExtensions(list) {
+  assertTeacher_();
+  var rows = (list || []).map(function (x) {
+    return [String(x.unit || '').trim(), String(x.cls || '').trim(), String(x.seat || '').trim().replace(/^0+(?=\d)/, ''), timeCell_(x.until), String(x.note || '').slice(0, 100)];
+  }).filter(function (r) { return r[0] && /^\d{3,4}$/.test(r[1]) && /^\d{1,2}$/.test(r[2]) && r[3]; });
+  var sh = sheet_(SHEET_EXTENSIONS, EXTENSIONS_HEADER);
+  var last = sh.getLastRow();
+  if (last > 1) sh.getRange(2, 1, last - 1, EXTENSIONS_HEADER.length).clearContent();
+  if (rows.length) {
+    sh.getRange(2, 1, rows.length, EXTENSIONS_HEADER.length).setNumberFormat('@').setValues(rows);
+  }
+  LAST_SYNC_ERROR = '';
+  var cfg = publishConfig_();
+  return { ok: true, count: rows.length, updated: cfg.updated, syncError: LAST_SYNC_ERROR };
 }
 
 function saveSettings(units, skipPublish) {
@@ -1202,6 +1255,12 @@ function readConfigCached_() {
   var cfg = { units: {}, updated: new Date().toISOString() };
   readSettingsRows_().forEach(function (u) {
     cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount, openAt: u.openAt, closeAt: u.closeAt };
+  });
+  // 補作時間：{ 單元: { '班級-座號': '補作到' } }（只有班級座號，沒有姓名）
+  cfg.ext = {};
+  readExtensions_().forEach(function (x) {
+    cfg.ext[x.unit] = cfg.ext[x.unit] || {};
+    cfg.ext[x.unit][x.cls + '-' + x.seat] = x.until;
   });
   // 老師後台新增的全新單元：網站前端會把這些併進課次清單（見 js/data.js 的 addCustomUnits）
   var customUnits = readCustomUnitsRows_();
