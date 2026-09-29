@@ -968,17 +968,26 @@
     let fb;
     try { fb = await import('./js/firebase.js'); } catch (e) { gate('無法載入登入元件，請確認網路後重新整理。', false); throw e; }
 
+    // Google 偶爾會回「無法開啟這個檔案」之類的網頁而不是資料（重新整理頁面時比較常見），自動重試兩次
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     async function api(name, args) {
       const idToken = await fb.staffIdToken();
-      const r = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ api: name, args, idToken }) });
-      const text = await r.text();
-      let j;
-      try { j = JSON.parse(text); } catch {
-        const plain = text.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        throw new Error('Apps Script 回應的不是資料（可能需要在編輯器重新授權，或還沒部署新版）：' + (plain.slice(0, 160) || 'HTTP ' + r.status));
+      const body = JSON.stringify({ api: name, args, idToken });
+      let lastText = '', lastStatus = 0;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt) await sleep(attempt * 1000);
+        let r;
+        try {
+          r = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body, credentials: 'omit', cache: 'no-store' });
+        } catch (err) { lastText = String(err.message || err); continue; }
+        const text = await r.text();
+        let j;
+        try { j = JSON.parse(text); } catch { lastText = text; lastStatus = r.status; continue; }
+        if (!j.ok) throw new Error(j.error || '伺服器錯誤');
+        return j.data;
       }
-      if (!j.ok) throw new Error(j.error || '伺服器錯誤');
-      return j.data;
+      const plain = lastText.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      throw new Error('Apps Script 暫時沒有回應資料（已重試 3 次），請稍後重新整理：' + (plain.slice(0, 120) || 'HTTP ' + lastStatus));
     }
     // 讓原本 Apps Script 版的 google.script.run 寫法原封不動就能用
     function runner(ok, fail) {
