@@ -313,7 +313,9 @@
       }, true);
       function show(el) {
         var t = el.textContent.trim();
-        if (!t || t === '尚未儲存') return;
+        // 訊息被清空＝處理完成：停止轉圈、收起提示
+        if (!t) { if (lastBtn) lastBtn.classList.remove('busy'); lastBtn = null; toast.className = toast.className.replace('show', ''); return; }
+        if (t === '尚未儲存') return;
         var busy = /…\s*(（.*）)?$/.test(t);
         if (lastBtn) lastBtn.classList.toggle('busy', busy);
         if (!busy) lastBtn = null;
