@@ -230,3 +230,10 @@ data/lessons/*.json      課程資料
 tools/check-content.mjs  內容檢查（防止閱讀題照抄文章）
 apps-script/             Google Apps Script：Code.gs（成績、設定、初始化）＋ Admin.html（老師後台）
 ```
+
+## 老師後台（網站版）
+
+老師後台現在放在網站上：`https://eng-3385e.web.app/admin.html`（先到 `#/teacher` 用 Google 帳號登入）。
+畫面跟 Apps Script 版是同一份，由 `tools/build-admin.py` 從 `apps-script/Admin.html` 產生 `admin.html`；
+改了 `Admin.html` 之後要執行一次 `python3 tools/build-admin.py`，網站和 Apps Script 兩邊都要部署。
+網站版透過 Apps Script 的 API 讀寫資料，伺服器端會驗證 Firebase 登入憑證，老師名單接受試算表 `teachers` 分頁或 Firestore `admins`。

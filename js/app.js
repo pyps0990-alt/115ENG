@@ -4,7 +4,6 @@ import { store } from './storage.js';
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
 import { renderStudentChip, mountInlineForm } from './student.js';
-import { SCRIPT_URL, ADMIN_URL } from './config.js';
 import { LEVELS, PASS } from './levels.js';
 import * as vocab from './modes/vocab.js';
 import * as reading from './modes/reading.js';
@@ -207,26 +206,15 @@ function renderPrivacy() {
 /* ---------------- teacher ---------------- */
 // 老師用 Google 帳號登入；Firestore 的 admins 名單內才顯示後台連結與名單匯入。
 // 真正的權限由 Firestore 規則與 Apps Script 後台的帳號檢查把關，這裡只負責顯示。
-function parseRoster(text) {
-  return text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((line, i) => {
-    const [seatRaw = '', ...rest] = line.split(/[\t,，\s]+/);
-    const seat = seatRaw.replace(/^0+(?=\d)/, '');
-    const name = rest.join('');
-    const ok = /^\d{1,2}$/.test(seat) && !!name;
-    return { line: i + 1, seat, name, ok };
-  });
-}
-
 function renderTeacher() {
   document.title = '老師登入 — B5 Practice';
   app.innerHTML = '<div class="loading"><span class="spinner"></span>確認登入狀態…</div>';
-  const admin = ADMIN_URL || SCRIPT_URL;
   let unsub = null;
   let left = false;
   cleanup = () => { left = true; if (unsub) unsub(); };
   firebase().then((fb) => {
     if (left) return;
-    const { watchStaff, staffSignIn, staffSignOut, importRoster, staffIdToken } = fb;
+    const { watchStaff, staffSignIn, staffSignOut } = fb;
     unsub = watchStaff((staff) => {
     if (!staff) {
       app.innerHTML = `<section class="card teacher">
@@ -248,46 +236,13 @@ function renderTeacher() {
     app.innerHTML = `<section class="card teacher">
         <div class="eyebrow">${staff.role === 'admin' ? '管理員' : '老師'}</div>
         <h2>${esc(staff.email)}</h2>
+        <p class="muted">單元設定、匯入內容與 AI 出題、學生名單、成績、學期結算都在老師後台。建議用電腦開啟，版面比較寬。</p>
         <div class="btn-row">
+          <a class="btn primary" href="admin.html">進入老師後台 ${icon.arrowR}</a>
           <button class="btn ghost" type="button" data-out>登出</button>
         </div>
-      </section>
-      <div data-admin><div class="loading"><span class="spinner"></span>載入後台…</div></div>
-      <section class="card teacher">
-        <div class="eyebrow">Roster</div><h2>匯入學生名單</h2>
-        <p class="muted">每行一位學生：<b>座號　姓名</b>（用 Tab、空白或逗號隔開，可從試算表直接複製兩欄貼上）。學生要輸入跟名單完全一樣的班級、座號、姓名才能登入。重複匯入同一位學生不會產生重複資料；改名字要重新匯入，舊名字仍可登入，需要停用請到 Firebase 主控台刪除。</p>
-        <div class="form-grid">
-          <div class="field"><label for="ro-cls">班級</label><input id="ro-cls" inputmode="numeric" maxlength="4" placeholder="例：306"></div>
-        </div>
-        <textarea id="ro-text" class="roster-text" spellcheck="false" placeholder="1	王小明&#10;3	李小華"></textarea>
-        <div class="btn-row"><button class="btn primary" type="button" data-import>匯入</button><span class="form-err" data-msg aria-live="polite"></span></div>
-        <div data-report></div>
       </section>`;
     app.querySelector('[data-out]').onclick = () => staffSignOut();
-    // 後台程式只在確認是老師之後才下載
-    import('./admin.js').then((m) => m.mountAdmin(app.querySelector('[data-admin]'), { getToken: staffIdToken, legacyUrl: admin }))
-      .catch((e) => { app.querySelector('[data-admin]').innerHTML = `<p class="form-err">後台載入失敗：${esc(e.message)}</p>`; });
-    app.querySelector('[data-import]').onclick = async (e) => {
-      const btn = e.currentTarget;
-      const msg = app.querySelector('[data-msg]');
-      const cls = app.querySelector('#ro-cls').value.trim();
-      if (!/^\d{3,4}$/.test(cls)) { msg.textContent = '班級請填 3～4 位數字'; return; }
-      const rows = parseRoster(app.querySelector('#ro-text').value);
-      const good = rows.filter((r) => r.ok);
-      app.querySelector('[data-report]').innerHTML = `<table class="roster-report"><thead><tr><th>行</th><th>座號</th><th>姓名</th><th>狀態</th></tr></thead><tbody>${
-        rows.map((r) => `<tr><td>${r.line}</td><td>${esc(r.seat)}</td><td>${esc(r.name)}</td><td>${r.ok ? '✓' : '✗ 座號或姓名格式錯誤'}</td></tr>`).join('')}</tbody></table>`;
-      if (!good.length) { msg.textContent = '沒有可匯入的資料'; return; }
-      btn.disabled = true;
-      msg.textContent = `匯入中…（${good.length} 位）`;
-      try {
-        await importRoster(cls, good);
-        msg.textContent = `✓ 已匯入 ${good.length} 位${rows.length > good.length ? `，${rows.length - good.length} 行格式錯誤未匯入` : ''}`;
-      } catch (err) {
-        msg.textContent = `匯入失敗：${err.message}`;
-      } finally {
-        btn.disabled = false;
-      }
-    };
     });
   }).catch((e) => {
     app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><p>無法載入登入元件（${esc(e.message)}），請確認網路後重新整理。</p></div>`;
@@ -328,6 +283,8 @@ async function boot() {
     addCustomUnits(index, config);
     applyImported(index, config);
     initNav(visibleUnits());
+    const kind = location.hash.split('/')[1] || '';
+    document.getElementById('nav-menu').hidden = kind === 'teacher' || !store.student() || !visibleUnits().length;
     const since = {};
     Object.entries((config && config.units) || {}).forEach(([id, u]) => { const t = Date.parse(u.since); if (t) since[id] = t; });
     store.setSince(since);

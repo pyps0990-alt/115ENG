@@ -583,36 +583,3 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .privacy-note { margin: -4px 0 0; font-size: .78rem; color: var(--steel); }
 .privacy-note a { color: inherit; text-decoration: underline; }
 
-/* 老師後台（網站版） */
-.card.adm { max-width: 960px; }
-.adm-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-.adm-tabs button { border: 1px solid var(--line); background: var(--white); color: var(--navy); border-radius: 99px; padding: 8px 16px; font: inherit; font-weight: 700; cursor: pointer; }
-.adm-tabs button.on { background: var(--navy); color: var(--white); border-color: var(--navy); }
-.adm-msg { font-size: .88rem; color: var(--steel); }
-.adm-msg.ok { color: #15803D; } .adm-msg.err { color: var(--bad); }
-.adm-note { font-size: .82rem; margin: 0; }
-.adm-note a { color: inherit; text-decoration: underline; }
-.adm-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
-.adm-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
-.adm-table th, .adm-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; white-space: nowrap; }
-.adm-table th { background: var(--wash); font-size: .8rem; color: var(--steel); }
-.adm-table td.wrap { white-space: normal; min-width: 160px; }
-.adm-table tr.off td { opacity: .5; }
-.adm-table input[type=text], .adm-table input[type=number], .adm-table select { font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; }
-.adm-title { font-weight: 700; min-width: 150px; }
-.adm-num { width: 64px; }
-.adm-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; font-size: .78rem; color: var(--steel); }
-.adm-meta input { width: 52px; }
-.adm-modes { display: flex; flex-wrap: wrap; gap: 4px 10px; }
-.adm-modes label { display: inline-flex; gap: 4px; align-items: center; }
-.adm-add summary { cursor: pointer; font-weight: 700; color: var(--navy); }
-.adm-add[open] { display: grid; gap: 10px; }
-.adm-stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
-.adm-stats span { background: var(--wash); border-radius: 99px; padding: 4px 12px; font-size: .82rem; font-weight: 700; }
-.adm-h3 { font-size: .95rem; margin: 6px 0; }
-.adm-rate { display: inline-block; width: 60px; height: 6px; border-radius: 99px; background: var(--wash); vertical-align: middle; overflow: hidden; }
-.adm-rate span { display: block; height: 100%; background: var(--bad); }
-.card.adm { min-width: 0; width: 100%; box-sizing: border-box; }
-.card.adm > *, .card.adm [data-pane] > * { min-width: 0; }
-.card.adm [data-pane] { display: grid; gap: 10px; min-width: 0; }
-.card.adm .form-grid select { width: 100%; }

@@ -79,7 +79,7 @@ function doGet(e) {
 /* ------------------------------------------------------------------ */
 var FIREBASE_WEB_KEY = 'AIzaSyC0HFF3YjrsONdvYwTrofihkqNGiQjjdyc';
 var API_EMAIL = null;
-var API_VERSION = 'admin-api-2';
+var API_VERSION = 'admin-api-3';
 
 // 用 Google 的 Identity Toolkit 驗證 Firebase 登入憑證，回傳登入的 email（有快取，5 分鐘內不重查）
 function verifyIdToken_(token) {
@@ -101,9 +101,15 @@ function verifyIdToken_(token) {
 }
 
 function handleApi_(d) {
+  // 網站版後台可以呼叫的函式（每一個函式內部都會再檢查一次老師身分）
   var fns = {
     getAdminData: getAdminData, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
     getScores: getScores, getWrongStats: getWrongStats,
+    getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
+    getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey,
+    aiGenerateReading: aiGenerateReading, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
+    lookupStudent: lookupStudent, deleteStudent: deleteStudent,
+    backupSpreadsheet: backupSpreadsheet, semesterReset: semesterReset, purgeUnitScores: purgeUnitScores,
   };
   try {
     API_EMAIL = verifyIdToken_(d.idToken);
