@@ -93,6 +93,8 @@ export function renderMC(host, q, { feedback = true, selected = null, label = ''
         <span class="opt-mark" aria-hidden="true"></span></button>`).join('')}
     </div>`;
   host.append(card);
+  // 手機上按「開始」或上一題的位置剛好落在某個選項上時，那個選項會殘留觸控／焦點樣式，看起來像被選了
+  if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   const opts = [...card.querySelectorAll('.opt')];
   let done = false;
 

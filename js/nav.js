@@ -96,5 +96,5 @@ panel.addEventListener('click', async (e) => {
     body: '測驗還沒完成，離開後這次的作答不會保存，也不會送出成績。',
     ok: '離開', cancel: '繼續作答',
   });
-  if (ok) location.hash = a.getAttribute('href');
+  if (ok) { delete document.body.dataset.busy; location.hash = a.getAttribute('href'); }
 });

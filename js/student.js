@@ -111,6 +111,10 @@ export function renderStudentChip() {
   if (s) {
     chip.innerHTML = `${icon.user}<span>${esc(studentLabel(s))}</span>`;
     chip.title = '切換學生';
-    chip.onclick = () => openStudentDialog(() => window.dispatchEvent(new Event('student-changed')));
+    chip.onclick = async () => {
+      // 作答中不能切換學生（考試鎖定）
+      if (document.body.dataset.busy) return;
+      openStudentDialog(() => window.dispatchEvent(new Event('student-changed')));
+    };
   }
 }

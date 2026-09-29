@@ -1,7 +1,7 @@
 import { loadIndex, loadUnit, applyImported, addCustomUnits } from './data.js';
 import { getConfig, watchConfig, unitVisible, modeOn, questionCount } from './remote-config.js';
 import { store } from './storage.js';
-import { esc } from './util.js';
+import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
 import { renderStudentChip, mountInlineForm } from './student.js';
 import { SCRIPT_URL, ADMIN_URL } from './config.js';
@@ -359,7 +359,37 @@ async function boot() {
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();
   window.addEventListener('online', () => flushOutbox());
-  window.addEventListener('hashchange', route);
+  // 考試鎖定：作答中點任何站內連結（左上 B5、所有單元…）或按上一頁，都先確認，避免不小心中斷
+  let curHash = location.hash;
+  let reverting = false;
+  const leaveOk = () => confirmDialog({
+    title: '要離開這次測驗嗎？',
+    body: '測驗還沒完成，離開後這次的作答不會保存，也不會送出成績。',
+    ok: '離開', cancel: '繼續作答',
+  });
+  document.addEventListener('click', async (e) => {
+    const a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (!a || !document.body.dataset.busy || a.closest('#unit-menu')) return;
+    if (a.getAttribute('href') === location.hash) return;
+    e.preventDefault();
+    if (await leaveOk()) { delete document.body.dataset.busy; location.hash = a.getAttribute('href'); }
+  }, true);
+  window.addEventListener('hashchange', async () => {
+    if (reverting) { reverting = false; return; }
+    if (document.body.dataset.busy) {
+      // 上一頁／手勢返回：先退回原頁，確認後才真的離開
+      const target = location.hash;
+      reverting = true;
+      history.replaceState(null, '', curHash || '#/');
+      reverting = false;
+      if (!(await leaveOk())) return;
+      delete document.body.dataset.busy;
+      location.hash = target;
+      return;
+    }
+    curHash = location.hash;
+    route();
+  });
   window.addEventListener('student-changed', () => { if (!document.body.dataset.busy) route(); });
   route();
   // 以 Firestore 為準：每次進站重新讀取紀錄（例如在別台裝置做過的測驗）

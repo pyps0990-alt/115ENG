@@ -301,7 +301,9 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
   border-radius: 14px; border: 2px solid var(--line); background: var(--white); color: var(--navy); text-align: left; font-size: 1.02rem; font-weight: 500;
   transition: transform .15s var(--ease), border-color .2s, background .2s, opacity .25s;
 }
-.opt:hover:not(:disabled) { border-color: var(--navy); transform: translateY(-1px); }
+/* 只有真的有滑鼠的裝置才有 hover 效果；手機點過會殘留 hover，看起來像選了那個選項 */
+@media (hover: hover) { .opt:hover:not(:disabled) { border-color: var(--navy); transform: translateY(-1px); } }
+.opt { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 .opt:active:not(:disabled) { transform: scale(.98); }
 .opt:disabled { cursor: default; }
 .opt-key { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; flex: none; background: var(--wash); font-family: var(--font-en); font-weight: 900; font-size: .88rem; color: var(--steel); transition: all .2s; }
