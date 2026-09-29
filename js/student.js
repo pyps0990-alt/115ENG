@@ -14,7 +14,8 @@ export function formHTML(s = {}) {
       <div class="field span2"><label for="f-name">姓名</label>
         <input id="f-name" name="name" autocomplete="off" placeholder="你的名字" maxlength="20" value="${esc(s.name || '')}" required></div>
     </div>
-    <div class="form-err" aria-live="polite"></div>`;
+    <div class="form-err" aria-live="polite"></div>
+    <p class="privacy-note">會保存你的班級、座號、姓名與測驗紀錄，僅供授課老師使用，詳見<a href="#/privacy">隱私權說明</a>。</p>`;
 }
 
 export function readForm(form) {

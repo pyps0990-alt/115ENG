@@ -238,6 +238,21 @@
           <a class="btn primary" href="https://eng-3385e.web.app/#/teacher" target="_blank" rel="noopener">前往網站老師頁面</a>
         </div>
       </div>
+      <div class="card">
+        <h2 style="margin-top:0">查詢／刪除單一學生資料</h2>
+        <div class="help">轉學、畢業，或學生（家長）要求刪除個人資料時使用。會刪除這位學生在 Firestore 的所有紀錄：登入帳本、每次測驗作答、檢討狀態；不影響試算表裡的成績（成績另外用「學期結算」或後台試算表本身刪除）。請先查詢確認是這位學生，再刪除，動作無法復原。</div>
+        <div class="form-grid" style="margin-top:12px">
+          <div class="field"><label for="ds-cls">班級</label><input id="ds-cls" inputmode="numeric" maxlength="4" placeholder="例：201"></div>
+          <div class="field"><label for="ds-seat">座號</label><input id="ds-seat" inputmode="numeric" maxlength="3" placeholder="例：7"></div>
+          <div class="field span2"><label for="ds-name">姓名</label><input id="ds-name" placeholder="要跟名單上完全一樣"></div>
+        </div>
+        <div class="bar" style="margin-top:10px">
+          <button class="btn" id="ds-find" type="button">查詢</button>
+          <button class="btn" id="ds-go" type="button" disabled style="color:var(--bad);border-color:var(--bad)">刪除這位學生的所有資料</button>
+          <span class="msg" id="ds-msg"></span>
+        </div>
+        <div id="ds-report"></div>
+      </div>
     </section>
 
     <section id="tab-scores" hidden>
@@ -818,6 +833,37 @@
       }).withFailureHandler(function (err) {
         aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
       }).aiAddExamples(todo.map(function (t) { return { word: t.word, zh: t.zh, example: t.example }; }));
+    };
+
+    var dsFound = null;
+    ['ds-cls', 'ds-seat', 'ds-name'].forEach(function (id) { $(id).oninput = function () { dsFound = null; $('ds-go').disabled = true; }; });
+    $('ds-find').onclick = function () {
+      var cls = $('ds-cls').value.trim(), seat = $('ds-seat').value.trim(), name = $('ds-name').value.trim();
+      if (!cls || !seat || !name) { $('ds-msg').textContent = '請填寫班級、座號、姓名'; $('ds-msg').className = 'msg err'; return; }
+      $('ds-msg').textContent = '查詢中…'; $('ds-msg').className = 'msg'; $('ds-report').innerHTML = ''; $('ds-go').disabled = true;
+      google.script.run.withSuccessHandler(function (r) {
+        if (!r.found) { $('ds-msg').textContent = '查無資料：這個班級、座號、姓名的組合沒有登入紀錄'; $('ds-msg').className = 'msg err'; return; }
+        dsFound = { cls: cls, seat: seat, name: name };
+        $('ds-msg').textContent = ''; $('ds-go').disabled = false;
+        $('ds-report').innerHTML = '<div class="stats"><span class="stat">姓名 ' + esc(r.name || name) + '</span><span class="stat">作答紀錄 ' + r.attempts + ' 筆</span><span class="stat">檢討紀錄 ' + r.reviews + ' 筆</span></div>';
+      }).withFailureHandler(function (err) {
+        $('ds-msg').textContent = err.message; $('ds-msg').className = 'msg err';
+      }).lookupStudent(cls, seat, name);
+    };
+    $('ds-go').onclick = function () {
+      if (!dsFound) return;
+      if (!confirm('確定要刪除「' + dsFound.cls + ' 班 ' + dsFound.seat + ' 號 ' + dsFound.name + '」的所有 Firestore 資料嗎？這個動作無法復原。')) return;
+      if (prompt('請再輸入一次姓名確認：') !== dsFound.name) { $('ds-msg').textContent = '姓名不一致，已取消'; $('ds-msg').className = 'msg err'; return; }
+      var btn = this; btn.disabled = true;
+      $('ds-msg').textContent = '刪除中…'; $('ds-msg').className = 'msg';
+      google.script.run.withSuccessHandler(function (r) {
+        dsFound = null;
+        $('ds-report').innerHTML = '';
+        $('ds-msg').textContent = '✓ 已刪除：作答 ' + r.attempts + ' 筆、檢討 ' + r.reviews + ' 筆、班級複本 ' + r.classAttempts + ' 筆' + (r.timedOut ? '（班級複本資料量較大，可能沒刪完，再按一次查詢＋刪除繼續）' : '');
+        $('ds-msg').className = 'msg ok';
+      }).withFailureHandler(function (err) {
+        btn.disabled = false; $('ds-msg').textContent = err.message; $('ds-msg').className = 'msg err';
+      }).deleteStudent(dsFound.cls, dsFound.seat, dsFound.name);
     };
 
     function puCheck() { $('pu-go').disabled = !($('pu-id').value.trim() && $('pu-pass').value); }

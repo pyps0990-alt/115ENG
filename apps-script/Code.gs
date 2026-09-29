@@ -614,6 +614,18 @@ function firestorePage_(collectionId, fields, afterName, limit) {
   return res.filter(function (r) { return r.document; }).map(function (r) { return r.document; });
 }
 
+function firestoreListChildren_(relPath) {
+  var names = [];
+  var pageToken = '';
+  do {
+    var url = FIRESTORE_ROOT + '/' + relPath + '?pageSize=300' + (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
+    var res = firestoreRequest_('get', url) || {};
+    (res.documents || []).forEach(function (d) { names.push(d.name); });
+    pageToken = res.nextPageToken || '';
+  } while (pageToken);
+  return names;
+}
+
 function firestoreRequest_(method, url, body) {
   var res = UrlFetchApp.fetch(url, {
     method: method,
@@ -628,6 +640,63 @@ function firestoreRequest_(method, url, body) {
 }
 
 var FIRESTORE_ROOT = 'https://firestore.googleapis.com/v1/projects/eng-3385e/databases/(default)/documents';
+
+// 學生的 Firestore key = SHA-256(班級|座號|姓名)，算法要跟網站 js/firebase.js 的 studentKey() 完全一致
+function trimText_(s, max) { return String(s == null ? '' : s).trim().slice(0, max); }
+function studentKeyServer_(cls, seat, name) {
+  var raw = trimText_(cls, 8) + '|' + trimText_(seat, 4) + '|' + trimText_(name, 40).replace(/\s+/g, '');
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw, Utilities.Charset.UTF_8);
+  return bytes.map(function (b) { var v = (b < 0 ? b + 256 : b).toString(16); return v.length < 2 ? '0' + v : v; }).join('');
+}
+function normSeat_(seat) { return trimText_(seat, 4).replace(/^0+(?=\d)/, ''); }
+
+// 查詢一位學生在 Firestore 上有多少紀錄，刪除前先看一眼再決定
+function lookupStudent(cls, seat, name) {
+  assertTeacher_();
+  var clsTrim = trimText_(cls, 8), seatTrim = normSeat_(seat), nameTrim = trimText_(name, 40);
+  if (!clsTrim || !seatTrim || !nameTrim) throw new Error('請填寫班級、座號、姓名');
+  var key = studentKeyServer_(clsTrim, seatTrim, nameTrim);
+  var vaultDoc = firestoreRequest_('get', FIRESTORE_ROOT + '/vault/' + key);
+  return {
+    found: !!vaultDoc,
+    name: vaultDoc && vaultDoc.fields && vaultDoc.fields.name ? vaultDoc.fields.name.stringValue : '',
+    attempts: firestoreListChildren_('vault/' + key + '/attempts').length,
+    reviews: firestoreListChildren_('vault/' + key + '/reviews').length,
+  };
+}
+
+// 刪除一位學生在 Firestore 上的所有資料（帳本、作答、檢討紀錄，以及依班級整理的那份複本）。
+// 依班級座號整理的那份複本沒有存學生姓名，用班級＋座號比對，跟成績單的記法一致。
+function deleteStudent(cls, seat, name) {
+  assertTeacher_();
+  var clsTrim = trimText_(cls, 8), seatTrim = normSeat_(seat), nameTrim = trimText_(name, 40);
+  if (!clsTrim || !seatTrim || !nameTrim) throw new Error('請填寫班級、座號、姓名');
+  var key = studentKeyServer_(clsTrim, seatTrim, nameTrim);
+  var out = { attempts: 0, reviews: 0, classAttempts: 0, vault: false, classSeat: false, timedOut: false };
+  var attempts = firestoreListChildren_('vault/' + key + '/attempts');
+  var reviews = firestoreListChildren_('vault/' + key + '/reviews');
+  if (attempts.length) { firestoreDelete_(attempts); out.attempts = attempts.length; }
+  if (reviews.length) { firestoreDelete_(reviews); out.reviews = reviews.length; }
+  var vaultUrl = FIRESTORE_ROOT + '/vault/' + key;
+  if (firestoreRequest_('get', vaultUrl)) { firestoreRequest_('delete', vaultUrl); out.vault = true; }
+  // 依班級座號整理的那份複本，不知道做過哪些單元，只能掃過整個 attempts 集合比對班級與座號
+  var deadline = Date.now() + 240000;
+  var after = null;
+  while (true) {
+    if (Date.now() > deadline) { out.timedOut = true; break; }
+    var page = firestorePage_('attempts', ['cls', 'seat'], after, 300);
+    if (!page.length) break;
+    var hit = page.filter(function (d) {
+      return /\/classes\//.test(d.name) && d.fields && d.fields.cls && d.fields.seat
+        && d.fields.cls.stringValue === clsTrim && d.fields.seat.stringValue === seatTrim;
+    }).map(function (d) { return d.name; });
+    if (hit.length) { firestoreDelete_(hit); out.classAttempts += hit.length; }
+    after = page[page.length - 1].name;
+  }
+  var seatUrl = FIRESTORE_ROOT + '/classes/' + encodeURIComponent(clsTrim) + '/seats/' + encodeURIComponent(seatTrim);
+  if (firestoreRequest_('get', seatUrl)) { firestoreRequest_('delete', seatUrl); out.classSeat = true; }
+  return out;
+}
 
 // 列出某個集合名稱（不論在哪一層）的文件路徑
 function firestoreList_(collectionId, limit) {

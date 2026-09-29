@@ -41,6 +41,7 @@ async function route() {
   try {
     if (kind === 'u' && id) await renderUnit(id, sub);
     else if (kind === 'teacher') renderTeacher();
+    else if (kind === 'privacy') renderPrivacy();
     else renderHome();
   } catch (err) {
     console.error(err);
@@ -178,7 +179,29 @@ async function renderUnit(id, sub) {
 /* ---------------- footer ---------------- */
 function renderFooter() {
   // 老師入口不放在學生畫面上，避免誤觸；老師直接開 #/teacher（存成書籤）
-  document.getElementById('site-foot').innerHTML = '<span>B5 Practice · 內湖高中英文科</span>';
+  document.getElementById('site-foot').innerHTML = '<span>B5 Practice · 內湖高中英文科</span><a href="#/privacy">隱私權說明</a>';
+}
+
+/* ---------------- privacy ---------------- */
+function renderPrivacy() {
+  document.title = '隱私權說明 — B5 Practice';
+  app.innerHTML = `
+    <section class="card">
+      <div class="eyebrow">Privacy</div><h2>隱私權說明</h2>
+      <div class="privacy-body">
+        <h3>會收集哪些資料</h3>
+        <p>登入時填寫的班級、座號、姓名，以及每次測驗的作答內容、分數與時間。不需要密碼，也不會收集電話、Email、地址等其他個人資料。</p>
+        <h3>用來做什麼</h3>
+        <p>確認身分、記錄學習進度（例如哪些單元已完成、需要複習），以及讓授課老師掌握全班學習狀況、進行成績登記。</p>
+        <h3>誰看得到</h3>
+        <p>只有授課老師（用學校核可的 Google 帳號登入後台）看得到全班資料；學生只看得到自己的紀錄。資料存放在 Google Firebase／Google 試算表，由授課老師管理，不會公開或提供給第三方作其他用途。</p>
+        <h3>保存多久</h3>
+        <p>學期間持續保存供教學使用；學期結束後由老師決定是否清除（可整學期清除，或針對個別學生清除）。</p>
+        <h3>想刪除資料怎麼辦</h3>
+        <p>請直接向授課老師提出，老師可以在後台刪除個別學生或整學期的資料。</p>
+      </div>
+      <div class="btn-row"><a class="btn" href="#/">${icon.back} 回首頁</a></div>
+    </section>`;
 }
 
 /* ---------------- teacher ---------------- */
