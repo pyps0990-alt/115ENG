@@ -72,6 +72,7 @@ export function submitStateHTML(status) {
   const map = {
     sending: ['sending', '成績傳送中…'],
     sent: ['sent', `${icon.check} 成績已送出給老師`],
+    pending: ['queued', `${icon.clock} 成績送出中：老師的試算表正在處理，可以先離開這個畫面，送出後右下角會通知`],
     queued: ['queued', `${icon.clock} 已加入排隊：目前送出的人較多或網路不穩，成績已存在這台裝置，會自動送出，送出時右下角會通知。可以先離開這個畫面`],
     error: ['error', `${icon.alert} 傳送失敗，請截圖這個畫面繳交`],
     disabled: ['disabled', `${icon.camera} 請截圖這個畫面繳交給老師`],

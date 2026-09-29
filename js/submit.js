@@ -34,9 +34,13 @@ async function post(payload) {
       signal: ctrl.signal,
     });
     const j = JSON.parse(await r.text());
-    return !!(j && (j.ok || j.duplicate));
+    if (j && (j.ok || j.duplicate)) return 'ok';
+    if (j && j.busy) return 'retry';
+    // 伺服器明確拒絕（例如資料不完整）：重送也不會成功，丟掉，免得卡住後面的成績
+    console.warn('成績被伺服器拒絕，不再重送', j, payload);
+    return 'drop';
   } catch {
-    return false;
+    return 'retry'; // 網路失敗、逾時、Google 偶發回應網頁：稍後再送
   } finally {
     clearTimeout(t);
   }
@@ -59,18 +63,24 @@ export function flushOutbox() {
   flushing = (async () => {
     let sent = 0;
     for (const item of readBox()) {
-      const ok = await post(item);
-      if (!ok) break; // 伺服器忙或網路不穩：這筆跟後面的都留著，稍後再送
+      const res = await post(item);
+      if (res === 'retry') break; // 伺服器忙或網路不穩：這筆跟後面的都留著，稍後再送
+      // 送出期間可能被標記為排隊中（交卷畫面等太久先放行），以最新的狀態為準
+      const cur = readBox().find((x) => x.attemptId === item.attemptId) || item;
       writeBox(readBox().filter((x) => x.attemptId !== item.attemptId));
+      if (res === 'drop') continue;
       sent++;
       // 之前排過隊的成績送出後，通知畫面右下角
-      if (item.queuedAt) window.dispatchEvent(new CustomEvent('score-sent', { detail: item }));
+      if (cur.queuedAt) window.dispatchEvent(new CustomEvent('score-sent', { detail: cur }));
     }
     if (sent) retryDelay = 20000;
     return sent;
   })().finally(() => { flushing = null; scheduleRetry(); });
   return flushing;
 }
+
+// 交卷畫面最多等這麼久；還沒確認就先讓學生離開，背景繼續送，送到時右下角通知
+const SCREEN_WAIT_MS = 5000;
 
 export async function submitScore(payload) {
   const item = { ...payload, attemptId: payload.attemptId || newAttemptId() };
@@ -79,15 +89,22 @@ export async function submitScore(payload) {
   if (item.unit) store.setDone(item.unit);
   if (!SCRIPT_URL) return { status: 'disabled' };
   writeBox([...readBox().filter((x) => x.attemptId !== item.attemptId), item]);
-  if (flushing) await flushing.catch(() => {});
-  await flushOutbox();
-  const stillQueued = readBox().some((x) => x.attemptId === item.attemptId);
-  if (stillQueued) {
-    // 標記為排隊中：之後送出時會通知
+  const inBox = () => readBox().some((x) => x.attemptId === item.attemptId);
+  const done = (async () => {
+    if (flushing) await flushing.catch(() => {});
+    await flushOutbox();
+  })();
+  const timedOut = await Promise.race([
+    done.then(() => false),
+    new Promise((r) => setTimeout(() => r(true), SCREEN_WAIT_MS)),
+  ]);
+  if (inBox()) {
+    // 還沒確認：標記為排隊中，之後送出時右下角會通知
     writeBox(readBox().map((x) => (x.attemptId === item.attemptId ? { ...x, queuedAt: Date.now() } : x)));
-    window.dispatchEvent(new CustomEvent('score-queued', { detail: item }));
+    if (!timedOut) window.dispatchEvent(new CustomEvent('score-queued', { detail: item }));
+    return { status: timedOut ? 'pending' : 'queued', attemptId: item.attemptId };
   }
-  return { status: stillQueued ? 'queued' : 'sent', attemptId: item.attemptId };
+  return { status: 'sent', attemptId: item.attemptId };
 }
 
 export const pendingCount = () => readBox().length;
