@@ -583,3 +583,12 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .privacy-note { margin: -4px 0 0; font-size: .78rem; color: var(--steel); }
 .privacy-note a { color: inherit; text-decoration: underline; }
 
+
+/* 右下角通知（成績排隊、送出） */
+#notify { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: grid; gap: 8px; max-width: min(360px, calc(100vw - 32px)); }
+.notify-item { display: flex; gap: 10px; align-items: center; padding: 12px 16px; border-radius: 14px; background: var(--navy); color: var(--white); font-weight: 700; font-size: .9rem; box-shadow: 0 10px 30px rgba(15, 23, 42, .25); animation: notify-in .3s ease both; }
+.notify-item.ok { background: #15803D; }
+.notify-item .ic { width: 18px; height: 18px; flex: none; }
+.notify-item.out { opacity: 0; transform: translateY(8px); transition: opacity .3s, transform .3s; }
+@keyframes notify-in { from { opacity: 0; transform: translateY(12px); } }
+@media (prefers-reduced-motion: reduce) { .notify-item { animation: none; } }

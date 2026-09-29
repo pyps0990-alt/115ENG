@@ -270,6 +270,23 @@ function animateHome() {
   setTimeout(redraw, 380);
 }
 
+/* ---------------- 右下角通知 ---------------- */
+function notify(text, kind = 'ok') {
+  let box = document.getElementById('notify');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'notify';
+    box.setAttribute('role', 'status');
+    box.setAttribute('aria-live', 'polite');
+    document.body.append(box);
+  }
+  const n = document.createElement('div');
+  n.className = `notify-item ${kind}`;
+  n.innerHTML = `${kind === 'ok' ? icon.check : icon.clock}<span>${esc(text)}</span>`;
+  box.append(n);
+  setTimeout(() => { n.classList.add('out'); setTimeout(() => n.remove(), 400); }, kind === 'ok' ? 6000 : 5000);
+}
+
 /* ---------------- boot ---------------- */
 async function boot() {
   // 舊版只存在裝置上、沒有跟老師名單確認過的學生資料：要求重新登入
@@ -319,6 +336,9 @@ async function boot() {
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();
   window.addEventListener('online', () => flushOutbox());
+  // 成績排隊／排到送出時，在畫面右下角通知
+  window.addEventListener('score-queued', (e) => notify(`${e.detail.unitTitle || e.detail.unit} 成績已加入排隊，稍後自動送出`, 'wait'));
+  window.addEventListener('score-sent', (e) => notify(`${e.detail.unitTitle || e.detail.unit} ${String(e.detail.clientTs || '').slice(11, 16)} 已送出成績`, 'ok'));
   // 考試鎖定：作答中點任何站內連結（左上 B5、所有單元…）或按上一頁，都先確認，避免不小心中斷
   let curHash = location.hash;
   let reverting = false;

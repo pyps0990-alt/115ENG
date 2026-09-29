@@ -125,8 +125,9 @@ function doPost(e) {
   var body = {};
   try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { body = {}; }
   if (body.api) return handleApi_(body);
+  // 同一時間只讓一筆成績寫入試算表；排隊最多等 30 秒，等不到就回「忙碌」，學生端會留在排隊清單稍後重送
   var lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  if (!lock.tryLock(30000)) return json_({ ok: false, busy: true, error: 'busy' });
   try {
     var d = body;
     if (!d.name || !d.cls || !d.unit) return json_({ ok: false, error: 'missing fields' });

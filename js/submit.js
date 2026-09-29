@@ -18,35 +18,57 @@ export function newAttemptId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-// Apps Script Web App 不支援 CORS preflight，所以用 text/plain + no-cors 送出。
-// no-cors 拿不到回應內容；請求有送出就視為成功（重複送出由伺服器用 attemptId 擋掉）。
+// 用 text/plain 送出（Apps Script 不支援 CORS preflight），並讀回伺服器的回應：
+// 伺服器確認寫入（或判定重複）才算送出；忙碌、網路失敗、回應異常都留在排隊清單稍後重送。
+const TIMEOUT_MS = 45000; // 伺服器排隊最多等 30 秒，多留一點時間
 async function post(payload) {
-  await fetch(SCRIPT_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    keepalive: JSON.stringify(payload).length < 60000,
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload),
-  });
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  try {
+    const r = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      credentials: 'omit',
+      cache: 'no-store',
+      signal: ctrl.signal,
+    });
+    const j = JSON.parse(await r.text());
+    return !!(j && (j.ok || j.duplicate));
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(t);
+  }
 }
 
+// 排隊中的成績：每隔一段時間自動重送（20 秒起，最多 2 分鐘），恢復連線、重新開站時也會重送
 let flushing = null;
+let retryTimer = null;
+let retryDelay = 20000;
+function scheduleRetry() {
+  clearTimeout(retryTimer);
+  if (!readBox().length) { retryDelay = 20000; return; }
+  retryTimer = setTimeout(() => { flushOutbox(); }, retryDelay);
+  retryDelay = Math.min(retryDelay * 2, 120000);
+}
+
 export function flushOutbox() {
   if (!SCRIPT_URL) return Promise.resolve(0);
   if (flushing) return flushing;
   flushing = (async () => {
     let sent = 0;
     for (const item of readBox()) {
-      try {
-        await post(item);
-        writeBox(readBox().filter((x) => x.attemptId !== item.attemptId));
-        sent++;
-      } catch {
-        break; // 還是離線，下次再試
-      }
+      const ok = await post(item);
+      if (!ok) break; // 伺服器忙或網路不穩：這筆跟後面的都留著，稍後再送
+      writeBox(readBox().filter((x) => x.attemptId !== item.attemptId));
+      sent++;
+      // 之前排過隊的成績送出後，通知畫面右下角
+      if (item.queuedAt) window.dispatchEvent(new CustomEvent('score-sent', { detail: item }));
     }
+    if (sent) retryDelay = 20000;
     return sent;
-  })().finally(() => { flushing = null; });
+  })().finally(() => { flushing = null; scheduleRetry(); });
   return flushing;
 }
 
@@ -60,6 +82,11 @@ export async function submitScore(payload) {
   if (flushing) await flushing.catch(() => {});
   await flushOutbox();
   const stillQueued = readBox().some((x) => x.attemptId === item.attemptId);
+  if (stillQueued) {
+    // 標記為排隊中：之後送出時會通知
+    writeBox(readBox().map((x) => (x.attemptId === item.attemptId ? { ...x, queuedAt: Date.now() } : x)));
+    window.dispatchEvent(new CustomEvent('score-queued', { detail: item }));
+  }
   return { status: stillQueued ? 'queued' : 'sent', attemptId: item.attemptId };
 }
 
