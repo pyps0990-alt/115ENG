@@ -237,3 +237,10 @@ apps-script/             Google Apps Script：Code.gs（成績、設定、初始
 畫面跟 Apps Script 版是同一份，由 `tools/build-admin.py` 從 `apps-script/Admin.html` 產生 `admin.html`；
 改了 `Admin.html` 之後要執行一次 `python3 tools/build-admin.py`，網站和 Apps Script 兩邊都要部署。
 網站版透過 Apps Script 的 API 讀寫資料，伺服器端會驗證 Firebase 登入憑證，老師名單接受試算表 `teachers` 分頁或 Firestore `admins`。
+
+## 開放時段與補作時間
+
+- 後台「單元設定」每個單元可以設定開放與截止時間（台灣時間，留空＝不限制）。未開放時學生只看到開放時間；截止後不能做正式測驗，做過的學生仍可檢討、複習。
+- 「單元設定」下方的「補作時間」：從學生名單搜尋學生，設定補作到何時。資料存在試算表 `extensions` 分頁，同步到學生網站時只帶班級座號（`cfg.ext`），不含姓名。
+- 開放與截止在學生裝置上判斷；每筆成績在試算表都有伺服器收到的時間可以對照。
+- 學期結算勾選「試算表成績」時，補作名單也會一起清除。

@@ -643,7 +643,7 @@ function semesterReset(opts) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     ss.getSheets().forEach(function (sh) {
       var n = sh.getName();
-      if (n === SHEET_SCORES || n === SHEET_DETAILS) {
+      if (n === SHEET_SCORES || n === SHEET_DETAILS || n === SHEET_EXTENSIONS) {
         if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
         out.sheets++;
       } else if (n.indexOf(CLASS_SHEET_PREFIX) === 0 || n.indexOf(GRADEBOOK_PREFIX) === 0) {
@@ -652,6 +652,7 @@ function semesterReset(opts) {
       }
     });
   }
+  if (opts.sheets && !opts.skipSheets) publishConfig_();
   var groups = [];
   if (opts.attempts || opts.roster) groups.push('attempts', 'reviews');
   if (opts.roster) groups.push('vault', 'seats');
