@@ -8,7 +8,8 @@ import { LEVELS, PASS } from './levels.js';
 import * as vocab from './modes/vocab.js';
 import * as reading from './modes/reading.js';
 import { initNav, updateNav } from './nav.js';
-import { flushOutbox } from './submit.js';
+import { flushOutbox, pendingItems, clearOutbox } from './submit.js';
+import { SCRIPT_URL } from './config.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
 
@@ -41,6 +42,7 @@ async function route() {
     if (kind === 'u' && id) await renderUnit(id, sub);
     else if (kind === 'teacher') renderTeacher();
     else if (kind === 'privacy') renderPrivacy();
+    else if (kind === 'diag') renderDiag();
     else renderHome();
   } catch (err) {
     console.error(err);
@@ -189,6 +191,54 @@ async function renderUnit(id, sub) {
 function renderFooter() {
   // 老師入口不放在學生畫面上，避免誤觸；老師直接開 #/teacher（存成書籤）
   document.getElementById('site-foot').innerHTML = '<span>B5 Practice · 內湖高中英文科</span><a href="#/privacy">隱私權說明</a>';
+}
+
+/* ---------------- 連線測試（#/diag） ---------------- */
+// 手機看不到開發者工具：這頁實際測試送資料給 Apps Script 的每一步，結果直接顯示在畫面上
+function renderDiag() {
+  document.title = '連線測試 — B5 Practice';
+  const row = (label) => `<li data-t="${label}"><b>${label}</b><span class="muted">等待中…</span></li>`;
+  app.innerHTML = `<section class="card diag">
+      <div class="eyebrow">Diagnostics</div><h2>連線測試</h2>
+      <p class="muted">把這一頁截圖給老師，可以看出成績送不出去卡在哪裡。</p>
+      <ul class="diag-list">${['讀取設定（GET）', '送出測試（POST）'].map(row).join('')}</ul>
+      <h3>這台裝置排隊中的成績</h3><div data-box></div>
+      <div class="btn-row"><button class="btn primary" type="button" data-flush>立即重送</button><button class="btn ghost" type="button" data-clear>清除排隊</button><button class="btn ghost" type="button" data-again>重新測試</button></div>
+      <p class="muted diag-ua"></p>
+    </section>`;
+  const set = (label, ok, text) => {
+    const li = app.querySelector(`[data-t="${label}"] span`);
+    if (li) { li.textContent = text; li.className = ok ? 'ok' : 'bad'; }
+  };
+  const box = () => {
+    const items = pendingItems();
+    app.querySelector('[data-box]').innerHTML = items.length
+      ? `<ul class="diag-list">${items.map((x) => `<li><b>${esc(x.unitTitle || x.unit || '?')}</b><span class="muted">${esc(x.clientTs || '')}${x.name ? '' : '（資料不完整）'}</span></li>`).join('')}</ul>`
+      : '<p class="muted">沒有排隊中的成績</p>';
+  };
+  const timed = async (label, fn) => {
+    const t0 = performance.now();
+    try {
+      const r = await fn();
+      const text = await r.text();
+      const ms = Math.round(performance.now() - t0);
+      let ok = false; try { ok = !!JSON.parse(text).ok; } catch { ok = false; }
+      set(label, ok, ok ? `✓ 正常（${ms} ms）` : `✗ HTTP ${r.status}，回應不是資料：${text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 80)}`);
+    } catch (e) {
+      set(label, false, `✗ 連線失敗：${e.name} ${e.message}`);
+    }
+  };
+  const run = async () => {
+    app.querySelectorAll('.diag-list li span').forEach((s) => { s.textContent = '測試中…'; s.className = 'muted'; });
+    await timed('讀取設定（GET）', () => fetch(`${SCRIPT_URL}?action=ping&t=${Date.now()}`, { cache: 'no-store', credentials: 'omit' }));
+    await timed('送出測試（POST）', () => fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ api: 'ping' }), credentials: 'omit', cache: 'no-store' }));
+    box();
+  };
+  app.querySelector('.diag-ua').textContent = navigator.userAgent;
+  app.querySelector('[data-again]').onclick = run;
+  app.querySelector('[data-flush]').onclick = async () => { await flushOutbox(); box(); };
+  app.querySelector('[data-clear]').onclick = () => { if (confirm('確定要清除這台裝置排隊中的成績嗎？清除後這些成績不會送到老師的試算表（學生網站上的紀錄不受影響）。')) { clearOutbox(); box(); } };
+  run();
 }
 
 /* ---------------- privacy ---------------- */

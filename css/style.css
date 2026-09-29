@@ -649,3 +649,11 @@ body.scrolled .brand { max-width: 0; opacity: 0; transform: scale(.6) translateX
   .brand, .topbar, .topbar-inner, .menu-btn, .menu-btn .menu-label, .menu-btn .ic:last-child { transition: none; }
   .menu-panel, .menu-panel .menu-item, .menu-panel .menu-head { animation: none; }
 }
+
+/* 連線測試頁 */
+.card.diag { display: grid; gap: 12px; max-width: 720px; margin: 24px auto 0; }
+.diag-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.diag-list li { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; background: var(--white); border: 1px solid var(--line); }
+.diag-list .ok { color: #15803D; font-weight: 700; }
+.diag-list .bad { color: var(--bad); font-weight: 700; word-break: break-all; }
+.diag-ua { font-size: .72rem; word-break: break-all; }

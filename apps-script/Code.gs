@@ -51,6 +51,11 @@ var CLASS_SHEET_PREFIX = '班級 ';
 
 function doGet(e) {
   var action = e && e.parameter && e.parameter.action;
+  // 成績是否已寫入（學生端送出後讀不到回應時，用這個確認；Safari 常見）
+  if (action === 'check') {
+    var id = String(e.parameter.id || '').slice(0, 64);
+    return json_({ ok: true, seen: !!id && seenAttempt_(id) });
+  }
   if (action === 'ping') {
     return json_({ ok: true, version: API_VERSION });
   }
@@ -128,6 +133,7 @@ function handleApi_(d) {
 function doPost(e) {
   var body = {};
   try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { body = {}; }
+  if (body.api === 'ping') return json_({ ok: true, version: API_VERSION, via: 'POST' }); // 連線測試頁用
   if (body.api) return handleApi_(body);
   // 同一時間只讓一筆成績寫入試算表；排隊最多等 30 秒，等不到就回「忙碌」，學生端會留在排隊清單稍後重送
   var lock = LockService.getScriptLock();

@@ -20,30 +20,45 @@ export function newAttemptId() {
 
 // 用 text/plain 送出（Apps Script 不支援 CORS preflight），並讀回伺服器的回應：
 // 伺服器確認寫入（或判定重複）才算送出；忙碌、網路失敗、回應異常都留在排隊清單稍後重送。
-const TIMEOUT_MS = 45000; // 伺服器排隊最多等 30 秒，多留一點時間
-async function post(payload) {
+const TIMEOUT_MS = 45000;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function fetchTimeout(url, opts, ms) {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try { return await fetch(url, { ...opts, signal: ctrl.signal }); } finally { clearTimeout(t); }
+}
+// 伺服器有沒有收到這筆（用 GET 查，Safari 讀得到）
+async function seenOnServer(id) {
   try {
-    const r = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload),
-      credentials: 'omit',
-      cache: 'no-store',
-      signal: ctrl.signal,
-    });
-    const j = JSON.parse(await r.text());
-    if (j && (j.ok || j.duplicate)) return 'ok';
-    if (j && j.busy) return 'retry';
+    const r = await fetchTimeout(`${SCRIPT_URL}?action=check&id=${encodeURIComponent(id)}&t=${Date.now()}`, { cache: 'no-store', credentials: 'omit' }, 15000);
+    return !!JSON.parse(await r.text()).seen;
+  } catch { return false; }
+}
+async function post(payload) {
+  const body = JSON.stringify(payload);
+  let j = null;
+  let readable = true;
+  try {
+    const r = await fetchTimeout(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body, credentials: 'omit', cache: 'no-store' }, TIMEOUT_MS);
+    try { j = JSON.parse(await r.text()); } catch { j = null; }
+  } catch {
+    // 讀不到回應（Safari 對跨網站轉址的回應常會這樣）：改用 no-cors 送出，再用 GET 確認伺服器有沒有收到
+    readable = false;
+    try { await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body }); } catch { return 'retry'; }
+  }
+  if (j && (j.ok || j.duplicate)) return 'ok';
+  if (j && j.busy) return 'retry';
+  if (j && j.ok === false) {
     // 伺服器明確拒絕（例如資料不完整）：重送也不會成功，丟掉，免得卡住後面的成績
     console.warn('成績被伺服器拒絕，不再重送', j, payload);
     return 'drop';
-  } catch {
-    return 'retry'; // 網路失敗、逾時、Google 偶發回應網頁：稍後再送
-  } finally {
-    clearTimeout(t);
   }
+  // 回應異常或讀不到：確認伺服器是否其實已經寫入
+  for (let i = 0; i < (readable ? 1 : 3); i++) {
+    if (i) await sleep(3000);
+    if (await seenOnServer(payload.attemptId)) return 'ok';
+  }
+  return 'retry';
 }
 
 // 排隊中的成績：每隔一段時間自動重送（20 秒起，最多 2 分鐘），恢復連線、重新開站時也會重送
@@ -108,3 +123,5 @@ export async function submitScore(payload) {
 }
 
 export const pendingCount = () => readBox().length;
+export const pendingItems = () => readBox();
+export const clearOutbox = () => writeBox([]);
