@@ -262,9 +262,9 @@
         </details>
 
         <details class="ai-box" id="pr-box">
-          <summary>AI 提示詞<span class="pill">四種題型各一份</span></summary>
+          <summary>進階：修改 AI 出題規則<span class="pill">一般不用動</span></summary>
           <div class="imp-grid">
-            <div class="help">這是交給 AI 的「出題規則」，單字片語、課文理解、句型練習、段考複習各有一份。可以改成自己的出題風格（例如難度、題型比例、解析語氣）；欄位名稱與格式由系統固定，不會被改壞。清空並儲存＝還原預設。課文理解裡的 <code>{{copy}}</code> 會自動換成「不可照抄的連續字數」。</div>
+            <div class="help">這是程式送給 AI 的「出題規則」（不是匯入格式提示；匯入格式提示在下方灰色區塊，會依上方選的單元自動切換），單字片語、課文理解、句型練習、段考複習各有一份。可以改成自己的出題風格（例如難度、題型比例、解析語氣）；欄位名稱與格式由系統固定，不會被改壞。清空並儲存＝還原預設。課文理解裡的 <code>{{copy}}</code> 會自動換成「不可照抄的連續字數」。</div>
             <div class="seg" role="radiogroup" aria-label="題型" id="pr-type">
               <label><input type="radio" name="pr-t" value="vocab"> 單字片語</label>
               <label><input type="radio" name="pr-t" value="reading"> 課文理解</label>
@@ -279,6 +279,7 @@
         <div id="imp-vocab" class="imp-grid" hidden>
           <label>主題（顯示在首頁卡片上，可空白）<input type="text" id="v-topic" placeholder="例：Resilience"></label>
           <div class="help">
+            <b>單字片語　匯入格式</b><br>
             每行一個單字或片語，欄位順序：<b>英文、詞性、中文、例句、例句翻譯（可省略）</b>。<br>
             從 Excel 或 Google 試算表選取這幾欄直接複製貼上即可；也可以自己打字，用 <code>|</code> 隔開。<br>
             例句中要考的部分用 <code>[ ]</code> 括起來，例如 <code>The team [bounced back] quickly.</code>；沒括的話會自動找出來。含空格或詞性寫 <code>phr.</code> 的會當成片語。<br>
@@ -296,7 +297,7 @@
           <label>文章標題<input type="text" id="r-title" placeholder="例：Mia's Second Try"></label>
           <label>主題（顯示在首頁卡片上，可空白，預設用文章標題）<input type="text" id="r-topic"></label>
           <label>文章（段落之間空一行）<textarea id="r-passage" spellcheck="false"></textarea></label>
-          <div class="help">題目與選項請用自己的話改寫，<b>不要照抄文章</b>：和文章連續 6 個英文字以上相同會無法儲存，連續 5 個字會提醒。</div>
+          <div class="help"><b>課文理解　匯入格式</b><br>依序填：文章標題、主題、文章（段落之間空一行），再逐題填「題型、題目（英文）、四個選項、點選正確答案、中文解析」。「關鍵字句」從文章直接複製最能證明答案的一段，學生檢討時會標亮；沒填可改選「原文依據」的句子。<br>題目與選項請用自己的話改寫，<b>不要照抄文章</b>：和文章連續 6 個英文字以上相同會無法儲存，連續 5 個字會提醒。</div>
           <div class="bar"><button class="btn ai" id="ai-reading" type="button">✦ AI 產生題目</button>
             <label style="display:flex;align-items:center;gap:6px;font-weight:400">題數 <select id="ai-count"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>8</option><option>10</option></select></label>
             <span class="muted">會取代下方目前的題目；產生後請逐題確認再儲存。</span></div>
