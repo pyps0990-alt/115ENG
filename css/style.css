@@ -103,7 +103,7 @@ main.container { padding-block: 24px 56px; outline: none; }
 }
 .menu-group { padding-top: 6px; margin-top: 6px; border-top: 1px solid var(--line); }
 .menu-head { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-family: var(--font-en); font-weight: 900; font-size: .85rem; color: var(--navy); }
-.menu-lnum { display: grid; place-items: center; min-width: 26px; height: 22px; padding: 0 4px; border-radius: 6px; background: var(--navy); color: var(--white); font-size: .72rem; }
+.menu-lnum { display: grid; place-items: center; min-width: 26px; height: 22px; padding: 0 4px; border-radius: 6px; background: var(--navy); color: var(--white); font-size: .78rem; }
 .menu-item { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 10px; border-radius: 10px; color: var(--navy); text-decoration: none; }
 .menu-item:hover, .menu-item:focus-visible { background: var(--wash); outline: none; }
 .menu-item.home { font-weight: 700; }
@@ -149,7 +149,7 @@ main.container { padding-block: 24px 56px; outline: none; }
 
 .card { background: var(--surface); border-radius: var(--radius); padding: 20px; }
 .eyebrow { font-family: var(--font-en); font-size: .76rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--steel); }
-.badge { display: inline-flex; align-items: center; padding: 1px 9px; border-radius: 999px; font-size: .72rem; font-weight: 700; background: var(--white); color: var(--steel); border: 1px dashed var(--line-strong); white-space: nowrap; }
+.badge { display: inline-flex; align-items: center; padding: 1px 9px; border-radius: 999px; font-size: .78rem; font-weight: 700; background: var(--white); color: var(--steel); border: 1px dashed var(--line-strong); white-space: nowrap; }
 .pos { display: inline-block; padding: 1px 10px; border-radius: 999px; font-family: var(--font-en); font-style: italic; font-size: .82rem; font-weight: 800; background: var(--navy-soft); color: var(--navy); }
 
 .loading { display: flex; align-items: center; gap: 10px; justify-content: center; padding: 80px 0; }
@@ -242,12 +242,12 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .lv-pill .ic { width: 13px; height: 13px; margin-right: 2px; stroke-width: 3; }
 
 .site-foot { padding-block: 24px 40px; font-size: .85rem; display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; border-top: 1px solid var(--line); }
-.site-foot a { color: var(--steel); }
+.site-foot a { color: var(--steel); display: inline-flex; align-items: center; min-height: 44px; padding-inline: 4px; }
 
 /* ===========================================================
    Unit head, level picker, tabs
    =========================================================== */
-.back { display: inline-flex; align-items: center; gap: 4px; color: var(--steel); text-decoration: none; font-weight: 500; font-size: .92rem; min-height: 36px; }
+.back { display: inline-flex; align-items: center; gap: 4px; color: var(--steel); text-decoration: none; font-weight: 500; font-size: .92rem; min-height: 44px; }
 .back:hover { color: var(--navy); }
 .unit-head { display: grid; gap: 4px; margin-bottom: 18px; }
 .unit-head h1 { font-family: var(--font-en); font-weight: 900; font-size: clamp(1.6rem, 5.5vw, 2.3rem); display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
@@ -267,6 +267,10 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .best-line { display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--amber-ink); }
 .who { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px; border-radius: 12px; background: var(--white); font-weight: 700; color: var(--navy); }
 .who .edit { margin-left: auto; }
+.who-line { margin: 0; font-size: .88rem; color: var(--steel); line-height: 1.6; }
+.who-line b { color: var(--navy); }
+.link-btn { padding: 4px 2px; border: 0; background: none; color: var(--navy); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 44px; }
+.link-btn:active { opacity: .6; }
 
 /* ===========================================================
    Quiz
@@ -440,7 +444,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .passage-card { background: var(--surface); border-radius: 20px; padding: 24px 22px; display: grid; gap: 14px; }
 .passage-title { font-size: 1.5rem; font-weight: 900; }
 .passage-card p { font-family: var(--font-en); font-size: 1.07rem; line-height: 1.9; color: var(--text); }
-.pnum { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 8px; border-radius: 6px; background: var(--navy); color: var(--white); font-size: .72rem; font-weight: 900; vertical-align: 2px; }
+.pnum { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 8px; border-radius: 6px; background: var(--navy); color: var(--white); font-size: .78rem; font-weight: 900; vertical-align: 2px; }
 .pq-list { display: grid; gap: 12px; }
 .pq-intro { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: .88rem; }
 .pq { padding: 18px; display: grid; gap: 12px; border-radius: 18px; border: 1.5px solid var(--line); background: var(--white); scroll-margin-top: 90px; transition: border-color .2s; }
@@ -450,7 +454,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .pq.done .pq-num { background: var(--navy); color: var(--white); }
 .pq.is-ok .pq-num { background: var(--amber); color: var(--navy); }
 .pq.is-no .pq-num { background: var(--bad); color: var(--white); }
-.skill { display: inline-block; padding: 0 8px; border-radius: 6px; background: var(--navy-soft); color: var(--navy); font-size: .74rem; font-weight: 700; margin-bottom: 4px; }
+.skill { display: inline-block; padding: 0 8px; border-radius: 6px; background: var(--navy-soft); color: var(--navy); font-size: .78rem; font-weight: 700; margin-bottom: 4px; }
 .pq-q { font-family: var(--font-en); font-size: 1.04rem; font-weight: 700; color: var(--navy); line-height: 1.5; }
 .pq .opt { min-height: 50px; font-size: .98rem; }
 .pq .opt-text.en { font-size: 1rem; font-weight: 600; }
@@ -570,7 +574,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 
 /* 選單裡每個單元的狀態 */
 .menu-st-slot { margin-left: auto; flex: none; }
-.menu-st { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 99px; font-size: .74rem; font-weight: 700; white-space: nowrap;
+.menu-st { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 99px; font-size: .78rem; font-weight: 700; white-space: nowrap;
   background: var(--wash); color: var(--steel); border: 1px solid var(--line); }
 .menu-st .ic { width: 12px; height: 12px; }
 .menu-st.todo { background: var(--amber-soft); color: #92400E; border-color: var(--amber); }
@@ -719,3 +723,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { box-shadow: 
 .form-err { color: var(--amber-ink); font-weight: 600; }
 .form-err:not(:empty) { animation: fade-in var(--dur-2, .3s) ease; }
 dialog.modal::backdrop { animation: fade-in var(--dur-2, .3s) ease; }
+
+/* 觸控目標至少 44px：B5 標誌本身 36px，用內距把可點範圍撐大但不改變版面 */
+.brand { padding: 4px; margin: -4px; }
+.lv-pill, .lv-pill.mini { font-size: max(.75rem, 12px); }

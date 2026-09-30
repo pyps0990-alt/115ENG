@@ -53,7 +53,7 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
           ${isReview ? '<li>你已經完成這個單元的正式測驗，這次是<b>複習</b>，成績會標記為複習送給老師</li>' : ''}
           <li>${SCRIPT_URL ? '完成後成績會自動傳送給老師' : '完成後請截圖成績單繳交給老師'}</li></ul>
         ${bestNow != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${bestNow}%</b></div>` : ''}
-        <div class="who">${icon.user}<span>${esc(studentLabel(s))}</span><button class="btn small ghost edit" type="button">切換</button></div>
+        <p class="who-line">以 <b>${esc(s.name)}</b>（${esc(s.cls)} 班 ${esc(s.seat)} 號）的身分作答 <button class="link-btn edit" type="button">不是我？切換</button></p>
         ${timeNote ? `<p class="gate-note">${timeNote}</p>` : ''}
         ${needReview ? `<p class="gate-note">${icon.lock} 先逐題檢討完第一次測驗，才能開始複習</p>` : ''}
         <div class="btn-row">${buttons}</div>

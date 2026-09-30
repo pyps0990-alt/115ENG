@@ -430,7 +430,7 @@ async function boot() {
   const brandEl = document.querySelector('.brand');
   const measureBrand = () => {
     const gap = parseFloat(getComputedStyle(brandEl.parentElement).columnGap) || 12;
-    document.documentElement.style.setProperty('--brand-shift', `${Math.round(brandEl.offsetWidth + gap)}px`);
+    document.documentElement.style.setProperty('--brand-shift', `${Math.round(brandEl.offsetWidth - 8 + gap)}px`);
   };
   measureBrand();
   window.addEventListener('resize', measureBrand, { passive: true });
