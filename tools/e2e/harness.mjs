@@ -64,7 +64,7 @@ export async function startWorld({ scriptLatency = 1200, teachers = ['teacher@ex
     page.setDefaultTimeout(8000);
     await page.addInitScript(([st, sf]) => {
       window.__fb = window.__fb || {};
-      if (sf) { window.__fb.staff = [sf]; window.__fb.popupEmail = sf; }
+      if (sf) { window.__fb.staff = [sf]; window.__fb.popupEmail = sf; window.__fb.loggedInAs = sf; }
       if (st) localStorage.setItem('b5p:student', JSON.stringify({ cls: '306', seat: '20', name: '陳奕嘉', key: 'k' }));
     }, [student, staff]);
     world.pages.add(page);

@@ -1,6 +1,6 @@
 const S = (window.__fb = window.__fb || {});
 S.authCbs = S.authCbs || [];
-const auth = { currentUser: null };
+const auth = { currentUser: S.loggedInAs ? { email: S.loggedInAs, getIdToken: async () => 'tok-' + S.loggedInAs } : null };
 S.setUser = (email) => {
   auth.currentUser = email ? { email, getIdToken: async () => 'tok-' + email } : null;
   S.authCbs.forEach((cb) => cb(auth.currentUser));
