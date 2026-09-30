@@ -10,6 +10,19 @@ function cheer(pct) {
   return '多練幾次就會了';
 }
 
+// 分數數字從 0 數到最終分數（跟圓環同步，只改一個文字節點，很輕）
+function countUp(el, to, ms = 1000) {
+  if (!el || to <= 0 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const t0 = performance.now();
+  el.textContent = '0';
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / ms);
+    el.textContent = String(Math.round(to * (1 - Math.pow(1 - k, 3))));
+    if (k < 1 && el.isConnected) requestAnimationFrame(step); else el.textContent = String(to);
+  };
+  requestAnimationFrame(step);
+}
+
 // wrong: [{ p: 題目, a: 正確答案, y: 你的答案 }]
 // actions: [{ label, icon, primary, onClick }]
 export function renderResult(host, { title, pct, scoreText, pills = [], wrong = [], actions = [], extraHTML = '' }) {
@@ -23,7 +36,7 @@ export function renderResult(host, { title, pct, scoreText, pills = [], wrong = 
         <circle class="track" cx="60" cy="60" r="52"/>
         <circle class="val" cx="60" cy="60" r="52" style="stroke-dasharray:${CIRC};stroke-dashoffset:${CIRC}"/>
       </svg>
-      <div class="ring-label"><div class="pct">${pct}<small style="font-size:.5em">%</small></div><div class="sub">${esc(scoreText || '')}</div></div>
+      <div class="ring-label"><div class="pct"><span data-num>${pct}</span><small style="font-size:.5em">%</small></div><div class="sub">${esc(scoreText || '')}</div></div>
     </div>
     <div><h2>${esc(title || cheer(pct))}</h2>${title ? `<p class="muted" style="margin:4px 0 0">${esc(cheer(pct))}</p>` : ''}</div>
     ${pills.length ? `<div class="result-lines">${pills.map((p) => `<span class="hud-pill">${p}</span>`).join('')}</div>` : ''}
@@ -46,6 +59,7 @@ export function renderResult(host, { title, pct, scoreText, pills = [], wrong = 
   requestAnimationFrame(() => requestAnimationFrame(() => {
     box.querySelector('.val').style.strokeDashoffset = String(CIRC * (1 - pct / 100));
   }));
+  countUp(box.querySelector('[data-num]'), pct);
   if (pct === 100) setTimeout(confetti, 350);
   return box;
 }

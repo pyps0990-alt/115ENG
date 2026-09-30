@@ -2,13 +2,39 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1E3A8A">
   <title>B5 Practice</title>
   <meta name="description" content="Book 5 單字片語三級測驗與課文理解">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="icon.png" type="image/png" sizes="512x512">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <!-- 字型不擋畫面：先用系統字型顯示，字型載入後再換（display=swap） -->
+  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap"></noscript>
+  <!-- 程式還在下載的時候就先發出「設定」和「單元清單」的請求，程式一載完資料通常已經到了 -->
+  <script>
+    window.__early = {
+      config: fetch('https://firestore.googleapis.com/v1/projects/eng-3385e/databases/(default)/documents/public/config', { cache: 'no-store' }).catch(function () { return null; }),
+      index: fetch('data/lessons/index.json', { cache: 'no-cache' }).catch(function () { return null; })
+    };
+  </script>
+  <!-- 新增或刪除 import 之後，執行 node tools/module-graph.mjs 更新這份清單（--check 可檢查） -->
+  <link rel="modulepreload" href="js/app.js">
+  <link rel="modulepreload" href="js/data.js">
+  <link rel="modulepreload" href="js/config.js">
+  <link rel="modulepreload" href="js/remote-config.js">
+  <link rel="modulepreload" href="js/storage.js">
+  <link rel="modulepreload" href="js/util.js">
+  <link rel="modulepreload" href="js/icons.js">
+  <link rel="modulepreload" href="js/student.js">
+  <link rel="modulepreload" href="js/levels.js">
+  <link rel="modulepreload" href="js/components/question.js">
+  <link rel="modulepreload" href="js/nav.js">
+  <link rel="modulepreload" href="js/submit.js">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -20,10 +46,13 @@
       </a>
       <nav class="nav-menu" id="nav-menu" aria-label="單元選單" hidden>
         <button id="unit-menu-btn" class="menu-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="unit-menu"></button>
-        <div id="unit-menu" class="menu-panel" role="menu" hidden></div>
+        <div id="unit-menu" class="menu-panel" role="menu"></div>
       </nav>
+      <div id="exam-timer" class="exam-timer" role="timer" aria-label="作答時間"></div>
       <div class="top-actions">
-        <button id="student-chip" class="chip-btn" type="button" hidden></button>
+        <div id="exam-unit" class="exam-unit"></div>
+        <button id="student-chip" class="chip-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="chip-panel" hidden></button>
+        <div id="chip-panel" class="menu-panel chip-panel" role="menu"></div>
       </div>
     </div>
   </header>

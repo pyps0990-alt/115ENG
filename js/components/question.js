@@ -1,8 +1,7 @@
 // 可重複使用的題目元件：選擇題 (renderMC) 與字母框拼字 (renderSpell)。
 // feedback=true：練習模式，作答後立即顯示對錯；false：正式測驗，只記錄作答。
-import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample } from '../util.js';
+import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample, pickExample } from '../util.js';
 import { icon } from '../icons.js';
-import { speak } from '../tts.js';
 
 // 拼字題每題最多提示 2 次（每次扣 0.25 分），用完按鈕變暗
 export const MAX_HINTS = 2;
@@ -27,8 +26,10 @@ export function buildMC(word, pool, dir) {
 }
 
 // 進階：例句挖空，四選一（選項是其他字詞在例句中的形式）
+// 這個字如果存了不只一句例句，每次隨機挑一句出題，同樣的字、同樣題型內容也不會一樣
 export function buildClozeMC(word, pool) {
-  const c = clozeParts(word);
+  const ex = pickExample(word);
+  const c = clozeParts({ ...word, example: ex.ex });
   if (!c) return buildMC(word, pool, 'zh2en');
   const key = (s) => s.toLowerCase();
   const seen = new Set([key(c.answer)]);
@@ -45,13 +46,14 @@ export function buildClozeMC(word, pool) {
   const cap = /^[A-Z]/.test(c.answer) && !c.before.trim();
   const fix = (s) => (cap ? s.charAt(0).toUpperCase() + s.slice(1) : s.charAt(0).toLowerCase() + s.slice(1));
   const options = shuffle([c.answer, ...others.map(fix)]);
-  return { type: 'mc', word, dir: 'cloze', parts: c, options, answer: options.indexOf(c.answer) };
+  return { type: 'mc', word, dir: 'cloze', parts: c, options, answer: options.indexOf(c.answer), exampleZh: ex.zh };
 }
 
 export function buildSpell(word, variant) {
   if (variant === 'cloze') {
-    const c = clozeParts(word);
-    if (c) return { type: 'spell', variant: 'cloze', word, answer: c.answer, parts: c };
+    const ex = pickExample(word);
+    const c = clozeParts({ ...word, example: ex.ex });
+    if (c) return { type: 'spell', variant: 'cloze', word, answer: c.answer, parts: c, exampleZh: ex.zh };
   }
   return { type: 'spell', variant: 'spell', word, answer: word.word };
 }
@@ -72,7 +74,7 @@ export function renderMC(host, q, { feedback = true, selected = null, label = ''
   const cloze = q.dir === 'cloze';
   const meta = label || (en2zh ? '選出正確的中文意思' : cloze ? '選出最適合填入空格的字詞' : '選出正確的英文字詞');
   const prompt = en2zh
-    ? `<div class="q-prompt"><span class="w">${esc(q.word.word)}</span><button class="speak" type="button" aria-label="發音">${icon.speaker}</button></div>
+    ? `<div class="q-prompt"><span class="w">${esc(q.word.word)}</span></div>
        <div class="q-sub"><span class="pos">${esc(q.word.pos || '')}</span></div>`
     : cloze
       ? `<div class="q-sentence">${esc(q.parts.before)}<span class="blank"></span>${esc(q.parts.after)}</div>`
@@ -91,7 +93,8 @@ export function renderMC(host, q, { feedback = true, selected = null, label = ''
         <span class="opt-mark" aria-hidden="true"></span></button>`).join('')}
     </div>`;
   host.append(card);
-  card.querySelector('.speak')?.addEventListener('click', () => speak(q.word.word));
+  // 手機上按「開始」或上一題的位置剛好落在某個選項上時，那個選項會殘留觸控／焦點樣式，看起來像被選了
+  if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   const opts = [...card.querySelectorAll('.opt')];
   let done = false;
 
@@ -111,7 +114,6 @@ export function renderMC(host, q, { feedback = true, selected = null, label = ''
       else if (j === i) { o.classList.add('wrong'); o.querySelector('.opt-mark').innerHTML = icon.x; }
       else o.classList.add('dim');
     });
-    if (en2zh || ok) speak(cloze ? q.options[q.answer] : q.word.word);
     onAnswer?.(ok, i);
   };
   opts.forEach((o) => o.addEventListener('click', () => choose(Number(o.dataset.i))));
@@ -129,7 +131,7 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   const head = q.variant === 'cloze'
     ? `<div class="q-meta">${esc(label || '依句意拼出空格中的單字')}</div>
        <div class="q-sentence">${esc(q.parts.before)}<span class="blank"></span>${esc(q.parts.after)}</div>
-       <div class="q-sub"><span>${esc(w.exampleZh || '')}</span></div>
+       <div class="q-sub"><span>${esc(q.exampleZh || w.exampleZh || '')}</span></div>
        <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${esc(w.zh)}</span><span>· ${n} 個字母</span></div>`
     : `<div class="q-meta">${esc(label || '看中文，拼出英文單字')}</div>
        <div class="q-prompt"><span class="zh">${esc(w.zh)}</span></div>
@@ -201,7 +203,6 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
     card.querySelector('.q-foot').hidden = true;
     if (ok) {
       boxes.forEach((b, i) => { b.style.animationDelay = `${i * 70}ms`; b.classList.remove('filled', 'hinted', 'cursor'); b.classList.add('ok'); });
-      speak(q.answer);
     } else {
       boxesEl.classList.add('shake');
       boxes.forEach((b, i) => { b.classList.remove('cursor'); if (typed[i] !== target[i]) b.classList.add('bad'); });
@@ -254,13 +255,49 @@ function chosenWord(q, chosen, pool) {
   return pool.find((w) => w.word === chosen);
 }
 
-// 回傳 { html, text }：html 顯示在題目下方，text 用在總成績單與試算表
+// 錯誤原因：意思混淆（選到或拼成別的字）、詞形錯誤（字對了但形式不對）、拼字錯誤（差幾個字母）、不熟悉、未作答
+const stem = (s) => s.replace(/(ies|ied|ying|ing|es|ed|s|d)$/, '').replace(/i$/, 'y');
+
+function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+  }
+  return d[a.length][b.length];
+}
+
+export function classifyError(q, chosen, pool = []) {
+  if (chosen == null || String(chosen).trim() === '') return '未作答';
+  if (q.type === 'mc') return '意思混淆';
+  const typed = lettersOf(chosen);
+  const ans = lettersOf(q.answer);
+  const base = lettersOf(q.word.word);
+  if (!typed) return '未作答';
+  if (typed !== ans && (typed === base || (ans.length > 3 && stem(typed) === stem(ans)))) return '詞形錯誤';
+  if (pool.some((w) => w.word !== q.word.word && lettersOf(w.word) === typed)) return '意思混淆';
+  if (editDistance(typed, ans) <= Math.max(1, Math.floor(ans.length / 4))) return '拼字錯誤';
+  return '不熟悉';
+}
+
+export const ERR_TIPS = {
+  意思混淆: '這兩個字容易搞混，對照一下各自的意思和例句',
+  詞形錯誤: '字選對了，注意句子需要的形式（時態、單複數、詞性變化）',
+  拼字錯誤: '意思想對了，拼字再檢查一次',
+  不熟悉: '這個字還不熟，多看幾次例句加深印象',
+  未作答: '這題沒有作答，先記住正確答案',
+};
+
+// 回傳 { html, text, err }：html 顯示在題目下方，text 用在總成績單與試算表，err 是錯誤類型
 export function explainWrong(q, chosen, pool = []) {
   const w = q.word;
-  const lines = [];
+  const err = classifyError(q, chosen, pool);
+  const lines = [`<p class="xp-tip"><span class="xp-tag">${esc(err)}</span>${esc(ERR_TIPS[err] || '')}</p>`];
   const text = [];
   lines.push(`<div class="xp-main"><span class="xp-word en">${esc(w.word)}</span><span class="pos">${esc(w.pos || '')}</span><span class="xp-zh">${esc(w.zh)}</span></div>`);
-  text.push(`${w.word}：${w.zh}`);
+  text.push(`〔${err}〕${w.word}：${w.zh}`);
   if (q.type === 'mc') {
     const other = chosenWord(q, chosen, pool);
     if (other && other.word !== w.word) {
@@ -276,10 +313,14 @@ export function explainWrong(q, chosen, pool = []) {
     lines.push(`<p class="xp-yours">${typed ? `你拼成 <b class="en">${esc(typed)}</b>` : '沒有作答'}${typed && d ? `・${esc(d)}` : ''}</p>`);
     if (d) text.push(d);
   }
-  if (w.example) {
-    lines.push(`<p class="xp-ex en">${exampleHTML(w.example)}</p>`);
-    if (w.exampleZh) lines.push(`<p class="xp-exzh">${esc(w.exampleZh)}</p>`);
-    text.push(plainExample(w.example));
+  // 這題是例句題的話，顯示的例句要跟剛才考的那句一致（同一個字可能存了不只一句）
+  const clozeQ = (q.type === 'mc' && q.dir === 'cloze') || (q.type === 'spell' && q.variant === 'cloze');
+  const exEn = clozeQ ? `${q.parts.before}[${q.parts.answer}]${q.parts.after}` : w.example;
+  const exZh = clozeQ ? q.exampleZh : w.exampleZh;
+  if (exEn) {
+    lines.push(`<p class="xp-ex en">${exampleHTML(exEn)}</p>`);
+    if (exZh) lines.push(`<p class="xp-exzh">${esc(exZh)}</p>`);
+    text.push(plainExample(exEn));
   }
-  return { html: `<div class="explain xp slide-in"><div class="xp-head">${icon.bulb} 解析</div>${lines.join('')}</div>`, text: text.join('｜') };
+  return { html: `<div class="explain xp slide-in"><div class="xp-head">${icon.bulb} 解析</div>${lines.join('')}</div>`, text: text.join('｜'), err };
 }

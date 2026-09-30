@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 老師／管理員：在 admins 名單（文件 ID 是 Google 帳號 email）裡的登入帳號
+    function isStaff() {
+      return request.auth != null && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/admins/$(request.auth.token.email.lower()));
+    }
+
+    // 老師後台儲存時寫入的公開設定與題目（學生網站只讀）。
+    // 寫入者有兩個：老師的瀏覽器（登入後直接寫，學生幾乎立刻收到）與 Apps Script（專案擁有者權限，
+    // 存進試算表後再寫一次做最後確認）。
+    match /public/{doc} {
+      allow get: if true;
+      allow list, delete: if false;
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly(['json'])
+        && request.resource.data.json is string
+        && request.resource.data.json.size() < 900000;
+    }
+
+    // 名單只在 Firebase 主控台手動維護；登入的人只能讀自己那一筆（用來判斷是不是老師）
+    match /admins/{email} {
+      allow get: if request.auth != null && request.auth.token.email.lower() == email;
+      allow list, write: if false;
+    }
+
+    // 學生帳本：key = SHA-256(班級|座號|姓名)。知道 key 才讀得到，不能列出全部。
+    // 只有老師能建立（匯入名單），學生用班級、座號、姓名算出 key 來確認身分。
+    match /vault/{key} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly(['cls', 'seat', 'name', 'updatedAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 40;
+      allow delete: if isStaff();
+
+      // 學生自己的測驗紀錄：帳本存在才能寫入；只能新增，不能改或刪
+      match /attempts/{attemptId} {
+        allow read: if true;
+        allow create: if exists(/databases/$(database)/documents/vault/$(key))
+          && request.resource.data.attemptId == attemptId
+          && request.resource.data.details is list && request.resource.data.details.size() <= 150;
+        allow update, delete: if false;
+      }
+
+      // 已完成檢討的單元（文件 ID 是單元 id）；完成檢討後才能開始複習
+      match /reviews/{unitId} {
+        allow read: if true;
+        allow create, update: if exists(/databases/$(database)/documents/vault/$(key))
+          && request.resource.data.keys().hasOnly(['unit', 'at'])
+          && request.resource.data.unit == unitId;
+        allow delete: if false;
+      }
+    }
+
+    // 依班級整理的資料：給老師在主控台瀏覽，網站不讀取
+    match /classes/{cls}/seats/{seat} {
+      allow read: if isStaff();
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly(['cls', 'seat', 'name', 'updatedAt']);
+      allow delete: if isStaff();
+
+      match /units/{unitId}/attempts/{attemptId} {
+        allow read: if isStaff();
+        allow create: if request.resource.data.attemptId == attemptId
+          && request.resource.data.keys().hasAll(['cls', 'seat', 'unit', 'score', 'total', 'pct', 'details'])
+          && request.resource.data.details is list && request.resource.data.details.size() <= 150;
+        allow update, delete: if false;
+      }
+    }
+  }
+}

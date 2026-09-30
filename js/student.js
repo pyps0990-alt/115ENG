@@ -14,7 +14,8 @@ export function formHTML(s = {}) {
       <div class="field span2"><label for="f-name">姓名</label>
         <input id="f-name" name="name" autocomplete="off" placeholder="你的名字" maxlength="20" value="${esc(s.name || '')}" required></div>
     </div>
-    <div class="form-err" aria-live="polite"></div>`;
+    <div class="form-err" aria-live="polite"></div>
+    <p class="privacy-note">會保存你的班級、座號、姓名與測驗紀錄，僅供授課老師使用，詳見<a href="#/privacy">隱私權說明</a>。</p>`;
 }
 
 export function readForm(form) {
@@ -32,6 +33,74 @@ export function readForm(form) {
   return s;
 }
 
+// 登入後在背景載入這位學生的紀錄（換頁不用等它）；進入單元前會等它載完，才不會把做過的單元當成沒做過
+let pendingHistory = Promise.resolve();
+export const historyReady = () => Promise.race([pendingHistory, new Promise((r) => setTimeout(r, 8000))]);
+
+// 登入按鈕的狀態回饋：確認中（轉圈）→ 成功（綠色打勾）或失敗（輕輕抖一下），取代整段紅字
+const btnLabel = new WeakMap();
+function setBtn(btn, state, html) {
+  if (!btnLabel.has(btn)) btnLabel.set(btn, btn.innerHTML);
+  btn.dataset.state = state;
+  btn.innerHTML = html;
+}
+function resetBtn(btn) {
+  delete btn.dataset.state;
+  if (btnLabel.has(btn)) btn.innerHTML = btnLabel.get(btn);
+  btn.disabled = false;
+}
+function shakeBtn(btn) {
+  resetBtn(btn);
+  btn.classList.remove('shake');
+  void btn.offsetWidth; // 重新觸發動畫
+  btn.classList.add('shake');
+}
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// 驗證身分 → 存成目前登入的學生 → 紀錄在背景載入。成功時按鈕先顯示「已確認」一下再換頁。
+async function login(form) {
+  const btn = form.querySelector('[type="submit"]');
+  const err = form.querySelector('.form-err');
+  const s = readForm(form);
+  const hint = (text) => {
+    err.textContent = text;
+    form.addEventListener('input', () => { err.textContent = ''; }, { once: true });
+  };
+  if (!s) { shakeBtn(btn); form.addEventListener('input', () => { err.textContent = ''; }, { once: true }); return null; }
+  btn.disabled = true;
+  err.textContent = '';
+  setBtn(btn, 'busy', '<span class="spinner sm"></span>確認中…');
+  try {
+    const { verifyStudent, loadHistory } = await import('./firebase.js');
+    const res = await verifyStudent(s);
+    if (!res.ok) {
+      shakeBtn(btn);
+      hint('名單裡找不到這組班級、座號和姓名，請確認有沒有打錯字，或詢問老師。');
+      return null;
+    }
+    const student = { cls: s.cls, seat: s.seat, name: res.name, key: res.key };
+    if ((store.student() || {}).key !== res.key) store.resetProgress();
+    store.setStudent(student);
+    let returned = false;
+    pendingHistory = loadHistory(res.key).then((h) => {
+      if ((store.student() || {}).key === res.key) store.applyHistory(h.attempts, h.reviews);
+      // 「已確認」還在顯示時不要換畫面；紀錄比它晚到才通知首頁更新
+      if (returned) window.dispatchEvent(new Event('history-applied'));
+    }).catch(() => { /* 讀不到就先用裝置上的紀錄 */ });
+    setBtn(btn, 'ok', `${icon.check}已確認，歡迎 ${esc(res.name)}`);
+    renderStudentChip();
+    await pause(reduced() ? 0 : 480); // 讓學生看到「已確認」，紀錄同時在背景載入
+    returned = true;
+    return student;
+  } catch (e) {
+    console.error(e);
+    shakeBtn(btn);
+    hint('連線失敗，請確認網路後再試一次。');
+    return null;
+  }
+}
+
 // 內嵌表單（首頁歡迎卡、測驗前）
 export function mountInlineForm(host, { title, desc, button = '開始練習', onSave }) {
   const card = el(`<form class="card welcome" novalidate>
@@ -39,13 +108,10 @@ export function mountInlineForm(host, { title, desc, button = '開始練習', on
       ${formHTML(store.student() || {})}
       <div class="btn-row"><button class="btn primary" type="submit">${esc(button)} ${icon.arrowR}</button></div>
     </form>`);
-  card.addEventListener('submit', (e) => {
+  card.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const s = readForm(card);
-    if (!s) return;
-    store.setStudent(s);
-    renderStudentChip();
-    onSave?.(s);
+    const s = await login(card);
+    if (s) onSave?.(s);
   });
   host.append(card);
   return card;
@@ -53,22 +119,20 @@ export function mountInlineForm(host, { title, desc, button = '開始練習', on
 
 export function openStudentDialog(onSave) {
   const d = el(`<dialog class="modal"><form class="modal-body" novalidate>
-      <h2>學生基本資料</h2>
-      <p class="muted" style="margin:0">只存在這台裝置，完成測驗後會和成績一起送給老師。</p>
+      <h2>切換學生</h2>
+      <p class="muted" style="margin:0">輸入班級、座號和姓名，會載入這位學生的紀錄。</p>
       ${formHTML(store.student() || {})}
       <div class="btn-row" style="justify-content:flex-end">
         <button class="btn ghost" type="button" data-close>取消</button>
-        <button class="btn primary" type="submit">儲存</button>
+        <button class="btn primary" type="submit">登入</button>
       </div></form></dialog>`);
   document.body.append(d);
   const form = d.querySelector('form');
   d.querySelector('[data-close]').onclick = () => d.close();
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const s = readForm(form);
+    const s = await login(form);
     if (!s) return;
-    store.setStudent(s);
-    renderStudentChip();
     d.close();
     onSave?.(s);
   });
@@ -76,13 +140,47 @@ export function openStudentDialog(onSave) {
   d.showModal();
 }
 
+// 上方名牌：只顯示名字（第二個字用〇代替，旁人看螢幕不會看到全名）；點下去展開個人選單：我的成績與缺交、切換學生
+const maskName = (n) => (n.length >= 2 ? `${n[0]}〇${n.slice(2)}` : n);
+const panelEl = () => document.getElementById('chip-panel');
+export function closeChipPanel() {
+  const panel = panelEl();
+  const chip = document.getElementById('student-chip');
+  if (!panel || !panel.classList.contains('open')) return;
+  panel.classList.remove('open');
+  chip.setAttribute('aria-expanded', 'false');
+}
+function openChipPanel(s) {
+  const panel = panelEl();
+  const chip = document.getElementById('student-chip');
+  panel.innerHTML = `<div class="chip-id"><b>${esc(maskName(s.name))}</b><span>${esc(s.cls)} 班 ${esc(s.seat)} 號</span></div>
+    <a class="menu-item" role="menuitem" href="#/me"><span class="menu-ic">${icon.trophy}</span><span class="menu-txt"><b>我的成績與缺交</b><span class="en">各單元的完成狀況</span></span></a>
+    <button class="menu-item" role="menuitem" type="button" data-switch><span class="menu-ic">${icon.user}</span><span class="menu-txt"><b>切換學生</b><span class="en">換成別人的身分</span></span></button>`;
+  panel.querySelector('[data-switch]').onclick = () => {
+    closeChipPanel();
+    openStudentDialog(() => window.dispatchEvent(new Event('student-changed')));
+  };
+  panel.querySelector('a').onclick = () => closeChipPanel();
+  panel.classList.add('open');
+  chip.setAttribute('aria-expanded', 'true');
+}
+document.addEventListener('click', (e) => {
+  const panel = panelEl();
+  if (panel && panel.classList.contains('open') && !e.target.closest('#chip-panel, #student-chip')) closeChipPanel();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeChipPanel(); });
+
 export function renderStudentChip() {
   const chip = document.getElementById('student-chip');
   const s = store.student();
   chip.hidden = !s;
-  if (s) {
-    chip.innerHTML = `${icon.user}<span>${esc(studentLabel(s))}</span>`;
-    chip.title = '修改基本資料';
-    chip.onclick = () => openStudentDialog(() => window.dispatchEvent(new Event('student-changed')));
-  }
+  if (!s) { closeChipPanel(); return; }
+  chip.innerHTML = `${icon.user}<span>${esc(maskName(s.name))}</span>`;
+  chip.setAttribute('aria-label', `${maskName(s.name)}，個人選單`);
+  chip.title = '我的成績、切換學生';
+  chip.onclick = () => {
+    // 作答中不能開個人選單（考試鎖定）
+    if (document.body.dataset.busy) return;
+    if (panelEl().classList.contains('open')) closeChipPanel(); else openChipPanel(s);
+  };
 }

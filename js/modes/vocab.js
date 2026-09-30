@@ -1,10 +1,13 @@
 // 單字片語測驗：同一組單字，依序連續完成基礎 → 進階 → 精熟三段，最後一張總成績單
 import { store } from '../storage.js';
-import { esc, nowStamp, wait, shuffle } from '../util.js';
+import { esc, nowStamp, wait, shuffle, centerInView } from '../util.js';
 import { icon } from '../icons.js';
-import { renderMC, renderSpell, promptText, answerText, explainWrong } from '../components/question.js';
+import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError, ERR_TIPS } from '../components/question.js';
 import { renderResult } from '../components/result.js';
+import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
+import { mountReview, completeReview } from '../components/review.js';
+import { exampleHTML } from '../util.js';
 import { submitScore } from '../submit.js';
 import { PASS, pickWords } from '../levels.js';
 
@@ -21,7 +24,39 @@ export function mount(stage, ctx) {
   let onKey = null;
   const unload = (e) => { e.preventDefault(); e.returnValue = ''; };
 
-  testGate(stage, {
+  // 逐題檢討答錯的字；details 是那次測驗的逐題紀錄（剛做完的，或從 Firestore 讀回的第一次測驗）
+  function reviewItemHTML(d) {
+    const w = all.find((x) => x.word === d.word) || { word: d.word || '' };
+    const yours = String(d.yours || '').trim();
+    // 例句題顯示當時考的那句（同一個字可能存了不只一句例句），不是字典裡的第一句
+    const exEn = d.exampleEn || w.example;
+    const exZh = d.exampleZh || w.exampleZh;
+    return `<div class="rv-card">
+        <div class="rv-meta">${esc(d.stage || '')}・${esc(d.kind || '')}</div>
+        <div class="rv-prompt ${/[a-z]/i.test(d.q || d.question || '') ? 'en' : ''}">${esc(d.q || d.question || '')}</div>
+        <div class="rv-row no"><span>你的答案</span><b class="en">${yours ? esc(yours) : '（未作答）'}</b></div>
+        <div class="rv-row ok"><span>正確答案</span><b class="en">${esc(d.correct || '')}</b></div>
+        ${d.err ? `<p class="xp-tip"><span class="xp-tag">${esc(d.err)}</span>${esc(ERR_TIPS[d.err] || '')}</p>` : ''}
+        <div class="xp-main"><span class="xp-word en">${esc(w.word)}</span>${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>
+        ${exEn ? `<p class="xp-ex en">${exampleHTML(exEn)}</p>` : ''}
+        ${exZh ? `<p class="xp-exzh">${esc(exZh)}</p>` : ''}
+      </div>`;
+  }
+
+  function startReview(details) {
+    document.getElementById('fx').replaceChildren();
+    const firstTime = !store.reviewed(unitId);
+    mountReview(stage, {
+      title: `${ctx.unit.title}｜${firstTime ? '檢討' : '再看一次檢討'}`,
+      items: (details || []).filter((d) => !d.ok).map((d) => ({ html: reviewItemHTML(d) })),
+      onDone: () => { if (firstTime) completeReview(unitId); gate.redraw(); window.scrollTo(0, 0); },
+      onExit: () => { gate.redraw(); window.scrollTo(0, 0); },
+    });
+    window.scrollTo(0, 0);
+  }
+
+  const gate = testGate(stage, {
+    timeWindow: () => unitWindow(ctx.config, unitId),
     eyebrow: levels.map((l) => l.en).join(' → '),
     title: `${ctx.unit.title}連續測驗`,
     rules: [
@@ -29,19 +64,22 @@ export function mount(stage, ctx) {
       ...levels.map((l, i) => `第 ${i + 1} 段 <b>${l.name}</b>：${esc(l.desc)}`),
       `三段總分達 <b>${PASS}%</b> 就算通過`,
     ],
-    best: store.best(unitId).vocab,
-    onStart: (s) => play(s, levels.map((l) => ({ level: l, words: pickedWords() })), true),
+    best: () => store.best(unitId).vocab,
+    review: () => store.done(unitId),
+    reviewed: () => store.reviewed(unitId),
+    onStart: (s, review) => play(s, levels.map((l) => ({ level: l, words: pickedWords() })), true, review),
+    onReview: () => startReview((store.first(unitId) || {}).details),
   });
 
   let picked = null;
   function pickedWords() {
     // 三段共用同一組單字，第一次呼叫時抽字
-    if (!picked) picked = pickWords(all, n);
+    if (!picked) picked = pickWords(all, n, unitId);
     return picked;
   }
 
-  // stagesIn: [{ level, words }]；official=false 為錯題練習，不送出成績
-  function play(student, stagesIn, official) {
+  // stagesIn: [{ level, words }]；official=false 為錯題練習，不送出成績；review=true 為做過正式測驗後的複習
+  function play(student, stagesIn, official, review = false) {
     picked = null;
     const stages = stagesIn.map(({ level, words }) => ({ level, qs: level.build(shuffle(words), all), points: 0, wrong: [] }));
     const total = stages.reduce((s, x) => s + x.qs.length, 0);
@@ -59,7 +97,7 @@ export function mount(stage, ctx) {
         <ol class="stepper" aria-label="測驗進度">${stages.map((s, i) => `<li data-step="${i}">
           <span class="step-dot">${i + 1}</span><span class="step-name">${s.level.name}</span><span class="step-score"></span></li>`).join('')}</ol>
         <div class="quiz-bar">
-          ${official ? '' : '<span class="level-chip">錯題練習</span>'}
+          ${official ? (review ? '<span class="level-chip">複習</span>' : '') : '<span class="level-chip">錯題練習</span>'}
           <div class="bar"><span></span></div>
           <span class="quiz-stat" data-n></span>
           <span class="quiz-stat streak" data-streak title="連續答對">${icon.flame}<b>0</b></span>
@@ -97,14 +135,20 @@ export function mount(stage, ctx) {
       current = q.type === 'mc'
         ? renderMC(host, q, { label: `${label}・${q.dir === 'en2zh' ? '選出中文意思' : q.dir === 'cloze' ? '選出空格的字詞' : '選出英文字詞'}`, onAnswer: (ok, chosen) => answered(q, ok, ok ? 1 : 0, q.options[chosen]) })
         : renderSpell(host, q, { label: `${label}・${q.variant === 'cloze' ? '拼出空格的字詞' : '看中文拼出英文'}`, onAnswer: (ok, { hints, typed }) => answered(q, ok, ok ? Math.max(0, 1 - hints * HINT_COST) : 0, typed, hints) });
+      centerInView(host.querySelector('.q-card'));
     }
 
     function answered(q, ok, got, yours, hints = 0) {
       const s = stages[si];
       s.points += got;
+      // 例句題把當時考的那句一起記下來，逐題檢討時要顯示同一句，不是字典裡預設那句
+      const clozeQ = (q.type === 'mc' && q.dir === 'cloze') || (q.type === 'spell' && q.variant === 'cloze');
       details.push({
         stage: s.level.name, n: qi + 1, kind: q.type === 'mc' ? (q.dir === 'en2zh' ? '英→中' : q.dir === 'cloze' ? '例句選字' : '中→英') : (q.variant === 'cloze' ? '例句拼寫' : '拼字'),
         q: promptText(q), correct: answerText(q), yours: yours == null ? '' : String(yours), ok, points: got, hints,
+        word: q.word.word, err: ok ? '' : classifyError(q, yours, all),
+        exampleEn: clozeQ ? `${q.parts.before}[${q.parts.answer}]${q.parts.after}` : '',
+        exampleZh: clozeQ ? (q.exampleZh || '') : '',
       });
       const fb = stage.querySelector('[data-fb]');
       const st = stage.querySelector('[data-streak]');
@@ -188,30 +232,39 @@ export function mount(stage, ctx) {
           <span class="bar"><span style="width:${p}%"></span></span><span class="sb-score">${fmt(s.points)}/${s.qs.length}</span></div>`;
       }).join('')}</div>`;
       const passed = pct >= PASS;
+      const firstTest = official && !review;
+      if (firstTest) store.setFirst(unitId, { mode: 'vocab', details });
       const actions = [];
-      if (wrong.length) {
-        actions.push({
-          label: `練習錯的 ${wrong.length} 題`, icon: icon.redo, primary: true,
-          onClick: () => play(student, stages.filter((s) => s.wrong.length).map((s) => ({ level: s.level, words: s.wrong.map((w) => w.q.word) })), false),
-        });
+      if (firstTest) {
+        // 第一次正式測驗：先檢討，檢討完才能複習
+        actions.push({ label: '開始檢討', icon: icon.bulb, primary: true, onClick: () => startReview(details) });
+      } else {
+        if (wrong.length) {
+          actions.push({
+            label: `練習錯的 ${wrong.length} 題`, icon: icon.redo, primary: true,
+            onClick: () => play(student, stages.filter((s) => s.wrong.length).map((s) => ({ level: s.level, words: s.wrong.map((w) => w.q.word) })), false),
+          });
+        }
+        if (official) actions.push({ label: '逐題檢討', icon: icon.bulb, onClick: () => startReview(details) });
+        actions.push({ label: '再複習一次', icon: icon.shuffle, primary: !wrong.length, onClick: () => play(student, levels.map((l) => ({ level: l, words: pickedWords() })), true, true) });
       }
-      actions.push({ label: '重新測驗', icon: icon.shuffle, primary: !wrong.length, onClick: () => play(student, levels.map((l) => ({ level: l, words: pickedWords() })), true) });
       const box = renderResult(stage, {
-        title: official ? (passed ? '三段測驗通過！' : '三段測驗完成') : '錯題練習完成',
+        title: !official ? '錯題練習完成' : `${review ? '複習' : '三段測驗'}${passed ? '通過！' : '完成'}`,
         pct,
         scoreText: `${fmt(points)} / ${total}`,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
         extraHTML: bars + (official
           ? `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`
           : '<p class="muted">錯題練習不會送出成績</p>'),
-        wrong: wrong.map((w) => ({ p: `〔${w.level.name}〕${promptText(w.q)}`, a: answerText(w.q), y: w.yours, x: w.xp })),
+        // 正式測驗的錯題改用逐題檢討，這裡只在錯題練習時列出
+        wrong: official ? [] : wrong.map((w) => ({ p: `〔${w.level.name}〕${promptText(w.q)}`, a: answerText(w.q), y: w.yours, x: w.xp })),
         actions,
       });
       if (!official) return;
       const res = await submitScore({
         clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
-        unit: unitId, unitTitle: ctx.unit.title, mode: 'vocab',
-        level: stages.map((s) => s.level.name).join('→'),
+        unit: unitId, unitTitle: ctx.unit.title, mode: 'vocab', review,
+        level: `${review ? '複習 · ' : ''}${stages.map((s) => s.level.name).join('→')}`,
         score: Number(fmt(points)), total, pct, durationSec,
         basic: per.basic || '', advanced: per.advanced || '', mastery: per.mastery || '',
         wrong: [...new Set(wrong.map((w) => w.q.word.word))],
