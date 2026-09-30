@@ -7,6 +7,8 @@
   <meta name="robots" content="noindex">
   <title>老師後台 — B5 Practice</title>
   <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://script.google.com">
   <style>
     :root {
       --bg:#FFFFFF; --surface:#F4F6F9; --ink:#1E3A8A; --muted:#64748B; --line:#E2E8F0;
@@ -484,6 +486,111 @@
       impInit();
     };
 
+    /* ---------------- 快速同步（網站版後台才有） ----------------
+       儲存時，瀏覽器先算出新的設定、直接寫進 Firestore（學生通常 0.5 秒內就收到），
+       同時照常存進試算表；試算表存好後，伺服器會再算一次並寫入最後確認的版本，兩邊不一樣時以伺服器為準。
+       沒有 window.fastPublish（例如直接開 Apps Script 網址的版本）或寫入失敗時，會退回原本的流程。 */
+    var cfgBase = null;   // 學生網站目前的設定（伺服器算的）
+    var saving = false;   // 一次只處理一個儲存，前後兩次不會互相蓋掉
+    function canFast() { return !!(window.fastPublish && cfgBase && cfgBase.units); }
+    function clone(o) { return JSON.parse(JSON.stringify(o)); }
+    function stableJson(v) {
+      if (!v || typeof v !== 'object') return JSON.stringify(v);
+      if (Array.isArray(v)) return '[' + v.map(stableJson).join(',') + ']';
+      return '{' + Object.keys(v).sort().map(function (k) { return JSON.stringify(k) + ':' + stableJson(v[k]); }).join(',') + '}';
+    }
+    function sameCfg(a, b) { var x = clone(a), y = clone(b); x.updated = y.updated = 0; return stableJson(x) === stableJson(y); }
+    function timeOf(v) { var t = String(v || '').trim(); return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(t) ? t : ''; }
+
+    // 單元設定 → 學生網站的設定（規則要跟 Code.gs 的 readConfigCached_ 一致）
+    function cfgForSettings(now) {
+      var base = cfgBase;
+      var cfg = { units: {}, updated: now, ext: clone(base.ext || {}), customUnits: [], content: {} };
+      units.forEach(function (u) {
+        var old = base.units[u.id] || {};
+        var o = {
+          visible: u.visible !== false, disabled: (u.disabled || []).slice(),
+          questionCount: Math.min(100, Math.max(1, Number(u.questionCount) || 10)),
+          openAt: timeOf(u.openAt), closeAt: timeOf(u.closeAt),
+        };
+        if (old.since !== undefined) o.since = old.since; else if (u.custom) o.since = now;
+        cfg.units[u.id] = o;
+        if (u.custom) cfg.customUnits.push({ id: u.id, title: u.title || u.id, type: u.type === 'reading' ? 'reading' : 'vocab', lesson: Math.max(1, Number(u.lesson) || 1), topic: u.topic || '' });
+      });
+      Object.keys(base.units).forEach(function (id) { if (!cfg.units[id] && base.units[id].visible === undefined) cfg.units[id] = clone(base.units[id]); });
+      Object.keys(base.content || {}).forEach(function (id) { if (cfg.units[id]) cfg.content[id] = clone(base.content[id]); });
+      return cfg;
+    }
+    function cfgForExtensions(now) {
+      var cfg = clone(cfgBase); cfg.updated = now; cfg.ext = {};
+      exts.forEach(function (x) {
+        var unit = String(x.unit || '').trim(), c = String(x.cls || '').trim();
+        var seat = String(x.seat || '').trim().replace(/^0+(?=\d)/, ''), until = timeOf(x.until);
+        if (unit && /^\d{3,4}$/.test(c) && /^\d{1,2}$/.test(seat) && until) (cfg.ext[unit] = cfg.ext[unit] || {})[c + '-' + seat] = until;
+      });
+      return cfg;
+    }
+    function cfgForContent(unitId, data, isVocab, reset, now) {
+      var cfg = clone(cfgBase); cfg.updated = now;
+      cfg.content = cfg.content || {};
+      cfg.content[unitId] = { updated: now, count: isVocab ? (data.words || []).length : (data.questions || []).length, topic: String(data.topic || '') };
+      if (reset) { cfg.units[unitId] = cfg.units[unitId] || {}; if (now > (cfg.units[unitId].since || '')) cfg.units[unitId].since = now; }
+      return cfg;
+    }
+    function cfgForDelete(unitId, reset, now) {
+      var cfg = clone(cfgBase); cfg.updated = now;
+      if (cfg.content) delete cfg.content[unitId];
+      if (reset) { cfg.units[unitId] = cfg.units[unitId] || {}; if (now > (cfg.units[unitId].since || '')) cfg.units[unitId].since = now; }
+      return cfg;
+    }
+
+    // o.msg：顯示訊息的欄位 id；o.build(now)：{ cfg, docs }（不支援快速同步時不會呼叫）；
+    // o.call(fastArg, resolve, reject)：呼叫伺服器儲存；o.done(res, ok)、o.fail(err)：結束時的處理；o.slow(res)：沒有快速同步時的收尾
+    function syncSave(o) {
+      var M = $(o.msg);
+      if (saving) { M.textContent = '上一個儲存還沒完成，請稍等一下再按'; M.className = 'msg err'; return false; }
+      saving = true;
+      M.textContent = '儲存中…'; M.className = 'msg';
+      var t0 = Date.now(), now = new Date().toISOString();
+      var fast = null, fastErr = null;
+      var fastP = Promise.resolve(false);
+      if (canFast()) {
+        fast = o.build(now);
+        var docs = Object.assign({}, fast.docs || {}, { config: fast.cfg });
+        fastP = window.fastPublish(docs).then(function () {
+          M.textContent = '⚡ 學生網站已更新（' + ((Date.now() - t0) / 1000).toFixed(1) + ' 秒），正在存進試算表…'; M.className = 'msg';
+          return true;
+        }, function (err) { fastErr = err; return false; });
+      }
+      var serverP = new Promise(function (resolve, reject) { o.call({ now: now }, resolve, reject); })
+        .then(function (v) { return { ok: true, v: v }; }, function (e) { return { ok: false, e: e }; });
+      Promise.all([fastP, serverP]).then(function (r) {
+        var fastOk = r[0], srv = r[1];
+        saving = false;
+        if (!srv.ok) {
+          // 試算表沒存成：以試算表為準，把學生網站也還原成試算表現在的樣子
+          if (fastOk) google.script.run.withSuccessHandler(function (d) { if (d && d.config) { cfgBase = d.config; window.fastPublish({ config: d.config }).catch(function () {}); } }).withFailureHandler(function () {}).getAdminData();
+          o.fail(srv.e, fastOk);
+          return;
+        }
+        var res = srv.v || {};
+        if (res.config) {
+          if (fastOk && fast && !sameCfg(res.config, fast.cfg)) window.fastPublish({ config: res.config }).catch(function () {}); // 兩邊算的不一樣：以伺服器為準
+          cfgBase = res.config;
+        }
+        if (res.syncError) { M.textContent = '已存進試算表，但同步到學生網站失敗（學生要重新整理才看得到）：' + res.syncError; M.className = 'msg err'; o.done(res, false); return; }
+        if (fastOk) {
+          M.textContent = '✓ 已儲存，學生網站已即時更新（' + ((Date.now() - t0) / 1000).toFixed(1) + ' 秒）'; M.className = 'msg ok';
+        } else {
+          var hint = fastErr && /permission|PERMISSION|403/.test(String(fastErr.code || fastErr.message)) ? '（提示：到 Firebase 發布最新的 firestore.rules 之後，儲存會快很多）' : '';
+          M.textContent = '已儲存，確認學生網站同步中…' + hint; M.className = 'msg';
+          if (o.slow) o.slow(res);
+        }
+        o.done(res, fastOk);
+      });
+      return true;
+    }
+
     // 用學生的方式（不登入）讀一次 Firestore 上的設定，確認學生網站真的收得到這次的更新
     function checkStudentSync(updated, msgId) {
       var M = $(msgId || 'msg');
@@ -563,26 +670,32 @@
       $('ex-msg').textContent = '已移除，記得按「儲存補作名單」'; $('ex-msg').className = 'msg';
     });
     $('ex-save').onclick = function () {
-      $('ex-msg').textContent = '儲存中…'; $('ex-msg').className = 'msg';
-      google.script.run.withSuccessHandler(function (r) {
-        if (r && r.syncError) { $('ex-msg').textContent = '已存進試算表，但同步到學生網站失敗：' + r.syncError; $('ex-msg').className = 'msg err'; return; }
-        $('ex-msg').textContent = '已儲存，確認學生網站同步中…'; $('ex-msg').className = 'msg';
-        checkStudentSync(r && r.updated, 'ex-msg');
-      }).withFailureHandler(function (err) { $('ex-msg').textContent = '儲存失敗：' + err.message; $('ex-msg').className = 'msg err'; })
-        .saveExtensions(exts);
+      var list = exts.slice();
+      syncSave({
+        msg: 'ex-msg',
+        build: function (now) { return { cfg: cfgForExtensions(now) }; },
+        call: function (fastArg, resolve, reject) {
+          google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).saveExtensions(list, fastArg);
+        },
+        slow: function (r) { checkStudentSync(r && r.updated, 'ex-msg'); },
+        done: function () {},
+        fail: function (err) { $('ex-msg').textContent = '儲存失敗：' + err.message; $('ex-msg').className = 'msg err'; },
+      });
     };
 
     $('save').onclick = function () {
-      $('msg').textContent = '儲存中…'; $('msg').className = 'msg';
       var builtIn = units.filter(function (u) { return !u.custom; });
       var custom = units.filter(function (u) { return u.custom; });
-      google.script.run.withSuccessHandler(function (r) {
-          if (r && r.syncError) { $('msg').textContent = '已存進試算表，但同步到學生網站失敗（學生要重新整理才看得到）：' + r.syncError; $('msg').className = 'msg err'; return; }
-          $('msg').textContent = '已儲存，確認學生網站同步中…'; $('msg').className = 'msg';
-          checkStudentSync(r && r.updated);
-        })
-        .withFailureHandler(function (err) { $('msg').textContent = '儲存失敗：' + err.message; $('msg').className = 'msg err'; })
-        .saveAllSettings(builtIn, custom);
+      syncSave({
+        msg: 'msg',
+        build: function (now) { return { cfg: cfgForSettings(now) }; },
+        call: function (fastArg, resolve, reject) {
+          google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).saveAllSettings(builtIn, custom, fastArg);
+        },
+        slow: function (r) { checkStudentSync(r && r.updated); },
+        done: function () {},
+        fail: function (err) { $('msg').textContent = '儲存失敗：' + err.message; $('msg').className = 'msg err'; },
+      });
     };
 
     $('load').onclick = function () {
@@ -849,23 +962,43 @@
     };
     $('imp-save').onclick = function () {
       var u = impUnit(); if (!u || !pending) return;
-      $('imp-save').disabled = true; $('imp-msg').textContent = '儲存中…'; $('imp-msg').className = 'msg';
-      google.script.run.withSuccessHandler(function (res) {
-        content = content.filter(function (x) { return x.id !== u.id; }).concat([{ id: u.id, updated: new Date().toISOString(), count: res.count }]);
-        impStatus();
-        $('imp-msg').textContent = '✓ 已儲存，學生重新打開網頁就會看到新內容'; $('imp-msg').className = 'msg ok';
-      }).withFailureHandler(function (err) {
-        $('imp-save').disabled = false; $('imp-msg').textContent = '儲存失敗：' + err.message; $('imp-msg').className = 'msg err';
-      }).saveContent(u.id, pending, $('imp-progress').checked);
+      var data = pending, reset = $('imp-progress').checked, isVocab = u.type === 'vocab';
+      $('imp-save').disabled = true;
+      var started = syncSave({
+        msg: 'imp-msg',
+        build: function (now) {
+          var docs = {}; docs['content_' + u.id] = { v: now, data: data };
+          return { cfg: cfgForContent(u.id, data, isVocab, reset, now), docs: docs };
+        },
+        call: function (fastArg, resolve, reject) {
+          google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).saveContent(u.id, data, reset, fastArg);
+        },
+        done: function (res, fastOk) {
+          content = content.filter(function (x) { return x.id !== u.id; }).concat([{ id: u.id, updated: (cfgBase && cfgBase.content && cfgBase.content[u.id] || {}).updated || new Date().toISOString(), count: res.count }]);
+          impStatus();
+          if (!res.syncError) { $('imp-msg').textContent = fastOk ? '✓ 已儲存，學生網站已即時更新' : '✓ 已儲存，學生重新打開網頁就會看到新內容'; $('imp-msg').className = 'msg ok'; }
+        },
+        fail: function (err) { $('imp-save').disabled = false; $('imp-msg').textContent = '儲存失敗：' + err.message; $('imp-msg').className = 'msg err'; },
+      });
+      if (!started) $('imp-save').disabled = false;
     };
     $('imp-reset').onclick = function () {
       var u = impUnit(); if (!u) return;
       if (!confirm('確定要刪除「' + (u.title || u.id) + '」的題目嗎？清除後學生暫時沒有題目可以做，直到重新匯入。')) return;
-      $('imp-msg').textContent = '還原中…'; $('imp-msg').className = 'msg';
-      google.script.run.withSuccessHandler(function () {
-        content = content.filter(function (x) { return x.id !== u.id; });
-        impStatus(); $('imp-msg').textContent = '✓ 已清除這個單元的題目'; $('imp-msg').className = 'msg ok';
-      }).withFailureHandler(function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; }).deleteContent(u.id, $('imp-progress').checked);
+      var reset = $('imp-progress').checked;
+      syncSave({
+        msg: 'imp-msg',
+        build: function (now) { return { cfg: cfgForDelete(u.id, reset, now) }; },
+        call: function (fastArg, resolve, reject) {
+          google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).deleteContent(u.id, reset, fastArg);
+        },
+        done: function (res) {
+          content = content.filter(function (x) { return x.id !== u.id; });
+          impStatus();
+          if (!res.syncError) { $('imp-msg').textContent = '✓ 已清除這個單元的題目'; $('imp-msg').className = 'msg ok'; }
+        },
+        fail: function (err) { $('imp-msg').textContent = '清除失敗：' + err.message; $('imp-msg').className = 'msg err'; },
+      });
     };
 
     /* ---------------- AI 出題（Gemini 或本地模型） ---------------- */
@@ -1095,6 +1228,7 @@
     google.script.run
       .withSuccessHandler(function (d) {
         units = (d.units || []).concat(d.customUnits || []);
+        cfgBase = d.config || null;
         exts = d.extensions || [];
         content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit(); exRender();
         google.script.run.withSuccessHandler(aiPaint).withFailureHandler(function () {}).getAiStatus();
@@ -1180,6 +1314,12 @@
       $('who-email').textContent = staff.email;
       $('sign-out').onclick = (e) => { e.preventDefault(); fb.staffSignOut(); };
       window.google = { script: { run: runner(null, null) } };
+      // 快速同步：儲存時瀏覽器直接把設定寫進 Firestore，學生不用等 Apps Script（見 Admin.html 的 syncSave）
+      window.fastPublish = (docs) => fb.publishPublic(docs);
+      // Apps Script 閒置一陣子會「睡著」，下一次儲存要多等 1～3 秒開機：頁面開著時每 4 分鐘敲一下，保持清醒
+      const keepWarm = () => { if (document.visibilityState === 'visible') fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ api: 'ping' }), credentials: 'omit', cache: 'no-store' }).catch(() => {}); };
+      setInterval(keepWarm, 240000);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepWarm(); });
       $('gate').hidden = true;
       $('app-root').hidden = false;
       const s = document.createElement('script');

@@ -26,6 +26,8 @@ out = sub1('  <meta charset="utf-8">\n', '''  <meta charset="utf-8">
   <meta name="robots" content="noindex">
   <title>老師後台 — B5 Practice</title>
   <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://script.google.com">
 ''', out)
 out = sub1('<?= email ?>', '<span id="who-email"></span> · <a href="#" id="sign-out" style="color:inherit">登出</a>', out)
 
@@ -137,6 +139,12 @@ bootstrap = r'''
       $('who-email').textContent = staff.email;
       $('sign-out').onclick = (e) => { e.preventDefault(); fb.staffSignOut(); };
       window.google = { script: { run: runner(null, null) } };
+      // 快速同步：儲存時瀏覽器直接把設定寫進 Firestore，學生不用等 Apps Script（見 Admin.html 的 syncSave）
+      window.fastPublish = (docs) => fb.publishPublic(docs);
+      // Apps Script 閒置一陣子會「睡著」，下一次儲存要多等 1～3 秒開機：頁面開著時每 4 分鐘敲一下，保持清醒
+      const keepWarm = () => { if (document.visibilityState === 'visible') fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ api: 'ping' }), credentials: 'omit', cache: 'no-store' }).catch(() => {}); };
+      setInterval(keepWarm, 240000);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepWarm(); });
       $('gate').hidden = true;
       $('app-root').hidden = false;
       const s = document.createElement('script');

@@ -8,10 +8,16 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/admins/$(request.auth.token.email.lower()));
     }
 
-    // 老師後台儲存時由 Apps Script（專案擁有者權限）寫入的公開設定與題目；網站只讀
+    // 老師後台儲存時寫入的公開設定與題目（學生網站只讀）。
+    // 寫入者有兩個：老師的瀏覽器（登入後直接寫，學生幾乎立刻收到）與 Apps Script（專案擁有者權限，
+    // 存進試算表後再寫一次做最後確認）。
     match /public/{doc} {
       allow get: if true;
-      allow list, write: if false;
+      allow list, delete: if false;
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly(['json'])
+        && request.resource.data.json is string
+        && request.resource.data.json.size() < 900000;
     }
 
     // 名單只在 Firebase 主控台手動維護；登入的人只能讀自己那一筆（用來判斷是不是老師）

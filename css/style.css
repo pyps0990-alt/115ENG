@@ -558,7 +558,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 /* 老師即時更新單元：隱藏時淡出縮小、新開放時淡入 */
 .unit-tile.tile-out { animation: tile-out .38s ease forwards; pointer-events: none; }
 .unit-tile.tile-in { animation: tile-in .5s cubic-bezier(.2,.8,.2,1.2) both; }
-@keyframes tile-out { to { opacity: 0; transform: scale(.85); filter: blur(2px); } }
+@keyframes tile-out { to { opacity: 0; transform: scale(.85); } }
 @keyframes tile-in {
   from { opacity: 0; transform: scale(.85) translateY(10px); }
   60% { box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 25%, transparent); }
@@ -659,26 +659,22 @@ body.scrolled .brand { max-width: 0; opacity: 0; transform: scale(.6) translateX
 .diag-ua { font-size: .72rem; word-break: break-all; }
 
 /* ---------------- 換頁與整體動態 ---------------- */
-#app { will-change: opacity, transform; }
-#app.page-out { opacity: 0; transform: translateY(6px); filter: blur(1px); transition: opacity .14s ease, transform .14s ease, filter .14s ease; }
-#app.page-in { animation: page-in .42s var(--ease) both; }
-@keyframes page-in { from { opacity: 0; transform: translateY(12px); filter: blur(2px); } to { opacity: 1; transform: none; filter: none; } }
+/* 只用 opacity 與 transform（交給顯示卡處理，不會拖慢手機）；不用模糊效果，也不常駐 will-change */
+#app.page-in { animation: page-in .28s var(--ease) both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(8px); } }
 
 /* 首頁單元卡片依序浮現 */
-#app.page-in .unit-grid > .unit-tile:not(.tile-in):not(.tile-out) { animation: rise .5s var(--ease) both; }
-#app.page-in .unit-grid > .unit-tile:nth-child(2) { animation-delay: .04s; }
-#app.page-in .unit-grid > .unit-tile:nth-child(3) { animation-delay: .08s; }
-#app.page-in .unit-grid > .unit-tile:nth-child(4) { animation-delay: .12s; }
-#app.page-in .unit-grid > .unit-tile:nth-child(5) { animation-delay: .16s; }
-#app.page-in .unit-grid > .unit-tile:nth-child(6) { animation-delay: .2s; }
-#app.page-in .unit-grid > .unit-tile:nth-child(n+7) { animation-delay: .24s; }
-@keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+#app.page-in .unit-grid > .unit-tile:not(.tile-in):not(.tile-out) { animation: rise .36s var(--ease) both; }
+#app.page-in .unit-grid > .unit-tile:nth-child(2) { animation-delay: .03s; }
+#app.page-in .unit-grid > .unit-tile:nth-child(3) { animation-delay: .06s; }
+#app.page-in .unit-grid > .unit-tile:nth-child(4) { animation-delay: .09s; }
+#app.page-in .unit-grid > .unit-tile:nth-child(n+5) { animation-delay: .12s; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
 
 /* 卡片、按鈕的觸感 */
 .unit-tile { transition: transform .25s var(--ease), border-color .2s, background .2s, box-shadow .25s var(--ease); }
 .unit-tile:hover { box-shadow: 0 10px 24px rgba(15, 23, 42, .08); }
 .unit-tile:active { transform: translateY(0) scale(.985); transition-duration: .08s; }
-.btn { will-change: transform; }
 .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(15, 23, 42, .08); }
 .btn:active:not(:disabled) { transform: scale(.97); box-shadow: none; transition-duration: .08s; }
 .opt { transition: transform .18s var(--ease), border-color .2s, background .2s, box-shadow .2s, opacity .25s; }
@@ -692,5 +688,5 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { box-shadow: 
 .empty { animation: fade-up .4s var(--ease) both; }
 
 @media (prefers-reduced-motion: reduce) {
-  #app.page-out, #app.page-in, #app.page-in .unit-grid > .unit-tile { animation: none; transition: none; filter: none; }
+  #app.page-in, #app.page-in .unit-grid > .unit-tile { animation: none; }
 }

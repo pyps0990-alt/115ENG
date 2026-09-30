@@ -7,11 +7,8 @@
 import { SCRIPT_URL } from './config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
 import {
-  getFirestore, doc, getDoc, onSnapshot, getDocs, setDoc, collection, writeBatch, serverTimestamp,
+  initializeFirestore, doc, getDoc, onSnapshot, getDocs, setDoc, collection, writeBatch, serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
-import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
-} from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
 
 const app = initializeApp({
   apiKey: 'AIzaSyC0HFF3YjrsONdvYwTrofihkqNGiQjjdyc',
@@ -21,8 +18,17 @@ const app = initializeApp({
   messagingSenderId: '396514115433',
   appId: '1:396514115433:web:2bbe5d62c272bb69fa87f8',
 });
-const db = getFirestore(app);
-const auth = getAuth(app);
+// 學校網路（代理伺服器、防火牆）有時會擋掉即時連線：自動偵測，擋掉時改用長輪詢，即時同步才不會斷
+const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+
+// 登入元件只有老師需要：學生打開網站時不載入，首頁快很多
+const AUTH_URL = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
+let authKitP = null;
+export function authKit() {
+  if (!authKitP) authKitP = import(AUTH_URL).then((m) => ({ m, auth: m.getAuth(app) }));
+  authKitP.catch(() => { authKitP = null; });
+  return authKitP;
+}
 
 const clean = (s, max) => String(s == null ? '' : s).trim().slice(0, max);
 
@@ -117,38 +123,52 @@ export async function saveScoreToFirestore(payload, key) {
 
 // cb(null) 未登入；cb({ email, role }) 已登入，role 為 'teacher'、'admin' 或 null（不在名單）
 export function watchStaff(cb) {
-  return onAuthStateChanged(auth, async (user) => {
-    if (!user) { cb(null); return; }
-    const email = String(user.email || '').toLowerCase();
-    let role = null;
-    let reason = '';
-    try {
-      const snap = await getDoc(doc(db, 'admins', email));
-      if (snap.exists()) role = snap.data().role === 'admin' ? 'admin' : 'teacher';
-      else reason = `Firestore 的 admins 裡沒有文件 ID「${email}」`;
-    } catch (e) {
-      reason = `讀取 Firestore 老師名單失敗（${e.code || e.message}）`;
-    }
-    // 備援：網站自己讀不到時，請 Apps Script 確認（試算表 teachers 或 Firestore admins 任一份有就算）
-    if (!role) {
+  let unsub = () => {};
+  let dead = false;
+  authKit().then(({ m, auth }) => {
+    if (dead) return;
+    unsub = m.onAuthStateChanged(auth, async (user) => {
+      if (!user) { cb(null); return; }
+      const email = String(user.email || '').toLowerCase();
+      let role = null;
+      let reason = '';
       try {
-        const idToken = await user.getIdToken();
-        const r = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ api: 'whoami', idToken }), credentials: 'omit', cache: 'no-store' });
-        const j = JSON.parse(await r.text());
-        if (j.ok) role = 'teacher';
-        else reason += `；後台確認：${j.error || '不在老師名單'}`;
+        const snap = await getDoc(doc(db, 'admins', email));
+        if (snap.exists()) role = snap.data().role === 'admin' ? 'admin' : 'teacher';
+        else reason = `Firestore 的 admins 裡沒有文件 ID「${email}」`;
       } catch (e) {
-        reason += `；後台確認失敗（${e.message}）`;
+        reason = `讀取 Firestore 老師名單失敗（${e.code || e.message}）`;
       }
-    }
-    cb({ email, role, reason });
-  });
+      // 備援：網站自己讀不到時，請 Apps Script 確認（試算表 teachers 或 Firestore admins 任一份有就算）
+      if (!role) {
+        try {
+          const idToken = await user.getIdToken();
+          const r = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ api: 'whoami', idToken }), credentials: 'omit', cache: 'no-store' });
+          const j = JSON.parse(await r.text());
+          if (j.ok) role = 'teacher';
+          else reason += `；後台確認：${j.error || '不在老師名單'}`;
+        } catch (e) {
+          reason += `；後台確認失敗（${e.message}）`;
+        }
+      }
+      cb({ email, role, reason });
+    });
+  }).catch((e) => { cb({ email: '', role: null, reason: `無法載入登入元件（${e.message}）` }); });
+  return () => { dead = true; unsub(); };
 }
 
-export const staffSignIn = () => signInWithPopup(auth, new GoogleAuthProvider());
-export const staffSignOut = () => signOut(auth);
+// 要在按鈕的點擊事件裡直接呼叫：登入元件事先用 authKit() 載入好，瀏覽器才不會擋掉彈出視窗
+export const staffSignIn = async () => {
+  const { m, auth } = await authKit();
+  return m.signInWithPopup(auth, new m.GoogleAuthProvider());
+};
+export const staffSignOut = async () => { const { m, auth } = await authKit(); return m.signOut(auth); };
 // 老師後台呼叫 Apps Script 時附上的登入憑證（伺服器端會再驗證一次身分）
-export const staffIdToken = () => (auth.currentUser ? auth.currentUser.getIdToken() : Promise.reject(new Error('請先登入')));
+export const staffIdToken = async () => {
+  const { auth } = await authKit();
+  if (!auth.currentUser) throw new Error('請先登入');
+  return auth.currentUser.getIdToken();
+};
 
 // rows: [{ seat, name }]；只有 admins 名單內的帳號能寫入 vault
 export async function importRoster(cls, rows) {
@@ -171,4 +191,36 @@ export function watchPublicConfig(cb) {
     if (!snap.exists()) return;
     try { cb(JSON.parse(snap.data().json)); } catch { /* ignore */ }
   }, (e) => console.warn('即時同步失敗', e));
+}
+
+// 老師後台儲存時，瀏覽器直接把設定／題目寫進 Firestore（不用等 Apps Script 開機與寫試算表），
+// 學生端幾乎同時就收到。docs: { config: {...}, content_l1: { v, data } }，一個請求寫完，要嘛全成功要嘛全不寫。
+// 用 REST 而不是 SDK 的寫入：可以設逾時、斷線時不會把舊的修改排在佇列裡，之後才突然蓋掉新的設定。
+export async function publishPublic(docs, ms = 8000) {
+  const idToken = await staffIdToken();
+  const root = 'projects/eng-3385e/databases/(default)/documents';
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const r = await fetch(`https://firestore.googleapis.com/v1/${root}:commit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({
+        writes: Object.entries(docs).map(([id, obj]) => ({
+          update: { name: `${root}/public/${id}`, fields: { json: { stringValue: JSON.stringify(obj) } } },
+        })),
+      }),
+      signal: ctrl.signal,
+    });
+    if (!r.ok) {
+      let status = '';
+      try { status = (await r.json()).error.status || ''; } catch { /* ignore */ }
+      const err = new Error(`Firestore ${r.status} ${status}`);
+      err.code = status || String(r.status);
+      throw err;
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') { const err = new Error('連線逾時'); err.code = 'timeout'; throw err; }
+    throw e;
+  } finally { clearTimeout(timer); }
 }

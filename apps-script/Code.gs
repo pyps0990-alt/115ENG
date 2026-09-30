@@ -15,7 +15,7 @@ var SHEET_SETTINGS = 'settings';
 var SHEET_TEACHERS = 'teachers';
 var SHEET_CONTENT = 'content';
 var CONFIG_CACHE_KEY = 'config-json';
-var CONTENT_HEADER = ['id', 'json', 'updated', 'updatedBy'];
+var CONTENT_HEADER = ['id', 'json', 'updated', 'updatedBy', 'count', 'topic'];
 var MAX_CONTENT_CHARS = 45000; // 試算表單一儲存格上限 50000 字元
 
 // 學生網站的網址：後台「載入網站目前內容」會從這裡讀取內建的題目
@@ -345,7 +345,7 @@ function migrateBuiltinUnits_() {
   builtins.forEach(function (u) {
     if (have[u.id]) return;
     var topic = '';
-    var row = findContentRow_(u.id);
+    var row = findContentMeta_(u.id);
     if (row) {
       topic = row.topic;
     } else {
@@ -355,7 +355,7 @@ function migrateBuiltinUnits_() {
           var data = JSON.parse(res.getContentText());
           delete data.sample;
           topic = String(data.topic || '');
-          sheet_(SHEET_CONTENT, CONTENT_HEADER).appendRow([u.id, JSON.stringify(data), new Date().toISOString(), '內建題目轉入']);
+          sheet_(SHEET_CONTENT, CONTENT_HEADER).appendRow([u.id, JSON.stringify(data), new Date().toISOString(), '內建題目轉入', countOf_(u.type === 'reading' ? 'reading' : 'vocab', data), topic]);
           clearContentCache_(u.id);
         }
       } catch (err) { Logger.log('內建題目轉入失敗 ' + u.id + '：' + err); }
@@ -378,8 +378,9 @@ function getAdminData() {
     email: email,
     units: readSettingsRows_(),
     customUnits: readCustomUnitsRows_(),
-    content: readContentRows_().map(function (r) { return { id: r.id, updated: r.updated, updatedBy: r.updatedBy, count: r.count }; }),
+    content: readContentMeta_().map(function (r) { return { id: r.id, updated: r.updated, updatedBy: r.updatedBy, count: r.count }; }),
     extensions: readExtensions_(),
+    config: readConfigCached_(), // 目前學生網站上的設定：老師的瀏覽器據此算出新設定，儲存時直接寫給學生
     siteUrl: SITE_URL,
     sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl(),
   };
@@ -417,7 +418,7 @@ function listRoster() {
 }
 
 // 整批覆寫補作名單，並同步到學生網站
-function saveExtensions(list) {
+function saveExtensions(list, fast) {
   assertTeacher_();
   var rows = (list || []).map(function (x) {
     return [String(x.unit || '').trim(), String(x.cls || '').trim(), String(x.seat || '').trim().replace(/^0+(?=\d)/, ''), timeCell_(x.until), String(x.note || '').slice(0, 100)];
@@ -430,7 +431,7 @@ function saveExtensions(list) {
   }
   LAST_SYNC_ERROR = '';
   var cfg = publishConfig_();
-  return { ok: true, count: rows.length, updated: cfg.updated, syncError: LAST_SYNC_ERROR };
+  return { ok: true, count: rows.length, updated: cfg.updated, config: cfg, syncError: LAST_SYNC_ERROR };
 }
 
 function saveSettings(units, skipPublish) {
@@ -482,24 +483,32 @@ function readCustomUnitsRows_() {
     });
 }
 
-// 單元設定一次存好（內建單元＋自訂單元），只同步一次到 Firestore，比分兩次存快一倍
-function saveAllSettings(builtIn, custom) {
+// 單元設定一次存好（內建單元＋自訂單元），只同步一次到 Firestore，比分兩次存快一倍。
+// fast：老師的瀏覽器已經先直接寫給學生的那一版 { now }，新單元的建立時間跟它用同一個值，兩邊的設定才會一模一樣。
+function saveAllSettings(builtIn, custom, fast) {
   assertTeacher_();
   saveSettings(builtIn, true);
-  saveCustomUnits(custom, true);
+  saveCustomUnits(custom, true, pickNow_(fast));
   LAST_SYNC_ERROR = '';
   var cfg = publishConfig_();
-  // 回傳同步結果，後台會再從學生的角度讀一次 Firestore，確認學生網站收得到
-  return { ok: true, savedAt: new Date().toISOString(), updated: cfg.updated, syncError: LAST_SYNC_ERROR };
+  // 回傳同步結果與伺服器算出的設定，老師的瀏覽器會拿來核對、當作下一次修改的基準
+  return { ok: true, savedAt: new Date().toISOString(), updated: cfg.updated, config: cfg, syncError: LAST_SYNC_ERROR };
 }
 
-function saveCustomUnits(units, skipPublish) {
+// 瀏覽器傳來的時間只有在和伺服器差不到 10 分鐘時才採用（避免電腦時鐘不準）
+function pickNow_(fast) {
+  var t = fast && fast.now ? Date.parse(fast.now) : NaN;
+  return !isNaN(t) && Math.abs(t - Date.now()) < 600000 ? new Date(t).toISOString() : new Date().toISOString();
+}
+
+function saveCustomUnits(units, skipPublish, nowIso) {
   assertTeacher_();
   // 建立時間：已存在的單元沿用，新單元（包括刪掉後用同代號重建的）用現在時間。
   // 學生網站會忽略建立時間之前的作答與檢討紀錄，舊紀錄不會讓新單元跳過「先檢討才能複習」。
+  var existing = readCustomUnitsRows_();
   var created = {};
-  readCustomUnitsRows_().forEach(function (u) { created[u.id] = u.createdAt; });
-  var nowIso = new Date().toISOString();
+  existing.forEach(function (u) { created[u.id] = u.createdAt; });
+  nowIso = nowIso || new Date().toISOString();
   var rows = (units || [])
     .filter(function (u) { return /^[a-z0-9-]+$/i.test(String(u.id || '').trim()); })
     .map(function (u) {
@@ -516,7 +525,7 @@ function saveCustomUnits(units, skipPublish) {
   // 學生成績不在這裡刪，留到學期結算時由老師決定。
   var keep = {};
   rows.forEach(function (r) { keep[r[0]] = true; });
-  var removed = readCustomUnitsRows_().map(function (u) { return u.id; }).filter(function (id) { return !keep[id]; });
+  var removed = existing.map(function (u) { return u.id; }).filter(function (id) { return !keep[id]; });
   var sh = sheet_(SHEET_CUSTOM_UNITS, CUSTOM_UNITS_HEADER);
   var last = sh.getLastRow();
   sh.getRange(1, 1, 1, CUSTOM_UNITS_HEADER.length).setValues([CUSTOM_UNITS_HEADER]).setFontWeight('bold');
@@ -604,7 +613,7 @@ function getContent(unitId) {
   return row ? { data: JSON.parse(row.json), updated: row.updated, updatedBy: row.updatedBy } : null;
 }
 
-function saveContent(unitId, data, reset) {
+function saveContent(unitId, data, reset, fast) {
   var email = assertTeacher_();
   unitId = String(unitId || '').trim();
   var type = unitType_(unitId);
@@ -613,48 +622,51 @@ function saveContent(unitId, data, reset) {
   if (err) throw new Error(err);
   var json = JSON.stringify(data);
   if (json.length > MAX_CONTENT_CHARS) throw new Error('內容太長（' + json.length + ' 字元），請分成兩個單元。');
-  var now = new Date().toISOString();
+  var now = pickNow_(fast);
+  var count = countOf_(type, data), topic = String(data.topic || '');
   var lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
     var sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
-    var row = findContentRow_(unitId);
-    var values = [[unitId, json, now, email]];
-    if (row) sh.getRange(row.index, 1, 1, 4).setValues(values);
+    var row = findContentMeta_(unitId);
+    var values = [[unitId, json, now, email, count, topic]];
+    if (row) sh.getRange(row.index, 1, 1, values[0].length).setValues(values);
     else sh.appendRow(values[0]);
   } finally {
     lock.releaseLock();
   }
   clearContentCache_(unitId);
-  if (reset !== false) markReset_(unitId);
-  // 版本號用設定裡的 updated（跟網站比對用的是同一個值）
-  var cfg = publishConfig_();
-  var v = (cfg.content[unitId] || {}).updated || now;
-  publishDoc_('content_' + unitId, JSON.stringify({ v: v, data: data }));
-  return { ok: true, count: countOf_(type, data) };
+  if (reset !== false) markReset_(unitId, now);
+  // 題目和設定一次送出（同一個請求、要嘛全成功要嘛全不寫），學生端讀到新設定時題目一定已經在
+  LAST_SYNC_ERROR = '';
+  var docs = {};
+  docs['content_' + unitId] = JSON.stringify({ v: now, data: data });
+  var cfg = publishConfig_(docs);
+  return { ok: true, count: count, updated: cfg.updated, config: cfg, syncError: LAST_SYNC_ERROR };
 }
 
 // 刪除匯入的內容，網站改回使用內建題目
-function deleteContent(unitId, reset) {
+function deleteContent(unitId, reset, fast) {
   assertTeacher_();
-  var row = findContentRow_(unitId);
+  var row = findContentMeta_(unitId);
   if (row) sheet_(SHEET_CONTENT, CONTENT_HEADER).deleteRow(row.index);
   clearContentCache_(unitId);
-  if (reset !== false) markReset_(unitId);
-  publishConfig_();
-  return { ok: true };
+  if (reset !== false) markReset_(unitId, pickNow_(fast));
+  LAST_SYNC_ERROR = '';
+  var cfg = publishConfig_();
+  return { ok: true, updated: cfg.updated, config: cfg, syncError: LAST_SYNC_ERROR };
 }
 
 // 題目內容更新或刪除時記下重製時間：學生網站會忽略這個時間之前的作答與檢討紀錄
-function markReset_(unitId) {
+function markReset_(unitId, nowIso) {
   var props = PropertiesService.getScriptProperties();
   var map = JSON.parse(props.getProperty('RESET_AT') || '{}');
-  map[unitId] = new Date().toISOString();
+  map[unitId] = nowIso || new Date().toISOString();
   props.setProperty('RESET_AT', JSON.stringify(map));
 }
 
 function purgeUnit_(unitId) {
-  var row = findContentRow_(unitId);
+  var row = findContentMeta_(unitId);
   if (row) sheet_(SHEET_CONTENT, CONTENT_HEADER).deleteRow(row.index);
   clearContentCache_(unitId);
   firestoreRequest_('delete', FIRESTORE_DOCS + encodeURIComponent('content_' + unitId));
@@ -905,32 +917,71 @@ function clearContentCache_(unitId) {
   cache.remove(CONFIG_CACHE_KEY);
 }
 
-function readContentRows_() {
+// 內容分頁的「單元、更新時間、題數、主題」（不讀那一大欄題目內容，比整個讀進來快很多）。
+// 舊資料沒有題數／主題時，這裡一次補齊寫回分頁。
+function readContentMeta_() {
   var sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
   var last = sh.getLastRow();
   if (last < 2) return [];
-  return sh.getRange(2, 1, last - 1, 4).getValues()
-    .map(function (r, i) {
-      var id = String(r[0]).trim();
-      if (!id) return null;
+  var n = last - 1;
+  var ids = sh.getRange(2, 1, n, 1).getValues();
+  var both = sh.getRange(1, 3, last, 4).getValues(); // 第一列是欄名；其餘：更新時間、更新者、題數、主題
+  var meta = both.slice(1);
+  if (String(both[0][2]) !== 'count') sh.getRange(1, 5, 1, 2).setValues([['count', 'topic']]).setFontWeight('bold');
+  var out = [], missing = [];
+  for (var i = 0; i < n; i++) {
+    var id = String(ids[i][0]).trim();
+    if (!id) continue;
+    var cnt = meta[i][2];
+    var r = { index: i + 2, id: id, updated: String(meta[i][0]), updatedBy: String(meta[i][1]), count: Number(cnt) || 0, topic: String(meta[i][3] || '') };
+    if (cnt === '' || isNaN(Number(cnt))) missing.push(r);
+    out.push(r);
+  }
+  if (missing.length) {
+    var types = unitTypes_();
+    missing.forEach(function (r) {
       var data = {};
-      try { data = JSON.parse(r[1]); } catch (err) { return null; }
-      var type = unitType_(id) || (data.words ? 'vocab' : 'reading');
-      return { index: i + 2, id: id, json: String(r[1]), updated: String(r[2]), updatedBy: String(r[3]), count: countOf_(type, data), topic: String(data.topic || '') };
-    })
-    .filter(Boolean);
+      try { data = JSON.parse(sh.getRange(r.index, 2).getValue()); } catch (err) { return; }
+      var type = types[r.id] || (data.words ? 'vocab' : 'reading');
+      r.count = countOf_(type, data);
+      r.topic = String(data.topic || '');
+      sh.getRange(r.index, 5, 1, 2).setValues([[r.count, r.topic]]);
+    });
+  }
+  return out;
 }
 
-function findContentRow_(unitId) {
-  var rows = readContentRows_();
+function findContentMeta_(unitId) {
+  var rows = readContentMeta_();
   for (var i = 0; i < rows.length; i++) if (rows[i].id === unitId) return rows[i];
   return null;
 }
 
+// 含題目內容的完整資料（只有真的需要內容時才讀）
+function readContentRows_() {
+  var sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
+  return readContentMeta_().map(function (m) {
+    var json = String(sh.getRange(m.index, 2).getValue());
+    return { index: m.index, id: m.id, json: json, updated: m.updated, updatedBy: m.updatedBy, count: m.count, topic: m.topic };
+  });
+}
+
+function findContentRow_(unitId) {
+  var m = findContentMeta_(unitId);
+  if (!m) return null;
+  m.json = String(sheet_(SHEET_CONTENT, CONTENT_HEADER).getRange(m.index, 2).getValue());
+  return m;
+}
+
+// 所有單元的類型 { 代號: 'vocab' | 'reading' }，一次讀好
+function unitTypes_() {
+  var map = {};
+  readSettingsRows_().concat(readCustomUnitsRows_()).forEach(function (u) { map[u.id] = u.type; });
+  return map;
+}
+
 function unitType_(unitId) {
-  var rows = readSettingsRows_().concat(readCustomUnitsRows_());
-  for (var i = 0; i < rows.length; i++) if (rows[i].id === unitId) return rows[i].type;
-  return '';
+  return unitTypes_()[unitId] || '';
 }
 
 function countOf_(type, data) {
@@ -1356,38 +1407,56 @@ function copiedParts_(qs, pw) {
 /* ------------------------------------------------------------------ */
 
 function publishDoc_(docId, json) {
+  var docs = {};
+  docs[docId] = json;
+  publishDocs_(docs);
+}
+
+// 一次把幾份文件寫進 Firestore 的 public 集合（單一請求、不可分割）：{ 文件代號: JSON 字串 }
+function publishDocs_(docs) {
+  var ids = Object.keys(docs);
+  if (!ids.length) return;
   try {
-    var res = UrlFetchApp.fetch(FIRESTORE_DOCS + encodeURIComponent(docId), {
-      method: 'patch',
+    var res = UrlFetchApp.fetch(FIRESTORE_ROOT + ':commit', {
+      method: 'post',
       contentType: 'application/json',
       headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
-      payload: JSON.stringify({ fields: { json: { stringValue: json } } }),
+      payload: JSON.stringify({
+        writes: ids.map(function (id) {
+          return { update: { name: 'projects/eng-3385e/databases/(default)/documents/public/' + id, fields: { json: { stringValue: docs[id] } } } };
+        }),
+      }),
       muteHttpExceptions: true,
     });
     if (res.getResponseCode() >= 300) {
       LAST_SYNC_ERROR = 'HTTP ' + res.getResponseCode() + '：' + res.getContentText().slice(0, 200);
-      Logger.log('Firestore 同步失敗 ' + docId + '：' + res.getContentText());
+      Logger.log('Firestore 同步失敗 ' + ids.join(',') + '：' + res.getContentText());
     }
   } catch (e) {
     LAST_SYNC_ERROR = String(e);
-    Logger.log('Firestore 同步失敗 ' + docId + '：' + e);
+    Logger.log('Firestore 同步失敗 ' + ids.join(',') + '：' + e);
   }
 }
 var LAST_SYNC_ERROR = '';
 
-function publishConfig_() {
+// 重新計算設定並同步到 Firestore；extraDocs（例如剛存好的題目）跟設定放在同一個請求裡一起寫
+function publishConfig_(extraDocs) {
   CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
   var cfg = readConfigCached_();
-  publishDoc_('config', JSON.stringify(cfg));
+  var docs = extraDocs || {};
+  docs.config = JSON.stringify(cfg);
+  publishDocs_(docs);
   return cfg;
 }
 
 // 手動全部同步一次（第一次設定、或 Firestore 資料不見時）：在編輯器選這個函式按「執行」
 function syncToFirestore() {
   publishConfig_();
+  var docs = {};
   readContentRows_().forEach(function (r) {
-    publishDoc_('content_' + r.id, JSON.stringify({ v: r.updated, data: JSON.parse(r.json) }));
+    docs['content_' + r.id] = JSON.stringify({ v: r.updated, data: JSON.parse(r.json) });
   });
+  publishDocs_(docs);
 }
 
 function readConfigCached_() {
@@ -1421,7 +1490,7 @@ function readConfigCached_() {
   });
   // 老師匯入過的單元：網站會改讀試算表裡的內容
   cfg.content = {};
-  readContentRows_().forEach(function (r) {
+  readContentMeta_().forEach(function (r) {
     cfg.content[r.id] = { updated: r.updated, count: r.count, topic: r.topic };
   });
   cache.put(CONFIG_CACHE_KEY, JSON.stringify(cfg), 60);

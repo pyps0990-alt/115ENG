@@ -5,13 +5,18 @@ import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
 import { renderStudentChip, mountInlineForm } from './student.js';
 import { LEVELS, PASS } from './levels.js';
-import * as vocab from './modes/vocab.js';
-import * as reading from './modes/reading.js';
 import { initNav, updateNav } from './nav.js';
 import { flushOutbox, pendingItems, clearOutbox } from './submit.js';
 import { SCRIPT_URL } from './config.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
+
+// 測驗畫面的程式（單字、課文）要打開單元才用得到：首頁不載入，閒置時先在背景抓好
+const modes = {
+  vocab: () => import('./modes/vocab.js'),
+  reading: () => import('./modes/reading.js'),
+};
+const idle = (fn) => (window.requestIdleCallback || ((f) => setTimeout(f, 800)))(fn, { timeout: 3000 });
 
 const app = document.getElementById('app');
 let index = null;
@@ -21,18 +26,10 @@ let cleanup = null;
 /* ---------------- routing ---------------- */
 const findUnit = (id) => index.units.find((u) => u.id === id || (u.aliases || []).includes(id));
 
-// 換頁動畫：只有網址真的換了才播（同一頁因資料更新重畫時不閃）
+// 換頁動畫：新頁面立刻畫出來，只做很短的淡入（只有網址真的換了才播，同一頁因資料更新重畫時不閃）
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let lastRendered = null;
-const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
-async function pageOut(changed) {
-  if (!changed || lastRendered === null || reduceMotion.matches) return;
-  app.classList.remove('page-in');
-  app.classList.add('page-out');
-  await new Promise((r) => setTimeout(r, 140));
-}
 function pageIn(changed) {
-  app.classList.remove('page-out');
   if (!changed || reduceMotion.matches) return;
   app.classList.remove('page-in');
   void app.offsetWidth; // 重新觸發動畫
@@ -43,7 +40,6 @@ app.addEventListener('animationend', (e) => { if (e.target === app) app.classLis
 async function route() {
   const here = location.hash || '#/';
   const changed = here !== lastRendered;
-  await pageOut(changed);
   lastRendered = here;
   if (cleanup) { try { cleanup(); } catch { /* ignore */ } cleanup = null; }
   delete document.body.dataset.busy;
@@ -71,7 +67,6 @@ async function route() {
     console.error(err);
     app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><p>載入失敗：${esc(err.message)}</p><a class="btn" href="#/">回首頁</a></div>`;
   }
-  await nextFrame();
   pageIn(changed);
 }
 
@@ -190,13 +185,13 @@ async function renderUnit(id, sub) {
   if (meta.id !== id) { location.replace(`#/u/${meta.id}${sub ? `/${sub}` : ''}`); return; }
 
   app.innerHTML = '<div class="loading"><span class="spinner"></span>載入中…</div>';
-  const data = await loadUnit(meta.id, config);
+  const [data, mod] = await Promise.all([loadUnit(meta.id, config), modes[meta.type === 'reading' ? 'reading' : 'vocab']()]);
 
   if (meta.type === 'reading') {
     if (!modeOn(config, meta.id, 'reading')) { locked(); return; }
     document.title = `${meta.title} — B5 Practice`;
     app.innerHTML = `${headHTML(meta, data)}<section id="stage"></section>`;
-    cleanup = reading.mount(app.querySelector('#stage'), { unit: meta, data, config }) || null;
+    cleanup = mod.mount(app.querySelector('#stage'), { unit: meta, data, config }) || null;
     return;
   }
 
@@ -206,7 +201,7 @@ async function renderUnit(id, sub) {
   if (sub) { location.replace(`#/u/${meta.id}`); return; }
   document.title = `${meta.title} — B5 Practice`;
   app.innerHTML = `<div class="focus">${headHTML(meta, data)}<section id="stage"></section></div>`;
-  cleanup = vocab.mount(app.querySelector('#stage'), {
+  cleanup = mod.mount(app.querySelector('#stage'), {
     unit: meta, data, allWords: data.words || [], config, levels,
     questionCount: questionCount(config, meta.id),
   }) || null;
@@ -300,6 +295,7 @@ function renderTeacher() {
   firebase().then((fb) => {
     if (left) return;
     const { watchStaff, staffSignIn, staffSignOut } = fb;
+    fb.authKit(); // 事先載入好登入元件，按下登入按鈕時瀏覽器才不會擋掉彈出視窗
     unsub = watchStaff((staff) => {
     if (!staff) {
       app.innerHTML = `<section class="card teacher">
@@ -353,7 +349,7 @@ function animateHome() {
   };
   if (!leaving.length || reduce) { redraw(); return; }
   leaving.forEach((t) => t.classList.add('tile-out'));
-  setTimeout(redraw, 380);
+  setTimeout(redraw, 240);
 }
 
 /* ---------------- 右下角通知 ---------------- */
@@ -419,6 +415,7 @@ async function boot() {
     animateHome();
   });
   watchConfig(config);
+  idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); });
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();
   window.addEventListener('online', () => flushOutbox());

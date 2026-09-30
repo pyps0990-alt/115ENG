@@ -28,9 +28,17 @@ function writeCache(c) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch { /* ignore */ }
 }
 
-// 老師儲存時 Apps Script 會同步一份到 Firestore：直接讀它，約 0.2 秒（Apps Script 要 2～5 秒）
+// 老師儲存時會同步一份到 Firestore：直接讀它，約 0.2 秒（Apps Script 要 2～5 秒）
+// index.html 在載入程式的同時就先發出設定的請求（window.__early），這裡直接接手，省下等程式載完的時間
 export async function firestoreDoc(id, ms = 4000) {
-  const r = await fetchTimeout(`${FIRESTORE}${encodeURIComponent(id)}`, ms);
+  let r = null;
+  if (id === 'config' && window.__early && window.__early.config) {
+    const early = window.__early.config;
+    window.__early.config = null; // 只用一次，之後（重新檢查）都要拿最新的
+    r = await early.catch(() => null);
+    if (r && !r.ok) r = null;
+  }
+  if (!r) r = await fetchTimeout(`${FIRESTORE}${encodeURIComponent(id)}`, ms);
   if (!r.ok) throw new Error(String(r.status));
   const j = await r.json();
   return JSON.parse(j.fields.json.stringValue);
@@ -61,8 +69,12 @@ async function fetchDefault() {
   }
 }
 
-// 設定內容是否不同（忽略每次都會變的 updated 時間）
-const sameConfig = (a, b) => JSON.stringify({ ...a, updated: 0, source: 0 }) === JSON.stringify({ ...b, updated: 0, source: 0 });
+// 設定內容是否不同（忽略每次都會變的 updated 時間，也不管欄位順序：老師的瀏覽器和 Apps Script 先後寫入的同一份設定不會讓畫面重畫兩次）
+const stable = (v) => (v && typeof v === 'object'
+  ? Array.isArray(v) ? `[${v.map(stable).join(',')}]`
+    : `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stable(v[k])}`).join(',')}}`
+  : JSON.stringify(v));
+const sameConfig = (a, b) => stable({ ...a, updated: 0, source: 0 }) === stable({ ...b, updated: 0, source: 0 });
 
 export async function getConfig() {
   if (!SCRIPT_URL) return fetchDefault();
@@ -97,7 +109,7 @@ export function watchConfig(current) {
     writeCache(next);
     if (!sameConfig(next, cur)) window.dispatchEvent(new CustomEvent('config-updated', { detail: next }));
   })).catch(() => { /* 沒有即時同步也能用：回到前景時仍會檢查 */ });
-  if (SCRIPT_URL) (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(live);
+  if (SCRIPT_URL) (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(live, { timeout: 1500 });
   document.addEventListener('visibilitychange', check);
   window.addEventListener('pageshow', (e) => { if (e.persisted) check(); });
   window.addEventListener('focus', check);

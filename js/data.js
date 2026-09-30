@@ -14,7 +14,18 @@ async function getJSON(url) {
 import { SCRIPT_URL } from './config.js';
 import { firestoreDoc } from './remote-config.js';
 
-export const loadIndex = () => getJSON('data/lessons/index.json');
+// 單元清單幾乎不會變（單元都是老師在後台新增的）：index.html 已經先發出請求，這裡直接接手
+export const loadIndex = () => {
+  const early = window.__early && window.__early.index;
+  if (early) {
+    window.__early.index = null;
+    const p = early.then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); });
+    p.catch(() => {});
+    cache.set('data/lessons/index.json', p);
+    return p.catch(() => { cache.delete('data/lessons/index.json'); return getJSON('data/lessons/index.json'); });
+  }
+  return getJSON('data/lessons/index.json');
+};
 
 // 老師在後台匯入過的單元，改讀試算表裡的內容；讀不到時退回網站內建的 JSON。
 // 匯入內容依「更新時間」存在裝置上：老師沒改過就不用再等 Apps Script，改過會自動抓新版。
