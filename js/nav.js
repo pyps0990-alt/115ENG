@@ -1,7 +1,6 @@
 // 導覽列的「選擇單元」下拉選單：任何頁面都能直接跳到各課的單字片語或課文理解
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
-import { store } from './storage.js';
 
 const root = document.getElementById('nav-menu');
 const btn = document.getElementById('unit-menu-btn');
@@ -12,20 +11,8 @@ const kindLabel = (u) => (u.type === 'vocab' ? '單字片語' : '課文理解');
 const isOpen = () => panel.classList.contains('open');
 const items = () => [...panel.querySelectorAll('[role="menuitem"]')];
 
-// 每個單元目前的狀態（每次打開選單都重新讀，測驗、檢討完馬上反映）
-function statusHTML(u) {
-  if (!store.done(u.id)) return '<span class="menu-st">未測驗</span>';
-  if (!store.reviewed(u.id)) return `<span class="menu-st todo">${icon.bulb}待檢討</span>`;
-  const b = store.best(u.id)[u.type === 'vocab' ? 'vocab' : 'reading'];
-  return `<span class="menu-st ok">${icon.check}${b != null ? `${b}%` : '已完成'}</span>`;
-}
-export function refreshNavStatus() {
-  panel.querySelectorAll('.menu-item[data-id]').forEach((a) => {
-    const u = units.find((x) => x.id === a.dataset.id);
-    const slot = a.querySelector('.menu-st-slot');
-    if (u && slot) slot.innerHTML = statusHTML(u);
-  });
-}
+// 單元的完成狀態、最佳成績、缺交統一放在「我的成績與缺交」頁，這個選單只負責跳到各單元
+export function refreshNavStatus() {}
 
 function open() {
   refreshNavStatus();
@@ -51,7 +38,7 @@ export function initNav(visibleUnits) {
       <div class="menu-head"><span class="menu-lnum">L${n}</span>Lesson ${n}</div>
       ${units.filter((u) => u.lesson === n).map((u) => `<a class="menu-item" role="menuitem" href="#/u/${esc(u.id)}" data-id="${esc(u.id)}">
         <span class="menu-ic">${u.type === 'vocab' ? icon.cards : icon.book}</span>
-        <span class="menu-txt"><b>${kindLabel(u)}</b><span class="en">${esc(u.topic || '')}</span></span><span class="menu-st-slot">${statusHTML(u)}</span></a>`).join('')}
+        <span class="menu-txt"><b>${kindLabel(u)}</b><span class="en">${esc(u.topic || '')}</span></span></a>`).join('')}
     </div>`).join('')}`;
   root.hidden = !units.length;
 }
