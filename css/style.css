@@ -218,11 +218,11 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .welcome h2 { font-size: 1.2rem; }
 
 /* 課次：寬螢幕兩課並排，窄螢幕一課一列 */
-#lessons { display: grid; gap: 0 28px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); align-items: start; }
+#lessons { display: block; }
 .lesson { margin-top: 32px; min-width: 0; }
 .lesson-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-family: var(--font-en); font-weight: 900; font-size: 1.3rem; }
 .lnum { display: grid; place-items: center; min-width: 44px; height: 44px; padding: 0 8px; border-radius: 12px; background: var(--navy); color: var(--white); font-size: 1rem; }
-.unit-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.unit-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); grid-auto-rows: 1fr; } /* auto-fill：只有一個單元的課次，卡片也維持同樣寬度；auto-rows：同一排卡片一樣高 */
 
 .unit-tile {
   display: grid; gap: 8px; align-content: start; padding: 18px; border-radius: var(--radius);
@@ -230,10 +230,10 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
   transition: transform .2s var(--ease), border-color .2s, background .2s;
 }
 .unit-tile:hover { transform: translateY(-2px); border-color: var(--navy); background: var(--white); }
-.tile-top { display: flex; align-items: center; gap: 10px; }
+.tile-top { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
 .tile-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: var(--white); color: var(--navy); border: 1px solid var(--line); }
 .t-reading .tile-icon { background: var(--navy); color: var(--white); border-color: var(--navy); }
-.tile-kind { font-weight: 700; font-size: .88rem; color: var(--navy); }
+.tile-kind { font-weight: 700; font-size: .88rem; color: var(--navy); white-space: nowrap; }
 .tile-top .badge { margin-left: auto; }
 .unit-tile h3 { font-weight: 800; font-size: 1.2rem; }
 .tile-meta { font-size: .86rem; }
@@ -815,3 +815,7 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .hp-sub .go { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--navy); }
 .hp-sub .go .ic { width: 14px; height: 14px; }
 .empty h2 { margin: 0; color: var(--navy); }
+
+.unit-tile { min-height: 212px; } /* 所有課次的卡片高度一致：標題最多兩行、說明最多兩行，內容不會撐高 */
+.unit-tile h3 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.unit-tile .tile-meta { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
