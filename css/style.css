@@ -7,7 +7,7 @@
   --white: #FFFFFF;
   --wash: #F4F6F9;
   --navy: #1E3A8A;
-  --steel: #64748B;
+  --steel: #586880; /* 深一點：在淺灰底上的小字對比度也超過 4.5:1 */
   --amber: #F59E0B;
 
   --bg: var(--white);
@@ -29,8 +29,9 @@
 
   --shadow: 0 2px 6px rgba(30, 58, 138, .06), 0 10px 28px rgba(30, 58, 138, .08);
   --radius: 18px;
-  --font-en: "Nunito", "Noto Sans TC", system-ui, sans-serif;
-  --font: "Noto Sans TC", "Nunito", system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --font-en: "Nunito", system-ui, -apple-system, "PingFang TC", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
+  /* 中文直接用裝置內建字型（蘋果 PingFang、安卓 Noto Sans CJK、Windows 微軟正黑體），不下載中文網頁字型：省下上百 KB 的字型設定與檔案 */
+  --font: "Nunito", system-ui, -apple-system, "PingFang TC", "Noto Sans CJK TC", "Noto Sans TC", "Microsoft JhengHei", "Heiti TC", sans-serif;
   --ease: cubic-bezier(.2, .8, .2, 1);
   --spring: cubic-bezier(.34, 1.56, .64, 1);
   color-scheme: light;
@@ -601,7 +602,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 /* 開放時段標籤 */
 .badge.time { gap: 4px; border: 1px solid var(--line); background: var(--wash); color: var(--navy); }
 .badge.time .ic { width: 12px; height: 12px; }
-.badge.time.off { color: var(--bad); border-color: var(--bad-soft); background: var(--bad-soft); }
+.badge.time.off { color: var(--bad-ink); border-color: var(--bad-soft); background: var(--bad-soft); }
 
 
 

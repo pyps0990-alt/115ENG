@@ -90,6 +90,7 @@ async function routes(ctx, world) {
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
     const m = /\/documents\/public\/([^/?]+)$/.exec(url);
     if (req.method() === 'GET' && m) {
+      if (world.firestoreDelay) await new Promise((r) => setTimeout(r, world.firestoreDelay));
       const json = world.docs[m[1]];
       if (json === undefined) return route.fulfill({ status: 404, headers: cors, contentType: 'application/json', body: '{"error":{"status":"NOT_FOUND"}}' });
       return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ fields: { json: { stringValue: json } } }) });

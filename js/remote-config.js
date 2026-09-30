@@ -109,7 +109,9 @@ export function watchConfig(current) {
     writeCache(next);
     if (!sameConfig(next, cur)) window.dispatchEvent(new CustomEvent('config-updated', { detail: next }));
   })).catch(() => { /* 沒有即時同步也能用：回到前景時仍會檢查 */ });
-  if (SCRIPT_URL) (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(live, { timeout: 1500 });
+  // 即時監聽用的 Firebase 程式庫不小：等頁面載完才開始下載，不跟首頁畫面搶頻寬
+  const startLive = () => (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(live, { timeout: 2500 });
+  if (SCRIPT_URL) { if (document.readyState === 'complete') setTimeout(startLive, 300); else window.addEventListener('load', () => setTimeout(startLive, 300), { once: true }); }
   document.addEventListener('visibilitychange', check);
   window.addEventListener('pageshow', (e) => { if (e.persisted) check(); });
   window.addEventListener('focus', check);

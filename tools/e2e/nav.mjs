@@ -12,6 +12,22 @@ const step = async (name, fn) => { try { await fn(); console.log('✓', name); r
 
 const ctx = await world.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
+// ---------- 首次來訪：設定很慢也要先看到登入表單 ----------
+await step('首次來訪：老師的設定 4 秒才回來，登入表單仍在 2 秒內出現，設定到了再更新', async () => {
+  world.firestoreDelay = 4000;
+  const c0 = await world.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const p0 = await world.newPage(c0);
+  const t0 = Date.now();
+  await p0.goto(world.base + '/');
+  await p0.waitForSelector('.welcome', { timeout: 8000 });
+  const ms = Date.now() - t0;
+  world.firestoreDelay = 0;
+  console.log('   登入表單出現：', ms, 'ms');
+  assert.ok(ms < 2500, `等太久：${ms}ms`);
+  assert.equal(await p0.evaluate(() => document.getElementById('app').className.includes('page-in')), false, '第一次畫面不做進場動畫');
+  await p0.close();
+});
+
 // ---------- 登入回饋 ----------
 await step('登入：按鈕依序顯示「確認中 → 已確認」，成功後才換頁；沒有紅字', async () => {
   const c1 = await world.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });

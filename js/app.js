@@ -32,17 +32,18 @@ const findUnit = (id) => index.units.find((u) => u.id === id || (u.aliases || []
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let lastRendered = null;
 let lastDepth = 0;
-function pageIn(changed) {
-  if (!changed || reduceMotion.matches) return;
+function pageIn(changed, first) {
+  // 第一次畫面不做進場動畫：從透明開始會讓「最大內容繪製」延後；也不用強制重排，改在下一格重新加上動畫
+  if (!changed || first || reduceMotion.matches) return;
   app.classList.remove('page-in');
-  void app.offsetWidth; // 重新觸發動畫
-  app.classList.add('page-in');
+  requestAnimationFrame(() => app.classList.add('page-in'));
 }
 app.addEventListener('animationend', (e) => { if (e.target === app) app.classList.remove('page-in'); });
 
 async function route() {
   const here = location.hash || '#/';
   const changed = here !== lastRendered;
+  const first = lastRendered === null;
   lastRendered = here;
   // 回到上一層（單元 → 首頁）和進到下一層的進場方向相反，前進／後退有空間感（只做垂直位移，不左右移動）
   const depth = here === '#/' || here === '#' ? 0 : 1;
@@ -76,7 +77,7 @@ async function route() {
     console.error(err);
     app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><p>載入失敗：${esc(err.message)}</p><a class="btn" href="#/">回首頁</a></div>`;
   }
-  pageIn(changed);
+  pageIn(changed, first);
 }
 
 const openLevels = (u) => LEVELS.filter((l) => modeOn(config, u.id, l.id));
@@ -446,7 +447,16 @@ async function boot() {
     store.setSince(since);
   };
   try {
-    [base, config] = await Promise.all([loadIndex(), getConfig()]);
+    // 還沒登入的人只看得到登入表單，不需要老師的設定：不等它（第一次來訪、沒有暫存時可能要等 1～2 秒），先把畫面畫出來，
+    // 設定到了再用 config-updated 更新。登入過的人照舊先取得設定，才知道要顯示哪些單元。
+    base = await loadIndex();
+    const cfgP = getConfig();
+    if (store.student()) {
+      config = await cfgP;
+    } else {
+      config = await Promise.race([cfgP, Promise.resolve(null)]) || { units: {}, source: 'pending' };
+      if (config.source === 'pending') cfgP.then((c) => window.dispatchEvent(new CustomEvent('config-updated', { detail: c }))).catch(() => {});
+    }
     build();
   } catch (err) {
     app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><p>無法載入課程資料（${esc(err.message)}）。<br>請用網頁伺服器開啟，不能直接雙擊 index.html。</p></div>`;
@@ -472,7 +482,9 @@ async function boot() {
     animateHome();
   });
   watchConfig(config);
-  idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); });
+  // 等頁面載完、畫面穩定之後才在背景預先下載測驗畫面的程式（不跟首頁搶頻寬）
+  const afterLoad = (fn) => (document.readyState === 'complete' ? setTimeout(fn, 600) : window.addEventListener('load', () => setTimeout(fn, 600), { once: true }));
+  afterLoad(() => idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); }));
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();
   window.addEventListener('online', () => flushOutbox());
@@ -483,7 +495,7 @@ async function boot() {
     const gap = parseFloat(getComputedStyle(brandEl.parentElement).columnGap) || 12;
     document.documentElement.style.setProperty('--brand-shift', `${Math.round(brandEl.offsetWidth - 8 + gap)}px`);
   };
-  measureBrand();
+  requestAnimationFrame(measureBrand); // 畫面畫完再量，避免載入時強制重排
   window.addEventListener('resize', measureBrand, { passive: true });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(measureBrand).catch(() => {});
   let scrolled = false;
