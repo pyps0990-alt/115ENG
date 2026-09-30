@@ -126,6 +126,8 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   send({ attemptId: 'a2', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 2, total: 2, pct: 100, durationSec: 30,
     details: [{ n: 1, correct: 'A. Leaves', yours: 'A. Leaves', ok: true, points: 1 }, { n: 2, correct: 'B. b', yours: 'A. a', ok: true, points: 1 }] });
   assert.match(lastCheck(), /不符/);
+  assert.match(lastCheck(), /重算/);
+  { const sh = g2.sheets.get('scores'); const r = sh.rows[sh.getLastRow() - 1]; assert.equal(r[8], 1, '課文分數要被伺服器改回 1'); assert.equal(r[10], 50); }
   // 作答時間過短
   send({ attemptId: 'a3', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 1, total: 2, pct: 50, durationSec: 1,
     details: [{ n: 1, correct: 'A. Leaves', yours: 'A. Leaves', ok: true, points: 1 }, { n: 2, correct: 'B. b', yours: 'A. a', ok: false, points: 0 }] });
@@ -156,5 +158,11 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   assert.equal(dup.duplicate, true, '很久以前送過的成績要能認出是重複');
   assert.equal(sh.getLastRow(), before);
   assert.equal(g2.get({ action: 'check', id: 'old3' }).seen, true);
+  // 限頻：同一位學生同一單元 10 分鐘內第 9 筆開始回「忙碌」（學生端會稍後重試，不會丟掉）
+  for (let i = 0; i < 12; i++) send({ seat: '9', name: '甲', attemptId: 'rl' + i, unit: 'r1', unitTitle: 'R', mode: 'reading', score: 0, total: 2, pct: 0, durationSec: 30, details: [] });
+  const limited = send({ seat: '9', name: '甲', attemptId: 'rl-x', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 0, total: 2, pct: 0, durationSec: 30, details: [] });
+  assert.equal(limited.busy, true);
+  const other = send({ seat: '10', name: '乙', attemptId: 'rl-y', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 0, total: 2, pct: 0, durationSec: 30, details: [] });
+  assert.equal(other.ok, true, '其他學生不受影響');
   console.log('成績核對與去重測試通過');
 }

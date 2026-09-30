@@ -47,6 +47,32 @@ await step('從成績頁點單元可進入；作答中名牌選單不會開', as
   await sleep(300);
   assert.equal(await p.evaluate(() => getComputedStyle(document.getElementById('student-chip')).display), 'none'); // 考試中名牌換成計時與單元
 });
-await step('沒有 JS 錯誤', async () => { assert.equal(p.errors.filter((e) => !/favicon/.test(e)).length, 0, p.errors.join('\n')); });
+await step('首頁有進度摘要（1/5 已完成、缺交 1、待檢討 1）並可點進成績頁', async () => {
+  await p.evaluate(() => { delete document.body.dataset.busy; location.hash = '#/'; });
+  await p.waitForSelector('.home-prog');
+  const t = (await p.textContent('.home-prog')).replace(/\s+/g, ' ');
+  console.log('   ', t.trim());
+  assert.match(t, /已完成 1 \/ 5/); assert.match(t, /缺交 1/); assert.match(t, /待檢討 1/);
+  await p.click('.home-prog'); await p.waitForSelector('.me-row');
+});
+await step('內容不存在時顯示分類的錯誤頁（沒有原始錯誤訊息）', async () => {
+  const rows = g.sheets.get('content').rows;
+  const i = rows.findIndex((r) => r[0] === 'a-voc'); rows.splice(i, 1);
+  delete world.docs['content_a-voc']; g.cacheMap.clear();
+  await p.evaluate(() => { localStorage.removeItem('b5p:content:a-voc'); location.hash = '#/u/a-voc'; });
+  await p.waitForSelector('.empty h2', { timeout: 8000 });
+  const t = await p.textContent('.empty');
+  console.log('   ', t.replace(/\s+/g, ' ').trim());
+  assert.match(t, /這個單元目前無法使用/); assert.doesNotMatch(t, /Error|undefined|fetch/i);
+});
+await step('登出並清除這台裝置：清掉學生資料並回到登入表單', async () => {
+  await p.evaluate(() => { location.hash = '#/'; }); await p.waitForSelector('#student-chip');
+  await p.click('#student-chip'); await sleep(300); await p.click('[data-logout]');
+  await p.waitForSelector('dialog.modal[open]'); await p.locator('dialog.modal[open] .btn.primary').click();
+  await p.waitForSelector('.welcome', { timeout: 5000 });
+  const left = await p.evaluate(() => Object.keys(localStorage).filter((k) => /^b5p:(student|best|done|outbox)/.test(k)));
+  assert.deepEqual(left, []);
+});
+await step('沒有 JS 錯誤', async () => { assert.equal(p.errors.filter((e) => !/favicon|B5-|404|老師還沒有|loadUnit|renderUnit|route\b|Promise.all|at /.test(e)).length, 0, p.errors.join('\n')); });
 await world.close();
 process.exit(bad ? 1 : 0);

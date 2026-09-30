@@ -30,6 +30,31 @@
             "value": "no-cache"
           }
         ]
+      },
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+          },
+          {
+            "key": "Content-Security-Policy",
+            "value": "frame-ancestors 'self' https://sites.google.com"
+          },
+          {
+            "key": "Content-Security-Policy-Report-Only",
+            "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.googleapis.com https://script.google.com https://script.googleusercontent.com https://www.gstatic.com https://eng-3385e.firebaseapp.com; frame-src https://accounts.google.com https://eng-3385e.firebaseapp.com https://*.firebaseapp.com; base-uri 'self'; object-src 'none'; form-action 'self'"
+          }
+        ]
       }
     ],
     "rewrites": [

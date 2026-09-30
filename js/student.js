@@ -1,5 +1,5 @@
 import { store } from './storage.js';
-import { esc, el } from './util.js';
+import { esc, el, confirmDialog } from './util.js';
 import { icon } from './icons.js';
 
 export const studentLabel = (s) => (s ? `${s.cls} 班 ${s.seat} 號 ${s.name}` : '');
@@ -155,12 +155,27 @@ function openChipPanel(s) {
   const chip = document.getElementById('student-chip');
   panel.innerHTML = `<div class="chip-id"><b>${esc(maskName(s.name))}</b><span>${esc(s.cls)} 班 ${esc(s.seat)} 號</span></div>
     <a class="menu-item" role="menuitem" href="#/me"><span class="menu-ic">${icon.trophy}</span><span class="menu-txt"><b>我的成績與缺交</b><span class="en">各單元的完成狀況</span></span></a>
-    <button class="menu-item" role="menuitem" type="button" data-switch><span class="menu-ic">${icon.user}</span><span class="menu-txt"><b>切換學生</b><span class="en">換成別人的身分</span></span></button>`;
+    <button class="menu-item" role="menuitem" type="button" data-switch><span class="menu-ic">${icon.user}</span><span class="menu-txt"><b>切換學生</b><span class="en">換成別人的身分</span></span></button>
+    <button class="menu-item" role="menuitem" type="button" data-logout><span class="menu-ic">${icon.x}</span><span class="menu-txt"><b>登出並清除這台裝置</b><span class="en">用別人的手機或共用電腦時</span></span></button>`;
   panel.querySelector('[data-switch]').onclick = () => {
     closeChipPanel();
     openStudentDialog(() => window.dispatchEvent(new Event('student-changed')));
   };
   panel.querySelector('a').onclick = () => closeChipPanel();
+  panel.querySelector('[data-logout]').onclick = async () => {
+    closeChipPanel();
+    const { pendingCount } = await import('./submit.js');
+    const n = pendingCount();
+    const ok = await confirmDialog({
+      title: '登出並清除這台裝置的資料？',
+      body: `會清除這台裝置上的姓名、座號和作答紀錄，老師那邊的成績不受影響。下次登入會從老師的紀錄讀回來。${n ? `<br><b>還有 ${n} 筆成績還沒送出，清除後這幾筆會遺失。</b>請先連上網路等它送出。` : ''}`,
+      ok: '登出並清除', cancel: '取消',
+    });
+    if (!ok) return;
+    store.clearAll();
+    window.dispatchEvent(new Event('student-changed'));
+    location.hash = '#/';
+  };
   panel.classList.add('open');
   chip.setAttribute('aria-expanded', 'true');
 }

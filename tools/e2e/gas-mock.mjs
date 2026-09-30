@@ -40,6 +40,10 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
       }
       return this;
     }
+    createTextFinder(t) {
+      const vals = this.getValues().flat();
+      return { matchEntireCell() { return this; }, findNext: () => (vals.some((v) => String(v) === t) ? {} : null) };
+    }
     setNumberFormat() { return this; }
     setFontWeight() { return this; }
   }

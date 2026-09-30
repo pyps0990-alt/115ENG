@@ -100,6 +100,7 @@ export function mount(stage, ctx) {
           ${official ? (review ? '<span class="level-chip">複習</span>' : '') : '<span class="level-chip">錯題練習</span>'}
           <div class="bar"><span></span></div>
           <span class="quiz-stat" data-n></span>
+          <span class="quiz-all" data-all title="全部題數"></span>
           <span class="quiz-stat streak" data-streak title="連續答對">${icon.flame}<b>0</b></span>
         </div>
         <div data-q></div>
@@ -117,8 +118,11 @@ export function mount(stage, ctx) {
         li.querySelector('.step-dot').innerHTML = s.finished ? icon.check : String(i + 1);
         li.querySelector('.step-score').textContent = s.finished ? `${fmt(s.points)}/${s.qs.length}` : '';
       });
-      stage.querySelector('.bar > span').style.width = `${(done / total) * 100}%`;
-      stage.querySelector('[data-n]').textContent = `${Math.min(done + 1, total)} / ${total}`;
+      // 進度條與「第幾題」以目前這一段為準（每段從頭開始，比較知道這段還剩多少）；全部題數放在旁邊小字
+      const cur = stages[Math.min(si, stages.length - 1)];
+      stage.querySelector('.bar > span').style.width = `${(Math.min(qi, cur.qs.length) / cur.qs.length) * 100}%`;
+      stage.querySelector('[data-n]').textContent = `第 ${Math.min(qi + 1, cur.qs.length)} / ${cur.qs.length} 題`;
+      stage.querySelector('[data-all]').textContent = `全部 ${Math.min(done + 1, total)}/${total}`;
     };
 
     function show() {

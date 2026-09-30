@@ -68,7 +68,9 @@ let retryDelay = 20000;
 function scheduleRetry() {
   clearTimeout(retryTimer);
   if (!readBox().length) { retryDelay = 20000; return; }
-  retryTimer = setTimeout(() => { flushOutbox(); }, retryDelay);
+  // 加上隨機的偏移：全班同時交卷、伺服器忙的時候，大家不會在同一秒一起重送而再次塞車
+  const wait = retryDelay * (0.6 + Math.random() * 0.8);
+  retryTimer = setTimeout(() => { flushOutbox(); }, wait);
   retryDelay = Math.min(retryDelay * 2, 120000);
 }
 

@@ -136,13 +136,18 @@ function doPost(e) {
   try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { body = {}; }
   if (body.api === 'ping') return json_({ ok: true, version: API_VERSION, via: 'POST' }); // 連線測試頁用
   if (body.api) return handleApi_(body);
+  var d = body;
+  if (!d.name || !d.cls || !d.unit) return json_({ ok: false, error: 'missing fields' });
+  var attemptId = String(d.attemptId || '').slice(0, 64);
+  // 限頻：同一位學生、同一單元 10 分鐘內最多 8 筆（正常使用遠低於這個數字）。超過就回「忙碌」，學生端會稍後重試，不會丟掉
+  if (!allowSubmit_(d)) return json_({ ok: false, busy: true, error: 'rate' });
+  // 需要時間的核對與整理，放在鎖的外面做：全班同時交卷時，每一筆佔用鎖的時間越短，排隊越快
+  var check = checkAttempt_(d);
+  var details = Array.isArray(d.details) ? d.details.slice(0, 120) : [];
   // 同一時間只讓一筆成績寫入試算表；排隊最多等 30 秒，等不到就回「忙碌」，學生端會留在排隊清單稍後重送
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return json_({ ok: false, busy: true, error: 'busy' });
   try {
-    var d = body;
-    if (!d.name || !d.cls || !d.unit) return json_({ ok: false, error: 'missing fields' });
-    var attemptId = String(d.attemptId || '').slice(0, 64);
     // 學生端網路不穩時會補送，同一筆成績只寫一次
     if (attemptId && seenAttempt_(attemptId)) return json_({ ok: true, duplicate: true });
     var now = new Date();
@@ -165,10 +170,11 @@ function doPost(e) {
       num_(d.durationSec),
       cell_(d.clientTs, 30),
       cell_(attemptId, 64),
-      checkAttempt_(d), // 伺服器用題庫核對這筆成績：空白＝核對通過；否則寫下哪裡對不起來（不拒收，只標記，避免誤傷學生的成績）
+      check, // 伺服器用題庫核對這筆成績：空白＝核對通過；否則寫下哪裡對不起來（不拒收，只標記，避免誤傷學生的成績）
     ];
-    ensureScoresHeader_(sheet_(SHEET_SCORES, SCORES_HEADER));
-    sheet_(SHEET_SCORES, SCORES_HEADER).appendRow(row);
+    var ssh = sheet_(SHEET_SCORES, SCORES_HEADER);
+    ensureScoresHeader_(ssh);
+    ssh.appendRow(row);
     // 依班級分頁（班級只接受 3–4 位數字）
     var cls = String(d.cls || '').trim();
     if (/^\d{3,4}$/.test(cls)) {
@@ -179,7 +185,6 @@ function doPost(e) {
     // 矩陣式成績單（老師預先建立好名單才會寫入，見「成績單 XXX」分頁）
     writeGradebook_(cls, d.seat, d.unit, d.pct);
     // 每題作答明細
-    var details = Array.isArray(d.details) ? d.details.slice(0, 120) : [];
     if (details.length) {
       var rows = details.map(function (x) {
         return [
@@ -285,7 +290,18 @@ function seenAttempt_(id) {
   if (last < 2) return false;
   // 整欄都查（不只最近幾筆）：隔很久才補送的成績也不會重複寫入。一學期幾千列，讀單一欄很快。
   var col = SCORES_FIELDS.indexOf('attemptId') + 1;
-  return sh.getRange(2, col, last - 1, 1).getValues().some(function (r) { return String(r[0]) === id; });
+  // TextFinder 在試算表伺服器端搜尋，不用把整欄資料傳回來，幾千列也只要幾十毫秒
+  return sh.getRange(2, col, last - 1, 1).createTextFinder(id).matchEntireCell(true).findNext() !== null;
+}
+
+// 簡單的限頻（Apps Script 拿不到來源 IP，改以「班級-座號-單元」計）。快取不是原子操作，數字是大概值，足夠擋掉亂送。
+function allowSubmit_(d) {
+  var cache = CacheService.getScriptCache();
+  var key = 'rl:' + String(d.cls).slice(0, 8) + '-' + String(d.seat).slice(0, 4) + '-' + String(d.unit).slice(0, 60);
+  var n = Number(cache.get(key) || 0);
+  if (n >= 8) return false;
+  cache.put(key, String(n + 1), 600);
+  return true;
 }
 
 // 舊的成績分頁沒有「驗證」欄標題：補上
@@ -323,13 +339,24 @@ function checkAttempt_(d) {
       var bad = 0;
       if (d.mode === 'reading' && Array.isArray(data.questions)) {
         var KEYS = 'ABCDE';
+        var serverScore = 0;
         details.forEach(function (x) {
           var q = data.questions[Number(x.n) - 1];
           if (!q) { bad++; return; }
           var expect = KEYS[q.answer] + '. ' + q.options[q.answer];
           var yoursOk = String(x.yours || '') === expect;
+          if (yoursOk) serverScore++;
           if (String(x.correct) !== expect || !!x.ok !== yoursOk) bad++;
+          x.ok = yoursOk; x.points = yoursOk ? 1 : 0; x.correct = expect; // 明細一律以題庫為準
         });
+        // 課文理解的分數由伺服器依題庫重算（單題單選，可以完全信任）：學生送來的分數不同時，以重算的為準
+        if (details.length === data.questions.length) {
+          var srvPct = Math.round((serverScore / data.questions.length) * 100);
+          if (Number(d.score) !== serverScore || Number(d.total) !== data.questions.length || Number(d.pct) !== srvPct) {
+            issues.push('分數已依題庫重算（學生端送來 ' + d.score + '/' + d.total + '）');
+            d.score = serverScore; d.total = data.questions.length; d.pct = srvPct;
+          }
+        }
       } else if (d.mode === 'vocab' && Array.isArray(data.words)) {
         var byWord = {};
         data.words.forEach(function (w) { byWord[norm(w.word)] = w; });

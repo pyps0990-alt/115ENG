@@ -797,3 +797,21 @@ body.exam .topbar::after { opacity: 1; }
 
 h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .spell-input { font-family: var(--font-read); }
+
+.quiz-all { flex: none; font-size: .78rem; font-weight: 700; color: var(--steel); font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 380px) { .quiz-all { display: none; } }
+
+/* 首頁進度摘要 */
+.home-prog { display: grid; gap: 8px; margin: 4px 0 20px; padding: 14px 16px; border-radius: 16px; background: var(--surface); text-decoration: none; color: var(--navy); transition: transform var(--dur-1) var(--ease), background .2s; }
+.home-prog:hover { background: var(--white); box-shadow: var(--shadow); }
+.home-prog:active { transform: scale(.985); }
+.hp-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.hp-top b { font-size: 1.02rem; }
+.hp-top span { font-family: var(--font-en); font-weight: 800; font-variant-numeric: tabular-nums; }
+.hp-sub { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; font-size: .84rem; color: var(--steel); }
+.hp-sub em { font-style: normal; font-weight: 800; }
+.hp-sub em.miss { color: var(--bad-ink); }
+.hp-sub em.todo { color: var(--amber-ink); }
+.hp-sub .go { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-weight: 700; color: var(--navy); }
+.hp-sub .go .ic { width: 14px; height: 14px; }
+.empty h2 { margin: 0; color: var(--navy); }

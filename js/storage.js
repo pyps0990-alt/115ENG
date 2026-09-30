@@ -66,6 +66,13 @@ export const store = {
   setBag: (key, arr) => write(`bag:${key}`, arr),
 
   // 換人登入時清掉上一位學生留在這台裝置的進度（scoresOnly：只清成績，保留錯題本與檢討狀態）
+  // 登出並清除這台裝置上的學生資料（姓名、座號、成績、檢討、錯題、排隊中的成績）；老師的設定暫存保留
+  clearAll() {
+    try {
+      Object.keys(localStorage).filter((k) => /^b5p:(student|best|last|done|first|reviewed|wrong|bag|outbox)/.test(k)).forEach((k) => localStorage.removeItem(k));
+    } catch { /* ignore */ }
+  },
+
   resetProgress(scoresOnly = false) {
     const re = scoresOnly ? /^b5p:(best|last|done|first):/ : /^b5p:(best|last|done|first|reviewed|wrong|bag):/;
     try {

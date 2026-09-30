@@ -74,8 +74,7 @@ async function route() {
     else if (kind === 'diag') renderDiag();
     else renderHome();
   } catch (err) {
-    console.error(err);
-    app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><p>載入失敗：${esc(err.message)}</p><a class="btn" href="#/">回首頁</a></div>`;
+    showError(err);
   }
   pageIn(changed, first);
 }
@@ -86,6 +85,29 @@ const hasContent = (id) => !!(config && config.content && config.content[id]);
 const visibleUnits = () => index.units.filter((u) => unitVisible(config, u.id) && hasContent(u.id)
   && (u.type === 'reading' ? modeOn(config, u.id, 'reading') : openLevels(u).length))
   .sort((a, b) => a.lesson - b.lesson);
+
+/* ---------------- 錯誤頁 ---------------- */
+// 依類型顯示學生看得懂的說明，不直接把程式的錯誤訊息丟給學生；完整訊息寫在 console，並給一個錯誤編號方便回報給老師
+function errorKind(err) {
+  const m = String((err && err.message) || err || '');
+  if (!navigator.onLine || /Failed to fetch|NetworkError|Load failed|dynamically imported|network|timeout|逾時/i.test(m)) return 'network';
+  if (/老師還沒有|找不到|沒有開放|題目/.test(m)) return 'content';
+  return 'system';
+}
+function showError(err) {
+  const kind = errorKind(err);
+  const code = `B5-${Date.now().toString(36).slice(-4).toUpperCase()}`;
+  console.error(`[${code}]`, err);
+  const box = {
+    network: ['網路好像不太穩', '無法取得最新資料，請確認網路後再試一次。', true],
+    content: ['這個單元目前無法使用', '老師可能還在準備題目，稍後再試，或先做其他單元。', false],
+    system: ['發生了一點問題', `請重新整理再試一次；如果一直這樣，把錯誤編號告訴老師：<b>${code}</b>`, true],
+  }[kind];
+  app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><h2>${box[0]}</h2><p>${box[1]}</p>
+    <div class="btn-row center">${box[2] ? `<button class="btn primary" type="button" data-retry>${icon.redo} 重新載入</button>` : ''}<a class="btn" href="#/">回所有單元</a></div></div>`;
+  const retry = app.querySelector('[data-retry]');
+  if (retry) retry.onclick = () => location.reload();
+}
 
 /* ---------------- home ---------------- */
 // 課本冊數對應年級：B1～B2 高一、B3～B4 高二、B5～B6 高三
@@ -104,6 +126,7 @@ function renderHome() {
       ${s ? `<p class="hello">${esc(s.name)}，今天從哪一課開始？</p>` : ''}
     </section>
     <div id="welcome-slot"></div>
+    <div id="progress-slot"></div>
     <div id="lessons"></div>`;
 
   // 還沒確認身分：只顯示基本資料表單，確認後才載入單元與這位學生的紀錄
@@ -124,6 +147,16 @@ function renderHome() {
     host.innerHTML = `<div class="empty"><div class="big">${icon.inbox}</div><p>老師目前沒有開放任何單元。</p></div>`;
     return;
   }
+  // 進度摘要：一眼看到目前完成幾個單元、有沒有待檢討或缺交（點進去看詳細）
+  const st = visible.map((u) => unitStatus(u).k);
+  const nOk = st.filter((k) => k === 'ok').length;
+  const nTodo = st.filter((k) => k === 'todo').length;
+  const nMiss = st.filter((k) => k === 'miss').length;
+  app.querySelector('#progress-slot').innerHTML = `<a class="home-prog" href="#/me">
+      <span class="hp-top"><b>我的進度</b><span>已完成 ${nOk} / ${visible.length}</span></span>
+      <span class="bar"><span style="width:${Math.round((nOk / visible.length) * 100)}%"></span></span>
+      <span class="hp-sub">${nMiss ? `<em class="miss">缺交 ${nMiss}</em>` : ''}${nTodo ? `<em class="todo">待檢討 ${nTodo}</em>` : ''}${!nMiss && !nTodo ? '<em>目前沒有缺交或待檢討</em>' : ''}<span class="go">查看詳細 ${icon.arrowR}</span></span>
+    </a>`;
   host.innerHTML = lessons.map((n) => {
     const units = visible.filter((u) => u.lesson === n);
     return `<section class="lesson">
@@ -459,7 +492,7 @@ async function boot() {
     }
     build();
   } catch (err) {
-    app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><p>無法載入課程資料（${esc(err.message)}）。<br>請用網頁伺服器開啟，不能直接雙擊 index.html。</p></div>`;
+    showError(err);
     return;
   }
   // 先用上次存下的設定畫出畫面；背景抓到老師的新設定後再重畫（測驗進行中不打斷）
