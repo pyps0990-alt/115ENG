@@ -8,7 +8,9 @@
       "apps-script/**",
       "docs/**",
       "tools/**",
-      "README.md"
+      "README.md",
+      "firestore.rules",
+      "*.zip"
     ],
     "headers": [
       {
