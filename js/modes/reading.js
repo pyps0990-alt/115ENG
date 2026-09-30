@@ -1,6 +1,6 @@
 // 課文理解：先讀文章，再作答閱讀測驗；交卷後送出成績，再逐題檢討（一次一題，可標出原文依據）
 import { store } from '../storage.js';
-import { esc, nowStamp, confirmDialog, splitSentences } from '../util.js';
+import { esc, nowStamp, confirmDialog, splitSentences, centerInView } from '../util.js';
 import { icon } from '../icons.js';
 import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
@@ -119,6 +119,7 @@ export function mount(stage, ctx) {
         <button class="btn primary" type="button" data-submit-btn>${icon.send} 交卷</button>
       </div>`;
 
+    centerInView(stage.querySelector('.passage-layout'), 'start');
     const countEl = stage.querySelector('[data-count]');
     const updateFoot = () => { countEl.textContent = `已作答 ${answers.filter((a) => a != null).length} / ${qs.length}`; };
 

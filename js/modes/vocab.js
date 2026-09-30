@@ -1,6 +1,6 @@
 // 單字片語測驗：同一組單字，依序連續完成基礎 → 進階 → 精熟三段，最後一張總成績單
 import { store } from '../storage.js';
-import { esc, nowStamp, wait, shuffle } from '../util.js';
+import { esc, nowStamp, wait, shuffle, centerInView } from '../util.js';
 import { icon } from '../icons.js';
 import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError, ERR_TIPS } from '../components/question.js';
 import { renderResult } from '../components/result.js';
@@ -135,6 +135,7 @@ export function mount(stage, ctx) {
       current = q.type === 'mc'
         ? renderMC(host, q, { label: `${label}・${q.dir === 'en2zh' ? '選出中文意思' : q.dir === 'cloze' ? '選出空格的字詞' : '選出英文字詞'}`, onAnswer: (ok, chosen) => answered(q, ok, ok ? 1 : 0, q.options[chosen]) })
         : renderSpell(host, q, { label: `${label}・${q.variant === 'cloze' ? '拼出空格的字詞' : '看中文拼出英文'}`, onAnswer: (ok, { hints, typed }) => answered(q, ok, ok ? Math.max(0, 1 - hints * HINT_COST) : 0, typed, hints) });
+      centerInView(host.querySelector('.q-card'));
     }
 
     function answered(q, ok, got, yours, hints = 0) {

@@ -100,3 +100,17 @@ export function confetti() {
     setTimeout(() => c.remove(), 4000);
   }
 }
+
+// 進入考試、換下一題時，把題目卷動到使用者螢幕中間（已經在中間附近就不動，避免多餘的捲動）。
+// 比螢幕還高的內容（例如長文章）改成對齊上方。
+export function centerInView(el, block = 'center') {
+  if (!el) return;
+  requestAnimationFrame(() => {
+    const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    const r = el.getBoundingClientRect();
+    const tall = r.height > vh - 140;
+    const mode = tall ? 'start' : block;
+    if (mode === 'center' && r.top >= 70 && r.bottom <= vh && Math.abs(r.top + r.height / 2 - vh / 2) < vh * 0.18) return;
+    el.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: mode });
+  });
+}

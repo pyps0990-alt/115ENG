@@ -732,3 +732,5 @@ dialog.modal::backdrop { animation: fade-in var(--dur-2, .3s) ease; }
 body[data-busy] .unit-head { margin-bottom: 8px; gap: 0; }
 body[data-busy] .unit-head .eyebrow, body[data-busy] .unit-head .sub, body[data-busy] .unit-head .back { display: none; }
 body[data-busy] .unit-head h1 { font-size: 1.15rem; }
+
+.q-card, .passage-layout { scroll-margin-top: 76px; }
