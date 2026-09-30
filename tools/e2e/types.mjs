@@ -21,6 +21,12 @@ const exam = { topic: '段考', blocks: [
   { type: 'cloze', title: 'Change', passage: ['Tom felt (1) at first. (2), he made friends.'], blanks: [
     { options: ['lonely', 'noisy', 'hungry', 'proud'], answer: 0, explain: '孤單。' }, { options: ['However', 'Therefore', 'Besides', 'Otherwise'], answer: 0, explain: '轉折。' }] },
 ] };
+g.api('saveAllSettings', [[], [
+  { id: 'l2-pat', title: 'L2 句型練習', type: 'pattern', lesson: 2, topic: '', visible: true, disabled: [], questionCount: 10, custom: true },
+  { id: 'l2-exam', title: 'L2 段考複習', type: 'exam', lesson: 2, topic: '', visible: true, disabled: [], questionCount: 10, custom: true },
+  { id: 'l2-drag', title: 'L2 拖動', type: 'pattern', lesson: 2, topic: '', visible: true, disabled: [], questionCount: 1, custom: true },
+]]);
+g.api('saveContent', ['l2-drag', { items: [{ type: 'apply', zh: '我喜歡蘋果。', words: ['I', 'like', 'red', 'apples', 'a', 'lot'], answer: 'I like red apples a lot.', explain: 'x' }] }, true]);
 g.api('saveContent', ['l2-pat', pat, true]);
 g.api('saveContent', ['l2-exam', exam, true]);
 
@@ -60,6 +66,49 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
       }
     }
     assert.ok(done, '沒有走到成績畫面'); await shot('pat-result');
+  });
+  await step(`[${label}] 應用題：拖動排列、調整順序、拖回、不自動排序`, async () => {
+    await p.goto(world.base + '/#/u/l2-drag'); await p.waitForSelector('[data-start]');
+    await p.click('[data-start]'); await p.waitForSelector('.bank .chip-word');
+    const chip = (t, where) => p.locator(`${where} .chip-word`, { hasText: new RegExp('^' + t + '$') }).first();
+    const lineText = async () => (await p.locator('.build-line .chip-word').allTextContents()).join(' ');
+    const bankBefore = (await p.locator('.bank .chip-word').allTextContents()).join(' ');
+    const drag = async (from, toX, toY) => {
+      const b = await from.boundingBox();
+      await p.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await p.mouse.down();
+      await p.mouse.move(b.x + b.width / 2 + 20, b.y + b.height / 2 - 20, { steps: 3 });
+      await p.mouse.move(toX, toY, { steps: 8 });
+      return async () => p.mouse.up();
+    };
+    const lb = async () => (await p.locator('.build-line').boundingBox());
+    // 依序拖進：like、I（放到最前面）、apples
+    let r = await lb();
+    await (await drag(chip('like', '.bank'), r.x + 20, r.y + r.height / 2))();
+    assert.equal(await lineText(), 'like');
+    r = await lb();
+    await (await drag(chip('I', '.bank'), r.x + 4, r.y + r.height / 2))();
+    assert.equal(await lineText(), 'I like');
+    r = await lb();
+    await (await drag(chip('apples', '.bank'), r.x + r.width - 4, r.y + r.height / 2))();
+    assert.equal(await lineText(), 'I like apples');
+    // 點一下加 red 到最後，再把 red 拖到 apples 前面
+    await chip('red', '.bank').click();
+    assert.equal(await lineText(), 'I like apples red');
+    const apples = await chip('apples', '.build-line').boundingBox();
+    await (await drag(chip('red', '.build-line'), apples.x + 3, apples.y + apples.height / 2))();
+    assert.equal(await lineText(), 'I like red apples');
+    // 拖出句子＝拿掉
+    const bk = await p.locator('.bank').boundingBox();
+    await (await drag(chip('apples', '.build-line'), bk.x + 10, bk.y + bk.height - 4))();
+    assert.equal(await lineText(), 'I like red');
+    await chip('apples', '.bank').click();
+    await chip('a', '.bank').click(); await chip('lot', '.bank').click();
+    assert.equal(await lineText(), 'I like red apples a lot');
+    assert.equal((await p.locator('.bank .chip-word').allTextContents()).join(' '), bankBefore, '下方單字順序不可改變');
+    await p.locator('[data-check]').click();
+    await p.waitForSelector('.build-line.ok');
+    await shot('drag-ok');
+    await p.locator('[data-next]:not([hidden])').click(); await p.waitForSelector('.result', { timeout: 8000 });
   });
   await step(`[${label}] 段考複習：一頁作答 → 交卷 → 成績 → 檢討`, async () => {
     await p.goto(world.base + '/#/u/l2-exam'); await p.waitForSelector('[data-start]');

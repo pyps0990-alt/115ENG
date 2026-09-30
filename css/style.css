@@ -845,3 +845,10 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .ptext { white-space: pre-wrap; }
 .rv-passage { border: 1.5px solid var(--line); border-radius: 14px; padding: 8px 12px; }
 .rv-passage > summary { cursor: pointer; font-weight: 700; color: var(--navy); }
+
+.chip-word { touch-action: none; user-select: none; -webkit-user-select: none; }
+.chip-word.dragging { opacity: .3; }
+.drag-ghost { position: fixed; left: 0; top: 0; z-index: 200; pointer-events: none; box-shadow: 0 8px 22px rgba(30, 58, 138, .28); transform-origin: center; will-change: transform; background: var(--navy-soft); border-color: var(--navy); }
+.build-line.over { border-color: var(--navy); background: var(--navy-soft); }
+.drop-mark { width: 4px; height: 34px; border-radius: 2px; background: var(--navy); flex: none; }
+.drag-ghost { transition: none !important; }

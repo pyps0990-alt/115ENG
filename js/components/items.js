@@ -113,7 +113,7 @@ export function renderApplyCard(host, q, { meta = '應用：把單字排成正�
   card.className = 'q-card slide-in';
   const order = shuffle(q.words.map((w, i) => i));
   card.innerHTML = `${head(q, meta, `<div class="q-sentence">${esc(q.zh)}</div>`)}
-    <div class="build-line" aria-live="polite"><span class="build-hint">點下面的單字，排成句子</span></div>
+    <div class="build-line" aria-live="polite"><span class="build-hint">點一下或拖動下面的單字，排成句子</span></div>
     <div class="bank" role="group" aria-label="單字">${order.map((i) => `<button class="chip-word en" type="button" data-w="${i}">${esc(q.words[i])}</button>`).join('')}</div>
     <div class="fill-area"><button class="btn ghost" type="button" data-clear>清除</button><button class="btn primary" type="button" data-check>檢查 ${icon.check}</button></div>
     <div class="answer-line" hidden></div>`;
@@ -123,11 +123,82 @@ export function renderApplyCard(host, q, { meta = '應用：把單字排成正�
   let picked = [];
   let done = false;
   const paint = () => {
-    line.innerHTML = picked.length ? picked.map((i, k) => `<button class="chip-word en on" type="button" data-k="${k}">${esc(q.words[i])}</button>`).join('') : '<span class="build-hint">點下面的單字，排成句子</span>';
+    line.innerHTML = picked.length ? picked.map((i, k) => `<button class="chip-word en on" type="button" data-k="${k}">${esc(q.words[i])}</button>`).join('') : '<span class="build-hint">點一下或拖動下面的單字，排成句子</span>';
     bank.forEach((b) => { b.disabled = done || picked.includes(Number(b.dataset.w)); });
-    line.querySelectorAll('[data-k]').forEach((b) => b.addEventListener('click', () => { if (done) return; picked.splice(Number(b.dataset.k), 1); paint(); }));
   };
-  bank.forEach((b) => b.addEventListener('click', () => { if (done) return; picked.push(Number(b.dataset.w)); paint(); }));
+  // 點一下：從下方加到句子最後面／從句子拿掉。單字的順序完全由學生決定，不會自動排序。
+  card.addEventListener('click', (e) => {
+    if (done || dragged) return;
+    const b = e.target.closest('.chip-word');
+    if (!b || b.disabled) return;
+    if (b.dataset.k != null) picked.splice(Number(b.dataset.k), 1);
+    else picked.push(Number(b.dataset.w));
+    paint();
+  });
+
+  // 拖動：可以把單字拖進句子的任何位置、在句子裡調整順序，或拖回下方拿掉。移動不到 6px 視為點擊。
+  let dragged = false;
+  card.addEventListener('pointerdown', (e) => {
+    if (done || e.button > 0) return;
+    const src = e.target.closest('.chip-word');
+    if (!src || src.disabled) return;
+    const fromLine = src.dataset.k != null;
+    const w = fromLine ? picked[Number(src.dataset.k)] : Number(src.dataset.w);
+    const k0 = fromLine ? Number(src.dataset.k) : -1;
+    const x0 = e.clientX, y0 = e.clientY;
+    let ghost = null, mark = null, idx = null;
+    const chipsInLine = () => [...line.querySelectorAll('.chip-word')];
+    const indexAt = (x, y) => {
+      const r = line.getBoundingClientRect();
+      if (x < r.left - 12 || x > r.right + 12 || y < r.top - 12 || y > r.bottom + 12) return null;
+      const chips = chipsInLine();
+      for (let i = 0; i < chips.length; i++) {
+        const c = chips[i].getBoundingClientRect();
+        if (y < c.top) return i;
+        if (y <= c.bottom && x < c.left + c.width / 2) return i;
+      }
+      return chips.length;
+    };
+    const move = (ev) => {
+      if (!ghost) {
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return;
+        dragged = true;
+        ghost = src.cloneNode(true);
+        ghost.classList.add('drag-ghost');
+        ghost.style.width = `${src.offsetWidth}px`;
+        document.body.append(ghost);
+        src.classList.add('dragging');
+        mark = document.createElement('span');
+        mark.className = 'drop-mark';
+      }
+      ev.preventDefault();
+      ghost.style.transform = `translate(${ev.clientX - src.offsetWidth / 2}px, ${ev.clientY - src.offsetHeight / 2}px)`;
+      idx = indexAt(ev.clientX, ev.clientY);
+      line.classList.toggle('over', idx != null);
+      if (idx == null) { mark.remove(); return; }
+      line.querySelector('.build-hint')?.remove();
+      const chips = chipsInLine();
+      line.insertBefore(mark, chips[idx] || null);
+    };
+    const end = (ev) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      if (!ghost) return;
+      ghost.remove(); mark.remove(); src.classList.remove('dragging'); line.classList.remove('over');
+      if (ev.type !== 'pointercancel') {
+        if (fromLine) {
+          picked.splice(k0, 1);
+          if (idx != null) picked.splice(idx > k0 ? idx - 1 : idx, 0, w); // 拖到句子外面＝拿掉
+        } else if (idx != null) picked.splice(idx, 0, w);
+      }
+      paint();
+      setTimeout(() => { dragged = false; }, 0); // 擋掉拖完後緊接著的 click
+    };
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  });
   card.querySelector('[data-clear]').addEventListener('click', () => { if (done) return; picked = []; paint(); });
   card.querySelector('[data-check]').addEventListener('click', () => {
     if (done || !picked.length) return;
