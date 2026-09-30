@@ -9,6 +9,7 @@ const panel = document.getElementById('unit-menu');
 let units = [];
 
 const kindLabel = (u) => (u.type === 'vocab' ? '單字片語' : '課文理解');
+const isOpen = () => panel.classList.contains('open');
 const items = () => [...panel.querySelectorAll('[role="menuitem"]')];
 
 // 每個單元目前的狀態（每次打開選單都重新讀，測驗、檢討完馬上反映）
@@ -28,14 +29,14 @@ export function refreshNavStatus() {
 
 function open() {
   refreshNavStatus();
-  panel.hidden = false;
+  panel.classList.add('open'); // 展開／收合都由 CSS 的 transform 與 opacity 動畫處理（見 style.css「導覽列動畫」）
   btn.setAttribute('aria-expanded', 'true');
   (panel.querySelector('.current') || items()[0])?.focus({ preventScroll: true });
 }
 
 function close(focusBtn = false) {
-  if (panel.hidden) return;
-  panel.hidden = true;
+  if (!isOpen()) return;
+  panel.classList.remove('open');
   btn.setAttribute('aria-expanded', 'false');
   if (focusBtn) btn.focus({ preventScroll: true });
 }
@@ -70,19 +71,19 @@ export function updateNav(currentId) {
   close();
 }
 
-btn.addEventListener('click', () => (panel.hidden ? open() : close()));
+btn.addEventListener('click', () => (isOpen() ? close() : open()));
 
 document.addEventListener('click', (e) => {
-  if (!panel.hidden && !root.contains(e.target)) close();
+  if (isOpen() && !root.contains(e.target)) close();
 });
 
 root.addEventListener('keydown', (e) => {
   const list = items();
   const i = list.indexOf(document.activeElement);
   if (e.key === 'Escape') { e.preventDefault(); close(true); }
-  else if (e.key === 'ArrowDown') { e.preventDefault(); if (panel.hidden) open(); else list[(i + 1) % list.length].focus(); }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); if (!panel.hidden) list[(i - 1 + list.length) % list.length].focus(); }
-  else if (e.key === 'Tab' && !panel.hidden) close();
+  else if (e.key === 'ArrowDown') { e.preventDefault(); if (!isOpen()) open(); else list[(i + 1) % list.length].focus(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); if (isOpen()) list[(i - 1 + list.length) % list.length].focus(); }
+  else if (e.key === 'Tab' && isOpen()) close();
 });
 
 // 測驗進行中切換單元：先確認，避免不小心中斷

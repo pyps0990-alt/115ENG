@@ -33,35 +33,71 @@ export function readForm(form) {
   return s;
 }
 
-// 驗證身分 → 讀回這位學生在 Firestore 的紀錄 → 存成目前登入的學生
+// 登入後在背景載入這位學生的紀錄（換頁不用等它）；進入單元前會等它載完，才不會把做過的單元當成沒做過
+let pendingHistory = Promise.resolve();
+export const historyReady = () => Promise.race([pendingHistory, new Promise((r) => setTimeout(r, 8000))]);
+
+// 登入按鈕的狀態回饋：確認中（轉圈）→ 成功（綠色打勾）或失敗（輕輕抖一下），取代整段紅字
+const btnLabel = new WeakMap();
+function setBtn(btn, state, html) {
+  if (!btnLabel.has(btn)) btnLabel.set(btn, btn.innerHTML);
+  btn.dataset.state = state;
+  btn.innerHTML = html;
+}
+function resetBtn(btn) {
+  delete btn.dataset.state;
+  if (btnLabel.has(btn)) btn.innerHTML = btnLabel.get(btn);
+  btn.disabled = false;
+}
+function shakeBtn(btn) {
+  resetBtn(btn);
+  btn.classList.remove('shake');
+  void btn.offsetWidth; // 重新觸發動畫
+  btn.classList.add('shake');
+}
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// 驗證身分 → 存成目前登入的學生 → 紀錄在背景載入。成功時按鈕先顯示「已確認」一下再換頁。
 async function login(form) {
-  const s = readForm(form);
-  if (!s) return null;
-  const err = form.querySelector('.form-err');
   const btn = form.querySelector('[type="submit"]');
+  const err = form.querySelector('.form-err');
+  const s = readForm(form);
+  const hint = (text) => {
+    err.textContent = text;
+    form.addEventListener('input', () => { err.textContent = ''; }, { once: true });
+  };
+  if (!s) { shakeBtn(btn); form.addEventListener('input', () => { err.textContent = ''; }, { once: true }); return null; }
   btn.disabled = true;
-  err.textContent = '確認身分中…';
+  err.textContent = '';
+  setBtn(btn, 'busy', '<span class="spinner sm"></span>確認中…');
   try {
     const { verifyStudent, loadHistory } = await import('./firebase.js');
     const res = await verifyStudent(s);
     if (!res.ok) {
-      err.textContent = '老師的名單裡找不到這組班級、座號和姓名，請確認有沒有打錯字，或詢問老師。';
+      shakeBtn(btn);
+      hint('名單裡找不到這組班級、座號和姓名，請確認有沒有打錯字，或詢問老師。');
       return null;
     }
     const student = { cls: s.cls, seat: s.seat, name: res.name, key: res.key };
     if ((store.student() || {}).key !== res.key) store.resetProgress();
-    const h = await loadHistory(res.key);
-    store.applyHistory(h.attempts, h.reviews);
     store.setStudent(student);
-    err.textContent = '';
+    let returned = false;
+    pendingHistory = loadHistory(res.key).then((h) => {
+      if ((store.student() || {}).key === res.key) store.applyHistory(h.attempts, h.reviews);
+      // 「已確認」還在顯示時不要換畫面；紀錄比它晚到才通知首頁更新
+      if (returned) window.dispatchEvent(new Event('history-applied'));
+    }).catch(() => { /* 讀不到就先用裝置上的紀錄 */ });
+    setBtn(btn, 'ok', `${icon.check}已確認，歡迎 ${esc(res.name)}`);
     renderStudentChip();
+    await pause(reduced() ? 0 : 480); // 讓學生看到「已確認」，紀錄同時在背景載入
+    returned = true;
     return student;
   } catch (e) {
     console.error(e);
-    err.textContent = '連線失敗，請確認網路後再試一次。';
+    shakeBtn(btn);
+    hint('連線失敗，請確認網路後再試一次。');
     return null;
-  } finally {
-    btn.disabled = false;
   }
 }
 

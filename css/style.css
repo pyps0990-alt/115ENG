@@ -99,7 +99,7 @@ main.container { padding-block: 24px 56px; outline: none; }
   position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; width: min(360px, calc(100vw - 32px));
   max-height: calc(100vh - 90px); max-height: calc(100dvh - 90px); overflow: auto; overscroll-behavior: contain;
   padding: 8px; border-radius: 16px; background: var(--white); color: var(--text); box-shadow: 0 12px 40px rgba(15, 23, 42, .25);
-  border: 1px solid var(--line); animation: pop-in .18s var(--ease);
+  border: 1px solid var(--line);
 }
 .menu-group { padding-top: 6px; margin-top: 6px; border-top: 1px solid var(--line); }
 .menu-head { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-family: var(--font-en); font-weight: 900; font-size: .85rem; color: var(--navy); }
@@ -282,7 +282,8 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 @keyframes bump { 40% { transform: scale(1.4) translateY(-4px); } }
 
 .q-card { background: var(--surface); border-radius: 22px; padding: 28px 20px 22px; display: grid; gap: 20px; }
-.q-card.slide-in { animation: slide-in .35s var(--ease); }
+.q-card.slide-in { animation: q-in var(--dur-2, .3s) var(--ease); }
+@keyframes q-in { from { opacity: 0; transform: translate3d(0, 12px, 0) scale(.985); } }
 /* 往上浮入：不左右位移，避免頁面暫時比螢幕寬（iPhone 會因此卡住無法上下滑） */
 @keyframes slide-in { from { opacity: 0; transform: translateY(12px); } }
 .q-head { display: grid; justify-items: center; gap: 10px; text-align: center; }
@@ -602,52 +603,64 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 
 
 /* ===== 導覽列動畫 =====
-   往下捲動：B5 縮小淡出並往左收，選單按鈕滑過去補位，導覽列變薄、加上陰影
-   手機：選單收合時只顯示三槓，打開時文字與箭頭從圖示旁展開 */
-:root { --nav-ease: cubic-bezier(.22, 1, .36, 1); }
-.topbar { transition: box-shadow .35s var(--nav-ease); }
-.topbar-inner { transition: padding .35s var(--nav-ease); }
-body.scrolled .topbar { box-shadow: 0 6px 20px rgba(15, 23, 42, .22); }
-body.scrolled .topbar-inner { padding-block: 6px; }
-.brand { max-width: 220px; overflow: hidden; flex: none; transform-origin: left center;
-  transition: max-width .45s var(--nav-ease), opacity .25s ease, transform .45s var(--nav-ease), margin .45s var(--nav-ease); }
-body.scrolled .brand { max-width: 0; opacity: 0; transform: scale(.6) translateX(-8px); margin-right: -12px; pointer-events: none; }
-.brand-mark { transition: transform .45s var(--nav-ease); }
+   原則：導覽列高度固定不變（捲動時內容不會跳）；動畫只用 transform 與 opacity，交給顯示卡，不觸發版面重算。
+   往下捲動：B5 縮小、淡出並往左收，選單按鈕平移過去補位（位移量 --brand-shift 由 app.js 依 B5 實際寬度量出）。
+   選單面板：從按鈕位置彈出，收合時反向收回；項目依序浮現。 */
+:root {
+  --nav-ease: cubic-bezier(.22, 1, .36, 1);
+  --brand-shift: 48px;
+  --dur-1: .18s; --dur-2: .3s; --dur-3: .42s; /* 全站動畫時間：快 / 中 / 慢 */
+}
+/* 陰影用會淡入的漸層取代 box-shadow 動畫（box-shadow 動畫每一格都要重繪） */
+.topbar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 16px; pointer-events: none;
+  background: linear-gradient(rgba(15, 23, 42, .24), rgba(15, 23, 42, 0)); opacity: 0; transition: opacity var(--dur-2) ease; }
+body.scrolled .topbar::after { opacity: 1; }
+.brand { flex: none; transform-origin: left center; transition: transform .38s var(--nav-ease), opacity .24s ease, visibility 0s linear 0s; }
+body.scrolled .brand { transform: translate3d(-8px, 0, 0) scale(.55); opacity: 0; visibility: hidden; pointer-events: none;
+  transition: transform .38s var(--nav-ease), opacity .2s ease, visibility 0s linear .38s; }
 .nav-menu { flex: 0 1 auto; min-width: 0; }
-.menu-btn { max-width: 100%; min-width: 0; transition: background .2s ease, padding .35s var(--nav-ease), gap .35s var(--nav-ease), transform .15s ease; }
-.menu-btn:active { transform: scale(.96); }
+.menu-btn { max-width: 100%; min-width: 0; transform: translate3d(var(--tx, 0), 0, 0) scale(var(--sc, 1));
+  transition: transform .38s var(--nav-ease), background .2s ease, padding .3s var(--nav-ease), gap .3s var(--nav-ease); }
+body.scrolled .menu-btn { --tx: calc(-1 * var(--brand-shift)); }
+.menu-btn:active { --sc: .96; transition-duration: .1s, .2s, .3s, .3s; }
 .menu-btn .menu-label { display: inline-block; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 12em; white-space: nowrap;
-  transition: max-width .4s var(--nav-ease), opacity .25s ease .05s; }
-.menu-btn .ic:last-child { transition: transform .25s var(--nav-ease), opacity .25s ease, width .35s var(--nav-ease); }
+  transition: max-width .3s var(--nav-ease), opacity .2s ease .04s; }
+.menu-btn .ic:last-child { transition: transform .25s var(--nav-ease), opacity .2s ease, width .3s var(--nav-ease); }
 .top-actions { flex: 0 0 auto; }
-.chip-btn { overflow: visible; transition: background .2s ease, transform .15s ease; }
+.chip-btn { overflow: visible; transition: background .2s ease, transform .12s ease; }
 .chip-btn:active { transform: scale(.97); }
 .chip-btn span { overflow: visible; text-overflow: clip; white-space: nowrap; }
+#student-chip:not([hidden]) { animation: chip-in var(--dur-2) var(--ease) both; }
+@keyframes chip-in { from { opacity: 0; transform: scale(.92); } }
 @media (max-width: 480px) {
   .topbar-inner { gap: 8px; }
-  body.scrolled .brand { margin-right: -8px; }
   .chip-btn { padding: 0 11px; font-size: .84rem; gap: 4px; }
   .chip-btn .ic { display: none; }
 }
 @media (max-width: 640px) {
   .menu-btn { padding: 0 12px; }
   .menu-btn[aria-expanded="false"] { gap: 0; }
-  .menu-btn[aria-expanded="false"] .menu-label { max-width: 0; opacity: 0; transition: max-width .3s var(--nav-ease), opacity .12s ease; }
+  .menu-btn[aria-expanded="false"] .menu-label { max-width: 0; opacity: 0; transition: max-width .26s var(--nav-ease), opacity .1s ease; }
   .menu-btn[aria-expanded="false"] .ic:last-child { width: 0; opacity: 0; }
   .menu-btn .ic:first-child { width: 20px; height: 20px; flex: none; }
 }
-/* 選單面板：從按鈕位置彈出，項目依序浮現 */
-.menu-panel { transform-origin: top left; animation: menu-in .32s var(--nav-ease); }
-@keyframes menu-in { from { opacity: 0; transform: translateY(-6px) scale(.97); } }
-.menu-panel .menu-item, .menu-panel .menu-head { animation: menu-item-in .35s var(--nav-ease) both; }
-.menu-panel > :nth-child(1) { animation-delay: .02s; }
-.menu-panel > :nth-child(2) > * { animation-delay: .06s; }
-.menu-panel > :nth-child(3) > * { animation-delay: .1s; }
-.menu-panel > :nth-child(n+4) > * { animation-delay: .14s; }
-@keyframes menu-item-in { from { opacity: 0; transform: translateY(4px); } }
+/* 選單面板 */
+.menu-panel { transform-origin: top left; animation: none; visibility: hidden; opacity: 0; pointer-events: none;
+  transform: translate3d(var(--mx, 0), -8px, 0) scale(.97);
+  transition: opacity .16s ease, transform .2s var(--nav-ease), visibility 0s linear .2s; }
+.menu-panel.open { visibility: visible; opacity: 1; pointer-events: auto; transform: translate3d(var(--mx, 0), 0, 0);
+  transition: opacity .2s ease, transform .3s var(--nav-ease), visibility 0s; }
+body.scrolled .menu-panel { --mx: calc(-1 * var(--brand-shift)); }
+@media (max-width: 480px) { body.scrolled .menu-panel { --mx: 0px; } }
+.menu-panel.open .menu-item, .menu-panel.open .menu-head { animation: menu-item-in .32s var(--nav-ease) both; }
+.menu-panel.open > :nth-child(1) { animation-delay: .02s; }
+.menu-panel.open > :nth-child(2) > * { animation-delay: .06s; }
+.menu-panel.open > :nth-child(3) > * { animation-delay: .1s; }
+.menu-panel.open > :nth-child(n+4) > * { animation-delay: .14s; }
+@keyframes menu-item-in { from { opacity: 0; transform: translate3d(0, 4px, 0); } }
 @media (prefers-reduced-motion: reduce) {
-  .brand, .topbar, .topbar-inner, .menu-btn, .menu-btn .menu-label, .menu-btn .ic:last-child { transition: none; }
-  .menu-panel, .menu-panel .menu-item, .menu-panel .menu-head { animation: none; }
+  .brand, .menu-btn, .menu-btn .menu-label, .menu-btn .ic:last-child, .topbar::after, .menu-panel { transition: none !important; }
+  .menu-panel.open .menu-item, .menu-panel.open .menu-head, #student-chip:not([hidden]) { animation: none; }
 }
 
 /* 連線測試頁 */
@@ -660,8 +673,10 @@ body.scrolled .brand { max-width: 0; opacity: 0; transform: scale(.6) translateX
 
 /* ---------------- 換頁與整體動態 ---------------- */
 /* 只用 opacity 與 transform（交給顯示卡處理，不會拖慢手機）；不用模糊效果，也不常駐 will-change */
-#app.page-in { animation: page-in .28s var(--ease) both; }
-@keyframes page-in { from { opacity: 0; transform: translateY(8px); } }
+#app.page-in { animation: page-in-fwd var(--dur-2, .3s) var(--ease) both; }
+#app.page-in[data-dir="back"] { animation-name: page-in-back; }
+@keyframes page-in-fwd { from { opacity: 0; transform: translate3d(0, 10px, 0); } }
+@keyframes page-in-back { from { opacity: 0; transform: translate3d(0, -8px, 0); } }
 
 /* 首頁單元卡片依序浮現 */
 #app.page-in .unit-grid > .unit-tile:not(.tile-in):not(.tile-out) { animation: rise .36s var(--ease) both; }
@@ -690,3 +705,17 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { box-shadow: 
 @media (prefers-reduced-motion: reduce) {
   #app.page-in, #app.page-in .unit-grid > .unit-tile { animation: none; }
 }
+
+
+/* ---------------- 登入按鈕的狀態回饋 ---------------- */
+.btn[data-state] { transition: background .25s ease, color .25s ease, border-color .25s ease, box-shadow .25s ease; }
+.btn[data-state="busy"] { cursor: progress; }
+.btn[data-state="ok"] { background: #15803D; border-color: #15803D; color: #fff; box-shadow: 0 6px 18px rgba(21, 128, 61, .3); }
+.btn[data-state="ok"] .ic { animation: pop .45s var(--spring); }
+.btn.shake { animation: shake .4s; border-color: var(--amber); }
+.spinner.sm { width: 16px; height: 16px; border-width: 2px; }
+.btn.primary .spinner { border-color: rgba(30, 58, 138, .25); border-top-color: var(--navy); }
+/* 提示改成柔和的琥珀色小字（不是一整段紅字），出現時淡入 */
+.form-err { color: var(--amber-ink); font-weight: 600; }
+.form-err:not(:empty) { animation: fade-in var(--dur-2, .3s) ease; }
+dialog.modal::backdrop { animation: fade-in var(--dur-2, .3s) ease; }

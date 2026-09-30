@@ -3,7 +3,7 @@ import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow,
 import { store } from './storage.js';
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
-import { renderStudentChip, mountInlineForm } from './student.js';
+import { renderStudentChip, mountInlineForm, historyReady } from './student.js';
 import { LEVELS, PASS } from './levels.js';
 import { initNav, updateNav } from './nav.js';
 import { flushOutbox, pendingItems, clearOutbox } from './submit.js';
@@ -29,6 +29,7 @@ const findUnit = (id) => index.units.find((u) => u.id === id || (u.aliases || []
 // 換頁動畫：新頁面立刻畫出來，只做很短的淡入（只有網址真的換了才播，同一頁因資料更新重畫時不閃）
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let lastRendered = null;
+let lastDepth = 0;
 function pageIn(changed) {
   if (!changed || reduceMotion.matches) return;
   app.classList.remove('page-in');
@@ -41,6 +42,10 @@ async function route() {
   const here = location.hash || '#/';
   const changed = here !== lastRendered;
   lastRendered = here;
+  // 回到上一層（單元 → 首頁）和進到下一層的進場方向相反，前進／後退有空間感（只做垂直位移，不左右移動）
+  const depth = here === '#/' || here === '#' ? 0 : 1;
+  if (changed) app.dataset.dir = depth < lastDepth ? 'back' : 'fwd';
+  lastDepth = depth;
   if (cleanup) { try { cleanup(); } catch { /* ignore */ } cleanup = null; }
   delete document.body.dataset.busy;
   document.getElementById('fx').replaceChildren();
@@ -185,7 +190,8 @@ async function renderUnit(id, sub) {
   if (meta.id !== id) { location.replace(`#/u/${meta.id}${sub ? `/${sub}` : ''}`); return; }
 
   app.innerHTML = '<div class="loading"><span class="spinner"></span>載入中…</div>';
-  const [data, mod] = await Promise.all([loadUnit(meta.id, config), modes[meta.type === 'reading' ? 'reading' : 'vocab']()]);
+  // 剛登入時紀錄還在背景載入：等它載完（最多幾秒），才不會把做過的單元當成沒做過
+  const [data, mod] = await Promise.all([loadUnit(meta.id, config), modes[meta.type === 'reading' ? 'reading' : 'vocab'](), historyReady()]);
 
   if (meta.type === 'reading') {
     if (!modeOn(config, meta.id, 'reading')) { locked(); return; }
@@ -419,15 +425,33 @@ async function boot() {
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();
   window.addEventListener('online', () => flushOutbox());
-  // 往下捲動時收起左上角 B5，讓單元選單與學生名牌有足夠空間
-  let scrolled = false;
-  const onScroll = () => {
-    const y = window.scrollY;
-    if (!scrolled && y > 40) { scrolled = true; document.body.classList.add('scrolled'); }
-    else if (scrolled && y < 8) { scrolled = false; document.body.classList.remove('scrolled'); }
+  // 往下捲動時收起左上角 B5（選單按鈕平移補位）。導覽列高度不變，所以切換狀態不會改變頁面高度、不會互相觸發。
+  // 用 requestAnimationFrame 節流、加上緩衝區（>64px 收起、<24px 展開）與最短間隔，iPhone 快速滑動時不會來回閃動。
+  const brandEl = document.querySelector('.brand');
+  const measureBrand = () => {
+    const gap = parseFloat(getComputedStyle(brandEl.parentElement).columnGap) || 12;
+    document.documentElement.style.setProperty('--brand-shift', `${Math.round(brandEl.offsetWidth + gap)}px`);
   };
+  measureBrand();
+  window.addEventListener('resize', measureBrand, { passive: true });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measureBrand).catch(() => {});
+  let scrolled = false;
+  let ticking = false;
+  let lastFlip = 0;
+  let trailing = 0;
+  const flip = (on) => { scrolled = on; lastFlip = performance.now(); document.body.classList.toggle('scrolled', on); };
+  const evaluate = () => {
+    ticking = false;
+    const y = Math.max(0, window.scrollY);
+    const want = scrolled ? y >= 24 : y > 64;
+    if (want === scrolled) return;
+    const wait = 160 - (performance.now() - lastFlip);
+    if (wait > 0) { clearTimeout(trailing); trailing = setTimeout(evaluate, wait + 10); return; } // 動畫還在進行：等一下再判斷，不要中途反覆切換
+    flip(want);
+  };
+  const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(evaluate); } };
   window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
+  evaluate();
   // 成績排隊／排到送出時，在畫面右下角通知
   window.addEventListener('score-queued', (e) => notify(`${e.detail.unitTitle || e.detail.unit} 成績已加入排隊，稍後自動送出`, 'wait'));
   window.addEventListener('score-sent', (e) => notify(`${e.detail.unitTitle || e.detail.unit} ${String(e.detail.clientTs || '').slice(11, 16)} 已送出成績`, 'ok'));
@@ -463,6 +487,8 @@ async function boot() {
     route();
   });
   window.addEventListener('student-changed', () => { if (!document.body.dataset.busy) route(); });
+  // 登入後在背景載入的紀錄到了：首頁的完成狀態、最佳成績跟著更新（不打斷作答）
+  window.addEventListener('history-applied', () => { if (!document.body.dataset.busy && !(location.hash.split('/')[1] || '')) route(); });
   route();
   // 以 Firestore 為準：每次進站重新讀取紀錄（例如在別台裝置做過的測驗）
   const s = store.student();
