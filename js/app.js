@@ -79,6 +79,12 @@ async function route() {
   pageIn(changed, first);
 }
 
+// 單元選單是否顯示：老師頁、還沒登入、沒有可用單元時隱藏。登入成功（不換頁）時也要更新，不然選單會一直藏著
+function syncNav() {
+  const kind = location.hash.split('/')[1] || '';
+  document.getElementById('nav-menu').hidden = kind === 'teacher' || !store.student() || !visibleUnits().length;
+}
+
 const openLevels = (u) => LEVELS.filter((l) => modeOn(config, u.id, l.id));
 // 還沒有題目的單元不給學生看（老師匯入內容後才出現）
 const hasContent = (id) => !!(config && config.content && config.content[id]);
@@ -135,7 +141,7 @@ function renderHome() {
       title: '輸入你的基本資料',
       desc: '填寫班級、座號和姓名，要跟老師的名單一致。確認後會載入你之前的測驗紀錄。',
       button: '確認',
-      onSave: () => renderHome(),
+      onSave: () => { syncNav(); renderHome(); },
     });
     return;
   }

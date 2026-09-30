@@ -51,6 +51,7 @@ await step('登入：按鈕依序顯示「確認中 → 已確認」，成功後
   assert.ok(total >= 400 && total < 2000, `停留時間不合理：${total}ms`);
   const chip = await p.evaluate(() => !document.getElementById('student-chip').hidden);
   assert.ok(chip);
+  assert.equal(await p.evaluate(() => document.getElementById('nav-menu').hidden), false, '登入後單元選單要出現');
   await p.close();
 });
 await step('登入失敗：按鈕輕抖、提示為琥珀色小字（不是紅色），輸入後自動消失', async () => {
