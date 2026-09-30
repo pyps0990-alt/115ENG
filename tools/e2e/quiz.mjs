@@ -71,5 +71,6 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
   await ctx.close();
 }
 await sleep(1500);
+console.log('伺服器核對結果：', JSON.stringify((g.sheets.get('scores')?.rows || []).slice(1).map((r) => [r[4], r[9], r[18]])));
 console.log('成績送到伺服器：', scoreBodies.length, '筆；scores 分頁列數：', g.sheets.get('scores') ? g.sheets.get('scores').getLastRow() - 1 : 0);
 await world.close();

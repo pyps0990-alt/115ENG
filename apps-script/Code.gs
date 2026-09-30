@@ -38,8 +38,8 @@ var CUSTOM_UNITS_HEADER = ['單元代號', '標題', '類型', '課次', '主題
 
 // SCORES_FIELDS／DETAILS_FIELDS：程式內部用的欄位代號，順序要跟 doPost 組 row 的順序一致，不能改。
 // SCORES_HEADER／DETAILS_HEADER：實際寫進試算表第一列的中文欄名，只影響顯示，跟 FIELDS 一一對應。
-var SCORES_FIELDS = ['serverTime', 'cls', 'seat', 'name', 'unit', 'unitTitle', 'level', 'mode', 'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTime', 'attemptId'];
-var SCORES_HEADER = ['時間', '班級', '座號', '姓名', '單元', '單元名稱', '階段', '模式', '得分', '總分', '百分比', '基礎', '進階', '精熟', '錯題', '作答秒數', '送出時間(裝置)', '記錄編號'];
+var SCORES_FIELDS = ['serverTime', 'cls', 'seat', 'name', 'unit', 'unitTitle', 'level', 'mode', 'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTime', 'attemptId', 'check'];
+var SCORES_HEADER = ['時間', '班級', '座號', '姓名', '單元', '單元名稱', '階段', '模式', '得分', '總分', '百分比', '基礎', '進階', '精熟', '錯題', '作答秒數', '送出時間(裝置)', '記錄編號', '驗證'];
 var SHEET_DETAILS = 'details';
 var DETAILS_FIELDS = ['serverTime', 'attemptId', 'cls', 'seat', 'name', 'unit', 'stage', 'kind', 'n', 'question', 'correct', 'yours', 'ok', 'points', 'hints', 'word', 'err'];
 var DETAILS_HEADER = ['時間', '記錄編號', '班級', '座號', '姓名', '單元', '段落', '題型', '題號', '題目', '正確答案', '學生答案', '對錯', '得分', '提示次數', '單字／題目', '錯誤類型'];
@@ -165,11 +165,17 @@ function doPost(e) {
       num_(d.durationSec),
       cell_(d.clientTs, 30),
       cell_(attemptId, 64),
+      checkAttempt_(d), // 伺服器用題庫核對這筆成績：空白＝核對通過；否則寫下哪裡對不起來（不拒收，只標記，避免誤傷學生的成績）
     ];
+    ensureScoresHeader_(sheet_(SHEET_SCORES, SCORES_HEADER));
     sheet_(SHEET_SCORES, SCORES_HEADER).appendRow(row);
     // 依班級分頁（班級只接受 3–4 位數字）
     var cls = String(d.cls || '').trim();
-    if (/^\d{3,4}$/.test(cls)) sheet_(CLASS_SHEET_PREFIX + cls, SCORES_HEADER).appendRow(row);
+    if (/^\d{3,4}$/.test(cls)) {
+      var csh = sheet_(CLASS_SHEET_PREFIX + cls, SCORES_HEADER);
+      ensureScoresHeader_(csh);
+      csh.appendRow(row);
+    }
     // 矩陣式成績單（老師預先建立好名單才會寫入，見「成績單 XXX」分頁）
     writeGradebook_(cls, d.seat, d.unit, d.pct);
     // 每題作答明細
@@ -277,9 +283,71 @@ function seenAttempt_(id) {
   var sh = sheet_(SHEET_SCORES, SCORES_HEADER);
   var last = sh.getLastRow();
   if (last < 2) return false;
+  // 整欄都查（不只最近幾筆）：隔很久才補送的成績也不會重複寫入。一學期幾千列，讀單一欄很快。
   var col = SCORES_FIELDS.indexOf('attemptId') + 1;
-  var from = Math.max(2, last - 499);
-  return sh.getRange(from, col, last - from + 1, 1).getValues().some(function (r) { return String(r[0]) === id; });
+  return sh.getRange(2, col, last - 1, 1).getValues().some(function (r) { return String(r[0]) === id; });
+}
+
+// 舊的成績分頁沒有「驗證」欄標題：補上
+function ensureScoresHeader_(sh) {
+  var cache = CacheService.getScriptCache();
+  var key = 'hdr:' + sh.getName();
+  if (cache.get(key)) return;
+  if (sh.getLastColumn() < SCORES_HEADER.length) sh.getRange(1, 1, 1, SCORES_HEADER.length).setValues([SCORES_HEADER]).setFontWeight('bold');
+  cache.put(key, '1', 21600);
+}
+
+// 用老師的題庫核對一筆成績（分數、答案、時間是否合理）。回傳空字串＝沒問題，否則是給老師看的原因。
+// 只標記、不拒收：核對規則如果誤判，學生的成績仍然照常記錄。
+function checkAttempt_(d) {
+  try {
+    var issues = [];
+    var details = Array.isArray(d.details) ? d.details : [];
+    var score = Number(d.score), total = Number(d.total), pct = Number(d.pct);
+    if (!(total > 0) || score < 0 || score > total + 0.001) issues.push('分數超出範圍');
+    else if (Math.abs(Math.round((score / total) * 100) - pct) > 1) issues.push('百分比與得分不符');
+    if (!details.length) {
+      if (score > 0) issues.push('沒有作答明細');
+    } else {
+      var sum = details.reduce(function (a, x) { return a + (Number(x.points) || 0); }, 0);
+      if (details.length <= 120 && Math.abs(sum - score) > 0.06 + details.length * 0.001) issues.push('明細總分與得分不符');
+      if (total > 0 && details.length < Math.min(total, 120) - 0.5) issues.push('明細題數少於總題數');
+    }
+    var dur = Number(d.durationSec);
+    if (total > 0 && dur >= 0 && dur < total * 1.2) issues.push('作答時間過短');
+    // 對照題庫
+    var content = readContentCached_(String(d.unit || ''));
+    var data = content && content.ok ? content.data : null;
+    if (data && details.length) {
+      var norm = function (t) { return String(t == null ? '' : t).toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g, ''); };
+      var bad = 0;
+      if (d.mode === 'reading' && Array.isArray(data.questions)) {
+        var KEYS = 'ABCDE';
+        details.forEach(function (x) {
+          var q = data.questions[Number(x.n) - 1];
+          if (!q) { bad++; return; }
+          var expect = KEYS[q.answer] + '. ' + q.options[q.answer];
+          var yoursOk = String(x.yours || '') === expect;
+          if (String(x.correct) !== expect || !!x.ok !== yoursOk) bad++;
+        });
+      } else if (d.mode === 'vocab' && Array.isArray(data.words)) {
+        var byWord = {};
+        data.words.forEach(function (w) { byWord[norm(w.word)] = w; });
+        details.forEach(function (x) {
+          var w = byWord[norm(x.word)];
+          if (!w) { bad++; return; }
+          var okMatch = norm(x.yours) === norm(x.correct);
+          if (x.ok && !okMatch) bad++;              // 標成答對，但答案和正確答案不同
+          else if (!x.ok && okMatch && x.yours) bad++; // 標成答錯，但其實一樣
+          else if (/^(英→中|中→英|拼字)$/.test(String(x.kind)) && norm(x.correct) !== norm(w.word) && norm(x.correct) !== norm(w.zh)) bad++;
+        });
+      }
+      if (bad) issues.push('有 ' + bad + ' 題答案與題庫不符');
+    }
+    return issues.join('；');
+  } catch (err) {
+    return '';
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -597,7 +665,7 @@ function getScores(filter) {
       unit: String(r[4]), unitTitle: String(r[5]), level: String(r[6]), mode: String(r[7]),
       score: r[8], total: r[9], pct: r[10],
       basic: String(r[11]), advanced: String(r[12]), mastery: String(r[13]),
-      wrong: String(r[14]), durationSec: r[15],
+      wrong: String(r[14]), durationSec: r[15], check: String(r[18] || ''),
     });
   }
   return out;

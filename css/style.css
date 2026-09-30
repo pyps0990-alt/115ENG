@@ -29,6 +29,8 @@
 
   --shadow: 0 2px 6px rgba(30, 58, 138, .06), 0 10px 28px rgba(30, 58, 138, .08);
   --radius: 18px;
+  /* 單字、選項、例句、課文、拼字格用 Atkinson Hyperlegible：專為「絕不認錯字母」設計（大寫 I、小寫 l、數字 1 有明顯差別），拼字題最需要；標題與數字維持 Nunito */
+  --font-read: "Atkinson Hyperlegible", "Nunito", system-ui, -apple-system, "PingFang TC", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
   --font-en: "Nunito", system-ui, -apple-system, "PingFang TC", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
   /* 中文直接用裝置內建字型（蘋果 PingFang、安卓 Noto Sans CJK、Windows 微軟正黑體），不下載中文網頁字型：省下上百 KB 的字型設定與檔案 */
   --font: "Nunito", system-ui, -apple-system, "PingFang TC", "Noto Sans CJK TC", "Noto Sans TC", "Microsoft JhengHei", "Heiti TC", sans-serif;
@@ -56,7 +58,7 @@ button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; border-radius: 8px; }
 .ic { width: 1.15em; height: 1.15em; flex: none; vertical-align: -0.2em; }
-.en { font-family: var(--font-en); }
+.en { font-family: var(--font-read); }
 .muted { color: var(--steel); }
 [hidden] { display: none !important; }
 
@@ -294,9 +296,9 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .q-head { display: grid; justify-items: center; gap: 10px; text-align: center; }
 .q-meta { font-size: .82rem; font-weight: 700; letter-spacing: .04em; }
 .q-prompt { display: flex; align-items: center; gap: 12px; justify-content: center; flex-wrap: wrap; }
-.q-prompt .w { font-family: var(--font-en); font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.8rem); color: var(--navy); letter-spacing: -.01em; line-height: 1.15; }
+.q-prompt .w { font-family: var(--font-read); font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.8rem); color: var(--navy); letter-spacing: -.01em; line-height: 1.15; }
 .q-prompt .zh { font-weight: 900; font-size: clamp(1.4rem, 6vw, 2rem); color: var(--navy); line-height: 1.35; }
-.q-sentence { font-family: var(--font-en); font-size: clamp(1.1rem, 4.4vw, 1.4rem); line-height: 1.75; color: var(--navy); font-weight: 600; max-width: 34em; }
+.q-sentence { font-family: var(--font-read); font-size: clamp(1.1rem, 4.4vw, 1.4rem); line-height: 1.75; color: var(--navy); font-weight: 600; max-width: 34em; }
 .q-sentence .blank { display: inline-block; min-width: 4.5em; border-bottom: 3px solid var(--amber); margin: 0 4px; height: 1.1em; vertical-align: -0.1em; }
 .q-sub { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; font-size: .92rem; }
 
@@ -314,7 +316,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .opt:disabled { cursor: default; }
 .opt-key { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; flex: none; background: var(--wash); font-family: var(--font-en); font-weight: 900; font-size: .88rem; color: var(--steel); transition: all .2s; }
 .opt-text { flex: 1; min-width: 0; }
-.opt-text.en { font-family: var(--font-en); font-weight: 700; font-size: 1.06rem; }
+.opt-text.en { font-family: var(--font-read); font-weight: 700; font-size: 1.06rem; }
 .opt-mark { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; opacity: 0; transform: scale(.4); transition: all .3s var(--spring); }
 .opt-mark .ic { width: 16px; height: 16px; }
 .opt.selected { border-color: var(--navy); background: var(--navy-soft); }
@@ -342,7 +344,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .boxes { --n: 8; --bw: min(46px, calc((min(100vw, 660px) - 76px) / var(--n) - 5px)); display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; max-width: 100%; cursor: text; }
 .lbox {
   width: var(--bw); height: calc(var(--bw) * 1.25); border-radius: calc(var(--bw) / 4); border: 2px solid var(--line);
-  background: var(--white); display: grid; place-items: center; font-family: var(--font-en); font-weight: 900; color: var(--navy);
+  background: var(--white); display: grid; place-items: center; font-family: var(--font-read); font-weight: 900; color: var(--navy);
   font-size: calc(var(--bw) * .58); text-transform: lowercase; transition: border-color .15s, background .2s, transform .15s var(--spring);
 }
 .lbox.filled { border-color: var(--navy); animation: tick .18s var(--spring); }
@@ -350,7 +352,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .lbox.cursor { border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); }
 .lbox.ok { animation: flip-ok .55s var(--ease) both; }
 .lbox.bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad-ink); }
-.lsep { display: grid; place-items: end center; font-family: var(--font-en); font-weight: 900; font-size: 1.2rem; color: var(--steel); padding-bottom: 4px; }
+.lsep { display: grid; place-items: end center; font-family: var(--font-read); font-weight: 900; font-size: 1.2rem; color: var(--steel); padding-bottom: 4px; }
 .lsep.sp { width: 10px; }
 @keyframes tick { 50% { transform: scale(1.1); } }
 @keyframes flip-ok {
@@ -362,7 +364,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .boxes.shake { animation: shake .45s; }
 .spell-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: none; font-size: 16px; color: transparent; background: transparent; caret-color: transparent; cursor: text; }
 .answer-line { font-size: .95rem; text-align: center; }
-.answer-line b { font-family: var(--font-en); color: var(--navy); font-size: 1.15rem; }
+.answer-line b { font-family: var(--font-read); color: var(--navy); font-size: 1.15rem; }
 
 /* ===========================================================
    三段連續：進度、過場卡、成績條
@@ -419,7 +421,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .wrong-list h3 { font-size: 1rem; }
 .wrong-item { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 14px; border-radius: 12px; background: var(--wash); }
 .wrong-item .p { color: var(--navy); font-weight: 500; }
-.wrong-item .a { font-family: var(--font-en); color: var(--navy); font-weight: 900; text-align: right; }
+.wrong-item .a { font-family: var(--font-read); color: var(--navy); font-weight: 900; text-align: right; }
 .wrong-item .y { grid-column: 1 / -1; font-size: .85rem; color: var(--bad-ink); }
 .submit-state .ic { width: 18px; height: 18px; }
 .submit-state { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 12px; font-weight: 700; font-size: .92rem; }
@@ -444,7 +446,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 }
 .passage-card { background: var(--surface); border-radius: 20px; padding: 24px 22px; display: grid; gap: 14px; }
 .passage-title { font-size: 1.5rem; font-weight: 900; }
-.passage-card p { font-family: var(--font-en); font-size: 1.07rem; line-height: 1.9; color: var(--text); }
+.passage-card p { font-family: var(--font-read); font-size: 1.07rem; line-height: 1.9; color: var(--text); }
 .pnum { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 8px; border-radius: 6px; background: var(--navy); color: var(--white); font-size: .78rem; font-weight: 900; vertical-align: 2px; }
 .pq-list { display: grid; gap: 12px; }
 .pq-intro { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: .88rem; }
@@ -456,7 +458,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .pq.is-ok .pq-num { background: var(--amber); color: var(--navy); }
 .pq.is-no .pq-num { background: var(--bad); color: var(--white); }
 .skill { display: inline-block; padding: 0 8px; border-radius: 6px; background: var(--navy-soft); color: var(--navy); font-size: .78rem; font-weight: 700; margin-bottom: 4px; }
-.pq-q { font-family: var(--font-en); font-size: 1.04rem; font-weight: 700; color: var(--navy); line-height: 1.5; }
+.pq-q { font-family: var(--font-read); font-size: 1.04rem; font-weight: 700; color: var(--navy); line-height: 1.5; }
 .pq .opt { min-height: 50px; font-size: .98rem; }
 .pq .opt-text.en { font-size: 1rem; font-weight: 600; }
 .explain { padding: 12px 14px; border-radius: 12px; background: var(--wash); font-size: .92rem; animation: fade-up .3s var(--ease); }
@@ -792,3 +794,6 @@ body.exam .topbar::after { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { body.exam .exam-timer::before, body.exam .exam-timer, body.exam .exam-unit { animation: none; } }
 /* 手機橫放：平常導覽列不固定（省空間），但考試中要一直看得到計時與單元，所以固定在上方 */
 @media (max-height: 520px) and (orientation: landscape) { body.exam .topbar { position: sticky; } }
+
+h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
+.spell-input { font-family: var(--font-read); }

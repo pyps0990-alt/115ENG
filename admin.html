@@ -79,6 +79,7 @@
       .cards-table td.c-act { text-align:right; }
       .cards-table td.window label { justify-content:space-between; }
     }
+    .chk-warn { color:#92400E; background:#FEF3C7; padding:2px 8px; border-radius:8px; font-weight:700; font-size:.8rem; }
     td.title { font-weight:700; white-space:normal; min-width:150px; }
     .pick { position:absolute; left:0; top:100%; z-index:20; margin-top:4px; min-width:260px; max-height:260px; overflow:auto; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow); }
     .pick button { display:block; width:100%; text-align:left; border:0; background:none; padding:8px 12px; font:inherit; font-weight:400; color:var(--ink); cursor:pointer; }
@@ -350,7 +351,7 @@
         <div id="wstats"></div>
         <div class="stats" id="stats"></div>
         <table>
-          <thead><tr><th>時間</th><th>班級</th><th>座號</th><th>姓名</th><th>單元</th><th>分數</th><th>%</th><th>基礎</th><th>進階</th><th>精熟</th><th>錯題</th></tr></thead>
+          <thead><tr><th>時間</th><th>班級</th><th>座號</th><th>姓名</th><th>單元</th><th>分數</th><th>%</th><th>基礎</th><th>進階</th><th>精熟</th><th>錯題</th><th>驗證</th></tr></thead>
           <tbody id="rows"><tr><td colspan="11" class="muted">按「查詢」載入成績</td></tr></tbody>
         </table>
       </div>
@@ -725,8 +726,8 @@
           $('smsg').textContent = '';
           $('rows').innerHTML = rows.map(function (r) {
             return '<tr><td>' + esc(r.time) + '</td><td>' + esc(r.cls) + '</td><td>' + esc(r.seat) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.unitTitle || r.unit) +
-              '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td></tr>';
-          }).join('') || '<tr><td colspan="11" class="muted">沒有資料</td></tr>';
+              '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td><td style="white-space:normal">' + (r.check ? '<span class="chk-warn">⚠ ' + esc(r.check) + '</span>' : '<span class="muted">✓</span>') + '</td></tr>';
+          }).join('') || '<tr><td colspan="12" class="muted">沒有資料</td></tr>';
           var n = rows.length;
           var avg = n ? Math.round(rows.reduce(function (a, r) { return a + Number(r.pct || 0); }, 0) / n) : 0;
           $('stats').innerHTML = n ? '<span class="stat">筆數 ' + n + '</span><span class="stat">平均 ' + avg + '%</span>' : '';

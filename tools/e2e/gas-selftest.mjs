@@ -103,3 +103,58 @@ ok(g.api('saveContent', ['l1-voc', vocab, true, { now: new Date().toISOString() 
 console.log('saveContent 讀試算表次數：', g.calls.sheetReads);
 assert.ok(g.calls.sheetReads <= 22, '讀試算表次數太多：' + g.calls.sheetReads);
 console.log('Code.gs 儲存邏輯測試全部通過');
+
+/* ---------- 成績核對與去重 ---------- */
+{
+  const g2 = createGas();
+  const okc = (r) => { assert.equal(r.ok, true, JSON.stringify(r)); return r.data; };
+  const gw = (x) => x; void gw;
+  okc(g2.api('saveAllSettings', [[], [
+    { id: 'r1', title: 'R', type: 'reading', lesson: 1, topic: '', visible: true, disabled: [], questionCount: 5, custom: true },
+    { id: 'v1', title: 'V', type: 'vocab', lesson: 1, topic: '', visible: true, disabled: [], questionCount: 4, custom: true }]]));
+  const words = ['apple', 'bread', 'candy', 'dance'].map((w, i) => ({ word: w, pos: 'n.', zh: '中' + i, example: `I [${w}] it.`, exampleZh: '我。' }));
+  okc(g2.api('saveContent', ['v1', { topic: 't', words }, true]));
+  okc(g2.api('saveContent', ['r1', { title: 'T', topic: 't', passage: ['Tea is good.'], questions: [
+    { skill: '細節', q: 'Q1?', options: ['Leaves', 'Rocks'], answer: 0, explain: 'x' }, { skill: '細節', q: 'Q2?', options: ['a', 'b'], answer: 1, explain: 'x' }] }, true]));
+  const send = (o) => g2.post(Object.assign({ cls: '306', seat: '1', name: '王小明', clientTs: '2026-10-01 10:00:00' }, o));
+  const lastCheck = () => { const sh = g2.sheets.get('scores'); return String(sh.rows[sh.getLastRow() - 1][18] || ''); };
+  // 課文：正確的成績
+  send({ attemptId: 'a1', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 1, total: 2, pct: 50, durationSec: 30,
+    details: [{ n: 1, correct: 'A. Leaves', yours: 'A. Leaves', ok: true, points: 1 }, { n: 2, correct: 'B. b', yours: 'A. a', ok: false, points: 0 }] });
+  assert.equal(lastCheck(), '', '正常的課文成績不該被標記：' + lastCheck());
+  // 課文：學生把答錯的改成答對、分數調高
+  send({ attemptId: 'a2', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 2, total: 2, pct: 100, durationSec: 30,
+    details: [{ n: 1, correct: 'A. Leaves', yours: 'A. Leaves', ok: true, points: 1 }, { n: 2, correct: 'B. b', yours: 'A. a', ok: true, points: 1 }] });
+  assert.match(lastCheck(), /不符/);
+  // 作答時間過短
+  send({ attemptId: 'a3', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 1, total: 2, pct: 50, durationSec: 1,
+    details: [{ n: 1, correct: 'A. Leaves', yours: 'A. Leaves', ok: true, points: 1 }, { n: 2, correct: 'B. b', yours: 'A. a', ok: false, points: 0 }] });
+  assert.match(lastCheck(), /時間過短/);
+  // 百分比被改
+  send({ attemptId: 'a4', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 1, total: 2, pct: 100, durationSec: 30,
+    details: [{ n: 1, correct: 'A. Leaves', yours: 'A. Leaves', ok: true, points: 1 }, { n: 2, correct: 'B. b', yours: 'A. a', ok: false, points: 0 }] });
+  assert.match(lastCheck(), /百分比/);
+  // 單字：正常（含部分得分）
+  send({ attemptId: 'v1a', unit: 'v1', unitTitle: 'V', mode: 'vocab', score: 2.75, total: 3, pct: 92, durationSec: 40, basic: '1/1', advanced: '1/1', mastery: '0.75/1',
+    details: [{ stage: '基礎', n: 1, kind: '英→中', correct: '中0', yours: '中0', ok: true, points: 1, word: 'apple' },
+      { stage: '進階', n: 1, kind: '中→英', correct: 'bread', yours: 'bread', ok: true, points: 1, word: 'bread' },
+      { stage: '精熟', n: 1, kind: '拼字', correct: 'candy', yours: 'candy', ok: true, points: 0.75, hints: 1, word: 'candy' }] });
+  assert.equal(lastCheck(), '', '正常的單字成績不該被標記：' + lastCheck());
+  // 單字：題庫沒有的字、答錯卻標答對
+  send({ attemptId: 'v1b', unit: 'v1', unitTitle: 'V', mode: 'vocab', score: 2, total: 2, pct: 100, durationSec: 40,
+    details: [{ stage: '基礎', n: 1, kind: '英→中', correct: '中0', yours: '中3', ok: true, points: 1, word: 'apple' }, { stage: '基礎', n: 2, kind: '中→英', correct: 'zebra', yours: 'zebra', ok: true, points: 1, word: 'zebra' }] });
+  assert.match(lastCheck(), /2 題答案與題庫不符/);
+  // 管理後台看得到驗證欄
+  const rows = okc(g2.api('getScores', [{}]));
+  assert.ok(rows.some((r) => /時間過短/.test(r.check)) && rows.some((r) => r.check === ''));
+  // 去重：超過 500 筆之後，很久以前的編號還是能認出來（快取清空模擬過期）
+  const sh = g2.sheets.get('scores');
+  for (let i = 0; i < 700; i++) sh.rows.push(['t', '306', '1', 'x', 'r1', '', '', '', 0, 0, 0, '', '', '', '', 0, '', 'old' + i, '']);
+  g2.cacheMap.clear();
+  const before = sh.getLastRow();
+  const dup = send({ attemptId: 'a1', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 1, total: 2, pct: 50, durationSec: 30, details: [] });
+  assert.equal(dup.duplicate, true, '很久以前送過的成績要能認出是重複');
+  assert.equal(sh.getLastRow(), before);
+  assert.equal(g2.get({ action: 'check', id: 'old3' }).seen, true);
+  console.log('成績核對與去重測試通過');
+}
