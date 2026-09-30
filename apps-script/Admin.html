@@ -66,7 +66,7 @@
     .modes { display:flex; gap:4px 10px; flex-wrap:wrap; white-space:normal; min-width:240px; }
     .modes label { display:inline-flex; gap:4px; align-items:center; font-size:.85rem; }
     input[type=number] { width:68px; }
-    input[type=number], input[type=date], input[type=datetime-local], input[type=text], select {
+    input[type=number], input[type=date], input[type=datetime-local], input[type=text], input[type=password], input[type=url], select {
       padding:8px 10px; border-radius:9px; border:1px solid var(--line); background:#fff; color:var(--ink);
       font:inherit; transition:border-color .15s ease, box-shadow .15s ease;
     }
@@ -101,7 +101,7 @@
     /* 匯入內容 */
     .imp-grid { display:grid; gap:14px; margin-top:16px; }
     .imp-grid label { display:grid; gap:6px; font-weight:700; font-size:.9rem; }
-    .imp-grid input[type=text], .imp-grid textarea, .qcard input[type=text], .qcard textarea, .qcard select {
+    .imp-grid input[type=text], .imp-grid input[type=password], .imp-grid input[type=url], .imp-grid textarea, .qcard input[type=text], .qcard textarea, .qcard select {
       width:100%; padding:9px 12px; border-radius:10px; border:1px solid var(--line); background:#fff; color:var(--ink); font:inherit;
     }
     .imp-grid > label > textarea { min-height:220px; font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; resize:vertical; }

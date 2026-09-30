@@ -100,7 +100,7 @@ node tools/check-content.mjs
 3. 在專案根目錄部署：
 
    ```bash
-   firebase deploy --only hosting
+   firebase deploy --only hosting,firestore:rules
    ```
 
 4. 部署完成後，網址會是 `https://eng-3385e.web.app`（或 `https://eng-3385e.firebaseapp.com`）。
@@ -113,6 +113,28 @@ node tools/check-content.mjs
 - 網站會把老師的設定與匯入的題目存在學生裝置上，下次打開先用存下的版本立刻顯示（約 0.4 秒），同時在背景向 Apps Script 確認；老師改過的話會自動換上新版，不用重新整理。
 - Firebase 程式庫只在需要時才下載（登入、讀紀錄、送成績、老師頁面），不拖慢首頁。
 - `firebase.json` 設定網站程式與資料檔每次向伺服器確認新版，部署後學生重新整理就是最新版。
+- `index.html` 在程式還在下載時就先發出「設定」與「單元清單」的請求（`window.__early`），並用 `modulepreload` 一次抓齊所有模組；字型不擋畫面；登入元件（firebase-auth）與測驗畫面的程式（單字、課文）都延後到需要時才載入。新增或刪除 `import` 之後執行 `node tools/module-graph.mjs` 更新 `index.html` 的預載清單（`--check` 可檢查是否一致）。
+- 換頁動畫只用透明度與位移，不做模糊，也不阻擋畫面；系統設定「減少動態效果」時全部關閉。
+
+## 老師儲存到學生同步
+
+- 老師按「儲存」時，網站版後台會先在瀏覽器算出新的設定，**直接寫進 Firestore**（`public/config`，匯入題目時一起寫 `public/content_<單元>`，同一個請求、不可分割），學生端的即時監聽通常 0.2～0.5 秒內就收到；同時照常存進試算表。試算表存好後，Apps Script 會再算一次並寫入最後確認的版本，兩邊不一樣時以試算表為準（學生端比對設定時不看欄位順序與 `updated`，所以相同內容不會讓畫面重畫兩次）。
+- 這需要 Firestore 規則允許老師寫 `public`（`firestore.rules` 已包含）。規則還沒更新時儲存會自動退回原本的流程（多等幾秒），並在訊息裡提醒發布規則。
+- 試算表沒存成功時，後台會顯示錯誤，並把學生網站還原成試算表現在的樣子。一次只處理一個儲存，連按不會互相覆蓋。
+- 後台頁面開著時每 4 分鐘敲一下 Apps Script，避免它「睡著」造成下一次儲存多等 1～3 秒。
+- Apps Script 端：內容分頁新增 `count`、`topic` 欄（舊資料第一次讀取時自動補齊），讀取單元清單與設定時不用再讀整欄題目內容；設定與題目用單一 `documents:commit` 寫入 Firestore。
+
+## 自動化測試
+
+`tools/e2e/` 用 Playwright（本機或全域安裝皆可）跑，不會連到真的 Firebase 或 Google 服務：
+
+```bash
+node tools/e2e/gas-selftest.mjs   # 直接在 Node 裡執行真正的 Code.gs（假試算表），測儲存邏輯
+node tools/e2e/smoke.mjs          # 各頁面無錯誤／無橫向捲動 + 老師儲存 → 學生同步（含失敗、規則未更新、連按）
+node tools/e2e/quiz.mjs           # 學生實際作答單字與課文一輪並截圖
+node tools/e2e/timing.mjs         # 量測按下儲存到學生收到的時間
+node tools/e2e/shots.mjs          # 各畫面截圖
+```
 
 ## 學生登入與 Firestore
 

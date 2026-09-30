@@ -136,10 +136,19 @@ export function unitWindow(c, id, now = Date.now()) {
   const state = open > now ? 'before' : close <= now ? 'after' : 'open';
   return { state, extended, openAt: Number.isNaN(open) ? null : open, closeAt: Number.isNaN(close) ? null : close };
 }
+// 時間一律用台灣時間顯示（老師設定的就是台灣時間），學生的手機時區設成別的地方也不會差幾個小時
+const TW_FMT = (() => {
+  try { return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }); } catch { return null; }
+})();
 export function fmtWhen(ms) {
   const d = new Date(ms);
-  const p = (n) => String(n).padStart(2, '0');
-  return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  if (TW_FMT) {
+    const p = Object.fromEntries(TW_FMT.formatToParts(d).map((x) => [x.type, x.value]));
+    return `${Number(p.month)}/${Number(p.day)} ${p.hour}:${p.minute}`;
+  }
+  const t = new Date(ms + 8 * 3600 * 1000); // 沒有 Intl 時：手動換算成台灣時間
+  const q = (n) => String(n).padStart(2, '0');
+  return `${t.getUTCMonth() + 1}/${t.getUTCDate()} ${q(t.getUTCHours())}:${q(t.getUTCMinutes())}`;
 }
 
 export const modeOn = (c, id, mode) => !(unitCfg(c, id).disabled || []).includes(mode);
