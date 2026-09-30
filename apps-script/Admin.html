@@ -51,6 +51,8 @@
       background:#fff; border:1px solid var(--line); border-radius:var(--radius);
       padding:20px; margin-top:18px; overflow-x:auto; box-shadow:var(--shadow);
     }
+    /* 卡片預設橫向可捲（寬表格用）；有下拉選單的卡片不能裁切，否則選單一展開整張卡片就會出現捲軸、可以被拖動 */
+    .card.no-clip { overflow:visible; }
     table { width:100%; border-collapse:collapse; font-size:.9rem; }
     th, td { padding:10px 8px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle; white-space:nowrap; }
     thead th { color:var(--muted); font-weight:700; font-size:.78rem; text-transform:uppercase; letter-spacing:.03em; border-bottom-width:2px; }
@@ -208,7 +210,7 @@
         </div>
         <div class="help" style="margin-top:12px">開放時段留空＝不限制。設定開放時間後，時間到之前學生只看得到「幾月幾日開放」；過了截止時間就不能再做正式測驗，已經做過的學生仍可以檢討和複習。新增單元後記得按上方「儲存設定」。新單元一開始沒有內容，請切到「匯入內容」分頁選擇這個單元，貼上單字或文章後儲存，學生網站才看得到實際題目。</div>
       </div>
-      <div class="card">
+      <div class="card no-clip">
         <h2 style="margin-top:0">補作時間</h2>
         <div class="help">單元截止後，請假或有特殊狀況的學生可以單獨開放補作。搜尋並選擇學生、選單元、設定補作到什麼時候，按「加入」後再按「儲存補作名單」。只有名單上的學生能在截止後做正式測驗，其他學生不受影響。</div>
         <div class="bar" style="margin-top:12px">
@@ -384,6 +386,9 @@
         var busy = /…\s*(（.*）)?$/.test(t);
         if (lastBtn) lastBtn.classList.toggle('busy', busy);
         if (!busy) lastBtn = null;
+        // 訊息文字已經在畫面上看得到（按鈕旁邊）就不再跳出重複的提示；捲到看不到的地方時才用浮動提示
+        var r = el.getBoundingClientRect();
+        if (r.width > 0 && r.top >= 56 && r.bottom <= window.innerHeight) { toast.className = toast.className.replace('show', ''); return; }
         toast.textContent = t;
         toast.className = 'show' + (/\berr\b/.test(el.className) ? ' err' : /\bok\b/.test(el.className) || /^✓/.test(t) ? ' ok' : '');
         clearTimeout(timer);
