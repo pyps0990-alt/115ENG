@@ -177,7 +177,7 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   let r = ok3(g3.api('syncGradebookRoster', ['306', [{ seat: '3', name: '丙' }, { seat: '01', name: '甲' }, { seat: '2', name: '乙' }]]));
   assert.equal(r.added, 3);
   const gb = g3.sheets.get('成績單 306');
-  assert.deepEqual(gb.rows.slice(0, 4).map((x) => x.slice(0, 3).join('|')), ['班級|座號|姓名', '306|1|甲', '306|2|乙', '306|3|丙']);
+  assert.deepEqual(gb.rows.slice(0, 4).map((x) => x.slice(0, 3).join('|')), ['班級|座號|姓名', '306|01|甲', '306|02|乙', '306|03|丙']);
   assert.equal(gb.rows[0][3], 'u1');
   // 學生交卷：分數填進正確的格子
   g3.post({ cls: '306', seat: '2', name: '乙', unit: 'u1', unitTitle: 'U', mode: 'vocab', score: 3, total: 4, pct: 75, durationSec: 90, attemptId: 'g1', details: [] });
@@ -190,12 +190,18 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   r = ok3(g3.api('syncGradebookRoster', ['306', [{ seat: '1', name: '甲' }, { seat: '4', name: '丁' }]]));
   assert.equal(r.added, 1); assert.equal(r.total, 4);
   assert.equal(gb.rows[2][3], 75);
-  assert.deepEqual(gb.rows.slice(1).map((x) => x[1]), [1, 2, 3, 4]);
+  assert.deepEqual(gb.rows.slice(1).map((x) => x[1]), ['01', '02', '03', '04']);
+  // 舊的成績單（座號是數字 1、2）同步時整理成 01、02，分數留在原本那一列
+  gb.rows[1][1] = 1; gb.rows[2][1] = 2; gb.rows[3][1] = 10; gb.rows[3][2] = '十';
+  ok3(g3.api('syncGradebookRoster', ['306', [{ seat: '9', name: '九' }]]));
+  assert.deepEqual(gb.rows.slice(1).map((x) => x[1]), gb.rows.slice(1).map((x) => x[1]).slice().sort());
+  assert.ok(gb.rows.slice(1).every((x) => /^\d\d$/.test(x[1])));
+  assert.equal(gb.rows[2][3], 75, '排序後分數仍在乙的那一列');
   // 沒有建立過的班級，第一筆成績進來時自動建立成績單並補上學生
   g3.post({ cls: '312', seat: '5', name: '戊', unit: 'u2', unitTitle: 'U', mode: 'vocab', score: 4, total: 4, pct: 100, durationSec: 90, attemptId: 'g2', details: [] });
   const gb2 = g3.sheets.get('成績單 312');
   assert.ok(gb2, '第一筆成績進來要自動建立成績單');
-  assert.equal(gb2.rows[1][2], '戊'); assert.equal(gb2.rows[1][4], 100);
+  assert.equal(gb2.rows[1][2], '戊'); assert.equal(gb2.rows[1][1], '05'); assert.equal(gb2.rows[1][4], 100);
   // 一次同步所有班級（讀 Firestore 的學生資料）
   global.__vault = [{ cls: '302', seat: '1', name: 'A' }, { cls: '302', seat: '2', name: 'B' }, { cls: '306', seat: '1', name: '甲' }];
   const all = ok3(g3.api('syncAllGradebooks', []));

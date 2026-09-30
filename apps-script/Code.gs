@@ -220,6 +220,13 @@ var GRADEBOOK_BASE_HEADER = ['班級', '座號', '姓名'];
 // 寫入（或更新）一格分數：找到「座號」對應的列、「單元」對應的欄，只有比原分數高才覆蓋。
 // 成績單不用老師事先建立：這個班第一筆成績進來時自動建立分頁；名單裡還沒有的學生（學生登入時已經對過名單）自動補一列；
 // 新單元的欄位在老師新增單元時就會建好（見 syncGradebookColumns_），沒有的話這裡補上。
+// 座號統一存成兩位數文字（1 → 01），成績單排序整齊；比對時前面的 0 一律忽略（01、1 視為同一個座號）
+function padSeat_(seat) {
+  var t = String(seat == null ? '' : seat).trim().replace(/^0+(?=\d)/, '');
+  return /^\d$/.test(t) ? '0' + t : t;
+}
+function seatKey_(seat) { return String(seat == null ? '' : seat).trim().replace(/^0+(?=\d)/, ''); }
+
 function writeGradebook_(cls, seat, unit, pct, name) {
   var clsTrim = String(cls || '').trim();
   if (!/^\d{3,4}$/.test(clsTrim)) return;
@@ -234,12 +241,13 @@ function writeGradebook_(cls, seat, unit, pct, name) {
   if (lastRow >= 2) {
     var seatValues = sh.getRange(2, 2, lastRow - 1, 1).getValues();
     for (var i = 0; i < seatValues.length; i++) {
-      if (String(seatValues[i][0]).trim() === seatTrim) { rowIdx = i + 2; break; }
+      if (seatKey_(seatValues[i][0]) === seatKey_(seatTrim)) { rowIdx = i + 2; break; }
     }
   }
   if (rowIdx === -1) {
     rowIdx = Math.max(lastRow, 1) + 1;
-    sh.getRange(rowIdx, 1, 1, 3).setValues([[clsTrim, Number(seatTrim) || seatTrim, String(name || '')]]);
+    sh.getRange(rowIdx, 2).setNumberFormat('@');
+    sh.getRange(rowIdx, 1, 1, 3).setValues([[clsTrim, padSeat_(seatTrim), String(name || '')]]);
   }
 
   var lastCol = sh.getLastColumn();
@@ -323,7 +331,7 @@ function syncGradebookRoster(cls, rows) {
   var last = sh.getLastRow();
   var have = {};
   if (last >= 2) {
-    sh.getRange(2, 1, last - 1, 3).getValues().forEach(function (r, i) { have[String(r[1]).trim()] = { row: i + 2, name: String(r[2] || '') }; });
+    sh.getRange(2, 1, last - 1, 3).getValues().forEach(function (r, i) { have[seatKey_(r[1])] = { row: i + 2, name: String(r[2] || '') }; });
   }
   var add = [];
   (rows || []).forEach(function (r) {
@@ -333,11 +341,19 @@ function syncGradebookRoster(cls, rows) {
     var cur = have[seat];
     if (cur) { if (!cur.name) sh.getRange(cur.row, 3).setValue(name); return; }
     have[seat] = { row: -1, name: name };
-    add.push([cls, Number(seat), name]);
+    add.push([cls, padSeat_(seat), name]);
   });
   if (add.length) {
-    sh.getRange(sh.getLastRow() + 1, 1, add.length, 3).setValues(add);
-    var n = sh.getLastRow() - 1;
+    var start = sh.getLastRow() + 1;
+    sh.getRange(start, 2, add.length, 1).setNumberFormat('@');
+    sh.getRange(start, 1, add.length, 3).setValues(add);
+  }
+  // 座號一律整理成兩位數文字（舊的 1、2 也會變成 01、02），再依座號排序（整列一起排，分數跟著走）
+  var n = sh.getLastRow() - 1;
+  if (n >= 1) {
+    var seatRange = sh.getRange(2, 2, n, 1);
+    seatRange.setNumberFormat('@');
+    seatRange.setValues(seatRange.getValues().map(function (r) { return [padSeat_(r[0])]; }));
     if (n > 1 && sh.getLastColumn() >= 1) sh.getRange(2, 1, n, sh.getLastColumn()).sort({ column: 2, ascending: true });
   }
   ensureGradebookColumns_(sh, gradebookUnits_());
