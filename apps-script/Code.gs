@@ -1264,6 +1264,8 @@ function aiCallLocal_(prompt, schema) {
   if (!base || !model) throw new Error('還沒有設定本地模型的網址與模型名稱，請先在「AI 設定」填入');
   var js = toJsonSchema_(schema);
   var sys = 'You are a helpful assistant that only replies with a single JSON object matching this JSON Schema, with no extra text and no markdown fences:\n' + JSON.stringify(js);
+  // Qwen3 系列預設會先長篇「思考」，出題不需要，關掉比較快也比較不會逾時
+  if (/qwen3/i.test(model)) sys += '\n/no_think';
   var headers = { 'ngrok-skip-browser-warning': '1' };
   if (key) headers.Authorization = 'Bearer ' + key;
   function send(format) {
