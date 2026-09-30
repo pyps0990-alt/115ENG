@@ -131,7 +131,7 @@ bootstrap = r'''
     let started = false;
     fb.watchStaff((staff) => {
       if (!staff) { if (started) location.reload(); gate('請先在老師頁面用 Google 帳號登入。', true); return; }
-      if (!staff.role) { gate(staff.email + ' 不在老師名單中。', true); return; }
+      if (!staff.role) { gate(staff.email + ' 不在老師名單中。' + (staff.reason ? '（' + staff.reason + '）' : ''), true); return; }
       if (started) return;
       started = true;
       $('who-email').textContent = staff.email;

@@ -289,6 +289,7 @@ function renderTeacher() {
       app.innerHTML = `<section class="card teacher">
           <div class="eyebrow">Teacher</div><h2>沒有權限</h2>
           <p class="muted">${esc(staff.email)} 不在老師名單中，請聯絡管理員。</p>
+          ${staff.reason ? `<p class="muted" style="font-size:.8rem">原因：${esc(staff.reason)}</p>` : ''}
           <div class="btn-row"><button class="btn ghost" type="button" data-out>登出</button></div></section>`;
       app.querySelector('[data-out]').onclick = () => staffSignOut();
       return;

@@ -4,6 +4,7 @@
 //   classes/{cls}/seats/{seat}/units/{unit}/attempts/{attemptId}   老師在主控台依班級瀏覽用
 //   admins/{email}                      老師／管理員名單（在 Firebase 主控台手動新增）
 // 名單上沒有的班級/座號/姓名組合算不出存在的 key，所以進不去；規則也不允許列出 vault。
+import { SCRIPT_URL } from './config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
 import {
   getFirestore, doc, getDoc, onSnapshot, getDocs, setDoc, collection, writeBatch, serverTimestamp,
@@ -120,11 +121,27 @@ export function watchStaff(cb) {
     if (!user) { cb(null); return; }
     const email = String(user.email || '').toLowerCase();
     let role = null;
+    let reason = '';
     try {
       const snap = await getDoc(doc(db, 'admins', email));
       if (snap.exists()) role = snap.data().role === 'admin' ? 'admin' : 'teacher';
-    } catch { /* 不在名單時規則會拒絕讀取 */ }
-    cb({ email, role });
+      else reason = `Firestore 的 admins 裡沒有文件 ID「${email}」`;
+    } catch (e) {
+      reason = `讀取 Firestore 老師名單失敗（${e.code || e.message}）`;
+    }
+    // 備援：網站自己讀不到時，請 Apps Script 確認（試算表 teachers 或 Firestore admins 任一份有就算）
+    if (!role) {
+      try {
+        const idToken = await user.getIdToken();
+        const r = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ api: 'whoami', idToken }), credentials: 'omit', cache: 'no-store' });
+        const j = JSON.parse(await r.text());
+        if (j.ok) role = 'teacher';
+        else reason += `；後台確認：${j.error || '不在老師名單'}`;
+      } catch (e) {
+        reason += `；後台確認失敗（${e.message}）`;
+      }
+    }
+    cb({ email, role, reason });
   });
 }
 

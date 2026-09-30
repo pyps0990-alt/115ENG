@@ -112,6 +112,7 @@ function verifyIdToken_(token) {
 function handleApi_(d) {
   // 網站版後台可以呼叫的函式（每一個函式內部都會再檢查一次老師身分）
   var fns = {
+    whoami: function () { return { email: assertTeacher_() }; },
     getAdminData: getAdminData, saveAllSettings: saveAllSettings, saveExtensions: saveExtensions, listRoster: listRoster, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
     getScores: getScores, getWrongStats: getWrongStats,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
