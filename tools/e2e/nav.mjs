@@ -124,6 +124,23 @@ await step('換頁：首頁 ↔ 單元有進場動畫且方向不同', async () 
   const back = await p.evaluate(() => document.getElementById('app').dataset.dir);
   assert.equal(fwd, 'fwd'); assert.equal(back, 'back');
 });
+await step('考試中：B5 固定、顯示計時與目前單元、名牌與單元選單隱藏；結束後恢復', async () => {
+  await p.evaluate(() => window.scrollTo(0, 0)); await sleep(300);
+  await p.click('.unit-tile'); await p.waitForSelector('[data-start]'); await p.click('[data-start]'); await p.waitForSelector('.q-card');
+  await sleep(1300);
+  await p.evaluate(() => window.scrollTo(0, 900)); await sleep(700);
+  const r = await p.evaluate(() => ({ exam: document.body.classList.contains('exam'), scrolled: document.body.classList.contains('scrolled'), brandOp: getComputedStyle(document.querySelector('.brand')).opacity,
+    timer: document.getElementById('exam-timer').textContent, unit: document.getElementById('exam-unit').textContent,
+    menu: getComputedStyle(document.getElementById('nav-menu')).display, chip: getComputedStyle(document.getElementById('student-chip')).display }));
+  console.log('   ', JSON.stringify(r));
+  assert.ok(r.exam && !r.scrolled && r.brandOp === '1');
+  assert.match(r.timer, /^0?\d+:\d\d$/); assert.notEqual(r.timer, '0:00');
+  assert.match(r.unit, /^L\d 單字片語$/);
+  assert.equal(r.menu, 'none'); assert.equal(r.chip, 'none');
+  await p.evaluate(() => { delete document.body.dataset.busy; location.hash = '#/'; }); await sleep(600);
+  assert.equal(await p.evaluate(() => document.body.classList.contains('exam')), false);
+  assert.notEqual(await p.evaluate(() => getComputedStyle(document.getElementById('student-chip')).display), 'none');
+});
 await step('作答過程沒有 JS 錯誤', async () => { assert.equal(p.errors.filter((e) => !/favicon/.test(e)).length, 0, p.errors.join('\n')); });
 await world.close();
 process.exit(results.includes(0) ? 1 : 0);

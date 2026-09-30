@@ -18,6 +18,8 @@ const modes = {
 };
 const idle = (fn) => (window.requestIdleCallback || ((f) => setTimeout(f, 800)))(fn, { timeout: 3000 });
 
+// 重新整理或換頁後一律從最上面開始（不讓瀏覽器自己還原上次的捲動位置）
+try { history.scrollRestoration = 'manual'; } catch { /* ignore */ }
 const app = document.getElementById('app');
 let index = null;
 let config = null;
@@ -492,6 +494,7 @@ async function boot() {
   const evaluate = () => {
     ticking = false;
     const y = Math.max(0, window.scrollY);
+    if (document.body.classList.contains('exam')) return; // 考試中導覽列固定不變
     const want = scrolled ? y >= 24 : y > 64;
     if (want === scrolled) return;
     const wait = 160 - (performance.now() - lastFlip);
@@ -501,6 +504,34 @@ async function boot() {
   const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(evaluate); } };
   window.addEventListener('scroll', onScroll, { passive: true });
   evaluate();
+
+  // 考試中的導覽列：B5、已作答時間、目前單元（單元選單與名牌在考試中不能用，位置讓出來）
+  const examTimer = document.getElementById('exam-timer');
+  const examUnit = document.getElementById('exam-unit');
+  let examT0 = 0;
+  let examTick = 0;
+  const paintTimer = () => {
+    const sec = Math.max(0, Math.floor((Date.now() - examT0) / 1000));
+    const h = Math.floor(sec / 3600);
+    const m = String(Math.floor((sec % 3600) / 60)).padStart(h ? 2 : 1, '0');
+    examTimer.textContent = `${h ? `${h}:` : ''}${m}:${String(sec % 60).padStart(2, '0')}`;
+  };
+  const setExam = (on) => {
+    if (on === document.body.classList.contains('exam')) return;
+    document.body.classList.toggle('exam', on);
+    clearInterval(examTick);
+    if (on) {
+      flip(false); // 考試中導覽列維持完整狀態
+      const u = findUnit(decodeURIComponent(location.hash.split('/')[2] || ''));
+      examUnit.textContent = u ? `L${u.lesson} ${u.type === 'vocab' ? '單字片語' : '課文理解'}` : '';
+      examT0 = Date.now();
+      paintTimer();
+      examTick = setInterval(paintTimer, 1000);
+    } else {
+      evaluate();
+    }
+  };
+  new MutationObserver(() => setExam(!!document.body.dataset.busy)).observe(document.body, { attributes: true, attributeFilter: ['data-busy'] });
   // 成績排隊／排到送出時，在畫面右下角通知
   window.addEventListener('score-queued', (e) => notify(`${e.detail.unitTitle || e.detail.unit} 成績已加入排隊，稍後自動送出`, 'wait'));
   window.addEventListener('score-sent', (e) => notify(`${e.detail.unitTitle || e.detail.unit} ${String(e.detail.clientTs || '').slice(11, 16)} 已送出成績`, 'ok'));

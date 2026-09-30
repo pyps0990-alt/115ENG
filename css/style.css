@@ -773,3 +773,21 @@ button.menu-item { width: 100%; border: 0; background: none; font: inherit; text
 .me-row.miss .st { background: var(--bad); color: var(--white); }
 .me-row.miss .ic-box { color: var(--bad); }
 .me-note { margin-top: 16px; font-size: .82rem; color: var(--steel); }
+
+/* ---------------- 考試中的導覽列 ----------------
+   作答時單元選單與名牌都不能用，改成：左上 B5、旁邊顯示已作答時間、右上顯示目前單元。
+   導覽列在考試中固定不變，不隨捲動收起。 */
+.exam-timer, .exam-unit { display: none; }
+body.exam #nav-menu, body.exam #student-chip, body.exam #chip-panel { display: none !important; }
+body.exam .exam-timer, body.exam .exam-unit { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .1); color: var(--white); font-weight: 700; font-size: .92rem; white-space: nowrap; animation: chip-in var(--dur-2) var(--ease) both; }
+body.exam .exam-timer { font-family: var(--font-en); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+body.exam .exam-timer::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); animation: pulse-dot 1.6s ease-in-out infinite; }
+@keyframes pulse-dot { 50% { opacity: .35; } }
+body.exam .exam-unit { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+body.exam .brand { transform: none; opacity: 1; visibility: visible; pointer-events: auto; }
+body.exam .topbar::after { opacity: 1; }
+@media (max-width: 480px) { body.exam .exam-timer, body.exam .exam-unit { padding: 0 11px; font-size: .84rem; } }
+@media (prefers-reduced-motion: reduce) { body.exam .exam-timer::before, body.exam .exam-timer, body.exam .exam-unit { animation: none; } }
+/* 手機橫放：平常導覽列不固定（省空間），但考試中要一直看得到計時與單元，所以固定在上方 */
+@media (max-height: 520px) and (orientation: landscape) { body.exam .topbar { position: sticky; } }
