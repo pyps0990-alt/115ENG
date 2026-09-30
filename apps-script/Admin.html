@@ -56,6 +56,21 @@
     thead th { color:var(--muted); font-weight:700; font-size:.78rem; text-transform:uppercase; letter-spacing:.03em; border-bottom-width:2px; }
     tbody tr:hover td { background:var(--surface); }
     tbody tr:last-child td { border-bottom:none; }
+    /* 手機：設定表格改成一個單元一張卡片，不用左右捲動 */
+    .vis-lbl { display:inline-flex; align-items:center; gap:6px; font-weight:400; }
+    .vis-lbl span { display:none; }
+    @media (max-width:720px) {
+      .cards-table thead { display:none; }
+      .cards-table, .cards-table tbody { display:block; }
+      .cards-table tr { display:grid; grid-template-columns:auto 1fr; gap:10px 12px; padding:14px; margin-bottom:12px; border:1px solid var(--line); border-radius:14px; background:#fff; }
+      .cards-table tr.off { opacity:.6; }
+      .cards-table td { display:block; padding:0; border:0; white-space:normal; grid-column:1 / -1; min-width:0; }
+      .cards-table td[data-label]::before { content:attr(data-label); display:block; margin-bottom:4px; font-size:.75rem; font-weight:700; color:var(--muted); }
+      .cards-table td.c-vis { grid-column:1; padding-top:8px; }
+      .cards-table td.title { grid-column:2; min-width:0; }
+      .cards-table td.c-act { text-align:right; }
+      .cards-table td.window label { justify-content:space-between; }
+    }
     td.title { font-weight:700; white-space:normal; min-width:150px; }
     .pick { position:absolute; left:0; top:100%; z-index:20; margin-top:4px; min-width:260px; max-height:260px; overflow:auto; background:#fff; border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow); }
     .pick button { display:block; width:100%; text-align:left; border:0; background:none; padding:8px 12px; font:inherit; font-weight:400; color:var(--ink); cursor:pointer; }
@@ -179,7 +194,7 @@
           <span class="msg" id="msg"></span>
           <span class="muted" style="margin-left:auto">儲存後立即生效，學生重新打開網頁就會看到</span>
         </div>
-        <table>
+        <table class="cards-table">
           <thead><tr><th>顯示</th><th>單元</th><th>包含的階段／測驗</th><th>每段題數</th><th>開放時段</th><th>操作</th></tr></thead>
           <tbody id="units"><tr><td colspan="6" class="muted">載入中…</td></tr></tbody>
         </table>
@@ -204,7 +219,7 @@
           <label>備註 <input type="text" id="ex-note" size="10" placeholder="例：病假"></label>
           <button class="btn" id="ex-add" type="button">加入</button>
         </div>
-        <table style="margin-top:12px">
+        <table class="cards-table" style="margin-top:12px">
           <thead><tr><th>單元</th><th>學生</th><th>補作到</th><th>備註</th><th></th></tr></thead>
           <tbody id="ex-rows"><tr><td colspan="5" class="muted">目前沒有補作名單</td></tr></tbody>
         </table>
@@ -415,15 +430,15 @@
       $('units').innerHTML = units.map(function (u, i) {
         var modes = MODES[u.type] || MODES.reading;
         return '<tr data-i="' + i + '" class="' + (u.visible ? '' : 'off') + '">' +
-          '<td><input type="checkbox" data-k="visible" ' + (u.visible ? 'checked' : '') + ' aria-label="顯示"></td>' +
+          '<td class="c-vis"><label class="vis-lbl"><input type="checkbox" data-k="visible" ' + (u.visible ? 'checked' : '') + ' aria-label="顯示"><span>顯示</span></label></td>' +
           '<td class="title">' + titleCellHTML(u) + '</td>' +
-          '<td><div class="modes">' + modes.map(function (m) {
+          '<td data-label="包含的階段／測驗"><div class="modes">' + modes.map(function (m) {
             return '<label><input type="checkbox" data-mode="' + m[0] + '" ' + (u.disabled.indexOf(m[0]) === -1 ? 'checked' : '') + '>' + m[1] + '</label>';
           }).join('') + '</div></td>' +
-          '<td>' + (u.type === 'vocab' ? '<input type="number" min="1" max="100" data-k="questionCount" value="' + esc(u.questionCount) + '">' : '<span class="muted">依文章題數</span>') + '</td>' +
-          '<td class="window"><label>開放 <input type="datetime-local" data-k="openAt" value="' + esc(u.openAt || '') + '"></label>' +
+          '<td data-label="每段題數">' + (u.type === 'vocab' ? '<input type="number" min="1" max="100" data-k="questionCount" value="' + esc(u.questionCount) + '">' : '<span class="muted">依文章題數</span>') + '</td>' +
+          '<td class="window" data-label="開放時段"><label>開放 <input type="datetime-local" data-k="openAt" value="' + esc(u.openAt || '') + '"></label>' +
             '<label>截止 <input type="datetime-local" data-k="closeAt" value="' + esc(u.closeAt || '') + '"></label></td>' +
-          '<td>' + (u.custom ? '<button class="btn" data-del="1" type="button">刪除</button>' : '') + '</td></tr>';
+          '<td class="c-act">' + (u.custom ? '<button class="btn" data-del="1" type="button">刪除</button>' : '') + '</td></tr>';
       }).join('') || '<tr><td colspan="6" class="muted">settings 分頁沒有資料，請先在編輯器執行 setup()。</td></tr>';
       $('f-unit').innerHTML = '<option value="">全部</option>' + units.map(function (u) { return '<option value="' + esc(u.id) + '">' + esc(u.title || u.id) + '</option>'; }).join('');
     }
@@ -604,8 +619,8 @@
       if (keep) $('ex-unit').value = keep;
       $('ex-rows').innerHTML = exts.map(function (x, i) {
         var n = studentName(x.cls, x.seat);
-        return '<tr><td>' + esc(unitTitle(x.unit)) + '</td><td>' + esc(x.cls + ' 班 ' + x.seat + ' 號' + (n ? ' ' + n : '')) + '</td><td>' + esc(fmtTime(x.until)) +
-          '</td><td>' + esc(x.note || '') + '</td><td><button class="btn" type="button" data-exdel="' + i + '">移除</button></td></tr>';
+        return '<tr><td data-label="單元">' + esc(unitTitle(x.unit)) + '</td><td data-label="學生">' + esc(x.cls + ' 班 ' + x.seat + ' 號' + (n ? ' ' + n : '')) + '</td><td>' + esc(fmtTime(x.until)) +
+          '</td><td data-label="備註">' + esc(x.note || '') + '</td><td class="c-act"><button class="btn" type="button" data-exdel="' + i + '">移除</button></td></tr>';
       }).join('') || '<tr><td colspan="5" class="muted">目前沒有補作名單</td></tr>';
     }
     function exPickShow() {
