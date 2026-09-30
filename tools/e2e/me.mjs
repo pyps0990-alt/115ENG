@@ -44,8 +44,8 @@ await step('進入我的成績頁：狀態與計數正確', async () => {
 });
 await step('從成績頁點單元可進入；作答中名牌選單不會開', async () => {
   await p.click('.me-row.open'); await p.waitForSelector('[data-start]'); await p.click('[data-start]'); await p.waitForSelector('.q-card, .pq');
-  await p.click('#student-chip'); await sleep(300);
-  assert.equal(await p.getAttribute('#student-chip', 'aria-expanded'), 'false');
+  await sleep(300);
+  assert.equal(await p.evaluate(() => getComputedStyle(document.getElementById('student-chip')).display), 'none'); // 考試中名牌換成計時與單元
 });
 await step('沒有 JS 錯誤', async () => { assert.equal(p.errors.filter((e) => !/favicon/.test(e)).length, 0, p.errors.join('\n')); });
 await world.close();
