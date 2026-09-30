@@ -115,8 +115,9 @@ await step('重新勾選顯示 → 單元回來', async () => {
   await teacherPage.locator('#units tr').filter({ hasText: 'L2' }).locator('input[data-k="visible"]').check();
   const t0 = Date.now();
   await teacherPage.click('#save');
+  const tClick = Date.now();
   await waitTile('l2-voc');
-  console.log(`   學生看到變化：${Date.now() - t0}ms`);
+  console.log(`   學生看到變化：${Date.now() - t0}ms（寫入事件：${world.log.filter((x) => x.t >= tClick - 50).map((x) => `${x.from}+${x.t - t0}ms`).join('、') || '尚無'}）`);
   await teacherPage.waitForFunction(() => /^✓ 已儲存/.test(document.getElementById('msg').textContent), null, { timeout: 15000 });
 });
 
@@ -149,13 +150,13 @@ await step('學生在首頁時，老師改單元設定 → 首頁不會閃爍重
   await sleep(500);
   await studentPage.evaluate(() => { window.__redraws = 0; new MutationObserver(() => { window.__redraws++; }).observe(document.getElementById('lessons'), { childList: true, subtree: false }); });
   await teacherPage.click('nav button[data-tab="settings"]');
-  await teacherPage.locator('#units tr').filter({ hasText: 'L1 單字' }).locator('input[data-k="visible"]').uncheck();
+  await teacherPage.locator('#units tr').filter({ hasText: 'l1-voc' }).locator('input[data-k="visible"]').uncheck();
   await teacherPage.click('#save');
   await teacherPage.waitForFunction(() => /^✓ 已儲存/.test(document.getElementById('msg').textContent), null, { timeout: 15000 });
   await sleep(600);
   const redraws = await studentPage.evaluate(() => window.__redraws);
   assert.ok(redraws <= 1, `首頁重畫了 ${redraws} 次（瀏覽器與伺服器先後寫入的同一份設定不該重畫兩次）`);
-  await teacherPage.locator('#units tr').filter({ hasText: 'L1 單字' }).locator('input[data-k="visible"]').check();
+  await teacherPage.locator('#units tr').filter({ hasText: 'l1-voc' }).locator('input[data-k="visible"]').check();
   await teacherPage.click('#save');
   await teacherPage.waitForFunction(() => /^✓ 已儲存/.test(document.getElementById('msg').textContent), null, { timeout: 15000 });
 });
