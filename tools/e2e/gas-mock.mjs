@@ -44,6 +44,15 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
       const vals = this.getValues().flat();
       return { matchEntireCell() { return this; }, findNext: () => (vals.some((v) => String(v) === t) ? {} : null) };
     }
+    setNote() { return this; }
+    sort({ column, ascending = true }) {
+      const rows = [];
+      for (let i = 0; i < this.nr; i++) rows.push(this.getValues()[i]);
+      const k = column - this.c;
+      rows.sort((a, b) => (ascending ? 1 : -1) * (Number(a[k]) - Number(b[k]) || String(a[k]).localeCompare(String(b[k]))));
+      this.setValues(rows);
+      return this;
+    }
     setNumberFormat() { return this; }
     setFontWeight() { return this; }
   }
@@ -61,6 +70,7 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
     deleteRow(i) { this.rows.splice(i - 1, 1); }
     deleteRows(i, n) { this.rows.splice(i - 1, n); }
     setFrozenRows() {}
+    setFrozenColumns() {}
   }
   const ss = {
     getSheetByName: (n) => sheets.get(n) || null,
@@ -122,6 +132,12 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
         calls.commit.push(body);
         onFirestoreCommit(body);
         return resp(200, '{}');
+      }
+      if (url.endsWith(':runQuery')) {
+        const q = JSON.parse(opts.payload).structuredQuery;
+        if (q.startAt) return resp(200, '[]');
+        const list = (global.__vault || []).map((r, i) => ({ document: { name: `projects/x/databases/(default)/documents/vault/k${i}`, fields: { cls: { stringValue: r.cls }, seat: { stringValue: r.seat }, name: { stringValue: r.name } } } }));
+        return resp(200, JSON.stringify(list));
       }
       if (url.includes('/documents/admins/')) return resp(404, '{}');
       if (opts.method === 'patch' && url.includes('/documents/public/')) { calls.patch = (calls.patch || 0) + 1; return resp(200, '{}'); }

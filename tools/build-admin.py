@@ -54,6 +54,8 @@ roster_card = '''<div class="card">
         </div>
         <div class="bar" style="margin-top:12px"><button class="btn primary" id="ro-go" type="button">匯入</button><span class="msg" id="ro-msg"></span></div>
         <div id="ro-report" class="report"></div>
+        <div class="help" style="margin-top:14px">匯入後會<b>自動</b>把這個班的學生放進試算表的「成績單 班級」分頁（沒有分頁會自動建立，新增單元的欄位也會自動補上），不用再貼一次名單。以前匯入過的班級，按下面的按鈕一次補齊。</div>
+        <div class="bar" style="margin-top:8px"><button class="btn" id="ro-sync" type="button">把所有班級同步到成績單</button><span class="msg" id="ro-sync-msg"></span></div>
       </div>
       '''
 out = out[:old_roster.start()] + old_roster.group(1) + roster_card + old_roster.group(2) + out[old_roster.end():]
@@ -123,12 +125,27 @@ bootstrap = r'''
         msg.textContent = `匯入中…（${good.length} 位）`; msg.className = 'msg';
         try {
           await fb.importRoster(cls, good);
-          msg.textContent = `✓ 已匯入 ${good.length} 位` + (rows.length > good.length ? `，${rows.length - good.length} 行格式錯誤未匯入` : ''); msg.className = 'msg ok';
+          let sheetNote = '';
+          try {
+            msg.textContent = '已匯入，正在同步到成績單…';
+            const r = await api('syncGradebookRoster', [cls, good]);
+            sheetNote = `；成績單已同步（新增 ${r.added} 位，共 ${r.total} 位）`;
+          } catch (e2) { sheetNote = `；學生名單已匯入，但成績單同步失敗（${e2.message}），可以稍後按「把所有班級同步到成績單」`; }
+          msg.textContent = `✓ 已匯入 ${good.length} 位` + (rows.length > good.length ? `，${rows.length - good.length} 行格式錯誤未匯入` : '') + sheetNote; msg.className = 'msg ok';
         } catch (err) {
           msg.textContent = '匯入失敗：' + err.message; msg.className = 'msg err';
         } finally { $('ro-go').disabled = false; }
       };
     }
+
+    $('ro-sync').onclick = async () => {
+      const m = $('ro-sync-msg'); const b = $('ro-sync');
+      b.disabled = true; m.textContent = '同步中…'; m.className = 'msg';
+      try {
+        const r = await api('syncAllGradebooks', []);
+        m.textContent = `✓ 已同步 ${r.classes} 個班級，新增 ${r.added} 位學生到成績單`; m.className = 'msg ok';
+      } catch (e) { m.textContent = '同步失敗：' + e.message; m.className = 'msg err'; } finally { b.disabled = false; }
+    };
 
     let started = false;
     fb.watchStaff((staff) => {

@@ -115,6 +115,7 @@ function handleApi_(d) {
     whoami: function () { return { email: assertTeacher_() }; },
     getAdminData: getAdminData, saveAllSettings: saveAllSettings, saveExtensions: saveExtensions, listRoster: listRoster, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
     getScores: getScores, getWrongStats: getWrongStats,
+    syncGradebookRoster: syncGradebookRoster, syncAllGradebooks: syncAllGradebooks,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
     getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey, testLocalAi: testLocalAi,
     aiGenerateReading: aiGenerateReading, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
@@ -183,7 +184,7 @@ function doPost(e) {
       csh.appendRow(row);
     }
     // 矩陣式成績單（老師預先建立好名單才會寫入，見「成績單 XXX」分頁）
-    writeGradebook_(cls, d.seat, d.unit, d.pct);
+    writeGradebook_(cls, d.seat, d.unit, d.pct, d.name);
     // 每題作答明細
     if (details.length) {
       var rows = details.map(function (x) {
@@ -217,28 +218,31 @@ var GRADEBOOK_PREFIX = '成績單 ';
 var GRADEBOOK_BASE_HEADER = ['班級', '座號', '姓名'];
 
 // 寫入（或更新）一格分數：找到「座號」對應的列、「單元」對應的欄，只有比原分數高才覆蓋。
-// 找不到分頁、找不到座號（名單裡沒有這個學生）都直接略過，不會自動新增列。
-function writeGradebook_(cls, seat, unit, pct) {
+// 成績單不用老師事先建立：這個班第一筆成績進來時自動建立分頁；名單裡還沒有的學生（學生登入時已經對過名單）自動補一列；
+// 新單元的欄位在老師新增單元時就會建好（見 syncGradebookColumns_），沒有的話這裡補上。
+function writeGradebook_(cls, seat, unit, pct, name) {
   var clsTrim = String(cls || '').trim();
   if (!/^\d{3,4}$/.test(clsTrim)) return;
   var seatTrim = String(seat || '').trim();
   var unitTrim = String(unit || '').trim();
   if (!seatTrim || !unitTrim) return;
 
-  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(GRADEBOOK_PREFIX + clsTrim);
-  if (!sh) return; // 老師還沒用選單建立這個班級的成績單分頁
-
+  var sh = ensureGradebook_(clsTrim);
   var lastRow = sh.getLastRow();
-  var lastCol = sh.getLastColumn();
-  if (lastRow < 2 || lastCol < GRADEBOOK_BASE_HEADER.length) return;
 
-  var seatValues = sh.getRange(2, 2, lastRow - 1, 1).getValues();
   var rowIdx = -1;
-  for (var i = 0; i < seatValues.length; i++) {
-    if (String(seatValues[i][0]).trim() === seatTrim) { rowIdx = i + 2; break; }
+  if (lastRow >= 2) {
+    var seatValues = sh.getRange(2, 2, lastRow - 1, 1).getValues();
+    for (var i = 0; i < seatValues.length; i++) {
+      if (String(seatValues[i][0]).trim() === seatTrim) { rowIdx = i + 2; break; }
+    }
   }
-  if (rowIdx === -1) return; // 名單裡沒有這個座號
+  if (rowIdx === -1) {
+    rowIdx = Math.max(lastRow, 1) + 1;
+    sh.getRange(rowIdx, 1, 1, 3).setValues([[clsTrim, Number(seatTrim) || seatTrim, String(name || '')]]);
+  }
 
+  var lastCol = sh.getLastColumn();
   var unitColCount = lastCol - GRADEBOOK_BASE_HEADER.length;
   var colIdx = -1;
   if (unitColCount > 0) {
@@ -258,6 +262,100 @@ function writeGradebook_(cls, seat, unit, pct) {
   if (isFinite(next) && (!isFinite(current) || next > current)) {
     cell.setValue(next);
   }
+}
+
+// 取得（沒有就建立）某個班級的成績單分頁：班級／座號／姓名三欄，加上目前所有單元的欄位
+function ensureGradebook_(cls) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var name = GRADEBOOK_PREFIX + cls;
+  var sh = ss.getSheetByName(name);
+  if (sh) return sh;
+  sh = ss.insertSheet(name);
+  sh.getRange(1, 1, 1, GRADEBOOK_BASE_HEADER.length).setValues([GRADEBOOK_BASE_HEADER]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  sh.setFrozenColumns(GRADEBOOK_BASE_HEADER.length);
+  ensureGradebookColumns_(sh, gradebookUnits_());
+  return sh;
+}
+
+// 目前所有單元（依課次排序），成績單的欄位標題用單元代號、儲存格備註寫單元名稱
+function gradebookUnits_() {
+  return readSettingsRows_().map(function (u) { return { id: u.id, title: u.title, lesson: 0 }; })
+    .concat(readCustomUnitsRows_().map(function (u) { return { id: u.id, title: u.title, lesson: u.lesson }; }))
+    .sort(function (a, b) { return a.lesson - b.lesson || (a.id < b.id ? -1 : 1); });
+}
+
+// 成績單缺哪個單元的欄位就補上（不動已經有的欄位與分數）
+function ensureGradebookColumns_(sh, units) {
+  var base = GRADEBOOK_BASE_HEADER.length;
+  var lastCol = Math.max(sh.getLastColumn(), base);
+  var have = {};
+  if (lastCol > base) {
+    sh.getRange(1, base + 1, 1, lastCol - base).getValues()[0].forEach(function (h) { have[String(h).trim()] = true; });
+  }
+  var added = 0;
+  units.forEach(function (u) {
+    if (have[u.id]) return;
+    lastCol++;
+    added++;
+    var c = sh.getRange(1, lastCol);
+    c.setValue(u.id).setFontWeight('bold');
+    if (c.setNote) c.setNote(u.title || u.id);
+  });
+  return added;
+}
+
+// 老師新增／改名單元後：所有已經存在的成績單都補上新單元的欄位
+function syncGradebookColumns_() {
+  var units = gradebookUnits_();
+  SpreadsheetApp.getActiveSpreadsheet().getSheets().forEach(function (sh) {
+    if (sh.getName().indexOf(GRADEBOOK_PREFIX) === 0) ensureGradebookColumns_(sh, units);
+  });
+}
+
+// 把一個班級的學生名單（Firestore 上那份）同步到成績單：建立分頁、補上還沒有的學生、依座號排序。
+// 已經有的列與分數不動（名字空白時才補）；名單上被刪掉的學生不會從成績單刪除，避免誤刪成績。
+function syncGradebookRoster(cls, rows) {
+  assertTeacher_();
+  cls = String(cls || '').trim();
+  if (!/^\d{3,4}$/.test(cls)) throw new Error('班級請填 3–4 位數字');
+  var sh = ensureGradebook_(cls);
+  var last = sh.getLastRow();
+  var have = {};
+  if (last >= 2) {
+    sh.getRange(2, 1, last - 1, 3).getValues().forEach(function (r, i) { have[String(r[1]).trim()] = { row: i + 2, name: String(r[2] || '') }; });
+  }
+  var add = [];
+  (rows || []).forEach(function (r) {
+    var seat = String(r.seat || '').trim().replace(/^0+(?=\d)/, '');
+    var name = String(r.name || '').trim();
+    if (!/^\d{1,2}$/.test(seat) || !name) return;
+    var cur = have[seat];
+    if (cur) { if (!cur.name) sh.getRange(cur.row, 3).setValue(name); return; }
+    have[seat] = { row: -1, name: name };
+    add.push([cls, Number(seat), name]);
+  });
+  if (add.length) {
+    sh.getRange(sh.getLastRow() + 1, 1, add.length, 3).setValues(add);
+    var n = sh.getLastRow() - 1;
+    if (n > 1 && sh.getLastColumn() >= 1) sh.getRange(2, 1, n, sh.getLastColumn()).sort({ column: 2, ascending: true });
+  }
+  ensureGradebookColumns_(sh, gradebookUnits_());
+  return { ok: true, cls: cls, added: add.length, total: sh.getLastRow() - 1 };
+}
+
+// 一次把 Firestore 上所有班級的名單同步到成績單（第一次使用、或想補齊時按一下）
+function syncAllGradebooks() {
+  assertTeacher_();
+  var byCls = {};
+  listRoster().forEach(function (r) { (byCls[r.cls] = byCls[r.cls] || []).push(r); });
+  var out = { classes: 0, added: 0 };
+  Object.keys(byCls).sort().forEach(function (cls) {
+    if (!/^\d{3,4}$/.test(cls)) return;
+    var r = syncGradebookRoster(cls, byCls[cls]);
+    out.classes++; out.added += r.added;
+  });
+  return out;
 }
 
 // 選單用：建立一個班級的成績單範本分頁（班級/座號/姓名 三欄），老師貼上名單後即可使用。
@@ -584,6 +682,7 @@ function saveAllSettings(builtIn, custom, fast) {
   assertTeacher_();
   saveSettings(builtIn, true);
   saveCustomUnits(custom, true, pickNow_(fast));
+  try { syncGradebookColumns_(); } catch (err) { Logger.log('成績單欄位同步失敗：' + err); } // 新單元在所有成績單上先建好欄位
   LAST_SYNC_ERROR = '';
   var cfg = publishConfig_();
   // 回傳同步結果與伺服器算出的設定，老師的瀏覽器會拿來核對、當作下一次修改的基準

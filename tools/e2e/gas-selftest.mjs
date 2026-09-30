@@ -166,3 +166,40 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   assert.equal(other.ok, true, '其他學生不受影響');
   console.log('成績核對與去重測試通過');
 }
+
+/* ---------- 成績單：自動建立、新單元欄位、名單同步 ---------- */
+{
+  const g3 = createGas();
+  const ok3 = (r) => { assert.equal(r.ok, true, JSON.stringify(r)); return r.data; };
+  const unit = (id, lesson) => ({ id, title: '單元' + id, type: 'vocab', lesson, topic: '', visible: true, disabled: [], questionCount: 4, custom: true });
+  ok3(g3.api('saveAllSettings', [[], [unit('u1', 1)]]));
+  // 名單同步：分頁自動建立、學生依座號排序、單元欄位齊全
+  let r = ok3(g3.api('syncGradebookRoster', ['306', [{ seat: '3', name: '丙' }, { seat: '01', name: '甲' }, { seat: '2', name: '乙' }]]));
+  assert.equal(r.added, 3);
+  const gb = g3.sheets.get('成績單 306');
+  assert.deepEqual(gb.rows.slice(0, 4).map((x) => x.slice(0, 3).join('|')), ['班級|座號|姓名', '306|1|甲', '306|2|乙', '306|3|丙']);
+  assert.equal(gb.rows[0][3], 'u1');
+  // 學生交卷：分數填進正確的格子
+  g3.post({ cls: '306', seat: '2', name: '乙', unit: 'u1', unitTitle: 'U', mode: 'vocab', score: 3, total: 4, pct: 75, durationSec: 90, attemptId: 'g1', details: [] });
+  assert.equal(gb.rows[2][3], 75);
+  // 老師新增單元：所有成績單馬上多一欄，不用等有人交卷
+  ok3(g3.api('saveAllSettings', [[], [unit('u1', 1), unit('u2', 2)]]));
+  assert.equal(gb.rows[0][4], 'u2', '新單元應該立刻出現在成績單');
+  assert.equal(gb.rows[2][3], 75, '原本的分數不變');
+  // 重複同步不會重複新增學生，也不動分數
+  r = ok3(g3.api('syncGradebookRoster', ['306', [{ seat: '1', name: '甲' }, { seat: '4', name: '丁' }]]));
+  assert.equal(r.added, 1); assert.equal(r.total, 4);
+  assert.equal(gb.rows[2][3], 75);
+  assert.deepEqual(gb.rows.slice(1).map((x) => x[1]), [1, 2, 3, 4]);
+  // 沒有建立過的班級，第一筆成績進來時自動建立成績單並補上學生
+  g3.post({ cls: '312', seat: '5', name: '戊', unit: 'u2', unitTitle: 'U', mode: 'vocab', score: 4, total: 4, pct: 100, durationSec: 90, attemptId: 'g2', details: [] });
+  const gb2 = g3.sheets.get('成績單 312');
+  assert.ok(gb2, '第一筆成績進來要自動建立成績單');
+  assert.equal(gb2.rows[1][2], '戊'); assert.equal(gb2.rows[1][4], 100);
+  // 一次同步所有班級（讀 Firestore 的學生資料）
+  global.__vault = [{ cls: '302', seat: '1', name: 'A' }, { cls: '302', seat: '2', name: 'B' }, { cls: '306', seat: '1', name: '甲' }];
+  const all = ok3(g3.api('syncAllGradebooks', []));
+  assert.equal(all.classes, 2); assert.ok(g3.sheets.get('成績單 302'));
+  assert.equal(g3.sheets.get('成績單 302').rows.length, 3);
+  console.log('成績單自動化測試通過');
+}
