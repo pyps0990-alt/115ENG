@@ -118,6 +118,7 @@ async function routes(ctx, world) {
   });
   await ctx.route(/https:\/\/script\.google\.com\/macros\/.*/, async (route) => {
     const req = route.request();
+    if (world.scriptOverride) return world.scriptOverride(route, req, cors);
     await new Promise((r) => setTimeout(r, world.scriptLatency));
     if (world.scriptFail && req.method() === 'POST' && /"api":"(saveAllSettings|saveContent|saveExtensions|deleteContent)"/.test(req.postData() || '')) {
       return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ ok: false, error: '（測試）試算表暫時無法寫入' }) });
