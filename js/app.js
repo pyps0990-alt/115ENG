@@ -83,12 +83,17 @@ const visibleUnits = () => index.units.filter((u) => unitVisible(config, u.id) &
   .sort((a, b) => a.lesson - b.lesson);
 
 /* ---------------- home ---------------- */
+// 課本冊數對應年級：B1～B2 高一、B3～B4 高二、B5～B6 高三
+function gradeOf(book) {
+  const n = Number((/(\d+)/.exec(book) || [])[1]);
+  return n >= 1 && n <= 2 ? '高一' : n >= 3 && n <= 4 ? '高二' : n >= 5 && n <= 6 ? '高三' : '';
+}
 function renderHome() {
   document.title = 'B5 Practice';
   const s = store.student();
   app.innerHTML = `
     <section class="hero">
-      <div class="eyebrow">高二英文 · ${esc(index.book || 'Book 5')}</div>
+      <div class="eyebrow">${esc(gradeOf(index.book || 'Book 5'))}英文 · ${esc(index.book || 'Book 5')}</div>
       <h1>B5 Practice</h1>
       <p>單字片語連續挑戰基礎、進階、精熟三段，讀完課文再做閱讀測驗。</p>
       ${s ? `<p class="hello">${esc(s.name)}，今天從哪一課開始？</p>` : ''}
