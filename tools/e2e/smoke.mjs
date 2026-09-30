@@ -81,8 +81,8 @@ await step('打開單字單元可以開始測驗', async () => {
 const teacherPage = await world.newPage(ctx, { staff: 'teacher@example.com' });
 await step('老師後台載入（單元清單、快速同步可用）', async () => {
   await teacherPage.goto(world.base + '/admin.html');
-  await teacherPage.waitForSelector('#units tr', { timeout: 15000 });
-  assert.equal(await teacherPage.locator('#units tr').count(), 3);
+  await teacherPage.waitForSelector('#units tr[data-i]', { timeout: 15000 });
+  assert.equal(await teacherPage.locator('#units tr[data-i]').count(), 3);
   assert.ok(await teacherPage.evaluate(() => typeof window.fastPublish === 'function'));
   assert.ok(await teacherPage.evaluate(() => cfgBase && cfgBase.units && cfgBase.units['l1-voc']));
 });
@@ -171,7 +171,7 @@ await step('試算表儲存失敗 → 顯示錯誤，學生網站還原成試算
   assert.equal(cfg.units['l2-voc'].visible, true, '學生網站要還原成試算表現在的樣子');
   assert.equal(await studentPage.locator('.unit-tile').count(), 3);
   // 恢復畫面上的勾選狀態以便後面的測試
-  await teacherPage.reload(); await teacherPage.waitForSelector('#units tr');
+  await teacherPage.reload(); await teacherPage.waitForSelector('#units tr[data-i]');
 });
 
 await step('Firestore 規則還沒更新（403）→ 退回原本的流程，仍然儲存成功並給提示', async () => {
