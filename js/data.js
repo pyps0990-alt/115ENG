@@ -64,7 +64,7 @@ export function addCustomUnits(index, config) {
   list.forEach((u) => {
     if (index.units.some((x) => x.id === u.id)) return;
     index.units.push({
-      id: u.id, lesson: u.lesson || 1, type: u.type === 'reading' ? 'reading' : 'vocab',
+      id: u.id, lesson: u.lesson || 1, type: ['reading', 'pattern', 'exam'].includes(u.type) ? u.type : 'vocab',
       title: u.title || u.id, topic: u.topic || '', count: 0, sample: false,
     });
   });

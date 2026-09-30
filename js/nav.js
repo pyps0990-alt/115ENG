@@ -1,13 +1,14 @@
 // 導覽列的「選擇單元」下拉選單：任何頁面都能直接跳到各課的單字片語或課文理解
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
+import { typeLabel, typeIcon } from './types.js';
 
 const root = document.getElementById('nav-menu');
 const btn = document.getElementById('unit-menu-btn');
 const panel = document.getElementById('unit-menu');
 let units = [];
 
-const kindLabel = (u) => (u.type === 'vocab' ? '單字片語' : '課文理解');
+const kindLabel = (u) => typeLabel(u.type);
 const isOpen = () => panel.classList.contains('open');
 const items = () => [...panel.querySelectorAll('[role="menuitem"]')];
 
@@ -37,7 +38,7 @@ export function initNav(visibleUnits) {
     ${lessons.map((n) => `<div class="menu-group" role="group" aria-label="Lesson ${n}">
       <div class="menu-head"><span class="menu-lnum">L${n}</span>Lesson ${n}</div>
       ${units.filter((u) => u.lesson === n).map((u) => `<a class="menu-item" role="menuitem" href="#/u/${esc(u.id)}" data-id="${esc(u.id)}">
-        <span class="menu-ic">${u.type === 'vocab' ? icon.cards : icon.book}</span>
+        <span class="menu-ic">${typeIcon(u.type)}</span>
         <span class="menu-txt"><b>${kindLabel(u)}</b><span class="en">${esc(u.topic || '')}</span></span></a>`).join('')}
     </div>`).join('')}`;
   root.hidden = !units.length;

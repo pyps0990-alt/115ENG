@@ -1,0 +1,95 @@
+// 句型練習、段考複習：學生實際作答一輪，伺服器核對成績：node tools/e2e/types.mjs [輸出資料夾]
+import assert from 'node:assert';
+import { startWorld, sleep } from './harness.mjs';
+const out = process.argv[2] || '/tmp/shots';
+const world = await startWorld({ scriptLatency: 100 });
+const g = world.gas;
+g.api('saveAllSettings', [[], [
+  { id: 'l2-pat', title: 'L2 句型練習', type: 'pattern', lesson: 2, topic: '', visible: true, disabled: [], questionCount: 10, custom: true },
+  { id: 'l2-exam', title: 'L2 段考複習', type: 'exam', lesson: 2, topic: '', visible: true, disabled: [], questionCount: 10, custom: true },
+]]);
+const pat = { topic: '倒裝', items: [
+  { type: 'mc', tag: 'not only', q: 'Not only ____ the exam, but he also won.', options: ['passed', 'did he pass', 'he passed', 'has passed'], answer: 1, explain: '倒裝。' },
+  { type: 'fill', tag: 'so…that', q: 'It was so ____ that we cried.', answer: 'touching|moving', hint: '（感人）', explain: 'so…that。' },
+  { type: 'apply', tag: '強調句', zh: '正是她的努力讓她成功。', words: ['that', 'her hard work', 'It', 'made', 'was', 'her', 'succeed'], answer: 'It was her hard work that made her succeed.', explain: '強調句。' },
+] };
+const exam = { topic: '段考', blocks: [
+  { type: 'mc', q: 'Her ____ helped us.', options: ['contribution', 'competition', 'connection', 'conclusion'], answer: 0, explain: '貢獻。' },
+  { type: 'spell', q: 'Stay ____ now.', hint: 'c（冷靜）', answer: 'calm', explain: 'calm。' },
+  { type: 'reading', title: 'Tea', passage: ['Tea is a drink made from leaves. People enjoy it.', 'It can be hot or cold.'], questions: [
+    { skill: '細節', q: 'What is tea made from?', options: ['Leaves', 'Rocks', 'Milk', 'Sand'], answer: 0, explain: '第一句。' }] },
+  { type: 'cloze', title: 'Change', passage: ['Tom felt (1) at first. (2), he made friends.'], blanks: [
+    { options: ['lonely', 'noisy', 'hungry', 'proud'], answer: 0, explain: '孤單。' }, { options: ['However', 'Therefore', 'Besides', 'Otherwise'], answer: 0, explain: '轉折。' }] },
+] };
+g.api('saveContent', ['l2-pat', pat, true]);
+g.api('saveContent', ['l2-exam', exam, true]);
+
+const bad1 = JSON.stringify(g.api('saveContent', ['l2-pat', { items: [{ type: 'apply', zh: '好', words: ['a', 'b', 'c'], answer: 'a b d' }] }, true]));
+assert(/排成/.test(bad1), '伺服器要擋掉單字對不上答案的應用題：' + bad1);
+const bad2 = JSON.stringify(g.api('saveContent', ['l2-exam', { blocks: [{ type: 'cloze', passage: ['none'], blanks: [{ options: ['a', 'b'], answer: 0 }] }] }, true]));
+assert(/空格/.test(bad2), '綜合題文章缺空格要擋：' + bad2);
+let fails = 0;
+const step = async (name, fn) => { try { await fn(); console.log('✓', name); } catch (e) { fails++; console.log('✗', name, '\n  ', String(e.message).split('\n').join('\n   ')); } };
+for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
+  const ctx = await world.newContext({ viewport: { width: w, height: h } });
+  const p = await world.newPage(ctx, { student: true });
+  const shot = async (n) => { await sleep(300); await p.screenshot({ path: `${out}/t${label}-${n}.png`, fullPage: true }); };
+  await step(`[${label}] 首頁有四類卡片標籤`, async () => {
+    await p.goto(world.base + '/'); await p.waitForSelector('.unit-tile');
+    const t = await p.locator('.unit-tile').allTextContents();
+    assert(t.some((x) => x.includes('句型練習')) && t.some((x) => x.includes('段考複習')), t.join('|'));
+    await shot('home');
+  });
+  await step(`[${label}] 句型練習：選擇、填空、應用 → 成績`, async () => {
+    await p.goto(world.base + '/#/u/l2-pat'); await p.waitForSelector('[data-start]');
+    await p.click('[data-start]');
+    let done = false;
+    for (let i = 0; i < 60 && !done; i++) {
+      await sleep(200);
+      if (await p.locator('.result').count()) { done = true; break; }
+      if (await p.locator('[data-next]:not([hidden])').count()) { await p.click('[data-next]'); continue; }
+      const opts = p.locator('.opt:not([disabled])');
+      if (await opts.count()) { await opts.nth(1).click(); continue; }
+      const fill = p.locator('.fill-input:not([disabled])');
+      if (await fill.count()) { await fill.fill('touching'); await p.keyboard.press('Enter'); if (i === 3) await shot('pat-fill'); continue; }
+      const words = p.locator('.chip-word:not([disabled])');
+      if (await words.count()) {
+        await shot('pat-apply');
+        for (const t of ['It', 'was', 'her hard work', 'that', 'made', 'her', 'succeed']) await p.locator('.bank .chip-word:not([disabled])', { hasText: new RegExp('^' + t + '$') }).first().click();
+        await p.locator('[data-check]').click();
+      }
+    }
+    assert.ok(done, '沒有走到成績畫面'); await shot('pat-result');
+  });
+  await step(`[${label}] 段考複習：一頁作答 → 交卷 → 成績 → 檢討`, async () => {
+    await p.goto(world.base + '/#/u/l2-exam'); await p.waitForSelector('[data-start]');
+    await p.click('[data-start]'); await p.waitForSelector('.exam-body');
+    await shot('exam-page');
+    await p.locator('.pq[data-id="b0"] .opt').first().click();
+    await p.locator('.pq[data-id="b1"] [data-spell]').fill('calm');
+    await p.locator('.pq[data-id="b2.0"] .opt').nth(1).click(); // 故意答錯
+    await p.locator('.pq[data-id="b3.0"] .opt').first().click();
+    await p.locator('.pq[data-id="b3.1"] .opt').first().click();
+    assert.match(await p.locator('[data-count]').textContent(), /5 \/ 5/);
+    await p.click('[data-submit-btn]'); await p.waitForSelector('dialog.modal[open]');
+    await p.locator('dialog.modal[open] .btn.primary').click();
+    await p.waitForSelector('.result', { timeout: 8000 });
+    assert.match(await p.locator('.result').textContent(), /4 \/ 5/);
+    await shot('exam-result');
+    await p.getByRole('button', { name: /開始檢討/ }).click(); await sleep(400);
+    const rvc = await p.locator('.rv-pq, .rv-card').count(); assert(rvc >= 1, 'rv-card=' + rvc + ' ' + (await p.locator('#stage').innerHTML()).slice(0, 600));
+    await shot('exam-review');
+  });
+  await step(`[${label}] 沒有錯誤`, async () => {
+    const bad = p.errors.filter((e) => !/favicon/.test(e));
+    assert.equal(bad.length, 0, bad.join('\n'));
+  });
+  await ctx.close();
+}
+await sleep(1200);
+const rows = (g.sheets.get('scores')?.rows || []).slice(1).map((r) => [r[4], r[7], r[8], r[9], r[18]]);
+console.log('scores:', JSON.stringify(rows));
+assert(rows.length >= 4, '成績沒有送到伺服器');
+assert(rows.every((r) => !r[4].replace('作答時間過短', '')), '伺服器核對不應標記問題：' + JSON.stringify(rows));
+await world.close();
+process.exit(fails ? 1 : 0);

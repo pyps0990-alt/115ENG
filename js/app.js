@@ -8,6 +8,7 @@ import { LEVELS, PASS } from './levels.js';
 import { initNav, updateNav } from './nav.js';
 import { flushOutbox, pendingItems, clearOutbox } from './submit.js';
 import { SCRIPT_URL } from './config.js';
+import { TYPES, typeOf, typeLabel, bestKey, typeIcon } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
 
@@ -15,6 +16,8 @@ const firebase = () => import('./firebase.js');
 const modes = {
   vocab: () => import('./modes/vocab.js'),
   reading: () => import('./modes/reading.js'),
+  pattern: () => import('./modes/pattern.js'),
+  exam: () => import('./modes/exam.js'),
 };
 const idle = (fn) => (window.requestIdleCallback || ((f) => setTimeout(f, 800)))(fn, { timeout: 3000 });
 
@@ -89,7 +92,7 @@ const openLevels = (u) => LEVELS.filter((l) => modeOn(config, u.id, l.id));
 // 還沒有題目的單元不給學生看（老師匯入內容後才出現）
 const hasContent = (id) => !!(config && config.content && config.content[id]);
 const visibleUnits = () => index.units.filter((u) => unitVisible(config, u.id) && hasContent(u.id)
-  && (u.type === 'reading' ? modeOn(config, u.id, 'reading') : openLevels(u).length))
+  && (u.type === 'vocab' ? openLevels(u).length : modeOn(config, u.id, u.type)))
   .sort((a, b) => a.lesson - b.lesson);
 
 /* ---------------- 錯誤頁 ---------------- */
@@ -185,6 +188,13 @@ function windowBadge(id, done) {
   return w.closeAt ? `<span class="badge time">${icon.clock} ${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}</span>` : '';
 }
 
+function tileMeta(u, stages) {
+  if (u.type === 'vocab') return `${u.count} 個單字與片語 · ${stages}`;
+  if (u.type === 'pattern') return `${u.count} 題 · 選擇、填空、應用`;
+  if (u.type === 'exam') return `${u.count} 題 · 選擇、拼寫、閱讀、綜合`;
+  return `一篇文章 · ${u.count} 題閱讀測驗`;
+}
+
 function tileHTML(u) {
   const best = store.best(u.id);
   const vocab = u.type === 'vocab';
@@ -194,20 +204,21 @@ function tileHTML(u) {
     status = best.vocab == null ? '<span class="lv-pill">尚未測驗</span>'
       : `${pillHTML('最佳', best.vocab)}${last ? openLevels(u).filter((l) => last[l.id] != null).map((l) => `<span class="lv-pill mini">${l.name} ${last[l.id]}%</span>`).join('') : ''}`;
   } else {
-    status = best.reading == null ? '<span class="lv-pill">尚未作答</span>' : pillHTML('最佳', best.reading);
+    const b = best[bestKey(u.type)];
+    status = b == null ? '<span class="lv-pill">尚未作答</span>' : pillHTML('最佳', b);
   }
   const stages = openLevels(u).map((l) => l.name).join(' → ');
   const done = store.done(u.id);
-  return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'}" href="#/u/${esc(u.id)}">
+  return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)}" href="#/u/${esc(u.id)}">
       <div class="tile-top">
-        <span class="tile-icon">${vocab ? icon.cards : icon.book}</span>
-        <span class="tile-kind">${vocab ? '單字片語測驗' : '課文理解'}</span>
+        <span class="tile-icon">${typeIcon(u.type)}</span>
+        <span class="tile-kind">${TYPES[typeOf(u.type)].tile}</span>
         ${done && !store.reviewed(u.id) ? `<span class="badge todo">${icon.bulb} 待檢討</span>` : ''}
         ${done && store.reviewed(u.id) ? `<span class="badge done">${icon.check} 已完成 · 可複習</span>` : ''}
         ${windowBadge(u.id, done)}
       </div>
       <h3 class="en">${esc(u.topic || u.title)}</h3>
-      <div class="tile-meta">${vocab ? `${u.count} 個單字與片語 · ${stages}` : `一篇文章 · ${u.count} 題閱讀測驗`}</div>
+      <div class="tile-meta">${tileMeta(u, stages)}</div>
       <div class="lv-row">${status}</div>
     </a>`;
 }
@@ -217,10 +228,13 @@ function headHTML(meta, data) {
   const vocab = meta.type === 'vocab';
   const words = data.words || [];
   const phrases = words.filter((w) => w.type === 'phrase').length;
-  const sub = vocab ? `單字 ${words.length - phrases} 個 · 片語 ${phrases} 個` : `${(data.questions || []).length} 題閱讀測驗`;
+  const sub = vocab ? `單字 ${words.length - phrases} 個 · 片語 ${phrases} 個`
+    : meta.type === 'pattern' ? `${(data.items || []).length} 題句型練習`
+    : meta.type === 'exam' ? `${meta.count || ''} 題段考複習`.trim()
+    : `${(data.questions || []).length} 題閱讀測驗`;
   return `<div class="unit-head">
       <a class="back" href="#/">${icon.back} 所有單元</a>
-      <div class="eyebrow">Lesson ${meta.lesson} · ${vocab ? '單字片語測驗' : '課文理解'}</div>
+      <div class="eyebrow">Lesson ${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
       <div class="sub"><span class="en">${esc(meta.topic || '')}</span><span>${sub}</span></div>
     </div>`;
@@ -240,13 +254,15 @@ async function renderUnit(id, sub) {
 
   app.innerHTML = '<div class="loading"><span class="spinner"></span>載入中…</div>';
   // 剛登入時紀錄還在背景載入：等它載完（最多幾秒），才不會把做過的單元當成沒做過
-  const [data, mod] = await Promise.all([loadUnit(meta.id, config), modes[meta.type === 'reading' ? 'reading' : 'vocab'](), historyReady()]);
+  const [data, mod] = await Promise.all([loadUnit(meta.id, config), modes[typeOf(meta.type)](), historyReady()]);
 
-  if (meta.type === 'reading') {
-    if (!modeOn(config, meta.id, 'reading')) { locked(); return; }
+  if (meta.type !== 'vocab') {
+    if (!modeOn(config, meta.id, meta.type)) { locked(); return; }
     document.title = `${meta.title} — B5 Practice`;
-    app.innerHTML = `${headHTML(meta, data)}<section id="stage"></section>`;
-    cleanup = mod.mount(app.querySelector('#stage'), { unit: meta, data, config }) || null;
+    app.innerHTML = meta.type === 'pattern'
+      ? `<div class="focus">${headHTML(meta, data)}<section id="stage"></section></div>`
+      : `${headHTML(meta, data)}<section id="stage"></section>`;
+    cleanup = mod.mount(app.querySelector('#stage'), { unit: meta, data, config, questionCount: questionCount(config, meta.id) }) || null;
     return;
   }
 
@@ -266,7 +282,7 @@ async function renderUnit(id, sub) {
 // 每個開放中的單元一列：已完成（最佳成績）、待檢討、缺交（已截止沒做）、進行中、尚未開放
 function unitStatus(u) {
   const done = store.done(u.id);
-  const best = store.best(u.id)[u.type === 'vocab' ? 'vocab' : 'reading'];
+  const best = store.best(u.id)[bestKey(u.type)];
   const w = unitWindow(config, u.id);
   if (done && store.reviewed(u.id)) return { k: 'ok', rank: 4, st: best != null ? `${best}%` : '已完成', note: best != null ? '已完成・可複習' : '已完成', ic: icon.check };
   if (done) return { k: 'todo', rank: 1, st: '待檢討', note: `${best != null ? `最佳 ${best}%・` : ''}做完檢討才能複習`, ic: icon.bulb };
@@ -298,7 +314,7 @@ async function renderMe() {
     </div>
     ${rows.length ? `<div class="me-list">${rows.map((r) => `<a class="me-row ${r.k}" href="#/u/${esc(r.u.id)}">
         <span class="ic-box">${r.ic}</span>
-        <span class="txt"><b>L${r.u.lesson} ${esc(r.u.topic || r.u.title)}</b><span>${r.u.type === 'vocab' ? '單字片語' : '課文理解'}・${esc(r.note)}</span></span>
+        <span class="txt"><b>L${r.u.lesson} ${esc(r.u.topic || r.u.title)}</b><span>${typeLabel(r.u.type)}・${esc(r.note)}</span></span>
         <span class="st">${esc(r.st)}</span></a>`).join('')}</div>`
       : `<div class="empty"><div class="big">${icon.inbox}</div><p>老師目前沒有開放任何單元。</p></div>`}
     <p class="me-note">缺交是指：單元有截止時間、已經過了，而且沒有正式測驗紀錄。缺交的單元如果需要補作，請找老師。</p>`;
@@ -523,7 +539,7 @@ async function boot() {
   watchConfig(config);
   // 等頁面載完、畫面穩定之後才在背景預先下載測驗畫面的程式（不跟首頁搶頻寬）
   const afterLoad = (fn) => (document.readyState === 'complete' ? setTimeout(fn, 600) : window.addEventListener('load', () => setTimeout(fn, 600), { once: true }));
-  afterLoad(() => idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); }));
+  afterLoad(() => idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); modes.pattern().catch(() => {}); modes.exam().catch(() => {}); }));
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();
   window.addEventListener('online', () => flushOutbox());
@@ -574,7 +590,7 @@ async function boot() {
     if (on) {
       flip(false); // 考試中導覽列維持完整狀態
       const u = findUnit(decodeURIComponent(location.hash.split('/')[2] || ''));
-      examUnit.textContent = u ? `L${u.lesson} ${u.type === 'vocab' ? '單字片語' : '課文理解'}` : '';
+      examUnit.textContent = u ? `L${u.lesson} ${typeLabel(u.type)}` : '';
       examT0 = Date.now();
       paintTimer();
       examTick = setInterval(paintTimer, 1000);

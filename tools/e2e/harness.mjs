@@ -58,7 +58,7 @@ export async function startWorld({ scriptLatency = 1200, teachers = ['teacher@ex
     const page = await ctx.newPage();
     const errors = [];
     page.on('console', (m) => { if (m.type() === 'error') errors.push(`console.error: ${m.text()}`); });
-    page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+    page.on('pageerror', (e) => errors.push(`pageerror: ${e.message} ${process.env.STACK ? e.stack : ''}`));
     page.on('requestfailed', (r) => errors.push(`requestfailed: ${r.url()} ${r.failure() && r.failure().errorText}`));
     page.errors = errors;
     page.setDefaultTimeout(8000);

@@ -104,7 +104,7 @@ export const store = {
     const latest = {};
     attempts.forEach((a) => {
       if (!a.unit) return;
-      const mode = a.mode === 'reading' ? 'reading' : 'vocab';
+      const mode = ['reading', 'pattern', 'exam'].includes(a.mode) ? a.mode : 'vocab';
       this.setBest(a.unit, mode, Number(a.pct) || 0);
       this.setDone(a.unit);
       if (mode === 'vocab' && (!latest[a.unit] || String(a.clientTs) > String(latest[a.unit].clientTs))) latest[a.unit] = a;

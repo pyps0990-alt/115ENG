@@ -819,3 +819,29 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .unit-tile { min-height: 212px; } /* 所有課次的卡片高度一致：標題最多兩行、說明最多兩行，內容不會撐高 */
 .unit-tile h3 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .unit-tile .tile-meta { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ---- 句型練習、段考複習 ---- */
+.tagchip { display: inline-block; padding: 0 8px; border-radius: 6px; background: var(--navy-soft); color: var(--navy); font-size: .78rem; font-weight: 700; margin-bottom: 6px; }
+.fill-area { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.fill-input { flex: 1 1 200px; min-width: 0; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--white); font-size: 1.05rem; color: var(--navy); }
+.fill-input:focus-visible { outline: 3px solid var(--navy-soft); border-color: var(--navy); }
+.fill-input.ok { border-color: var(--good, #16a34a); background: var(--good-soft, #dcfce7); }
+.fill-input.no { border-color: var(--bad); background: var(--bad-soft); }
+.build-line { display: flex; flex-wrap: wrap; gap: 6px; min-height: 52px; padding: 10px; border-radius: 12px; border: 1.5px dashed var(--line); margin-top: 12px; align-items: center; }
+.build-line.ok { border-style: solid; border-color: var(--good, #16a34a); background: var(--good-soft, #dcfce7); }
+.build-line.no { border-style: solid; border-color: var(--bad); background: var(--bad-soft); }
+.build-hint { color: var(--steel); font-size: .88rem; }
+.bank { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip-word { padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--white); color: var(--navy); font-size: 1rem; font-weight: 700; cursor: pointer; transition: transform .15s var(--ease), opacity .15s; }
+.chip-word:active { transform: scale(.95); }
+.chip-word:disabled { opacity: .35; cursor: default; }
+.chip-word.on { background: var(--navy-soft); border-color: var(--navy); }
+.exam-sec { margin: 22px 0 8px; font-size: 1.05rem; color: var(--navy); border-left: 4px solid var(--amber, #F59E0B); padding-left: 10px; }
+.exam-body { display: grid; gap: 12px; }
+.exam-group { margin-top: 4px; }
+.exam-body .pq { padding: 16px; border-radius: 16px; border: 1.5px solid var(--line); background: var(--white); display: grid; gap: 10px; }
+.exam-body .pq.done { border-color: var(--navy-soft); }
+.cloze-no { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; margin: 0 3px; border-radius: 6px; background: var(--navy); color: #fff; font-size: .78rem; font-weight: 800; vertical-align: 1px; }
+.ptext { white-space: pre-wrap; }
+.rv-passage { border: 1.5px solid var(--line); border-radius: 14px; padding: 8px 12px; }
+.rv-passage > summary { cursor: pointer; font-weight: 700; color: var(--navy); }

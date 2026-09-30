@@ -216,7 +216,7 @@
           <input type="text" id="nu-id" placeholder="代號，例如 l5-voc" size="14">
           <input type="text" id="nu-title" placeholder="標題，例如 L5 單字片語" size="18">
           <label style="display:flex;align-items:center;gap:6px;font-weight:400">課次 <input type="number" id="nu-lesson" min="1" max="99" value="5" style="width:64px"></label>
-          <select id="nu-type"><option value="vocab">單字片語</option><option value="reading">課文理解</option></select>
+          <select id="nu-type"><option value="vocab">單字片語</option><option value="reading">課文理解</option><option value="pattern">句型練習</option><option value="exam">段考複習</option></select>
           <button class="btn" id="nu-add" type="button">＋ 新增單元</button>
           <span class="msg" id="nu-msg"></span>
         </div>
@@ -272,6 +272,21 @@
           </div>
         </details>
 
+        <details class="ai-box" id="pr-box">
+          <summary>AI 提示詞<span class="pill">四種題型各一份</span></summary>
+          <div class="imp-grid">
+            <div class="help">這是交給 AI 的「出題規則」，單字片語、課文理解、句型練習、段考複習各有一份。可以改成自己的出題風格（例如難度、題型比例、解析語氣）；欄位名稱與格式由系統固定，不會被改壞。清空並儲存＝還原預設。課文理解裡的 <code>{{copy}}</code> 會自動換成「不可照抄的連續字數」。</div>
+            <div class="seg" role="radiogroup" aria-label="題型" id="pr-type">
+              <label><input type="radio" name="pr-t" value="vocab"> 單字片語</label>
+              <label><input type="radio" name="pr-t" value="reading"> 課文理解</label>
+              <label><input type="radio" name="pr-t" value="pattern" checked> 句型練習</label>
+              <label><input type="radio" name="pr-t" value="exam"> 段考複習</label>
+            </div>
+            <label>提示詞<textarea id="pr-text" spellcheck="false" style="min-height:200px"></textarea></label>
+            <div class="bar"><button class="btn primary" id="pr-save" type="button">儲存提示詞</button><button class="btn" id="pr-reset" type="button">還原預設</button><span id="pr-state" class="pill"></span><span class="msg" id="pr-msg"></span></div>
+          </div>
+        </details>
+
         <div id="imp-vocab" class="imp-grid" hidden>
           <label>主題（顯示在首頁卡片上，可空白）<input type="text" id="v-topic" placeholder="例：Resilience"></label>
           <div class="help">
@@ -298,6 +313,19 @@
             <span class="muted">會取代下方目前的題目；產生後請逐題確認再儲存。</span></div>
           <div id="r-qs" class="imp-grid" style="margin-top:0"></div>
           <div><button class="btn" id="r-add" type="button">＋ 新增題目</button></div>
+        </div>
+
+        <div id="imp-text" class="imp-grid" hidden>
+          <label>主題（顯示在首頁卡片上，可空白）<input type="text" id="t-topic" placeholder="例：not only…but also 與倒裝句"></label>
+          <div class="help" id="t-help"></div>
+          <div class="bar">
+            <button class="btn" id="t-example" type="button">插入範例格式</button>
+            <button class="btn ai" id="ai-text" type="button">✦ AI 產生題目</button>
+            <span id="t-counts"></span>
+            <span class="muted">會取代下方目前的內容；產生後請逐題確認再儲存。</span>
+          </div>
+          <label>AI 出題範圍或提示（可空白，會和主題一起交給 AI）<input type="text" id="t-hint" placeholder="例：Lesson 3 的重點句型，難度中等"></label>
+          <label>題目內容<textarea id="t-text" spellcheck="false" style="min-height:320px"></textarea></label>
         </div>
 
         <div class="bar" style="margin-top:14px">
@@ -427,7 +455,20 @@
     var MODES = {
       vocab: [['basic', '基礎'], ['advanced', '進階'], ['mastery', '精熟']],
       reading: [['reading', '課文理解']],
+      pattern: [['pattern', '句型練習']],
+      exam: [['exam', '段考複習']],
     };
+    var TYPE_NAMES = { vocab: '單字片語', reading: '課文理解', pattern: '句型練習', exam: '段考複習' };
+    function normType(t) { return TYPE_NAMES[t] ? t : 'vocab'; }
+    function typeSelectHTML(cur) {
+      return '<select data-k="type">' + Object.keys(TYPE_NAMES).map(function (k) { return '<option value="' + k + '"' + (cur === k ? ' selected' : '') + '>' + TYPE_NAMES[k] + '</option>'; }).join('') + '</select>';
+    }
+    function countOf(type, d) {
+      if (type === 'vocab') return (d.words || []).length;
+      if (type === 'pattern') return (d.items || []).length;
+      if (type === 'exam') return (d.blocks || []).reduce(function (n, b) { return n + (b.type === 'reading' ? (b.questions || []).length : b.type === 'cloze' ? (b.blanks || []).length : 1); }, 0);
+      return (d.questions || []).length;
+    }
     var units = [];
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
     function $(id) { return document.getElementById(id); }
@@ -444,7 +485,7 @@
       var meta = '<span>' + esc(u.id) + '</span>';
       if (u.custom) {
         meta += '<label style="font-weight:400;display:inline-flex;gap:4px;align-items:center">課次 <input type="number" min="1" max="99" data-k="lesson" value="' + esc(u.lesson) + '" style="width:52px"></label>' +
-          '<label style="font-weight:400;display:inline-flex;gap:4px;align-items:center">類型 <select data-k="type"><option value="vocab"' + (u.type === 'vocab' ? ' selected' : '') + '>單字片語</option><option value="reading"' + (u.type === 'reading' ? ' selected' : '') + '>課文理解</option></select></label>';
+          '<label style="font-weight:400;display:inline-flex;gap:4px;align-items:center">類型 ' + typeSelectHTML(u.type) + '</label>';
       }
       return '<input type="text" data-k="title" value="' + esc(u.title || u.id) + '" style="font-weight:700;margin-bottom:4px">' +
         '<div class="muted" style="font-size:.8rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' + meta + '</div>';
@@ -452,14 +493,14 @@
 
     function render() {
       $('units').innerHTML = units.map(function (u, i) {
-        var modes = MODES[u.type] || MODES.reading;
+        var modes = MODES[u.type] || MODES.vocab;
         return '<tr data-i="' + i + '" class="' + (u.visible ? '' : 'off') + '">' +
           '<td class="c-vis"><label class="vis-lbl"><input type="checkbox" data-k="visible" ' + (u.visible ? 'checked' : '') + ' aria-label="顯示"><span>顯示</span></label></td>' +
           '<td class="title">' + titleCellHTML(u) + '</td>' +
           '<td data-label="包含的階段／測驗"><div class="modes">' + modes.map(function (m) {
             return '<label><input type="checkbox" data-mode="' + m[0] + '" ' + (u.disabled.indexOf(m[0]) === -1 ? 'checked' : '') + '>' + m[1] + '</label>';
           }).join('') + '</div></td>' +
-          '<td data-label="每段題數">' + (u.type === 'vocab' ? '<input type="number" min="1" max="100" data-k="questionCount" value="' + esc(u.questionCount) + '">' : '<span class="muted">依文章題數</span>') + '</td>' +
+          '<td data-label="每段題數">' + (u.type === 'vocab' ? '<input type="number" min="1" max="100" data-k="questionCount" value="' + esc(u.questionCount) + '">' : '<span class="muted">' + (u.type === 'reading' ? '依文章題數' : '依題目數') + '</span>') + '</td>' +
           '<td class="window" data-label="開放時段"><label>開放 <input type="datetime-local" data-k="openAt" value="' + esc(u.openAt || '') + '"></label>' +
             '<label>截止 <input type="datetime-local" data-k="closeAt" value="' + esc(u.closeAt || '') + '"></label></td>' +
           '<td class="c-act">' + (u.custom ? '<button class="btn" data-del="1" type="button">刪除</button>' : '') + '</td></tr>';
@@ -538,7 +579,7 @@
         };
         if (old.since !== undefined) o.since = old.since; else if (u.custom) o.since = now;
         cfg.units[u.id] = o;
-        if (u.custom) cfg.customUnits.push({ id: u.id, title: u.title || u.id, type: u.type === 'reading' ? 'reading' : 'vocab', lesson: Math.max(1, Number(u.lesson) || 1), topic: u.topic || '' });
+        if (u.custom) cfg.customUnits.push({ id: u.id, title: u.title || u.id, type: normType(u.type), lesson: Math.max(1, Number(u.lesson) || 1), topic: u.topic || '' });
       });
       Object.keys(base.units).forEach(function (id) { if (!cfg.units[id] && base.units[id].visible === undefined) cfg.units[id] = clone(base.units[id]); });
       Object.keys(base.content || {}).forEach(function (id) { if (cfg.units[id]) cfg.content[id] = clone(base.content[id]); });
@@ -553,10 +594,10 @@
       });
       return cfg;
     }
-    function cfgForContent(unitId, data, isVocab, reset, now) {
+    function cfgForContent(unitId, data, type, reset, now) {
       var cfg = clone(cfgBase); cfg.updated = now;
       cfg.content = cfg.content || {};
-      cfg.content[unitId] = { updated: now, count: isVocab ? (data.words || []).length : (data.questions || []).length, topic: String(data.topic || '') };
+      cfg.content[unitId] = { updated: now, count: countOf(type, data), topic: String(data.topic || '') };
       if (reset) { cfg.units[unitId] = cfg.units[unitId] || {}; if (now > (cfg.units[unitId].since || '')) cfg.units[unitId].since = now; }
       return cfg;
     }
@@ -777,16 +818,21 @@
     }
     function impShow() {
       var u = impUnit(); if (!u) return;
+      var pe = u.type === 'pattern' || u.type === 'exam';
       $('imp-vocab').hidden = u.type !== 'vocab';
-      $('imp-reading').hidden = u.type === 'vocab';
+      $('imp-reading').hidden = u.type !== 'reading';
+      $('imp-text').hidden = !pe;
       $('v-topic').value = ''; $('v-text').value = '';
       $('r-title').value = ''; $('r-topic').value = ''; $('r-passage').value = ''; $('r-qs').innerHTML = '';
-      if (u.type !== 'vocab') addQ();
+      $('t-topic').value = ''; $('t-text').value = ''; $('t-hint').value = '';
+      if (u.type === 'reading') addQ();
+      if (pe) textShow(u.type);
+      prSelect(u.type);
       $('imp-report').innerHTML = '';
       impStatus(); impDirty();
     }
     $('imp-unit').addEventListener('change', impShow);
-    ['imp-vocab', 'imp-reading'].forEach(function (id) { $(id).addEventListener('input', impDirty); $(id).addEventListener('change', impDirty); });
+    ['imp-vocab', 'imp-reading', 'imp-text'].forEach(function (id) { $(id).addEventListener('input', impDirty); $(id).addEventListener('change', impDirty); });
 
     // ----- 閱讀題目表單 -----
     // 切句規則要跟網站 js/util.js 的 splitSentences 一致，ref（段-句）才對得上
@@ -848,6 +894,9 @@
           var exs = (w.examples && w.examples.length) ? w.examples : [{ ex: w.example || '', zh: w.exampleZh || '' }];
           return [w.word, w.pos || '', w.zh, exs.map(function (e) { return e.ex; }).join(' ; '), exs.map(function (e) { return e.zh || ''; }).join(' ; ')].join('\t');
         }).join('\n');
+      } else if (u.type === 'pattern' || u.type === 'exam') {
+        $('t-topic').value = d.topic || '';
+        $('t-text').value = u.type === 'pattern' ? serPattern(d) : serExam(d);
       } else {
         $('r-title').value = d.title || ''; $('r-topic').value = d.topic || '';
         $('r-passage').value = (d.passage || []).join('\n\n');
@@ -976,22 +1025,324 @@
       var title = $('r-title').value.trim();
       return errs ? null : { title: title, topic: $('r-topic').value.trim() || title, passage: passage, questions: qs };
     }
+
+    /* ---------------- 句型練習、段考複習：文字格式匯入 ---------------- */
+    // 一題一段，用 [種類] 開頭；欄位「名稱：內容」，內容可以換行。也可以直接貼 JSON。
+    var HELP = {
+      pattern: '<b>句型練習</b>：選擇、填空為主，偶爾出現「應用」（把打散的單字排成句子）。每題以 <code>[選擇]</code>、<code>[填空]</code>、<code>[應用]</code> 開頭，接著寫欄位（欄位名稱後面用冒號 <code>:</code>）：<br>' +
+        '<code>[選擇]</code> 句型／題目（空格寫 <code>____</code>）／選項（用 <code>|</code> 隔開，4 個）／答案（A、B、C、D）／解析<br>' +
+        '<code>[填空]</code> 句型／題目（含 <code>____</code>）／答案（可接受的寫法用 <code>|</code> 隔開）／提示（可空白，例如 <code>(succeed)</code>）／解析<br>' +
+        '<code>[應用]</code> 句型／中文／單字（用 <code>|</code> 隔開，順序隨意）／答案（完整句子）／解析<br>' +
+        '「句型」是顯示在題目旁的小標籤，「解析」學生每題作答後立刻看到。也可以直接貼 JSON。',
+      exam: '<b>段考複習</b>：選擇、拼寫、閱讀、綜合四種大題，依貼上的順序出現。每題以 <code>[選擇]</code>、<code>[拼寫]</code>、<code>[閱讀]</code>、<code>[綜合]</code> 開頭：<br>' +
+        '<code>[選擇]</code> 題目（空格 <code>____</code>）／選項（<code>|</code> 隔開）／答案（A–D）／解析<br>' +
+        '<code>[拼寫]</code> 題目（含 <code>____</code>）／提示（例如首字母與中文）／答案／解析<br>' +
+        '<code>[閱讀]</code> 標題／文章（段落之間空一行）／<code>Q1</code>（題目）、<code>Q1選項</code>、<code>Q1答案</code>、<code>Q1解析</code>、<code>Q1技巧</code>（主旨／細節…，可空白），再接 <code>Q2…</code><br>' +
+        '<code>[綜合]</code> 標題／文章（空格寫成 <code>(1)</code>、<code>(2)</code>…）／<code>(1)選項</code>、<code>(1)答案</code>、<code>(1)解析</code>，再接 <code>(2)…</code><br>' +
+        '也可以直接貼 JSON。'
+    };
+    var EXAMPLE = {
+      pattern: '[選擇]\n句型：not only…but also\n題目：Not only ____ the exam, but he also got the highest score.\n選項：passed | did he pass | he passed | has passed\n答案：B\n解析：Not only 放句首時，後面的主要子句要倒裝（助動詞 + 主詞）。\n\n' +
+        '[填空]\n句型：so…that\n題目：The movie was so ____ that everyone cried.\n答案：touching|moving\n提示：（感人的）\n解析：so + 形容詞 + that 表示「如此…以致於…」。\n\n' +
+        '[應用]\n句型：It is…that 強調句\n中文：正是她的努力讓她成功。\n單字：that | her hard work | It | made | was | her | succeed\n答案：It was her hard work that made her succeed.\n解析：強調句型 It is/was + 被強調部分 + that…。',
+      exam: '[選擇]\n題目：Her ____ to the team helped us win the game.\n選項：contribution | competition | connection | conclusion\n答案：A\n解析：contribute to → contribution（貢獻）。\n\n' +
+        '[拼寫]\n題目：Stay ____ when things get difficult.\n提示：c（冷靜的）\n答案：calm\n解析：calm 冷靜的。\n\n' +
+        '[閱讀]\n標題：Mia\'s Second Try\n文章：Mia failed her first driving test. She felt ashamed, but she decided to try again.\n\nA month later she passed.\nQ1：What is the passage mainly about?\nQ1選項：Learning to drive | Trying again after failing | Buying a car | Making friends\nQ1答案：B\nQ1解析：整篇描述 Mia 失敗後再試一次。\nQ1技巧：主旨\nQ2：How did Mia feel after the first test?\nQ2選項：Proud | Ashamed | Bored | Angry\nQ2答案：B\nQ2解析：第一段提到 She felt ashamed。\n\n' +
+        '[綜合]\n標題：A Big Change\n文章：Tom moved to a new city last year. At first he felt (1) because he knew no one. (2), he joined a club and made friends.\n(1)選項：lonely | noisy | hungry | proud\n(1)答案：A\n(1)解析：knew no one → 孤單。\n(2)選項：However | Therefore | Besides | Otherwise\n(2)答案：A\n(2)解析：前後語意轉折，用 However。'
+    };
+    var KEYSET = { '句型': 'tag', '題目': 'q', '選項': 'options', '答案': 'answer', '解析': 'explain', '提示': 'hint', '中文': 'zh', '單字': 'words', '文章': 'passage', '標題': 'title' };
+    var KIND = { '選擇': 'mc', '填空': 'fill', '應用': 'apply', '拼寫': 'spell', '閱讀': 'reading', '綜合': 'cloze' };
+    var KIND_ZH = { mc: '選擇', fill: '填空', apply: '應用', spell: '拼寫', reading: '閱讀', cloze: '綜合' };
+
+    function textShow(type) {
+      $('t-help').innerHTML = HELP[type];
+      if (type === 'pattern') {
+        $('t-counts').innerHTML = '<label style="display:inline-flex;gap:6px;align-items:center;font-weight:400">題數 <select id="c-n"><option>5</option><option selected>10</option><option>15</option><option>20</option></select></label>';
+      } else {
+        $('t-counts').innerHTML = ['mc:選擇:8', 'spell:拼寫:4', 'reading:閱讀(篇):1', 'cloze:綜合(篇):1'].map(function (x) {
+          var a = x.split(':');
+          return '<label style="display:inline-flex;gap:4px;align-items:center;font-weight:400">' + a[1] + ' <input type="number" id="c-' + a[0] + '" min="0" max="15" value="' + a[2] + '" style="width:56px"></label>';
+        }).join(' ');
+      }
+    }
+    $('t-example').onclick = function () {
+      var u = impUnit(); if (!u || !EXAMPLE[u.type]) return;
+      if ($('t-text').value.trim() && !confirm('會取代目前的內容，確定嗎？')) return;
+      $('t-text').value = EXAMPLE[u.type]; impDirty();
+    };
+
+    function splitOpts(v) {
+      return String(v || '').split(/\s*\|\s*|\n/).map(function (o) { return o.replace(/^\s*[A-Ea-e][.)、．]\s*/, '').trim(); }).filter(Boolean);
+    }
+    function ansIndex(v, opts) {
+      v = String(v || '').trim();
+      if (/^[A-Ea-e]$/.test(v)) return v.toUpperCase().charCodeAt(0) - 65;
+      var m = /^([A-Ea-e])[.)、．]/.exec(v); if (m) return m[1].toUpperCase().charCodeAt(0) - 65;
+      var i = opts.map(function (o) { return o.toLowerCase(); }).indexOf(v.toLowerCase());
+      return i;
+    }
+    // 切成 [{kind, fields:{key:value}}]；欄位可以換行，遇到下一個「名稱：」才換欄位
+    function splitBlocks(text) {
+      var blocks = [], cur = null, key = null;
+      text.split(/\r?\n/).forEach(function (line) {
+        var h = /^\s*\[(選擇|填空|應用|拼寫|閱讀|綜合)\]\s*(.*)$/.exec(line);
+        if (h) { cur = { kind: KIND[h[1]], f: {}, order: [] }; blocks.push(cur); key = null; line = h[2]; if (!line) return; }
+        if (!cur) return;
+        var m = /^\s*(Q\d+(?:選項|答案|解析|技巧)?|\(\d+\)(?:選項|答案|解析)|句型|題目|選項|答案|解析|提示|中文|單字|文章|標題)\s*[:：]\s*(.*)$/.exec(line);
+        if (m) { key = m[1]; cur.f[key] = m[2]; cur.order.push(key); }
+        else if (key) cur.f[key] += '\n' + line;
+      });
+      blocks.forEach(function (b) { Object.keys(b.f).forEach(function (k) { b.f[k] = b.f[k].replace(/^\s+|\s+$/g, ''); }); });
+      return blocks;
+    }
+    function paras(v) { return String(v || '').split(/\n\s*\n/).map(function (p) { return p.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean); }
+
+    function parsePatternText(text, issues) {
+      var items = [];
+      splitBlocks(text).forEach(function (b, i) {
+        var f = b.f, tag = '第 ' + (i + 1) + ' 題（' + KIND_ZH[b.kind] + '）', it;
+        if (b.kind === 'mc') {
+          var opts = splitOpts(f['選項']), a = ansIndex(f['答案'], opts);
+          if (!f['題目']) issues.push(['err', tag + '：缺少題目']);
+          if (opts.length < 2) issues.push(['err', tag + '：選項至少 2 個，用 | 隔開']);
+          if (a < 0 || a >= opts.length) issues.push(['err', tag + '：答案要寫 A–' + 'ABCDE'[Math.max(opts.length - 1, 0)] + ' 或選項原文']);
+          if (opts.length && opts.length !== 4) issues.push(['warn', tag + '：選項有 ' + opts.length + ' 個（建議 4 個）']);
+          if (f['題目'] && !/_{2,}/.test(f['題目'])) issues.push(['warn', tag + '：題目沒有 ____ 空格']);
+          it = { type: 'mc', tag: f['句型'] || '', q: f['題目'] || '', options: opts, answer: a, explain: f['解析'] || '' };
+        } else if (b.kind === 'fill') {
+          if (!f['題目'] || !/_{2,}/.test(f['題目'])) issues.push(['err', tag + '：題目要有 ____ 空格']);
+          if (!f['答案']) issues.push(['err', tag + '：缺少答案']);
+          it = { type: 'fill', tag: f['句型'] || '', q: f['題目'] || '', answer: f['答案'] || '', hint: f['提示'] || '', explain: f['解析'] || '' };
+        } else if (b.kind === 'apply') {
+          var w = splitOpts(f['單字']).map(function (x) { return x; });
+          w = String(f['單字'] || '').split(/\s*\|\s*/).map(function (x) { return x.trim(); }).filter(Boolean);
+          var ans = f['答案'] || '';
+          var norm = function (x) { return String(x).toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(String).sort().join(' '); };
+          if (!f['中文']) issues.push(['err', tag + '：缺少中文句子']);
+          if (w.length < 3) issues.push(['err', tag + '：單字至少 3 個，用 | 隔開']);
+          if (!ans) issues.push(['err', tag + '：缺少答案句子']);
+          else if (w.length >= 3 && norm(w.join(' ')) !== norm(ans)) issues.push(['err', tag + '：單字要剛好能排成答案句子（多了或少了單字）']);
+          it = { type: 'apply', tag: f['句型'] || '', zh: f['中文'] || '', words: w, answer: ans, explain: f['解析'] || '' };
+        } else { issues.push(['err', '第 ' + (i + 1) + ' 題：句型練習只有 選擇／填空／應用 三種，「' + KIND_ZH[b.kind] + '」請移到段考複習']); return; }
+        if (!it.explain) issues.push(['warn', tag + '：沒有解析，學生作答後只會看到正確答案']);
+        items.push(it);
+      });
+      if (!items.length) issues.push(['err', '沒有讀到任何題目，每題要以 [選擇]、[填空] 或 [應用] 開頭']);
+      return { topic: $('t-topic').value.trim(), items: items };
+    }
+
+    function parseExamText(text, issues) {
+      var blocks = [];
+      splitBlocks(text).forEach(function (b, i) {
+        var f = b.f, tag = '第 ' + (i + 1) + ' 大題（' + KIND_ZH[b.kind] + '）';
+        if (b.kind === 'mc') {
+          var opts = splitOpts(f['選項']), a = ansIndex(f['答案'], opts);
+          if (!f['題目']) issues.push(['err', tag + '：缺少題目']);
+          if (opts.length < 2) issues.push(['err', tag + '：選項至少 2 個，用 | 隔開']);
+          if (a < 0 || a >= opts.length) issues.push(['err', tag + '：答案要寫 A–' + 'ABCDE'[Math.max(opts.length - 1, 0)] + ' 或選項原文']);
+          if (!f['解析']) issues.push(['warn', tag + '：沒有解析']);
+          blocks.push({ type: 'mc', q: f['題目'] || '', options: opts, answer: a, explain: f['解析'] || '' });
+        } else if (b.kind === 'spell') {
+          if (!f['題目'] || !/_{2,}/.test(f['題目'])) issues.push(['err', tag + '：題目要有 ____ 空格']);
+          if (!f['答案']) issues.push(['err', tag + '：缺少答案']);
+          if (!f['解析']) issues.push(['warn', tag + '：沒有解析']);
+          blocks.push({ type: 'spell', q: f['題目'] || '', hint: f['提示'] || '', answer: f['答案'] || '', explain: f['解析'] || '' });
+        } else if (b.kind === 'reading' || b.kind === 'cloze') {
+          var passage = paras(f['文章']);
+          if (!passage.length) issues.push(['err', tag + '：缺少文章']);
+          var list = [], n = 1, cloze = b.kind === 'cloze';
+          for (;; n++) {
+            var pre = cloze ? '(' + n + ')' : 'Q' + n;
+            var optsK = pre + '選項', ansK = pre + '答案';
+            if (!(pre in b.f) && !(optsK in b.f) && !(ansK in b.f)) break;
+            var o = splitOpts(f[optsK]), ai = ansIndex(f[ansK], o), sub = tag + ' ' + (cloze ? '第 (' + n + ') 格' : '第 ' + n + ' 小題');
+            if (!cloze && !f[pre]) issues.push(['err', sub + '：缺少題目（' + pre + '：…）']);
+            if (o.length < 2) issues.push(['err', sub + '：選項至少 2 個，用 | 隔開']);
+            if (ai < 0 || ai >= o.length) issues.push(['err', sub + '：答案要寫 A–' + 'ABCDE'[Math.max(o.length - 1, 0)] + ' 或選項原文']);
+            if (!f[pre + '解析']) issues.push(['warn', sub + '：沒有解析']);
+            if (cloze) list.push({ options: o, answer: ai, explain: f[pre + '解析'] || '' });
+            else list.push({ skill: f[pre + '技巧'] || '', q: f[pre] || '', options: o, answer: ai, explain: f[pre + '解析'] || '' });
+          }
+          if (!list.length) issues.push(['err', tag + '：至少要 1 個' + (cloze ? '空格（(1)選項、(1)答案…）' : '小題（Q1、Q1選項、Q1答案…）')]);
+          if (cloze) {
+            var joined = passage.join(' ');
+            for (var c = 1; c <= list.length; c++) if (joined.indexOf('(' + c + ')') < 0) issues.push(['err', tag + '：文章裡找不到空格 (' + c + ')']);
+            var extra = (joined.match(/\((\d+)\)/g) || []).filter(function (x) { return Number(x.slice(1, -1)) > list.length; });
+            if (extra.length) issues.push(['err', tag + '：文章裡的空格 ' + extra.join('、') + ' 沒有對應的選項']);
+            blocks.push({ type: 'cloze', title: f['標題'] || '', passage: passage, blanks: list });
+          } else {
+            var pw = words_(passage.join(' '));
+            list.forEach(function (q, j) {
+              [['題目', q.q]].concat(q.options.map(function (op, k) { return ['選項 ' + 'ABCDE'[k], op]; })).forEach(function (pair) {
+                var sh = longestShared(words_(pair[1]), pw);
+                if (sh.n >= 6) issues.push(['err', tag + ' 第 ' + (j + 1) + ' 小題（' + pair[0] + '）照抄文章 ' + sh.n + ' 個字：「' + sh.text + '」，請改寫']);
+              });
+            });
+            blocks.push({ type: 'reading', title: f['標題'] || '', passage: passage, questions: list });
+          }
+        }
+      });
+      if (!blocks.length) issues.push(['err', '沒有讀到任何題目，每題要以 [選擇]、[拼寫]、[閱讀] 或 [綜合] 開頭']);
+      return { topic: $('t-topic').value.trim(), blocks: blocks };
+    }
+
+    function parseTextType(type) {
+      var text = $('t-text').value, issues = [], data;
+      var trimmed = text.trim();
+      if (/^[\[{]/.test(trimmed) && !/^\[(選擇|填空|應用|拼寫|閱讀|綜合)\]/.test(trimmed)) {
+        try {
+          var j = JSON.parse(trimmed);
+          if (Array.isArray(j)) j = type === 'pattern' ? { items: j } : { blocks: j };
+          data = { topic: j.topic || $('t-topic').value.trim(), items: j.items, blocks: j.blocks };
+          if (type === 'pattern') delete data.blocks; else delete data.items;
+          if (!$('t-topic').value.trim() && j.topic) $('t-topic').value = j.topic;
+        } catch (e) { issues.push(['err', 'JSON 格式錯誤：' + e.message]); }
+      } else data = type === 'pattern' ? parsePatternText(text, issues) : parseExamText(text, issues);
+      if (data && !issues.length) {
+        var err = validatePE(type, data);
+        if (err) issues.push(['err', err]);
+      }
+      var errs = issues.filter(function (x) { return x[0] === 'err'; }).length;
+      var n = data ? countOf(type, data) : 0, parts = [];
+      if (data && type === 'pattern' && data.items) {
+        ['mc', 'fill', 'apply'].forEach(function (k) { var c = data.items.filter(function (x) { return x.type === k; }).length; if (c) parts.push(KIND_ZH[k] + ' ' + c); });
+      } else if (data && data.blocks) {
+        ['mc', 'spell', 'reading', 'cloze'].forEach(function (k) { var c = data.blocks.filter(function (x) { return x.type === k; }).length; if (c) parts.push(KIND_ZH[k] + ' ' + c); });
+      }
+      $('imp-report').innerHTML = '<div class="stats"><span class="stat">共 ' + n + ' 題</span>' + parts.map(function (x) { return '<span class="stat">' + x + '</span>'; }).join('') + '</div>' +
+        (issues.length ? '<ul class="issues">' + issues.map(function (x) { return '<li class="' + x[0] + '">' + esc(x[1]) + '</li>'; }).join('') + '</ul>' : '<p class="st-ok">✓ 檢查通過</p>');
+      return errs || !data ? null : data;
+    }
+    // 和 Code.gs 的 validateContent_ 相同的把關
+    function validatePE(type, d) {
+      function ok(q) { return q && Array.isArray(q.options) && q.options.length >= 2 && typeof q.answer === 'number' && q.answer >= 0 && q.answer < q.options.length; }
+      if (type === 'pattern') {
+        if (!Array.isArray(d.items) || !d.items.length) return '至少要 1 題';
+        for (var i = 0; i < d.items.length; i++) {
+          var it = d.items[i], n = '第 ' + (i + 1) + ' 題';
+          if (it.type === 'mc') { if (!it.q || !ok(it)) return n + '（選擇）不完整或沒有正確答案'; }
+          else if (it.type === 'fill') { if (!it.q || !/_{2,}/.test(it.q) || !String(it.answer || '').trim()) return n + '（填空）要有 ____ 與答案'; }
+          else if (it.type === 'apply') { if (!it.zh || !Array.isArray(it.words) || it.words.length < 3 || !String(it.answer || '').trim()) return n + '（應用）不完整'; }
+          else return n + ' 題型不明';
+        }
+        return '';
+      }
+      if (!Array.isArray(d.blocks) || !d.blocks.length) return '至少要 1 題';
+      for (var k = 0; k < d.blocks.length; k++) {
+        var b = d.blocks[k], m = '第 ' + (k + 1) + ' 大題';
+        if (b.type === 'mc') { if (!b.q || !ok(b)) return m + '（選擇）不完整或沒有正確答案'; }
+        else if (b.type === 'spell') { if (!b.q || !String(b.answer || '').trim()) return m + '（拼寫）不完整'; }
+        else if (b.type === 'reading' || b.type === 'cloze') {
+          var qs = b.type === 'reading' ? b.questions : b.blanks;
+          if (!Array.isArray(b.passage) || !b.passage.length || !Array.isArray(qs) || !qs.length) return m + '缺少文章或小題';
+          for (var j = 0; j < qs.length; j++) if (!ok(qs[j]) || (b.type === 'reading' && !qs[j].q)) return m + '第 ' + (j + 1) + ' 小題不完整';
+        } else return m + ' 題型不明';
+      }
+      return '';
+    }
+
+    // 資料 → 文字（載入現有內容、AI 產生後顯示）
+    function join(a) { return (a || []).join(' | '); }
+    function serPattern(d) {
+      return (d.items || []).map(function (it) {
+        var o = ['[' + KIND_ZH[it.type] + ']'];
+        if (it.tag) o.push('句型：' + it.tag);
+        if (it.type === 'mc') o.push('題目：' + it.q, '選項：' + join(it.options), '答案：' + 'ABCDE'[it.answer]);
+        else if (it.type === 'fill') { o.push('題目：' + it.q, '答案：' + it.answer); if (it.hint) o.push('提示：' + it.hint); }
+        else { o.push('中文：' + it.zh, '單字：' + join(it.words), '答案：' + it.answer); }
+        if (it.explain) o.push('解析：' + it.explain);
+        return o.join('\n');
+      }).join('\n\n');
+    }
+    function serExam(d) {
+      return (d.blocks || []).map(function (b) {
+        var o = ['[' + KIND_ZH[b.type] + ']'];
+        if (b.type === 'mc') o.push('題目：' + b.q, '選項：' + join(b.options), '答案：' + 'ABCDE'[b.answer]);
+        else if (b.type === 'spell') { o.push('題目：' + b.q); if (b.hint) o.push('提示：' + b.hint); o.push('答案：' + b.answer); }
+        else {
+          if (b.title) o.push('標題：' + b.title);
+          o.push('文章：' + (b.passage || []).join('\n\n'));
+          (b.type === 'reading' ? b.questions : b.blanks || []).forEach(function (q, j) {
+            var pre = b.type === 'reading' ? 'Q' + (j + 1) : '(' + (j + 1) + ')';
+            if (b.type === 'reading') { o.push(pre + '：' + q.q); }
+            o.push(pre + '選項：' + join(q.options), pre + '答案：' + 'ABCDE'[q.answer]);
+            if (q.explain) o.push(pre + '解析：' + q.explain);
+            if (b.type === 'reading' && q.skill) o.push(pre + '技巧：' + q.skill);
+          });
+          return o.join('\n');
+        }
+        if (b.explain) o.push('解析：' + b.explain);
+        return o.join('\n');
+      }).join('\n\n');
+    }
+
+    $('ai-text').onclick = function () {
+      if (!needAi()) return;
+      var u = impUnit(); if (!u) return;
+      var topic = $('t-topic').value.trim(), hint = $('t-hint').value.trim();
+      if (!topic && !hint) { $('imp-msg').textContent = '請先填「主題」或「AI 出題範圍」，讓 AI 知道要考什麼'; $('imp-msg').className = 'msg err'; return; }
+      if ($('t-text').value.trim() && !confirm('AI 產生的題目會取代目前的內容，確定嗎？')) return;
+      var btn = $('ai-text'), label = btn.textContent;
+      aiBusy(btn, true, label); impDirty();
+      var run = google.script.run.withSuccessHandler(function (res) {
+        aiBusy(btn, false, label);
+        if (res.topic && !$('t-topic').value.trim()) $('t-topic').value = res.topic;
+        $('t-text').value = u.type === 'pattern' ? serPattern(res) : serExam(res);
+        $('imp-check').click();
+        $('imp-msg').textContent = 'AI 產生了 ' + countOf(u.type, res) + ' 題，請逐題確認答案與解析後再儲存'; $('imp-msg').className = 'msg ok';
+        $('t-text').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }).withFailureHandler(function (err) {
+        aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
+      });
+      if (u.type === 'pattern') run.aiGeneratePattern(topic || hint, Number($('c-n').value), topic ? hint : '');
+      else run.aiGenerateExam(topic || hint, { mc: Number($('c-mc').value), spell: Number($('c-spell').value), reading: Number($('c-reading').value), cloze: Number($('c-cloze').value) }, topic ? hint : '');
+    };
+
+    /* ---------------- 四種題型的 AI 提示詞 ---------------- */
+    var prompts = null;
+    function prType() { var r = document.querySelector('input[name="pr-t"]:checked'); return r ? r.value : 'pattern'; }
+    function prPaint() {
+      if (!prompts) return;
+      var p = prompts[prType()];
+      $('pr-text').value = p.text;
+      $('pr-state').className = 'pill' + (p.custom ? ' on' : '');
+      $('pr-state').textContent = p.custom ? '已自訂' : '預設';
+    }
+    function prSelect(type) {
+      var r = document.querySelector('input[name="pr-t"][value="' + type + '"]'); if (r) r.checked = true;
+      prPaint();
+    }
+    [].forEach.call(document.querySelectorAll('input[name="pr-t"]'), function (r) { r.onchange = prPaint; });
+    function prLoad() {
+      google.script.run.withSuccessHandler(function (p) { prompts = p; prPaint(); }).withFailureHandler(function () {}).getAiPrompts();
+    }
+    function prSave(text, note) {
+      $('pr-msg').textContent = '儲存中…'; $('pr-msg').className = 'msg';
+      google.script.run.withSuccessHandler(function (p) { prompts = p; prPaint(); $('pr-msg').textContent = note; $('pr-msg').className = 'msg ok'; })
+        .withFailureHandler(function (err) { $('pr-msg').textContent = err.message; $('pr-msg').className = 'msg err'; })
+        .setAiPrompt(prType(), text);
+    }
+    $('pr-save').onclick = function () { prSave($('pr-text').value, '✓ 已儲存，下次 AI 出題就會用這份提示詞'); };
+    $('pr-reset').onclick = function () {
+      if (!prompts || !confirm('確定要把「' + TYPE_NAMES[prType()] + '」的提示詞還原成預設嗎？')) return;
+      prSave('', '✓ 已還原預設');
+    };
     $('imp-check').onclick = function () {
       var u = impUnit(); if (!u) return;
-      pending = u.type === 'vocab' ? parseVocab() : parseReading();
+      pending = u.type === 'vocab' ? parseVocab() : u.type === 'reading' ? parseReading() : parseTextType(u.type);
       $('imp-save').disabled = !pending;
       $('imp-msg').className = 'msg ' + (pending ? 'ok' : 'err');
       $('imp-msg').textContent = pending ? '檢查通過，可以儲存' : '請先修正紅色的項目';
     };
     $('imp-save').onclick = function () {
       var u = impUnit(); if (!u || !pending) return;
-      var data = pending, reset = $('imp-progress').checked, isVocab = u.type === 'vocab';
+      var data = pending, reset = $('imp-progress').checked;
       $('imp-save').disabled = true;
       var started = syncSave({
         msg: 'imp-msg',
         build: function (now) {
           var docs = {}; docs['content_' + u.id] = { v: now, data: data };
-          return { cfg: cfgForContent(u.id, data, isVocab, reset, now), docs: docs };
+          return { cfg: cfgForContent(u.id, data, u.type, reset, now), docs: docs };
         },
         call: function (fastArg, resolve, reject) {
           google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).saveContent(u.id, data, reset, fastArg);
@@ -1255,6 +1606,7 @@
         exts = d.extensions || [];
         content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit(); exRender();
         google.script.run.withSuccessHandler(aiPaint).withFailureHandler(function () {}).getAiStatus();
+        prLoad();
       })
       .withFailureHandler(function (err) { $('units').innerHTML = '<tr><td colspan="5" class="msg err">' + esc(err.message) + '</td></tr>'; })
       .getAdminData();
