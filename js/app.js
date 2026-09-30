@@ -3,7 +3,7 @@ import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow,
 import { store } from './storage.js';
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
-import { renderStudentChip, mountInlineForm, historyReady } from './student.js';
+import { renderStudentChip, mountInlineForm, historyReady, closeChipPanel } from './student.js';
 import { LEVELS, PASS } from './levels.js';
 import { initNav, updateNav } from './nav.js';
 import { flushOutbox, pendingItems, clearOutbox } from './submit.js';
@@ -48,6 +48,7 @@ async function route() {
   lastDepth = depth;
   if (cleanup) { try { cleanup(); } catch { /* ignore */ } cleanup = null; }
   delete document.body.dataset.busy;
+  closeChipPanel();
   document.getElementById('fx').replaceChildren();
   // 首頁不顯示「#/」，網址保持乾淨（replaceState 不會再觸發 hashchange）
   if (location.hash === '#/' || location.hash === '#') history.replaceState(null, '', location.pathname + location.search);
@@ -65,6 +66,7 @@ async function route() {
   try {
     if (kind === 'u' && id) await renderUnit(id, sub);
     else if (kind === 'teacher') renderTeacher();
+    else if (kind === 'me') await renderMe();
     else if (kind === 'privacy') renderPrivacy();
     else if (kind === 'diag') renderDiag();
     else renderHome();
@@ -216,6 +218,48 @@ async function renderUnit(id, sub) {
     unit: meta, data, allWords: data.words || [], config, levels,
     questionCount: questionCount(config, meta.id),
   }) || null;
+}
+
+/* ---------------- 我的成績與缺交 ---------------- */
+// 每個開放中的單元一列：已完成（最佳成績）、待檢討、缺交（已截止沒做）、進行中、尚未開放
+function unitStatus(u) {
+  const done = store.done(u.id);
+  const best = store.best(u.id)[u.type === 'vocab' ? 'vocab' : 'reading'];
+  const w = unitWindow(config, u.id);
+  if (done && store.reviewed(u.id)) return { k: 'ok', rank: 4, st: best != null ? `${best}%` : '已完成', note: best != null ? '已完成・可複習' : '已完成', ic: icon.check };
+  if (done) return { k: 'todo', rank: 1, st: '待檢討', note: `${best != null ? `最佳 ${best}%・` : ''}做完檢討才能複習`, ic: icon.bulb };
+  if (w.state === 'after') return { k: 'miss', rank: 0, st: '缺交', note: `已於 ${fmtWhen(w.closeAt)} 截止，還沒有正式測驗紀錄`, ic: icon.alert };
+  if (w.state === 'before') return { k: 'wait', rank: 5, st: '未開放', note: `${fmtWhen(w.openAt)} 開放`, ic: icon.lock };
+  return { k: 'open', rank: 2, st: '待完成', note: w.closeAt ? `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}` : '尚未測驗', ic: icon.play };
+}
+
+async function renderMe() {
+  const s = store.student();
+  if (!s) { location.replace('#/'); return; }
+  document.title = '我的成績 — B5 Practice';
+  app.innerHTML = '<div class="loading"><span class="spinner"></span>載入你的紀錄…</div>';
+  await historyReady();
+  const rows = visibleUnits().map((u) => ({ u, ...unitStatus(u) })).sort((a, b) => a.rank - b.rank || a.u.lesson - b.u.lesson);
+  const count = (k) => rows.filter((r) => r.k === k).length;
+  const masked = s.name.length >= 2 ? `${s.name[0]}〇${s.name.slice(2)}` : s.name;
+  app.innerHTML = `
+    <a class="back" href="#/">${icon.back} 所有單元</a>
+    <section class="me-head">
+      <div class="eyebrow">My records</div>
+      <h1>${esc(masked)} 的成績</h1>
+      <p class="muted" style="margin:0">${esc(s.cls)} 班 ${esc(s.seat)} 號</p>
+    </section>
+    <div class="me-sum">
+      <div class="sum"><b>${count('ok')} / ${rows.length}</b><span>已完成</span></div>
+      <div class="sum todo"><b>${count('todo')}</b><span>待檢討</span></div>
+      <div class="sum miss"><b>${count('miss')}</b><span>缺交</span></div>
+    </div>
+    ${rows.length ? `<div class="me-list">${rows.map((r) => `<a class="me-row ${r.k}" href="#/u/${esc(r.u.id)}">
+        <span class="ic-box">${r.ic}</span>
+        <span class="txt"><b>L${r.u.lesson} ${esc(r.u.topic || r.u.title)}</b><span>${r.u.type === 'vocab' ? '單字片語' : '課文理解'}・${esc(r.note)}</span></span>
+        <span class="st">${esc(r.st)}</span></a>`).join('')}</div>`
+      : `<div class="empty"><div class="big">${icon.inbox}</div><p>老師目前沒有開放任何單元。</p></div>`}
+    <p class="me-note">缺交是指：單元有截止時間、已經過了，而且沒有正式測驗紀錄。缺交的單元如果需要補作，請找老師。</p>`;
 }
 
 /* ---------------- footer ---------------- */
@@ -493,7 +537,7 @@ async function boot() {
   });
   window.addEventListener('student-changed', () => { if (!document.body.dataset.busy) route(); });
   // 登入後在背景載入的紀錄到了：首頁的完成狀態、最佳成績跟著更新（不打斷作答）
-  window.addEventListener('history-applied', () => { if (!document.body.dataset.busy && !(location.hash.split('/')[1] || '')) route(); });
+  window.addEventListener('history-applied', () => { if (!document.body.dataset.busy && ['', 'me'].includes(location.hash.split('/')[1] || '')) route(); });
   route();
   // 以 Firestore 為準：每次進站重新讀取紀錄（例如在別台裝置做過的測驗）
   const s = store.student();

@@ -24,7 +24,11 @@ export function onSnapshot(ref, cb) {
   S.log.push(['onSnapshot', ref.path]);
   return () => { S.listeners = S.listeners.filter((l) => l.cb !== cb); };
 }
-export async function getDocs() { return { docs: [] }; }
+export async function getDocs(col) {
+  // 測試可以事先在 window.__fb.attempts / reviews 放這位學生的紀錄
+  const list = col.path.endsWith('/attempts') ? (S.attempts || []) : col.path.endsWith('/reviews') ? (S.reviews || []) : [];
+  return { docs: list.map((d) => ({ id: d.id || 'x', data: () => d })) };
+}
 export async function setDoc(ref, data) { S.log.push(['setDoc', ref.path]); S.docs[ref.path] = data; }
 export function writeBatch() {
   const ops = [];
