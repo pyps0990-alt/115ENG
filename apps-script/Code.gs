@@ -88,7 +88,7 @@ function doGet(e) {
 /* ------------------------------------------------------------------ */
 var FIREBASE_WEB_KEY = 'AIzaSyC0HFF3YjrsONdvYwTrofihkqNGiQjjdyc';
 var API_EMAIL = null;
-var API_VERSION = 'admin-api-3';
+var API_VERSION = 'admin-api-4';
 
 // 用 Google 的 Identity Toolkit 驗證 Firebase 登入憑證，回傳登入的 email（有快取，5 分鐘內不重查）
 function verifyIdToken_(token) {
@@ -116,7 +116,7 @@ function handleApi_(d) {
     getAdminData: getAdminData, saveAllSettings: saveAllSettings, saveExtensions: saveExtensions, listRoster: listRoster, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
     getScores: getScores, getWrongStats: getWrongStats,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
-    getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey,
+    getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey, testLocalAi: testLocalAi,
     aiGenerateReading: aiGenerateReading, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
     lookupStudent: lookupStudent, deleteStudent: deleteStudent,
     backupSpreadsheet: backupSpreadsheet, semesterReset: semesterReset, purgeUnitScores: purgeUnitScores,
@@ -977,27 +977,65 @@ var AI_FALLBACK_MODELS = ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-fl
 var AI_MAX_COPY = 6; // 和課文連續相同的英文字數上限（與後台、tools/check-content.mjs 一致）
 var SKILLS = ['主旨', '細節', '字義', '推論', '態度'];
 
+// 本地模型（Ollama、LM Studio、llama.cpp、vLLM 等「OpenAI 相容」伺服器）
+var AI_PROVIDER_PROP = 'AI_PROVIDER';       // 'gemini'（預設）或 'local'
+var LOCAL_URL_PROP = 'LOCAL_AI_URL';        // 例：https://xxxx.trycloudflare.com/v1
+var LOCAL_MODEL_PROP = 'LOCAL_AI_MODEL';    // 例：qwen2.5:14b
+var LOCAL_KEY_PROP = 'LOCAL_AI_KEY';        // 伺服器有設密碼才需要
+
 function getAiStatus() {
   assertTeacher_();
   var props = PropertiesService.getScriptProperties();
   var key = props.getProperty(AI_KEY_PROP) || '';
-  return { configured: !!key, hint: key ? '…' + key.slice(-4) : '', model: props.getProperty(AI_MODEL_PROP) || AI_DEFAULT_MODEL };
+  var provider = props.getProperty(AI_PROVIDER_PROP) === 'local' ? 'local' : 'gemini';
+  var localUrl = props.getProperty(LOCAL_URL_PROP) || '';
+  var localModel = props.getProperty(LOCAL_MODEL_PROP) || '';
+  var localKey = props.getProperty(LOCAL_KEY_PROP) || '';
+  return {
+    provider: provider,
+    configured: provider === 'local' ? !!(localUrl && localModel) : !!key,
+    hint: provider === 'local' ? localModel : (key ? '…' + key.slice(-4) : ''),
+    geminiHint: key ? '…' + key.slice(-4) : '',
+    model: props.getProperty(AI_MODEL_PROP) || AI_DEFAULT_MODEL,
+    localUrl: localUrl, localModel: localModel, localKeyHint: localKey ? '…' + localKey.slice(-4) : '',
+  };
 }
 
-function setAiSettings(key, model) {
+// opts（可省略）：{ provider, localUrl, localModel, localKey }；空白的欄位保留原本的值
+function setAiSettings(key, model, opts) {
   assertTeacher_();
   var props = PropertiesService.getScriptProperties();
   key = String(key || '').trim();
   model = String(model || '').trim();
   if (key) props.setProperty(AI_KEY_PROP, key);
   if (model) props.setProperty(AI_MODEL_PROP, model);
+  opts = opts || {};
+  if (opts.provider) props.setProperty(AI_PROVIDER_PROP, opts.provider === 'local' ? 'local' : 'gemini');
+  var url = String(opts.localUrl || '').trim().replace(/\/+$/, '').replace(/\/chat\/completions$/, '');
+  if (url) {
+    if (!/^https:\/\//i.test(url)) throw new Error('本地模型網址要是 https:// 開頭的公開網址（Apps Script 在 Google 雲端執行，連不到 localhost，請用 Cloudflare Tunnel 或 ngrok 對外開放）');
+    if (!/\/v1$/.test(url)) url += '/v1';
+    props.setProperty(LOCAL_URL_PROP, url);
+  }
+  if (String(opts.localModel || '').trim()) props.setProperty(LOCAL_MODEL_PROP, String(opts.localModel).trim());
+  if (String(opts.localKey || '').trim()) props.setProperty(LOCAL_KEY_PROP, String(opts.localKey).trim());
   return getAiStatus();
 }
 
-function clearAiKey() {
+function clearAiKey(which) {
   assertTeacher_();
-  PropertiesService.getScriptProperties().deleteProperty(AI_KEY_PROP);
+  var props = PropertiesService.getScriptProperties();
+  if (which === 'local') { props.deleteProperty(LOCAL_KEY_PROP); props.deleteProperty(LOCAL_URL_PROP); props.deleteProperty(LOCAL_MODEL_PROP); props.setProperty(AI_PROVIDER_PROP, 'gemini'); }
+  else props.deleteProperty(AI_KEY_PROP);
   return getAiStatus();
+}
+
+// 測試本地模型連線：請模型回一個很短的 JSON
+function testLocalAi() {
+  assertTeacher_();
+  var t = Date.now();
+  var r = aiCallLocal_('Reply with JSON {"ok": true}.', { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] });
+  return { ok: !!r, ms: Date.now() - t, model: PropertiesService.getScriptProperties().getProperty(LOCAL_MODEL_PROP) };
 }
 
 // 課文理解：依文章產生選擇題（題目、選項改寫，不照抄文章）
@@ -1148,6 +1186,7 @@ function aiFillVocab(items) {
 // 直到成功或全部試過；其他種類的錯誤（金鑰錯誤、沒有權限等）不用重試，直接回報。
 function aiCall_(prompt, schema) {
   var props = PropertiesService.getScriptProperties();
+  if (props.getProperty(AI_PROVIDER_PROP) === 'local') return aiCallLocal_(prompt, schema);
   var key = props.getProperty(AI_KEY_PROP);
   if (!key) throw new Error('還沒有設定 Gemini API 金鑰，請先在「AI 設定」填入');
   var chosen = props.getProperty(AI_MODEL_PROP) || AI_DEFAULT_MODEL;
@@ -1201,6 +1240,66 @@ function aiCallOnce_(model, key, prompt, schema) {
   } catch (err) {
     throw new Error('Gemini 回傳的格式無法解析，請再試一次');
   }
+}
+
+/* ---------- 本地模型（OpenAI 相容 API） ---------- */
+// Gemini 的 schema（type 大寫）轉成一般 JSON Schema（小寫）
+function toJsonSchema_(s) {
+  if (!s || typeof s !== 'object') return s;
+  var out = {};
+  Object.keys(s).forEach(function (k) {
+    var v = s[k];
+    if (k === 'type') out.type = String(v).toLowerCase();
+    else if (k === 'properties') { out.properties = {}; Object.keys(v).forEach(function (p) { out.properties[p] = toJsonSchema_(v[p]); }); }
+    else if (k === 'items') out.items = toJsonSchema_(v);
+    else out[k] = v;
+  });
+  if (out.type === 'object') out.additionalProperties = false;
+  return out;
+}
+
+function aiCallLocal_(prompt, schema) {
+  var props = PropertiesService.getScriptProperties();
+  var base = props.getProperty(LOCAL_URL_PROP), model = props.getProperty(LOCAL_MODEL_PROP), key = props.getProperty(LOCAL_KEY_PROP);
+  if (!base || !model) throw new Error('還沒有設定本地模型的網址與模型名稱，請先在「AI 設定」填入');
+  var js = toJsonSchema_(schema);
+  var sys = 'You are a helpful assistant that only replies with a single JSON object matching this JSON Schema, with no extra text and no markdown fences:\n' + JSON.stringify(js);
+  var headers = { 'ngrok-skip-browser-warning': '1' };
+  if (key) headers.Authorization = 'Bearer ' + key;
+  function send(format) {
+    var body = { model: model, temperature: 0.7, stream: false, messages: [{ role: 'system', content: sys }, { role: 'user', content: prompt }] };
+    if (format) body.response_format = format;
+    try {
+      return UrlFetchApp.fetch(base + '/chat/completions', { method: 'post', contentType: 'application/json', headers: headers, muteHttpExceptions: true, payload: JSON.stringify(body) });
+    } catch (e) {
+      throw new Error('連不到本地模型（' + base + '）：' + e.message + '。請確認電腦開著、模型伺服器與通道（Cloudflare Tunnel / ngrok）都在執行，而且網址沒有改變');
+    }
+  }
+  // 先用 json_schema 格式（Ollama、LM Studio、vLLM 支援）；伺服器不支援就退回 json_object，再不行就只靠提示詞
+  var formats = [{ type: 'json_schema', json_schema: { name: 'result', strict: true, schema: js } }, { type: 'json_object' }, null];
+  var res, code, text;
+  for (var i = 0; i < formats.length; i++) {
+    res = send(formats[i]); code = res.getResponseCode(); text = res.getContentText();
+    if (code === 200) break;
+    if (code !== 400 && code !== 422 && code !== 500) break;
+  }
+  if (code === 401 || code === 403) throw new Error('本地模型伺服器拒絕連線（' + code + '），請確認「本地模型密碼」');
+  if (code === 404) throw new Error('本地模型伺服器找不到（404）：網址要到 /v1 為止，或模型名稱「' + model + '」不存在（Ollama 可用 ollama list 查看）');
+  if (code !== 200) throw new Error('本地模型錯誤 ' + code + '：' + String(text).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200));
+  var data;
+  try { data = JSON.parse(text); } catch (e) { throw new Error('本地模型網址回傳的不是 API 資料，請確認網址（要到 /v1 為止）'); }
+  var content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+  if (!content) throw new Error('本地模型沒有回傳內容，請再試一次');
+  return parseLooseJson_(content);
+}
+
+// 本地模型常在 JSON 外面多包 <think>…</think> 或 ```json，這裡把它剝掉
+function parseLooseJson_(t) {
+  t = String(t).replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/```(?:json)?/gi, '').trim();
+  try { return JSON.parse(t); } catch (e) {}
+  var a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch (e) {} }
+  throw new Error('本地模型回傳的格式無法解析，請再試一次，或改用比較大的模型');
 }
 
 // 引號統一、不分大小寫（跟網站比對關鍵字句的方式一樣）

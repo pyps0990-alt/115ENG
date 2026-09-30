@@ -129,6 +129,9 @@
     .issues li.err { color:var(--bad); } .issues li.warn { color:#B45309; }
     .btn[disabled] { opacity:.4; cursor:not-allowed; box-shadow:none; }
     .ai-box { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:12px 16px; margin-top:14px; }
+    .seg { display:flex; flex-wrap:wrap; gap:8px; }
+    .seg label { display:flex; align-items:center; gap:6px; padding:8px 14px; border:1px solid var(--line); border-radius:999px; cursor:pointer; font-weight:600; transition:background .2s, border-color .2s; }
+    .seg label:has(input:checked) { border-color:var(--navy, #1e3a5f); background:rgba(30,58,95,.08); }
     .ai-box summary { cursor:pointer; font-weight:700; display:flex; align-items:center; gap:10px; }
     .btn.ai { background:var(--ink); color:#fff; border-color:var(--ink); }
     .btn.ai:hover { background:#20408f; }
@@ -146,6 +149,18 @@
       background:var(--ink); color:#fff; padding:12px 18px; border-radius:12px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.25);
       transition:opacity .2s ease, transform .2s ease; pointer-events:none; }
     #toast.show { opacity:1; transform:translate(-50%, 0); }
+    section[id^="tab-"]:not([hidden]) { animation:tab-in .32s cubic-bezier(.2,.8,.2,1) both; }
+    section[id^="tab-"]:not([hidden]) > .card { animation:tab-in .4s cubic-bezier(.2,.8,.2,1) both; }
+    section[id^="tab-"]:not([hidden]) > .card:nth-child(2) { animation-delay:.05s; }
+    section[id^="tab-"]:not([hidden]) > .card:nth-child(n+3) { animation-delay:.1s; }
+    @keyframes tab-in { from { opacity:0; transform:translateY(8px); } }
+    nav button { transition:background .2s, color .2s, transform .12s; }
+    nav button:active { transform:scale(.96); }
+    .btn { transition:transform .12s, box-shadow .2s, background .2s, border-color .2s; }
+    .btn:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,23,42,.08); }
+    .btn:active:not(:disabled) { transform:scale(.97); box-shadow:none; }
+    details.ai-box > :not(summary) { animation:tab-in .28s ease both; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
     #toast.ok { background:#15803D; } #toast.err { background:#B91C1C; }
   </style>
 </head>
@@ -207,12 +222,24 @@
         </div>
 
         <details class="ai-box" id="ai-box">
-          <summary>AI 設定（Gemini）<span id="ai-status" class="pill">讀取中…</span></summary>
+          <summary>AI 設定<span id="ai-status" class="pill">讀取中…</span></summary>
           <div class="imp-grid">
-            <div class="help">到 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> 登入後按「Create API key」，把金鑰貼在下面。金鑰只存在這份試算表的 Apps Script 裡，學生看不到。學校帳號無法申請時，請改用個人 Gmail。</div>
-            <label>API 金鑰<input type="password" id="ai-key" autocomplete="off" placeholder="AIza…"></label>
-            <label>優先使用的模型（通常不用改；用量用完或暫時不可用時，會自動改用其他模型，不用手動更換）<input type="text" id="ai-model"></label>
-            <div class="bar"><button class="btn primary" id="ai-save" type="button">儲存 AI 設定</button><button class="btn" id="ai-clear" type="button">刪除金鑰</button><span class="msg" id="ai-msg"></span></div>
+            <div class="seg" role="radiogroup" aria-label="AI 來源">
+              <label><input type="radio" name="ai-prov" value="gemini" checked> Google Gemini（雲端）</label>
+              <label><input type="radio" name="ai-prov" value="local"> 本地模型（自己的電腦）</label>
+            </div>
+            <div id="ai-gemini" class="imp-grid">
+              <div class="help">到 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> 登入後按「Create API key」，把金鑰貼在下面。金鑰只存在這份試算表的 Apps Script 裡，學生看不到。學校帳號無法申請時，請改用個人 Gmail。</div>
+              <label>API 金鑰<input type="password" id="ai-key" autocomplete="off" placeholder="AIza…"></label>
+              <label>優先使用的模型（通常不用改；用量用完或暫時不可用時，會自動改用其他模型，不用手動更換）<input type="text" id="ai-model"></label>
+            </div>
+            <div id="ai-local" class="imp-grid" hidden>
+              <div class="help">支援 Ollama、LM Studio、llama.cpp、vLLM 等「OpenAI 相容 API」。後台在 Google 雲端執行，<b>連不到 localhost</b>，要先用 Cloudflare Tunnel 或 ngrok 把電腦上的模型開成 https 公開網址。例：<code>cloudflared tunnel --url http://localhost:11434</code>，再把得到的網址貼在下面。出題時電腦要開著；建議 7B 以上、支援中文的模型（如 Qwen2.5）。</div>
+              <label>API 網址（到 /v1 為止）<input type="url" id="ai-local-url" autocomplete="off" placeholder="https://xxxx.trycloudflare.com/v1"></label>
+              <label>模型名稱<input type="text" id="ai-local-model" autocomplete="off" placeholder="例：qwen2.5:14b"></label>
+              <label>密碼（伺服器有設 API key 才需要，可空白）<input type="password" id="ai-local-key" autocomplete="off"></label>
+            </div>
+            <div class="bar"><button class="btn primary" id="ai-save" type="button">儲存 AI 設定</button><button class="btn" id="ai-test" type="button" hidden>測試連線</button><button class="btn" id="ai-clear" type="button">刪除金鑰</button><span class="msg" id="ai-msg"></span></div>
           </div>
         </details>
 
@@ -827,31 +854,50 @@
       }).withFailureHandler(function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; }).deleteContent(u.id, $('imp-progress').checked);
     };
 
-    /* ---------------- AI 出題（Gemini） ---------------- */
+    /* ---------------- AI 出題（Gemini 或本地模型） ---------------- */
     var aiReady = false;
+    function aiProv() { var r = document.querySelector('input[name="ai-prov"]:checked'); return r ? r.value : 'gemini'; }
+    function aiShowProv() {
+      var local = aiProv() === 'local';
+      $('ai-gemini').hidden = local; $('ai-local').hidden = !local; $('ai-test').hidden = !local;
+      $('ai-clear').textContent = local ? '清除本地設定' : '刪除金鑰';
+    }
+    [].forEach.call(document.querySelectorAll('input[name="ai-prov"]'), function (r) { r.onchange = aiShowProv; });
     function aiPaint(st) {
       aiReady = !!st.configured;
       $('ai-status').className = 'pill' + (aiReady ? ' on' : '');
-      $('ai-status').textContent = aiReady ? '已設定 ' + st.hint : '尚未設定';
+      $('ai-status').textContent = aiReady ? (st.provider === 'local' ? '本地 ' + st.hint : 'Gemini ' + st.hint) : '尚未設定';
       $('ai-model').value = st.model || '';
+      $('ai-local-url').value = st.localUrl || '';
+      $('ai-local-model').value = st.localModel || '';
+      $('ai-local-key').placeholder = st.localKeyHint ? '已設定 ' + st.localKeyHint + '（不改就留空）' : '';
+      var r = document.querySelector('input[name="ai-prov"][value="' + (st.provider || 'gemini') + '"]'); if (r) r.checked = true;
+      aiShowProv();
       $('ai-box').open = !aiReady;
     }
-    function aiBusy(btn, on, label) { btn.disabled = on; btn.classList.toggle('busy', on); btn.textContent = on ? 'AI 產生中…（約 10–30 秒）' : label; }
+    function aiBusy(btn, on, label) { btn.disabled = on; btn.classList.toggle('busy', on); btn.textContent = on ? 'AI 產生中…（約 10–60 秒）' : label; }
     function needAi() {
       if (aiReady) return true;
-      $('ai-box').open = true; $('ai-key').focus();
-      $('imp-msg').textContent = '請先在「AI 設定」填入 Gemini API 金鑰'; $('imp-msg').className = 'msg err';
+      $('ai-box').open = true; (aiProv() === 'local' ? $('ai-local-url') : $('ai-key')).focus();
+      $('imp-msg').textContent = '請先完成「AI 設定」'; $('imp-msg').className = 'msg err';
       return false;
     }
     $('ai-save').onclick = function () {
       $('ai-msg').textContent = '儲存中…'; $('ai-msg').className = 'msg';
-      google.script.run.withSuccessHandler(function (st) { aiPaint(st); $('ai-key').value = ''; $('ai-msg').textContent = '✓ 已儲存'; $('ai-msg').className = 'msg ok'; })
+      google.script.run.withSuccessHandler(function (st) { aiPaint(st); $('ai-key').value = ''; $('ai-local-key').value = ''; $('ai-msg').textContent = '✓ 已儲存'; $('ai-msg').className = 'msg ok'; })
         .withFailureHandler(function (err) { $('ai-msg').textContent = err.message; $('ai-msg').className = 'msg err'; })
-        .setAiSettings($('ai-key').value, $('ai-model').value);
+        .setAiSettings($('ai-key').value, $('ai-model').value, { provider: aiProv(), localUrl: $('ai-local-url').value, localModel: $('ai-local-model').value, localKey: $('ai-local-key').value });
+    };
+    $('ai-test').onclick = function () {
+      $('ai-msg').textContent = '測試中…（請先按「儲存 AI 設定」）'; $('ai-msg').className = 'msg';
+      google.script.run.withSuccessHandler(function (r) { $('ai-msg').textContent = '✓ 連線成功：' + r.model + '，花了 ' + (r.ms / 1000).toFixed(1) + ' 秒'; $('ai-msg').className = 'msg ok'; })
+        .withFailureHandler(function (err) { $('ai-msg').textContent = err.message; $('ai-msg').className = 'msg err'; })
+        .testLocalAi();
     };
     $('ai-clear').onclick = function () {
-      if (!confirm('確定要刪除 Gemini API 金鑰嗎？')) return;
-      google.script.run.withSuccessHandler(function (st) { aiPaint(st); $('ai-msg').textContent = '已刪除'; $('ai-msg').className = 'msg ok'; }).clearAiKey();
+      var local = aiProv() === 'local';
+      if (!confirm(local ? '確定要清除本地模型設定、改回 Gemini 嗎？' : '確定要刪除 Gemini API 金鑰嗎？')) return;
+      google.script.run.withSuccessHandler(function (st) { aiPaint(st); $('ai-msg').textContent = '已清除'; $('ai-msg').className = 'msg ok'; }).clearAiKey(local ? 'local' : 'gemini');
     };
 
     $('ai-reading').onclick = function () {

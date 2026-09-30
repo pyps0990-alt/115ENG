@@ -21,7 +21,30 @@ let cleanup = null;
 /* ---------------- routing ---------------- */
 const findUnit = (id) => index.units.find((u) => u.id === id || (u.aliases || []).includes(id));
 
+// 換頁動畫：只有網址真的換了才播（同一頁因資料更新重畫時不閃）
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+let lastRendered = null;
+const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
+async function pageOut(changed) {
+  if (!changed || lastRendered === null || reduceMotion.matches) return;
+  app.classList.remove('page-in');
+  app.classList.add('page-out');
+  await new Promise((r) => setTimeout(r, 140));
+}
+function pageIn(changed) {
+  app.classList.remove('page-out');
+  if (!changed || reduceMotion.matches) return;
+  app.classList.remove('page-in');
+  void app.offsetWidth; // 重新觸發動畫
+  app.classList.add('page-in');
+}
+app.addEventListener('animationend', (e) => { if (e.target === app) app.classList.remove('page-in'); });
+
 async function route() {
+  const here = location.hash || '#/';
+  const changed = here !== lastRendered;
+  await pageOut(changed);
+  lastRendered = here;
   if (cleanup) { try { cleanup(); } catch { /* ignore */ } cleanup = null; }
   delete document.body.dataset.busy;
   document.getElementById('fx').replaceChildren();
@@ -48,6 +71,8 @@ async function route() {
     console.error(err);
     app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><p>載入失敗：${esc(err.message)}</p><a class="btn" href="#/">回首頁</a></div>`;
   }
+  await nextFrame();
+  pageIn(changed);
 }
 
 const openLevels = (u) => LEVELS.filter((l) => modeOn(config, u.id, l.id));
