@@ -872,16 +872,15 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 /* ---------------- 動畫升級：彈簧手感、卡片轉場、成績畫面 ---------------- */
 :root { --spring-soft: linear(0, .27 6%, .8 14%, 1.1 22%, 1.07 30%, .98 42%, 1.01 58%, 1); }
 
-/* 首頁 ↔ 單元頁（View Transitions）：被點的卡片逐漸放大成整個頁面，放大完才浮現試題說明；退出時整個頁面縮回原本的卡片。
-   進入與退出用同一張「放大的卡片」，時間、曲線一致。不支援的瀏覽器沒有這段，用原本的淡入 */
-.unit-expand { view-transition-name: unit-card; min-height: calc(100vh - 170px); min-height: calc(100dvh - 170px); border-radius: 22px; background: var(--wash); }
-::view-transition-group(unit-card) { animation-duration: .62s; animation-timing-function: cubic-bezier(.22, .72, .18, 1); }
+/* 首頁 ↔ 單元頁（View Transitions）：被點的卡片逐漸放大成整個單元頁，退出時整頁縮回原本的卡片。
+   兩個方向用同一個命名元素與同一組曲線、時間，動作一致。裁切成圓角卡片的形狀，內容從卡片裡「長出來」。不支援的瀏覽器沒有這段，用原本的淡入 */
+::view-transition-group(unit-card) { animation-duration: .62s; animation-timing-function: cubic-bezier(.22, .72, .18, 1); overflow: clip; border-radius: 20px; }
 ::view-transition-image-pair(unit-card) { isolation: auto; }
+::view-transition-old(unit-card), ::view-transition-new(unit-card) { height: 100%; object-fit: none; object-position: top left; }
 ::view-transition-old(unit-card) { animation: vt-card-old .62s ease both; }
 ::view-transition-new(unit-card) { animation: vt-card-new .62s ease both; }
-@keyframes vt-card-old { 0% { opacity: 1; } 40% { opacity: 0; } 100% { opacity: 0; } }
-@keyframes vt-card-new { 0% { opacity: 0; } 30% { opacity: 0; } 85% { opacity: 1; } 100% { opacity: 1; } }
-/* 放大完成後，卡片底色順著淡成頁面底色，再浮現內容 */
+@keyframes vt-card-old { 0% { opacity: 1; } 45% { opacity: 0; } 100% { opacity: 0; } }
+@keyframes vt-card-new { 0% { opacity: 0; } 25% { opacity: 0; } 75% { opacity: 1; } 100% { opacity: 1; } }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .4s; }
 .unit-head.shell + .loading { animation-delay: .35s; }
 

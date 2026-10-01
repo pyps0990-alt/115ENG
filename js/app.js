@@ -100,44 +100,46 @@ async function route() {
   const toHome = (!kind || kind === '') && prevKind === 'u';
   const useVT = changed && !first && !reduceMotion.matches && typeof document.startViewTransition === 'function' && (toUnit || toHome);
   if (useVT) {
-    // 進入：被點的卡片逐漸放大成整個頁面，放大完才載入並浮現試題說明。
-    // 退出：內容先淡出，整個頁面縮回原本的卡片。兩個方向用同一張「放大的卡片」當轉場，時間與手感一致。
-    const EXPAND = '<div class="unit-expand" aria-hidden="true"></div>';
+    // 進入：被點的卡片逐漸放大成整個單元頁（頁面內容從卡片裡「長出來」）。
+    // 退出：整個單元頁縮回原本那張卡片。兩個方向用同一個命名元素、同樣的時間與曲線，所以動作一致。
+    // 轉場一開始就先在背景載好單元資料，放大過程中不會停下來等資料。
+    const NAME = 'unit-card';
     const clearNames = () => document.querySelectorAll('[style*="view-transition-name"]').forEach((e) => { e.style.viewTransitionName = ''; });
+    const fontsReady = () => Promise.race([document.fonts ? document.fonts.ready : Promise.resolve(), new Promise((r) => setTimeout(r, 700))]);
     try {
       if (toUnit) {
-        const tile = app.querySelector(`.unit-tile[data-id="${CSS.escape(findUnit(id).id)}"]`);
-        if (tile) tile.style.viewTransitionName = 'unit-card';
-        const vt = document.startViewTransition(() => { app.innerHTML = EXPAND; });
+        const meta = findUnit(id);
+        const tile = app.querySelector(`.unit-tile[data-id="${CSS.escape(meta.id)}"]`);
+        if (tile) tile.style.viewTransitionName = NAME;
+        Promise.all([loadUnit(meta.id, config), modes[typeOf(meta.type)](), historyReady()]).catch(() => {}); // 預先載入
+        let renderDone;
+        const vt = document.startViewTransition(async () => {
+          renderDone = render();
+          await Promise.race([renderDone, new Promise((r) => setTimeout(r, 450))]);
+          await fontsReady();
+          app.style.viewTransitionName = NAME;
+        });
+        await vt.updateCallbackDone.catch(() => {});
+        await renderDone;
         await vt.finished.catch(() => {});
         clearNames();
-        prevUnitId = findUnit(id).id;
-        await render();
-        await settleFonts();
-        pageIn(true, false);
+        prevUnitId = meta.id;
       } else {
         const backId = prevUnitId;
-        // 內容先淡出（只有透明度），再換成放大的卡片縮回去
-        app.style.transition = 'opacity .22s ease';
-        app.style.opacity = '0';
-        await new Promise((r) => setTimeout(r, 230));
-        app.innerHTML = EXPAND;
-        app.style.transition = 'none';
-        app.style.opacity = '';
-        void app.offsetWidth;
-        app.style.transition = '';
+        app.style.viewTransitionName = NAME;
         const vt = document.startViewTransition(async () => {
+          app.style.viewTransitionName = '';
           await render();
+          await fontsReady();
           const tile = backId && app.querySelector(`.unit-tile[data-id="${CSS.escape(backId)}"]`);
-          if (tile) tile.style.viewTransitionName = 'unit-card';
+          if (tile) tile.style.viewTransitionName = NAME;
         });
         await vt.finished.catch(() => {});
         clearNames();
         prevUnitId = '';
       }
     } finally {
-      delete document.documentElement.dataset.vt;
-      app.style.transition = ''; app.style.opacity = '';
+      clearNames();
     }
     return;
   }
