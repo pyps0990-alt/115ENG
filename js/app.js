@@ -191,7 +191,7 @@ function windowBadge(id, done) {
 function tileMeta(u, stages) {
   if (u.type === 'vocab') return `${u.count} 個單字與片語 · ${stages}`;
   if (u.type === 'pattern') return `${u.count} 題 · 選擇、填空、應用`;
-  if (u.type === 'exam') return `${u.count} 題 · 選擇、拼寫、閱讀、綜合`;
+  if (u.type === 'exam') return `${u.count} 題 · 詞彙、拼寫、克漏字、文意選填、篇章結構、閱讀`;
   return `一篇文章 · ${u.count} 題閱讀測驗`;
 }
 

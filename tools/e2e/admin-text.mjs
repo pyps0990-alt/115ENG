@@ -37,10 +37,16 @@ assert.equal(p.items[0].answer, 1);
 assert.equal(p.items[2].words.length, 7);
 els['t-text'].value = EXAMPLE.exam;
 const e = plain(parseTextType('exam'));
-assert.deepEqual(e.blocks.map((x) => x.type), ['mc', 'spell', 'reading', 'cloze']);
-assert.equal(e.blocks[2].passage.length, 2);
-assert.equal(e.blocks[2].questions.length, 2);
+assert.deepEqual(e.blocks.map((x) => x.type), ['mc', 'spell', 'phrase', 'cloze', 'bank', 'struct', 'reading']);
+const rd = e.blocks[6];
+assert.equal(rd.passage.length, 2);
+assert.equal(rd.questions.length, 2);
 assert.equal(e.blocks[3].blanks.length, 2);
+assert.equal(e.blocks[4].bank.length, 6);
+assert.deepEqual(e.blocks[4].blanks.map((b) => b.answer), [0, 1, 2]);
+assert.deepEqual(e.blocks[5].blanks.map((b) => b.answer), [0, 2]);
+els['t-text'].value = '[選填]\n文章：x (1)\n字庫：a | b\n(1)答案：C';
+assert.equal(parseTextType('exam'), null, '答案超出字庫要擋');
 
 // 錯誤：應用題單字對不上答案、綜合題文章缺空格、選擇題沒答案
 els['t-text'].value = '[應用]\n中文：好\n單字：a | b | c\n答案：a b d';

@@ -18,6 +18,9 @@ const exam = { topic: '段考', blocks: [
   { type: 'spell', q: 'Stay ____ now.', hint: 'c（冷靜）', answer: 'calm', explain: 'calm。' },
   { type: 'reading', title: 'Tea', passage: ['Tea is a drink made from leaves. People enjoy it.', 'It can be hot or cold.'], questions: [
     { skill: '細節', q: 'What is tea made from?', options: ['Leaves', 'Rocks', 'Milk', 'Sand'], answer: 0, explain: '第一句。' }] },
+  { type: 'phrase', q: 'We are ____ seeing you.', hint: '期待', answer: 'looking forward to', explain: 'x' },
+  { type: 'bank', title: 'Nap', passage: ['A nap can (1) memory. It is not (2).'], bank: ['boost', 'unproductive', 'delay'], blanks: [{ answer: 0, explain: 'a' }, { answer: 1, explain: 'b' }] },
+  { type: 'struct', title: 'Smile', passage: ['Smiles are common. (1) Long ago people rarely smiled.'], bank: ['Things changed over time.', 'Cats sleep.'], blanks: [{ answer: 0, explain: 'c' }] },
   { type: 'cloze', title: 'Change', passage: ['Tom felt (1) at first. (2), he made friends.'], blanks: [
     { options: ['lonely', 'noisy', 'hungry', 'proud'], answer: 0, explain: '孤單。' }, { options: ['However', 'Therefore', 'Besides', 'Otherwise'], answer: 0, explain: '轉折。' }] },
 ] };
@@ -117,13 +120,17 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
     await p.locator('.pq[data-id="b0"] .opt').first().click();
     await p.locator('.pq[data-id="b1"] [data-spell]').fill('calm');
     await p.locator('.pq[data-id="b2.0"] .opt').nth(1).click(); // 故意答錯
-    await p.locator('.pq[data-id="b3.0"] .opt').first().click();
-    await p.locator('.pq[data-id="b3.1"] .opt').first().click();
-    assert.match(await p.locator('[data-count]').textContent(), /5 \/ 5/);
+    await p.locator('.pq[data-id="b3"] [data-spell]').fill('Looking Forward To');
+    await p.locator('.pq[data-id="b4.0"] select').selectOption('0');
+    await p.locator('.pq[data-id="b4.1"] select').selectOption('1');
+    await p.locator('.pq[data-id="b5.0"] select').selectOption('0');
+    await p.locator('.pq[data-id="b6.0"] .opt').first().click();
+    await p.locator('.pq[data-id="b6.1"] .opt').first().click();
+    assert.match(await p.locator('[data-count]').textContent(), /9 \/ 9/);
     await p.click('[data-submit-btn]'); await p.waitForSelector('dialog.modal[open]');
     await p.locator('dialog.modal[open] .btn.primary').click();
     await p.waitForSelector('.result', { timeout: 8000 });
-    assert.match(await p.locator('.result').textContent(), /4 \/ 5/);
+    assert.match(await p.locator('.result').textContent(), /8 \/ 9/);
     await shot('exam-result');
     await p.getByRole('button', { name: /開始檢討/ }).click(); await sleep(400);
     const rvc = await p.locator('.rv-pq, .rv-card').count(); assert(rvc >= 1, 'rv-card=' + rvc + ' ' + (await p.locator('#stage').innerHTML()).slice(0, 600));

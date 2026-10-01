@@ -487,7 +487,7 @@ function checkAttempt_(d) {
         var flat = d.mode === 'exam' ? flattenExam_(data.blocks) : data.items.map(function (it, i) { return { id: 'i' + i, kind: it.type, options: it.options || [], answer: it.answer }; });
         var byId = {};
         flat.forEach(function (q) { byId[q.id] = q; });
-        var KEYS2 = 'ABCDE';
+        var KEYS2 = 'ABCDEFGHIJ';
         details.forEach(function (x) {
           var q = byId[String(x.word)];
           if (!q) { bad++; return; }
@@ -1232,7 +1232,8 @@ function fillOk_(answer, typed) {
 function flattenExam_(blocks) {
   var out = [];
   (blocks || []).forEach(function (b, i) {
-    if (b.type === 'mc' || b.type === 'spell') out.push({ id: 'b' + i, kind: b.type, options: b.options || [], answer: b.answer });
+    if (b.type === 'mc' || b.type === 'spell' || b.type === 'phrase') out.push({ id: 'b' + i, kind: b.type === 'mc' ? 'mc' : 'spell', options: b.options || [], answer: b.answer });
+    else if (b.type === 'bank' || b.type === 'struct') (b.blanks || []).forEach(function (q, j) { out.push({ id: 'b' + i + '.' + j, kind: 'mc', options: b.bank || [], answer: q.answer }); });
     else if (b.type === 'reading') (b.questions || []).forEach(function (q, j) { out.push({ id: 'b' + i + '.' + j, kind: 'mc', options: q.options || [], answer: q.answer }); });
     else if (b.type === 'cloze') (b.blanks || []).forEach(function (q, j) { out.push({ id: 'b' + i + '.' + j, kind: 'mc', options: q.options || [], answer: q.answer }); });
   });
@@ -1278,7 +1279,19 @@ function validateContent_(type, d) {
     for (var m = 0; m < d.blocks.length; m++) {
       var b = d.blocks[m], bn = '第 ' + (m + 1) + ' 大題';
       if (b.type === 'mc') { if (!b.q || !validChoice_(b)) return bn + '（選擇）不完整或沒有正確答案'; }
-      else if (b.type === 'spell') { if (!b.q || !String(b.answer || '').trim()) return bn + '（拼寫）要有題目與答案'; }
+      else if (b.type === 'spell' || b.type === 'phrase') { if (!b.q || !String(b.answer || '').trim()) return bn + '（拼寫／片語）要有題目與答案'; }
+      else if (b.type === 'bank' || b.type === 'struct') {
+        var nm = b.type === 'bank' ? '文意選填' : '篇章結構';
+        if (!Array.isArray(b.passage) || !b.passage.length) return bn + '（' + nm + '）缺少文章';
+        if (!Array.isArray(b.bank) || b.bank.length < 2 || b.bank.length > 10 || b.bank.some(function (o) { return !String(o).trim(); })) return bn + '（' + nm + '）的' + (b.type === 'bank' ? '字庫' : '句子庫') + '要有 2–10 個項目';
+        if (!Array.isArray(b.blanks) || !b.blanks.length) return bn + '（' + nm + '）至少要 1 個空格';
+        var btext = b.passage.join(' ');
+        for (var z = 0; z < b.blanks.length; z++) {
+          var ba = b.blanks[z].answer;
+          if (!(typeof ba === 'number' && ba >= 0 && ba < b.bank.length)) return bn + '（' + nm + '）第 (' + (z + 1) + ') 格沒有正確答案';
+          if (btext.indexOf('(' + (z + 1) + ')') < 0) return bn + '（' + nm + '）文章裡找不到空格 (' + (z + 1) + ')';
+        }
+      }
       else if (b.type === 'reading' || b.type === 'cloze') {
         if (!Array.isArray(b.passage) || !b.passage.length) return bn + '缺少文章';
         var qs = b.type === 'reading' ? b.questions : b.blanks;
@@ -1409,11 +1422,14 @@ var AI_PROMPT_DEFAULTS = {
     '- Sentences must be natural, CEFR B1–B2, 8–20 words, about school life, daily life or social topics. Do not repeat the same sentence frame.',
   ].join('\n'),
   exam: [
-    '- Write a mock school exam review, like a Taiwanese senior-high midterm: sections in this order — 選擇 (mc), 拼寫 (spell), 閱讀 (reading), 綜合 (cloze) — using only the section counts requested.',
-    '- "mc": a vocabulary / grammar sentence with one blank ____, exactly 4 options, "answerIndex" 0-based, plausible distractors, "explain" in Traditional Chinese.',
-    '- "spell": a sentence with a blank ____ where the student types the word; "hint" gives the first letter and the Chinese meaning (e.g. "s____（成功）" written as "s（成功）"); "answerText" is the exact word (use | for alternatives).',
-    '- "reading": "title" plus "passage" (an array of 2–4 paragraphs of 60–100 words each, CEFR B1–B2) and "questions" — each with skill (主旨/細節/字義/推論/態度), q, exactly 4 options, answerIndex, explain. Paraphrase; never copy {{copy}}+ consecutive words from the passage into a question or option.',
-    '- "cloze": "title" plus "passage" (an array of paragraphs where the blanks are written as (1), (2), (3)… in order; each number appears exactly once) and "blanks" — one per number, each with exactly 4 options, answerIndex, explain. Mix vocabulary, grammar and connectives in the blanks.',
+    '- Write a mock exam review modelled on the Taiwan GSAT (學測) English test, in this order: mc (詞彙), spell, phrase, cloze (綜合測驗), bank (文意選填), struct (篇章結構), reading (閱讀測驗) — using only the section counts requested.',
+    '- "mc": a vocabulary item, one blank ____, exactly 4 options of the SAME part of speech and similar meaning/form so the answer depends on context; "answerIndex" 0-based; "explain" in Traditional Chinese.',
+    '- "spell": a sentence with a blank ____ where the student types ONE word; "hint" = first letter + Chinese meaning (e.g. "c（冷靜的）"); "answerText" is the exact word (| for alternatives).',
+    '- "phrase": a sentence with a blank ____ for a whole PHRASE (2–4 words); "hint" = Chinese meaning; "answerText" is the exact phrase (| for alternatives, e.g. "look forward to|looks forward to").',
+    '- "cloze": "title" + "passage" (array of paragraphs, 120–180 words in total, blanks written as (1), (2), (3)… in order, each number once) + "blanks" (one per number, exactly 4 options each, answerIndex, explain). Mix vocabulary, grammar/word forms, connectives and discourse in the blanks.',
+    '- "bank": 文意選填. "title" + "passage" (150–200 words, blanks (1), (2)…) + "bank" (an array of 10 words/phrases shared by all blanks, e.g. verbs, nouns, adjectives, adverbs mixed, in random order; there are more words than blanks, so a few are distractors) + "blanks" (one per number: answerIndex = 0-based index into "bank", explain).',
+    '- "struct": 篇章結構. "title" + "passage" (a passage of 3–4 paragraphs with blanks (1)–(4) where a whole sentence was removed) + "bank" (5 complete sentences: the 4 removed ones plus 1 distractor, random order) + "blanks" (answerIndex into "bank", explain pointing out the cohesion clue).',
+    '- "reading": "title" + "passage" (an array of 3–4 paragraphs, about 200–260 words in total, CEFR B1–B2, informative or narrative) + "questions" (each with skill 主旨/細節/字義/推論/態度, q, exactly 4 options, answerIndex, explain). Paraphrase; never copy {{copy}}+ consecutive words from the passage into a question or option.',
     '- All "explain" fields are short explanations in Traditional Chinese (Taiwan usage). Vary the position of the correct answer.',
   ].join('\n'),
 };
@@ -1503,25 +1519,26 @@ function aiGenerateExam(topic, counts, hint) {
   if (!topic) throw new Error('請輸入範圍（例如：Lesson 3–4 段考範圍）');
   counts = counts || {};
   var n = {
-    mc: Math.max(0, Math.min(15, Number(counts.mc) || 0)), spell: Math.max(0, Math.min(10, Number(counts.spell) || 0)),
+    mc: Math.max(0, Math.min(15, Number(counts.mc) || 0)), spell: Math.max(0, Math.min(10, Number(counts.spell) || 0)), phrase: Math.max(0, Math.min(10, Number(counts.phrase) || 0)),
     reading: Math.max(0, Math.min(2, Number(counts.reading) || 0)), cloze: Math.max(0, Math.min(2, Number(counts.cloze) || 0)),
+    bank: Math.max(0, Math.min(1, Number(counts.bank) || 0)), struct: Math.max(0, Math.min(1, Number(counts.struct) || 0)),
   };
-  if (!n.mc && !n.spell && !n.reading && !n.cloze) throw new Error('至少要選一種題型');
+  if (!n.mc && !n.spell && !n.phrase && !n.reading && !n.cloze && !n.bank && !n.struct) throw new Error('至少要選一種題型');
   var schema = {
     type: 'OBJECT',
     properties: { blocks: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
-      type: { type: 'STRING', enum: ['mc', 'spell', 'reading', 'cloze'] }, tag: { type: 'STRING' }, q: { type: 'STRING' },
+      type: { type: 'STRING', enum: ['mc', 'spell', 'phrase', 'reading', 'cloze', 'bank', 'struct'] }, tag: { type: 'STRING' }, q: { type: 'STRING' }, bank: { type: 'ARRAY', items: { type: 'STRING' } },
       options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, answerText: { type: 'STRING' },
       hint: { type: 'STRING' }, explain: { type: 'STRING' }, title: { type: 'STRING' }, passage: { type: 'ARRAY', items: { type: 'STRING' } },
       questions: { type: 'ARRAY', items: { type: 'OBJECT', properties: { skill: { type: 'STRING' }, q: { type: 'STRING' }, options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, explain: { type: 'STRING' } }, required: ['q', 'options', 'answerIndex', 'explain'] } },
-      blanks: { type: 'ARRAY', items: { type: 'OBJECT', properties: { options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, explain: { type: 'STRING' } }, required: ['options', 'answerIndex', 'explain'] } },
+      blanks: { type: 'ARRAY', items: { type: 'OBJECT', properties: { options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, explain: { type: 'STRING' } }, required: ['answerIndex', 'explain'] } },
     }, required: ['type'] } } },
     required: ['blocks'],
   };
   var prompt = [
     'You are an experienced English teacher at a senior high school in Taiwan, writing a mock exam review for 11th-grade students.',
     'Scope: ' + topic + (hint ? ' (' + hint + ')' : ''),
-    'Requested: ' + n.mc + ' mc, ' + n.spell + ' spell, ' + n.reading + ' reading passage(s) with 4 questions each, ' + n.cloze + ' cloze passage(s) with 5 blanks each. Rules:',
+    'Requested: ' + n.mc + ' mc, ' + n.spell + ' spell, ' + n.phrase + ' phrase, ' + n.cloze + ' cloze passage(s) with 5 blanks each, ' + n.bank + ' bank passage(s) with 10 blanks, ' + n.struct + ' struct passage(s) with 4 blanks, ' + n.reading + ' reading passage(s) with 4 questions each. Rules:',
     aiGuidance_('exam'),
   ].join('\n');
   var blocks = [];
@@ -1530,8 +1547,14 @@ function aiGenerateExam(topic, counts, hint) {
     if (x.type === 'mc') {
       var c = cleanChoice_(x);
       if (c && x.q) blocks.push({ type: 'mc', q: String(x.q).trim(), options: c.options, answer: c.answer, explain: explain });
-    } else if (x.type === 'spell') {
-      if (x.q && String(x.answerText || '').trim()) blocks.push({ type: 'spell', q: String(x.q).trim(), hint: String(x.hint || '').trim(), answer: String(x.answerText).trim(), explain: explain });
+    } else if (x.type === 'bank' || x.type === 'struct') {
+      var bp = strs_(x.passage).filter(String), bk = strs_(x.bank).filter(String), bb = [];
+      (x.blanks || []).forEach(function (q) { var ai = Number(q.answerIndex); if (ai >= 0 && ai < bk.length) bb.push({ answer: ai, explain: String(q.explain || '').trim() }); });
+      var bj = bp.join(' '), bok = bb.length > 0 && bk.length >= 2 && bk.length <= 10;
+      for (var bi = 1; bi <= bb.length; bi++) if (bj.indexOf('(' + bi + ')') < 0) bok = false;
+      if (bp.length && bok) blocks.push({ type: x.type, title: String(x.title || '').trim(), passage: bp, bank: bk, blanks: bb });
+    } else if (x.type === 'spell' || x.type === 'phrase') {
+      if (x.q && String(x.answerText || '').trim()) blocks.push({ type: x.type, q: String(x.q).trim(), hint: String(x.hint || '').trim(), answer: String(x.answerText).trim(), explain: explain });
     } else if (x.type === 'reading') {
       var passage = strs_(x.passage).filter(String), qs = [];
       (x.questions || []).forEach(function (q) { var c2 = cleanChoice_(q); if (c2 && q.q) qs.push({ skill: String(q.skill || '').trim(), q: String(q.q).trim(), options: c2.options, answer: c2.answer, explain: String(q.explain || '').trim() }); });

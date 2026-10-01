@@ -852,3 +852,10 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .build-line.over { border-color: var(--navy); background: var(--navy-soft); }
 .drop-mark { width: 4px; height: 34px; border-radius: 2px; background: var(--navy); flex: none; }
 .drag-ghost { transition: none !important; }
+.bank-list { list-style: none; margin: 0 0 14px; padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; border-radius: 12px; background: var(--wash); }
+.bank-list.struct { grid-template-columns: 1fr; }
+.bank-list li { display: flex; gap: 8px; align-items: baseline; font-size: .95rem; }
+.bank-list .opt-key { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--navy); color: #fff; font-size: .78rem; font-weight: 800; }
+.bank-select { width: 100%; max-width: 280px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--white); color: var(--navy); font-size: 1rem; font-weight: 700; }
+.bank-select:focus-visible { outline: 3px solid var(--navy-soft); border-color: var(--navy); }
+.sel-pq { gap: 8px; }

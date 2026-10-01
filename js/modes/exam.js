@@ -10,7 +10,7 @@ import { submitScore } from '../submit.js';
 import { PASS } from '../levels.js';
 import { flattenExam, KEYS, blankHTML, reviewCardHTML, correctText, judge, KIND_LABEL } from '../components/items.js';
 
-const SECTION = { mc: '選擇題', spell: '拼寫題', reading: '閱讀測驗', cloze: '綜合測驗' };
+const SECTION = { mc: '詞彙・選擇題', spell: '單字拼寫', phrase: '片語拼寫', reading: '閱讀測驗', cloze: '綜合測驗（克漏字）', bank: '文意選填', struct: '篇章結構' };
 // 綜合測驗的文章：(1) ____ 換成有編號的小圓標
 const clozeHTML = (t) => esc(t).replace(/\((\d+)\)\s*(?:_+)?/g, '<span class="cloze-no">$1</span>');
 
@@ -30,11 +30,15 @@ export function mount(stage, ctx) {
   const kinds = [...new Set(all.map((q) => q.label))];
   const kindCount = kinds.map((k) => `${k} ${all.filter((q) => q.label === k).length} 題`).join('、');
 
+  // 文意選填、篇章結構：文章上方列出共用的字庫／句子庫
+  const bankHTML = (b) => (b.type === 'bank' || b.type === 'struct')
+    ? `<ol class="bank-list ${b.type}" type="A">${(b.bank || []).map((o, j) => `<li><span class="opt-key">${KEYS[j]}</span><span class="en">${esc(o)}</span></li>`).join('')}</ol>` : '';
+
   /* ---------------- 文章（閱讀、綜合）---------------- */
   const passageCard = (b) => `<article class="passage-card">
-      <div class="eyebrow">${b.type === 'cloze' ? 'Cloze Test' : 'Passage'}</div>
+      <div class="eyebrow">${b.type === 'cloze' ? 'Cloze Test' : b.type === 'bank' ? 'Word Bank' : b.type === 'struct' ? 'Text Structure' : 'Passage'}</div>
       ${b.title ? `<h2 class="passage-title en">${esc(b.title)}</h2>` : ''}
-      ${(b.passage || []).map((p) => `<p><span class="ptext">${b.type === 'cloze' ? clozeHTML(p) : esc(p)}</span></p>`).join('')}
+      ${bankHTML(b)}${(b.passage || []).map((p) => `<p><span class="ptext">${b.type === 'cloze' || b.type === 'bank' || b.type === 'struct' ? clozeHTML(p) : esc(p)}</span></p>`).join('')}
     </article>`;
   const passageText = (b) => `<details class="rv-passage"><summary>${icon.book} 看文章</summary>${passageCard(b)}</details>`;
 
@@ -88,6 +92,10 @@ export function mount(stage, ctx) {
         <div class="options">${q.options.map((o, j) => `<button class="opt" type="button" data-i="${j}">
           <span class="opt-key">${KEYS[j]}</span><span class="opt-text en">${esc(o)}</span><span class="opt-mark" aria-hidden="true"></span></button>`).join('')}</div>
       </div>`;
+    const selectCard = (q) => `<div class="pq sel-pq" data-id="${q.id}">
+        <div class="pq-head"><span class="pq-num">${++no}</span><div class="pq-q">${esc(q.stem)}</div></div>
+        <select class="bank-select" data-select aria-label="${esc(q.stem)}"><option value="">請選擇</option>${q.options.map((o, j) => `<option value="${j}">${KEYS[j]}${q.group === 'bank' ? `. ${esc(o)}` : ''}</option>`).join('')}</select>
+      </div>`;
     const spellCard = (q) => `<div class="pq" data-id="${q.id}">
         <div class="pq-head"><span class="pq-num">${++no}</span>
           <div><div class="pq-q en">${blankHTML(q.stem)}</div>${q.hint ? `<div class="muted">${esc(q.hint)}</div>` : ''}</div></div>
@@ -98,9 +106,10 @@ export function mount(stage, ctx) {
       const head = prev !== b.type ? `<h3 class="exam-sec">${esc(SECTION[b.type])}</h3>` : '';
       prev = b.type;
       if (b.type === 'mc') return head + choiceCard(byId[`b${i}`]);
-      if (b.type === 'spell') return head + spellCard(byId[`b${i}`]);
+      if (b.type === 'spell' || b.type === 'phrase') return head + spellCard(byId[`b${i}`]);
       const qs = all.filter((q) => q.block === i);
-      return `${head}<div class="passage-layout exam-group">${passageCard(b)}<section class="pq-list">${qs.map(choiceCard).join('')}</section></div>`;
+      const card = b.type === 'bank' || b.type === 'struct' ? selectCard : choiceCard;
+      return `${head}<div class="passage-layout exam-group">${passageCard(b)}<section class="pq-list">${qs.map(card).join('')}</section></div>`;
     }).join('');
 
     stage.innerHTML = `
@@ -125,6 +134,11 @@ export function mount(stage, ctx) {
         card.classList.add('done');
         updateFoot();
       }));
+      card.querySelector('[data-select]')?.addEventListener('change', (e) => {
+        ans[id] = e.target.value === '' ? null : Number(e.target.value);
+        card.classList.toggle('done', ans[id] != null);
+        updateFoot();
+      });
       card.querySelector('[data-spell]')?.addEventListener('input', (e) => { ans[id] = e.target.value.trim(); card.classList.toggle('done', !!ans[id]); updateFoot(); });
     });
     stage.querySelector('[data-submit-btn]').addEventListener('click', async () => {
