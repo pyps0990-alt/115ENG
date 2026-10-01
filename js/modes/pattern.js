@@ -52,6 +52,7 @@ export function mount(stage, ctx) {
     best: () => store.best(unitId).pattern,
     review: () => store.done(unitId),
     reviewed: () => store.reviewed(unitId),
+    retake: () => store.tried(unitId) && !store.done(unitId),
     onStart: (s, review) => play(s, review),
     onReview: () => startReview((store.first(unitId) || {}).details),
   });
@@ -136,6 +137,10 @@ export function mount(stage, ctx) {
       const durationSec = Math.round((Date.now() - t0) / 1000);
       const stamp = nowStamp();
       if (!redo) store.setBest(unitId, 'pattern', pct);
+      const official = !review && !redo;
+      const wasTried = official && store.tried(unitId);
+      const passed = pct >= PASS;
+      if (official) { if (passed) store.setDone(unitId); else store.setTried(unitId); }
       const byKind = {};
       details.forEach((d) => { const k = (byKind[d.kind] = byKind[d.kind] || { ok: 0, n: 0 }); k.n++; if (d.ok) k.ok++; });
       const per = Object.entries(byKind).map(([k, v]) => `${k} ${v.ok}/${v.n}`).join('・');
@@ -157,12 +162,13 @@ export function mount(stage, ctx) {
         if (wrongN) actions.push({ label: `檢討錯的 ${wrongN} 題`, icon: icon.bulb, primary: true, onClick: () => startReview(details) });
         actions.push({ label: '再練一次', icon: icon.shuffle, primary: !wrongN, onClick: () => play(student, true) });
       }
+      if (official && !passed) actions.push({ label: '馬上補考', icon: icon.redo, primary: false, onClick: () => play(student, false) });
       if (!redo && wrongN && firstTest) actions.push({ label: `重練錯的 ${wrongN} 題（不計成績）`, icon: icon.shuffle, onClick: () => play(student, false, details.filter((d) => !d.ok).map((d) => d.word)) });
       const box = renderResult(stage, {
-        title: redo ? '錯題重練完成' : `${review ? '複習' : '句型練習'}${pct >= PASS ? '通過！' : '完成'}`,
+        title: redo ? '錯題重練完成' : `${review ? '複習' : '句型練習'}${passed ? '通過！' : official ? '未通過' : '完成'}`,
         pct,
         scoreText: `${points} / ${qs.length}`,
-        pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
+        pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`, ...(official && !passed ? [`${icon.alert} 未達 ${PASS}%，需要補考`] : [])],
         extraHTML: `${bars}${redo ? "" : stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`,
         actions,
       });
@@ -174,7 +180,7 @@ export function mount(stage, ctx) {
       const res = await submitScore({
         clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
         unit: unitId, unitTitle: ctx.unit.title, mode: 'pattern', review,
-        level: `${review ? '複習 · ' : ''}句型練習 ${per}`.slice(0, 60),
+        level: `${review ? '複習 · ' : wasTried ? '補考 · ' : ''}句型練習 ${per}`.slice(0, 60),
         score: points, total: qs.length, pct, durationSec,
         wrong: details.filter((d) => !d.ok).map((d) => d.word),
         details,

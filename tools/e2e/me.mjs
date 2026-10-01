@@ -39,7 +39,7 @@ await step('進入我的成績頁：狀態與計數正確', async () => {
   assert.deepEqual(rows.map((r) => r[0]), ['miss', 'todo', 'open', 'ok', 'wait']);
   assert.equal(rows.find((r) => r[0] === 'ok')[1], '92%');
   const sums = await p.$$eval('.me-sum .sum b', (a) => a.map((x) => x.textContent));
-  assert.deepEqual(sums, ['1 / 5', '1', '1']);
+  assert.deepEqual(sums, ['1 / 5', '1', '0', '1']);
   await sleep(500); await p.screenshot({ path: '/tmp/shots/me-page.png', fullPage: true });
 });
 await step('從成績頁點單元可進入；作答中名牌選單不會開', async () => {

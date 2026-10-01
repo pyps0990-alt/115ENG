@@ -3,7 +3,7 @@ import { shuffle } from './util.js';
 import { store } from './storage.js';
 import { buildMC, buildClozeMC, buildSpell } from './components/question.js';
 
-export const PASS = 80;
+export { PASS } from './types.js';
 
 export const LEVELS = [
   {

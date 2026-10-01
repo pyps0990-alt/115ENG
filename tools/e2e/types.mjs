@@ -182,6 +182,50 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
     assert.match(await p.locator('.open-rv').textContent(), /評分重點/);
     await shot('exam-review');
   });
+  await step(`[${label}] 沒通過要補考：65% 才通過，沒通過重新做正式測驗`, async () => {
+    const c4 = await world.newContext({ viewport: { width: w, height: h } });
+    const p4 = await world.newPage(c4, { student: true });
+    const answer = async (right) => {
+      await p4.waitForSelector('.bank .chip-word');
+      const seq = right ? ['I', 'like', 'red', 'apples', 'a', 'lot'] : ['lot', 'a', 'I'];
+      for (const t of seq) await p4.locator('.bank .chip-word:not([disabled])', { hasText: new RegExp('^' + t + '$') }).first().click();
+      await p4.locator('[data-check]').click();
+      await p4.locator('[data-next]:not([hidden])').click(); await p4.waitForSelector('.result');
+    };
+    await p4.goto(world.base + '/#/u/l2-drag'); await p4.waitForSelector('[data-start]');
+    assert.match(await p4.locator('[data-start]').textContent(), /開始測驗/);
+    await p4.click('[data-start]'); await answer(false);
+    assert.match(await p4.locator('.result').textContent(), /未通過/);
+    assert.match(await p4.locator('.result').textContent(), /需要補考/);
+    await p4.getByRole('button', { name: /馬上補考/ }).click();
+    await answer(true);
+    assert.match(await p4.locator('.result').textContent(), /通過！/);
+    await sleep(900);
+    const rows = (g.sheets.get('scores')?.rows || []).slice(1).filter((r) => r[4] === 'l2-drag').map((r) => String(r[6]));
+    assert(rows.some((l) => /補考/.test(l)), '補考要標在成績上：' + JSON.stringify(rows));
+    // 重新進入：失敗後通過 → 已完成可複習；另開一個只失敗的學生看「需補考」
+    const c5 = await world.newContext({ viewport: { width: w, height: h } });
+    const p5 = await world.newPage(c5, { student: true });
+    await p5.goto(world.base + '/#/u/l2-pat'); await p5.waitForSelector('[data-start]');
+    await p5.click('[data-start]');
+    for (let i = 0; i < 40 && !(await p5.locator('.result').count()); i++) {
+      await sleep(150);
+      if (await p5.locator('[data-next]:not([hidden])').count()) { await p5.click('[data-next]'); continue; }
+      const o = p5.locator('.opt:not([disabled])'); if (await o.count()) { await o.nth(2).click(); continue; } // 故意選錯
+      const f = p5.locator('.fill-input:not([disabled])'); if (await f.count()) { await f.fill('zzz'); await p5.keyboard.press('Enter'); continue; }
+      if (await p5.locator('.bank .chip-word:not([disabled])').count()) { await p5.locator('.bank .chip-word:not([disabled])').first().click(); await p5.locator('[data-check]').click(); }
+    }
+    assert.match(await p5.locator('.result').textContent(), /未通過/);
+    await sleep(1500); // 等成績送出再換頁
+    await p5.goto(world.base + '/#/me'); await p5.waitForSelector('.me-row');
+    assert.match(await p5.locator('.me-row.retake').first().textContent(), /需補考/);
+    await p5.goto(world.base + '/'); await p5.waitForSelector('.unit-tile');
+    assert.match(await p5.locator('.unit-tile[data-id="l2-pat"]').textContent(), /需補考/);
+    await p5.goto(world.base + '/#/u/l2-pat'); await p5.waitForSelector('[data-start]');
+    assert.match(await p5.locator('[data-start]').textContent(), /開始補考/);
+    assert.equal(p4.errors.concat(p5.errors).filter((e) => !/favicon/.test(e)).length, 0, p4.errors.concat(p5.errors).join('\n'));
+    await c4.close(); await c5.close();
+  });
   await step(`[${label}] 段考複習：錯題重練（不計成績）`, async () => {
     const c3 = await world.newContext({ viewport: { width: w, height: h } });
     const p3 = await world.newPage(c3, { student: true });

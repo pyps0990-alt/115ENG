@@ -5,10 +5,11 @@ import { icon } from '../icons.js';
 import { fmtWhen } from '../remote-config.js';
 import { mountInlineForm, openStudentDialog, studentLabel } from '../student.js';
 import { SCRIPT_URL } from '../config.js';
+import { PASS } from '../types.js';
 
 // review()：做過正式測驗了嗎；reviewed()：檢討完了嗎。
 // 做過但還沒檢討：只能先檢討，「開始複習」鎖住；檢討完才能複習。
-export function testGate(stage, { eyebrow, title, rules = [], best, review = false, reviewed = true, timeWindow, onStart, onReview }) {
+export function testGate(stage, { eyebrow, title, rules = [], best, review = false, reviewed = true, retake = false, timeWindow, onStart, onReview }) {
   let wake = null;
   const draw = () => {
     stage.innerHTML = '';
@@ -24,13 +25,17 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
     const isReviewed = typeof reviewed === 'function' ? reviewed() : reviewed;
     const bestNow = typeof best === 'function' ? best() : best;
     const needReview = isReview && !isReviewed && !!onReview;
+    // 做過正式測驗但還沒通過：需要補考（重新做正式測驗，直到總分達標）
+    const needRetake = !isReview && (typeof retake === 'function' ? retake() : retake);
     // 開放時段：還沒開放不能做；截止後不能做正式測驗，做過的人仍可檢討、複習
     const win = timeWindow ? timeWindow() : { state: 'open' };
     clearTimeout(wake);
     if (win.state === 'before' && win.openAt - Date.now() < 86400000) wake = setTimeout(draw, win.openAt - Date.now() + 500);
     let timeNote = '';
     if (win.state === 'open' && win.closeAt) timeNote = `${icon.clock} ${win.extended ? '老師開放你補作到' : '開放到'} ${fmtWhen(win.closeAt)}`;
-    let buttons = `<button class="btn primary" type="button" data-start>${icon.play} 開始測驗</button>`;
+    let buttons = needRetake
+      ? `<button class="btn primary" type="button" data-start>${icon.play} 開始補考</button>${onReview ? `<button class="btn ghost" type="button" data-review>${icon.bulb} 看上次的檢討</button>` : ''}`
+      : `<button class="btn primary" type="button" data-start>${icon.play} 開始測驗</button>`;
     if (isReview && needReview) {
       buttons = `<button class="btn primary" type="button" data-review>${icon.bulb} 開始檢討</button>
         <button class="btn" type="button" data-start disabled title="完成檢討後才能複習">${icon.lock} 開始複習</button>`;
@@ -48,9 +53,10 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
     const box = document.createElement('div');
     box.className = 'gate';
     box.innerHTML = `<div class="card gate-card">
-        <div><div class="eyebrow">${esc(eyebrow)}${isReview ? ' · 複習' : ''}</div><h2>${esc(title)}</h2></div>
+        <div><div class="eyebrow">${esc(eyebrow)}${isReview ? ' · 複習' : needRetake ? ' · 補考' : ''}</div><h2>${esc(title)}</h2></div>
         <ul class="rules">${rules.map((r) => `<li>${r}</li>`).join('')}
           ${isReview ? '<li>你已經完成這個單元的正式測驗，這次是<b>複習</b>，成績會標記為複習送給老師</li>' : ''}
+          ${needRetake ? `<li class="retake-note">${icon.alert} 上次的成績${bestNow != null ? ` <b>${bestNow}%</b>` : ''}還沒有通過，這次是<b>補考</b>：重新做一次正式測驗，總分達 <b>${PASS}%</b> 才算通過（沒通過可以一直補考）</li>` : ''}
           <li>${SCRIPT_URL ? '完成後成績會自動傳送給老師' : '完成後請截圖成績單繳交給老師'}</li></ul>
         ${bestNow != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${bestNow}%</b></div>` : ''}
         <p class="who-line">以 <b>${esc(s.name)}</b>（${esc(s.cls)} 班 ${esc(s.seat)} 號）的身分作答 <button class="link-btn edit" type="button">不是我？切換</button></p>

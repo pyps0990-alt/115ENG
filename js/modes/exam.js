@@ -117,6 +117,7 @@ export function mount(stage, ctx) {
     best: () => store.best(unitId).exam,
     review: () => store.done(unitId),
     reviewed: () => store.reviewed(unitId),
+    retake: () => store.tried(unitId) && !store.done(unitId),
     onStart: (s, review) => run(s, review),
     onReview: () => startReview((store.first(unitId) || {}).details),
   });
@@ -292,6 +293,10 @@ export function mount(stage, ctx) {
     const points = sd.filter((d) => d.ok).length;
     const pct = sd.length ? Math.round((points / sd.length) * 100) : 100;
     if (!redo) store.setBest(unitId, 'exam', pct);
+    const official = !review && !redo;
+    const wasTried = official && store.tried(unitId);
+    const passed = pct >= PASS;
+    if (official) { if (passed) store.setDone(unitId); else store.setTried(unitId); }
     const byKind = {};
     sd.forEach((d) => { const k = (byKind[d.kind] = byKind[d.kind] || { ok: 0, n: 0 }); k.n++; if (d.ok) k.ok++; });
     const per = Object.entries(byKind).map(([k, v]) => `${k} ${v.ok}/${v.n}`).join('・');
@@ -316,13 +321,14 @@ export function mount(stage, ctx) {
         if (wrongN) actions.push({ label: `檢討錯的 ${wrongN} 題`, icon: icon.bulb, primary: true, onClick: () => startReview(details) });
         actions.push({ label: '再做一次', icon: icon.redo, primary: !wrongN, onClick: () => run(student, true) });
       }
+      if (official && !passed) actions.push({ label: '馬上補考', icon: icon.redo, onClick: () => run(student, false) });
       if (wrongN) actions.push({ label: `重練錯的 ${wrongN} 題（不計成績）`, icon: icon.shuffle, onClick: () => run(student, review, wrongIds) });
     }
     const box = renderResult(stage, {
-      title: redo ? '錯題重練完成' : `${review ? '複習' : '段考複習'}${pct >= PASS ? '通過！' : '完成'}`,
+      title: redo ? '錯題重練完成' : `${review ? '複習' : '段考複習'}${passed ? '通過！' : official ? '未通過' : '完成'}`,
       pct,
       scoreText: `${points} / ${sd.length}`,
-      pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, redo ? '這是練習，不計入成績' : firstTest ? '接著逐題檢討，完成後才能複習' : '可以再看一次檢討'],
+      pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, redo ? '這是練習，不計入成績' : official && !passed ? `需要補考：先檢討，再重新做一次，總分達 ${PASS}% 才通過` : firstTest ? '接著逐題檢討，完成後才能複習' : '可以再看一次檢討'],
       extraHTML: `${bars}${writingSummaryHTML(details)}${redo ? '' : `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`}`,
       actions,
     });
@@ -330,7 +336,7 @@ export function mount(stage, ctx) {
     const res = await submitScore({
       clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
       unit: unitId, unitTitle: ctx.unit.title, mode: 'exam', review,
-      level: `${review ? '複習 · ' : ''}段考複習 ${per}`.slice(0, 60),
+      level: `${review ? '複習 · ' : wasTried ? '補考 · ' : ''}段考複習 ${per}`.slice(0, 60),
       score: points, total: sd.length, pct, durationSec,
       wrong: wrongIds,
       details,

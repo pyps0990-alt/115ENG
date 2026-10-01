@@ -1,4 +1,5 @@
 import { SCRIPT_URL } from './config.js';
+import { PASS } from './types.js';
 import { store } from './storage.js';
 
 // 成績先放進這台裝置的等待清單，再送到 Apps Script；網路失敗時留在清單裡，
@@ -103,7 +104,8 @@ export async function submitScore(payload) {
   const item = { ...payload, attemptId: payload.attemptId || newAttemptId() };
   // 另外存一份到 Firestore，跟送去老師試算表互不影響
   import('./firebase.js').then((fb) => fb.saveScoreToFirestore(item, (store.student() || {}).key)).catch((e) => console.warn(e));
-  if (item.unit) store.setDone(item.unit);
+  // 通過（或複習）才算完成；沒通過要補考
+  if (item.unit) { if (item.review || Number(item.pct) >= PASS) store.setDone(item.unit); else store.setTried(item.unit); }
   if (!SCRIPT_URL) return { status: 'disabled' };
   writeBox([...readBox().filter((x) => x.attemptId !== item.attemptId), item]);
   const inBox = () => readBox().some((x) => x.attemptId === item.attemptId);

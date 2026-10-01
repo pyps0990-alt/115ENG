@@ -7,6 +7,7 @@ import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore } from '../submit.js';
+import { PASS } from '../types.js';
 
 const KEYS = ['A', 'B', 'C', 'D', 'E'];
 
@@ -40,6 +41,7 @@ export function mount(stage, ctx) {
     best: () => store.best(unitId).reading,
     review: () => store.done(unitId),
     reviewed: () => store.reviewed(unitId),
+    retake: () => store.tried(unitId) && !store.done(unitId),
     onStart: (s, review) => run(s, review),
     onReview: () => startReview(answersFromDetails((store.first(unitId) || {}).details)),
   });
@@ -153,6 +155,10 @@ export function mount(stage, ctx) {
     const durationSec = Math.round((Date.now() - t0) / 1000);
     const pct = Math.round((score / qs.length) * 100);
     store.setBest(unitId, 'reading', pct);
+    const official = !review;
+    const wasTried = official && store.tried(unitId);
+    const passed = pct >= PASS;
+    if (official) { if (passed) store.setDone(unitId); else store.setTried(unitId); }
     const details = qs.map((q, i) => ({
       stage: '課文理解', n: i + 1, kind: q.skill || '', q: q.q || '', word: `Q${i + 1} ${String(q.q || '').slice(0, 50)}`,
       correct: `${KEYS[q.answer]}. ${q.options[q.answer]}`,
@@ -166,17 +172,18 @@ export function mount(stage, ctx) {
     window.scrollTo(0, 0);
     const actions = [{ label: firstTest ? '開始檢討' : '逐題檢討', icon: icon.bulb, primary: true, onClick: () => startReview(answers) }];
     if (!firstTest) actions.push({ label: '再複習一次', icon: icon.redo, onClick: () => run(student, true) });
+    if (official && !passed) actions.push({ label: '馬上補考', icon: icon.redo, onClick: () => run(student, false) });
     const box = renderResult(stage, {
-      title: review ? '複習完成' : '交卷完成',
+      title: review ? '複習完成' : passed ? '通過！' : '未通過',
       pct,
       scoreText: `${score} / ${qs.length}`,
-      pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, firstTest ? '接著逐題檢討，完成後才能複習' : '可以逐題檢討這次的作答'],
+      pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, official && !passed ? `需要補考：先檢討，再重新做一次，總分達 ${PASS}% 才通過` : firstTest ? '接著逐題檢討，完成後才能複習' : '可以逐題檢討這次的作答'],
       extraHTML: `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`,
       actions,
     });
     const res = await submitScore({
       clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
-      unit: unitId, unitTitle: ctx.unit.title, mode: 'reading', review, level: review ? '複習 · 課文理解' : '課文理解',
+      unit: unitId, unitTitle: ctx.unit.title, mode: 'reading', review, level: review ? '複習 · 課文理解' : wasTried ? '補考 · 課文理解' : '課文理解',
       score, total: qs.length, pct, durationSec,
       wrong: answers.map((a, i) => (a === qs[i].answer ? null : `Q${i + 1}`)).filter(Boolean),
       details,

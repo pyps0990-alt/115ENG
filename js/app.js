@@ -231,6 +231,7 @@ function tileHTML(u) {
       <div class="tile-top">
         <span class="tile-icon">${typeIcon(u.type)}</span>
         <span class="tile-kind">${TYPES[typeOf(u.type)].tile}</span>
+        ${!done && store.tried(u.id) ? `<span class="badge todo">${icon.alert} 需補考</span>` : ''}
         ${done && !store.reviewed(u.id) ? `<span class="badge todo">${icon.bulb} 待檢討</span>` : ''}
         ${done && store.reviewed(u.id) ? `<span class="badge done">${icon.check} 已完成 · 可複習</span>` : ''}
         ${windowBadge(u.id, done)}
@@ -310,6 +311,8 @@ function unitStatus(u) {
   const best = store.best(u.id)[bestKey(u.type)];
   const w = unitWindow(config, u.id);
   if (done && store.reviewed(u.id)) return { k: 'ok', rank: 4, st: best != null ? `${best}%` : '已完成', note: best != null ? '已完成・可複習' : '已完成', ic: icon.check };
+  // 做過正式測驗但沒通過：需要補考（缺交的判斷之前先處理）
+  if (!done && store.tried(u.id)) return { k: 'retake', rank: 0, st: '需補考', note: `${best != null ? `最佳 ${best}%，` : ''}未達 ${PASS}%，要重新做一次正式測驗${w.state === 'after' ? '（已截止，請找老師開放補作）' : ''}`, ic: icon.alert };
   if (done) return { k: 'todo', rank: 1, st: '待檢討', note: `${best != null ? `最佳 ${best}%・` : ''}做完檢討才能複習`, ic: icon.bulb };
   if (w.state === 'after') return { k: 'miss', rank: 0, st: '缺交', note: `已於 ${fmtWhen(w.closeAt)} 截止，還沒有正式測驗紀錄`, ic: icon.alert };
   if (w.state === 'before') return { k: 'wait', rank: 5, st: '未開放', note: `${fmtWhen(w.openAt)} 開放`, ic: icon.lock };
@@ -335,6 +338,7 @@ async function renderMe() {
     <div class="me-sum">
       <div class="sum"><b>${count('ok')} / ${rows.length}</b><span>已完成</span></div>
       <div class="sum todo"><b>${count('todo')}</b><span>待檢討</span></div>
+      <div class="sum miss"><b>${count('retake')}</b><span>需補考</span></div>
       <div class="sum miss"><b>${count('miss')}</b><span>缺交</span></div>
     </div>
     ${rows.length ? `<div class="me-list">${rows.map((r) => `<a class="me-row ${r.k}" href="#/u/${esc(r.u.id)}">
@@ -342,7 +346,7 @@ async function renderMe() {
         <span class="txt"><b>L${r.u.lesson} ${esc(r.u.topic || r.u.title)}</b><span>${typeLabel(r.u.type)}・${esc(r.note)}</span></span>
         <span class="st">${esc(r.st)}</span></a>`).join('')}</div>`
       : `<div class="empty"><div class="big">${icon.inbox}</div><p>老師目前沒有開放任何單元。</p></div>`}
-    <p class="me-note">缺交是指：單元有截止時間、已經過了，而且沒有正式測驗紀錄。缺交的單元如果需要補作，請找老師。</p>`;
+    <p class="me-note">缺交是指：單元有截止時間、已經過了，而且沒有正式測驗紀錄。缺交的單元如果需要補作，請找老師。總分未達 ${PASS}% 的單元顯示「需補考」，重新做一次正式測驗，達標就通過。</p>`;
 }
 
 /* ---------------- footer ---------------- */

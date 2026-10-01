@@ -1,3 +1,4 @@
+import { PASS } from './types.js';
 // 所有 localStorage 存取都包在 try/catch，無痕模式或被封鎖時網站仍可運作（只是不記錄）。
 const P = 'b5p:';
 
@@ -49,8 +50,12 @@ export const store = {
   },
 
   // 已經做過正式測驗的單元，之後改成「複習」
+  // done：已經「通過」正式測驗（之後改成複習）；tried：做過正式測驗但還沒通過，需要補考
   done: (unit) => read(`done:${unit}`, false),
-  setDone: (unit) => write(`done:${unit}`, true),
+  setDone: (unit) => { write(`done:${unit}`, true); write(`tried:${unit}`, false); },
+  clearDone: (unit) => write(`done:${unit}`, false),
+  tried: (unit) => read(`tried:${unit}`, false),
+  setTried: (unit) => { if (!read(`done:${unit}`, false)) write(`tried:${unit}`, true); },
 
   // 第一次正式測驗的逐題作答（檢討用）：{ mode, details }
   first: (unit) => read(`first:${unit}`, null),
@@ -69,12 +74,12 @@ export const store = {
   // 登出並清除這台裝置上的學生資料（姓名、座號、成績、檢討、錯題、排隊中的成績）；老師的設定暫存保留
   clearAll() {
     try {
-      Object.keys(localStorage).filter((k) => /^b5p:(student|best|last|done|first|reviewed|wrong|bag|outbox)/.test(k)).forEach((k) => localStorage.removeItem(k));
+      Object.keys(localStorage).filter((k) => /^b5p:(student|best|last|done|tried|first|reviewed|wrong|bag|outbox)/.test(k)).forEach((k) => localStorage.removeItem(k));
     } catch { /* ignore */ }
   },
 
   resetProgress(scoresOnly = false) {
-    const re = scoresOnly ? /^b5p:(best|last|done|first):/ : /^b5p:(best|last|done|first|reviewed|wrong|bag):/;
+    const re = scoresOnly ? /^b5p:(best|last|done|tried|first):/ : /^b5p:(best|last|done|tried|first|reviewed|wrong|bag):/;
     try {
       Object.keys(localStorage).filter((k) => re.test(k)).forEach((k) => localStorage.removeItem(k));
     } catch { /* ignore */ }
@@ -93,7 +98,8 @@ export const store = {
       if (!a.unit) return;
       const cur = firsts[a.unit];
       // 優先用正式測驗（非複習）中最早的一次
-      const better = !cur || (cur.review && !a.review) || (!!cur.review === !!a.review && String(a.clientTs) < String(cur.clientTs));
+      // 檢討用最近一次正式測驗（補考過就是補考那次）；沒有正式測驗才用複習
+      const better = !cur || (cur.review && !a.review) || (!!cur.review === !!a.review && String(a.clientTs) > String(cur.clientTs));
       if (better) firsts[a.unit] = a;
     });
     Object.entries(firsts).forEach(([unit, a]) => this.setFirst(unit, { mode: a.mode, details: a.details || [] }));
@@ -102,13 +108,17 @@ export const store = {
       return m && Number(m[2]) ? Math.round((Number(m[1]) / Number(m[2])) * 100) : null;
     };
     const latest = {};
+    const passedUnits = {};
     attempts.forEach((a) => {
       if (!a.unit) return;
       const mode = ['reading', 'pattern', 'exam'].includes(a.mode) ? a.mode : 'vocab';
       this.setBest(a.unit, mode, Number(a.pct) || 0);
-      this.setDone(a.unit);
+      (passedUnits[a.unit] = passedUnits[a.unit] || false);
+      if (a.review || Number(a.pct) >= PASS) passedUnits[a.unit] = true;
       if (mode === 'vocab' && (!latest[a.unit] || String(a.clientTs) > String(latest[a.unit].clientTs))) latest[a.unit] = a;
     });
+    // 有通過（或做過複習）的單元才算完成；做過但沒通過的要補考
+    Object.entries(passedUnits).forEach(([unit, ok]) => { if (ok) this.setDone(unit); else { this.clearDone(unit); this.setTried(unit); } });
     Object.entries(latest).forEach(([unit, a]) => {
       const last = {};
       ['basic', 'advanced', 'mastery'].forEach((k) => { const p = pctOf(a[k]); if (p != null) last[k] = p; });

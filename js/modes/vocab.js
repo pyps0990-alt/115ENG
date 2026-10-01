@@ -69,6 +69,7 @@ export function mount(stage, ctx) {
     best: () => store.best(unitId).vocab,
     review: () => store.done(unitId),
     reviewed: () => store.reviewed(unitId),
+    retake: () => store.tried(unitId) && !store.done(unitId),
     onStart: (s, review) => play(s, stagesNow(), true, review),
     onReview: () => startReview((store.first(unitId) || {}).details),
   });
@@ -236,12 +237,15 @@ export function mount(stage, ctx) {
           <span class="bar"><span style="width:${p}%"></span></span><span class="sb-score">${fmt(s.points)}/${s.qs.length}</span></div>`;
       }).join('')}</div>`;
       const passed = pct >= PASS;
+      const wasTried = official && !review && store.tried(unitId);
+      if (official && !review) { if (passed) store.setDone(unitId); else store.setTried(unitId); }
       const firstTest = official && !review;
       if (firstTest) store.setFirst(unitId, { mode: 'vocab', details });
       const actions = [];
       if (firstTest) {
         // 第一次正式測驗：先檢討，檢討完才能複習
         actions.push({ label: '開始檢討', icon: icon.bulb, primary: true, onClick: () => startReview(details) });
+        if (!passed) actions.push({ label: '馬上補考', icon: icon.redo, onClick: () => play(student, stagesNow(), true, false) });
       } else {
         if (wrong.length) {
           actions.push({
@@ -253,10 +257,10 @@ export function mount(stage, ctx) {
         actions.push({ label: '再複習一次', icon: icon.shuffle, primary: !wrong.length, onClick: () => play(student, stagesNow(), true, true) });
       }
       const box = renderResult(stage, {
-        title: !official ? '錯題練習完成' : `${review ? '複習' : '三段測驗'}${passed ? '通過！' : '完成'}`,
+        title: !official ? '錯題練習完成' : `${review ? '複習' : '三段測驗'}${passed ? '通過！' : firstTest ? '未通過' : '完成'}`,
         pct,
         scoreText: `${fmt(points)} / ${total}`,
-        pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
+        pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`, ...(firstTest && !passed ? [`${icon.alert} 未達 ${PASS}%，需要補考`] : [])],
         extraHTML: bars + (official
           ? `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`
           : '<p class="muted">錯題練習不會送出成績</p>'),
@@ -268,7 +272,7 @@ export function mount(stage, ctx) {
       const res = await submitScore({
         clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
         unit: unitId, unitTitle: ctx.unit.title, mode: 'vocab', review,
-        level: `${review ? '複習 · ' : ''}${stages.map((s) => s.level.name).join('→')}`,
+        level: `${review ? '複習 · ' : wasTried ? '補考 · ' : ''}${stages.map((s) => s.level.name).join('→')}`,
         score: Number(fmt(points)), total, pct, durationSec,
         basic: per.basic || '', advanced: per.advanced || '', mastery: per.mastery || '',
         wrong: [...new Set(wrong.map((w) => w.q.word.word))],
