@@ -328,6 +328,7 @@
           <div class="bar">
             <button class="btn" id="t-example" type="button">插入範例格式</button>
             <button class="btn ai" id="ai-text" type="button">✦ AI 產生題目</button>
+            <button class="btn ai" id="ai-check" type="button" title="檢查填空、拼寫、片語的答案寫法是否文法、用法都正確，並補上其他同樣正確的寫法">✦ AI 檢查答案寫法</button>
             <span id="t-counts"></span>
             <span class="muted">會取代下方目前的內容；產生後請逐題確認再儲存。</span>
           </div>
@@ -1057,12 +1058,12 @@
     var HELP = {
       pattern: '<b>句型練習</b>：選擇、填空為主，偶爾出現「應用」（把打散的單字排成句子）。每題以 <code>[選擇]</code>、<code>[填空]</code>、<code>[應用]</code> 開頭，接著寫欄位（欄位名稱後面用冒號 <code>:</code>）：<br>' +
         '<code>[選擇]</code> 句型／題目（空格寫 <code>____</code>）／選項（用 <code>|</code> 隔開，4 個）／答案（A、B、C、D）／解析<br>' +
-        '<code>[填空]</code> 句型／題目（含 <code>____</code>）／答案（可接受的寫法用 <code>|</code> 隔開）／提示（可空白，例如 <code>(succeed)</code>）／解析<br>' +
+        '<code>[填空]</code> 句型／題目（含 <code>____</code>）／答案（可接受的寫法用 <code>|</code> 隔開；可有可無的字用 <code>( )</code>）／提示（可空白，例如 <code>(succeed)</code>）／解析<br>' +
         '<code>[應用]</code> 句型／中文／單字（用 <code>|</code> 隔開，順序隨意）／答案（完整句子）／解析<br>' +
         '「句型」是顯示在題目旁的小標籤，「解析」學生每題作答後立刻看到。也可以直接貼 JSON。',
       exam: '<b>段考複習</b>：參考學測題型，可以混合下列大題，依貼上的順序出現。每題以 <code>[種類]</code> 開頭：<br>' +
         '<code>[選擇]</code>（文意字彙）題目（空格 <code>____</code>）／選項（<code>|</code> 隔開）／答案（A–D）／解析<br>' +
-        '<code>[拼寫]</code> 題目（含 <code>____</code>）／提示（首字母與中文）／答案／解析　<code>[片語]</code> 欄位相同，答案是整個片語（可用 <code>|</code> 列出其他可接受的寫法）<br>' +
+        '<code>[拼寫]</code> 題目（含 <code>____</code>）／提示（首字母與中文）／答案／解析　<code>[片語]</code> 欄位相同，答案是整個片語。<b>答案不限於一種</b>：用 <code>|</code> 列出所有在這個句子裡文法、用法都正確的寫法（例如不同詞形、意思相同的說法），可有可無的字用 <code>( )</code>，例如 <code>look forward to (the)|looking forward to</code>。寫了不對的寫法，學生打那個就會被算對，所以按「✦ AI 檢查答案寫法」讓 AI 幫忙檢查<br>' +
         '<code>[綜合]</code>（克漏字）標題／文章（空格寫 <code>(1)</code>、<code>(2)</code>…）／<code>(1)選項</code>、<code>(1)答案</code>、<code>(1)解析</code>，再接 <code>(2)…</code><br>' +
         '<code>[選填]</code>（文意選填）標題／文章（空格 <code>(1)</code>…）／<code>字庫</code>（所有空格共用的字，<code>|</code> 隔開，最多 10 個，A、B、C…依序編號）／<code>(1)答案</code>、<code>(1)解析</code>…<br>' +
         '<code>[篇章]</code>（篇章結構）標題／文章（空格 <code>(1)</code>…）／<code>句庫</code>（共用的句子，<code>|</code> 隔開）／<code>(1)答案</code>、<code>(1)解析</code>…<br>' +
@@ -1356,6 +1357,52 @@
         return o.join('\n');
       }).join('\n\n');
     }
+
+    // AI 檢查答案寫法：填空、拼寫、片語的每個答案都放進句子裡試，移除文法或用法不對的寫法，補上其他同樣正確的寫法
+    var checkJob = null;
+    function answerTargets(type, data) {
+      var out = [];
+      if (type === 'pattern') (data.items || []).forEach(function (it, i) { if (it.type === 'fill') out.push({ id: 'i' + i, obj: it, q: it.q, hint: it.hint || '' }); });
+      else (data.blocks || []).forEach(function (b, i) { if (b.type === 'spell' || b.type === 'phrase') out.push({ id: 'b' + i, obj: b, q: b.q, hint: b.hint || '' }); });
+      return out;
+    }
+    $('ai-check').onclick = function () {
+      if (!needAi()) return;
+      var u = impUnit(); if (!u) return;
+      if (u.type !== 'pattern' && u.type !== 'exam') return;
+      var data = parseTextType(u.type);
+      if (!data) { $('imp-msg').textContent = '請先修正紅色的項目再檢查答案'; $('imp-msg').className = 'msg err'; return; }
+      var targets = answerTargets(u.type, data);
+      if (!targets.length) { $('imp-msg').textContent = '這份題目沒有填空、拼寫或片語題'; $('imp-msg').className = 'msg ok'; return; }
+      var btn = $('ai-check'), label = btn.textContent;
+      aiBusy(btn, true, label);
+      google.script.run.withSuccessHandler(function (res) {
+        aiBusy(btn, false, label);
+        var byId = {}; (res.items || []).forEach(function (x) { byId[x.id] = x; });
+        var fixes = [];
+        var rows = targets.map(function (t) {
+          var r = byId[t.id];
+          if (!r) return '<li class="warn">' + esc(t.q) + '：AI 沒有回覆，請稍後再試</li>';
+          var changed = r.answer.replace(/\s+/g, ' ') !== String(t.obj.answer).replace(/\s+/g, ' ');
+          if (changed) fixes.push({ obj: t.obj, answer: r.answer });
+          return '<li class="' + (changed ? 'warn' : 'ok') + '"><b>' + esc(t.q) + '</b><br>' + (changed ? '原本：<code>' + esc(t.obj.answer) + '</code><br>建議：<code>' + esc(r.answer) + '</code><br>' : '答案：<code>' + esc(t.obj.answer) + '</code><br>') + esc(r.note) + '</li>';
+        });
+        checkJob = fixes;
+        $('imp-report').innerHTML = '<div class="stats"><span class="stat">檢查了 ' + targets.length + ' 題</span><span class="stat">' + (fixes.length ? fixes.length + ' 題建議修改' : '全部答案正確') + '</span></div>' +
+          '<ul class="issues">' + rows.join('') + '</ul>' +
+          (fixes.length ? '<div class="bar"><button class="btn primary" id="ai-apply" type="button">套用全部建議</button><span class="muted">套用後請再按「預覽與檢查」，確認沒問題再儲存；AI 的建議仍需要老師把關。</span></div>' : '');
+        var ap = $('ai-apply');
+        if (ap) ap.onclick = function () {
+          fixes.forEach(function (f) { f.obj.answer = f.answer; });
+          $('t-text').value = u.type === 'pattern' ? serPattern(data) : serExam(data);
+          impDirty(); $('imp-check').click();
+          $('imp-msg').textContent = '✓ 已套用 ' + fixes.length + ' 題的建議答案，請確認後再儲存'; $('imp-msg').className = 'msg ok';
+        };
+        $('imp-msg').textContent = fixes.length ? 'AI 建議修改 ' + fixes.length + ' 題的答案（見下方）' : '✓ AI 認為答案寫法都正確'; $('imp-msg').className = 'msg ' + (fixes.length ? '' : 'ok');
+      }).withFailureHandler(function (err) {
+        aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
+      }).aiCheckAnswers(targets.map(function (t) { return { id: t.id, sentence: t.q, hint: t.hint, answer: t.obj.answer }; }));
+    };
 
     $('ai-text').onclick = function () {
       if (!needAi()) return;

@@ -9,7 +9,20 @@ export const KIND_LABEL = { mc: '選擇', fill: '填空', apply: '應用', spell
 
 // 比對答案：不分大小寫、忽略標點與多餘空白（Code.gs 的 normAns_ 要保持一樣）
 export const normAns = (s) => String(s == null ? '' : s).toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim();
-export const altsOf = (q) => String(q.answer == null ? '' : q.answer).split('|').map((x) => x.trim()).filter(Boolean);
+// 答案寫法：用 | 列出所有可接受的寫法；用 ( ) 標出可有可無的字，例如 "look forward to (doing)"、"(has been) looking forward to"。
+// （Code.gs 的 expandAlts_ 要保持一樣）
+export function expandAlts(str) {
+  let out = [];
+  String(str == null ? '' : str).split('|').forEach((alt) => {
+    let list = [alt];
+    for (let i = 0; i < 4 && list.some((x) => /\([^()]*\)/.test(x)); i++) {
+      list = list.flatMap((x) => { const m = /\(([^()]*)\)/.exec(x); return m ? [x.replace(m[0], m[1]), x.replace(m[0], '')] : [x]; });
+    }
+    out = out.concat(list.map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean));
+  });
+  return [...new Set(out)].slice(0, 64);
+}
+export const altsOf = (q) => expandAlts(q.answer);
 export const fillOk = (q, typed) => altsOf(q).map(normAns).includes(normAns(typed));
 
 // 題目文字裡的空格（____）畫成底線
@@ -39,7 +52,7 @@ export function flattenExam(blocks) {
   return out;
 }
 
-export const correctText = (q) => (q.kind === 'mc' ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : q.kind === 'open' ? String(q.answer || '') : altsOf(q)[0] || '');
+export const correctText = (q) => (q.kind === 'mc' ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : q.kind === 'open' ? String(q.answer || '') : altsOf(q).slice(0, 4).join(' / '));
 export const isChoice = (q) => q.kind === 'mc';
 
 // 從「A. 選項文字」找回選項索引（Firestore 讀回的紀錄用）
@@ -105,7 +118,7 @@ export function renderFillCard(host, q, { meta = '填入空格中的單字或片
     input.disabled = true; btn.disabled = true;
     input.classList.add(ok ? 'ok' : 'no');
     const line = card.querySelector('.answer-line');
-    if (!ok) { line.hidden = false; line.innerHTML = `正確答案：<b class="en">${esc(altsOf(q)[0] || '')}</b>`; }
+    if (!ok) { line.hidden = false; line.innerHTML = `正確答案：<b class="en">${esc(altsOf(q).slice(0, 4).join(' / '))}</b>`; }
     onAnswer?.(ok, typed);
   };
   btn.addEventListener('click', check);
@@ -214,7 +227,7 @@ export function renderApplyCard(host, q, { meta = '應用：把單字排成正�
     line.classList.add(ok ? 'ok' : 'no');
     card.querySelectorAll('.fill-area .btn').forEach((b) => { b.disabled = true; });
     paint();
-    if (!ok) { const a = card.querySelector('.answer-line'); a.hidden = false; a.innerHTML = `正確答案：<b class="en">${esc(altsOf(q)[0] || '')}</b>`; }
+    if (!ok) { const a = card.querySelector('.answer-line'); a.hidden = false; a.innerHTML = `正確答案：<b class="en">${esc(altsOf(q).slice(0, 4).join(' / '))}</b>`; }
     onAnswer?.(ok, built);
   });
   paint();
@@ -247,7 +260,7 @@ export function reviewCardHTML(q, yours, extra = '') {
     <div class="rv-meta">${meta}</div>
     <div class="rv-prompt en">${prompt}</div>
     <div class="rv-row ${ok ? 'ok' : 'no'}"><span>你的答案</span><b class="en">${String(yours || '').trim() ? esc(yours) : '（未作答）'}</b></div>
-    ${ok ? '' : `<div class="rv-row ok"><span>正確答案</span><b class="en">${esc(altsOf(q)[0] || '')}</b></div>`}
+    ${ok ? '' : `<div class="rv-row ok"><span>正確答案</span><b class="en">${esc(altsOf(q).slice(0, 4).join(' / '))}</b></div>`}
     ${q.explain ? `<p class="xp-tip">${esc(q.explain)}</p>` : ''}
   </div>`;
 }

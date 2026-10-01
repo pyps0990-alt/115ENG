@@ -118,7 +118,7 @@ function handleApi_(d) {
     syncGradebookRoster: syncGradebookRoster, syncAllGradebooks: syncAllGradebooks,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
     getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey, testLocalAi: testLocalAi,
-    aiGenerateReading: aiGenerateReading, aiGeneratePattern: aiGeneratePattern, aiGenerateExam: aiGenerateExam, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
+    aiGenerateReading: aiGenerateReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, aiGenerateExam: aiGenerateExam, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
     lookupStudent: lookupStudent, deleteStudent: deleteStudent,
     backupSpreadsheet: backupSpreadsheet, semesterReset: semesterReset, purgeUnitScores: purgeUnitScores,
   };
@@ -1225,9 +1225,23 @@ function countOf_(type, data) {
 function normAns_(s) {
   return String(s == null ? '' : s).toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim();
 }
+// 答案寫法：用 | 列出所有可接受的寫法；用 ( ) 標出可有可無的字（和 js/components/items.js 的 expandAlts 一致）
+function expandAlts_(str) {
+  var out = [];
+  String(str == null ? '' : str).split('|').forEach(function (alt) {
+    var list = [alt];
+    for (var i = 0; i < 4 && list.some(function (x) { return /\([^()]*\)/.test(x); }); i++) {
+      var next = [];
+      list.forEach(function (x) { var m = /\(([^()]*)\)/.exec(x); if (m) { next.push(x.replace(m[0], m[1])); next.push(x.replace(m[0], '')); } else next.push(x); });
+      list = next;
+    }
+    list.forEach(function (x) { x = x.replace(/\s+/g, ' ').trim(); if (x && out.indexOf(x) < 0) out.push(x); });
+  });
+  return out.slice(0, 64);
+}
 function fillOk_(answer, typed) {
   var t = normAns_(typed);
-  return String(answer == null ? '' : answer).split('|').some(function (a) { return a.trim() && normAns_(a) === t; });
+  return expandAlts_(answer).some(function (a) { return normAns_(a) === t; });
 }
 
 // 段考複習：把區塊攤平成單題清單，編號和學生端一致（b{區塊} 或 b{區塊}.{小題}）
@@ -1442,7 +1456,7 @@ var AI_PROMPT_DEFAULTS = {
     '- Mostly mix "mc" (multiple choice) and "fill" (fill in the blank). Add an occasional "apply" item (about 1 in 6) — never more than a quarter of the set.',
     '- Focus on the grammar / sentence patterns of the topic. Put a short pattern name in "tag" (e.g. "not only…but also", "so…that", 倒裝句, 關係代名詞).',
     '- "mc": a sentence with one blank written as ____ in "q"; exactly 4 English options; "answerIndex" is the 0-based index of the correct one. Distractors must be tempting grammar mistakes (wrong tense, word form, word order), not nonsense.',
-    '- "fill": a sentence with one blank ____ in "q"; "answerText" is the exact word or phrase (use | to separate acceptable alternatives, e.g. "has been|’s been"). Put a hint such as the base word or a Chinese cue in "hint", e.g. "(succeed)" or "（完成）".',
+    '- "fill": a sentence with one blank ____ in "q"; "answerText" lists EVERY wording that is grammatically correct and natural in that exact sentence, separated by | (e.g. "has been|’s been"); use ( ) for words that may be left out (e.g. "look forward to (the)"). Never list a wording that would be wrong in the sentence (tense, agreement, word form, preposition). Put a hint such as the base word or a Chinese cue in "hint", e.g. "(succeed)" or "（完成）".',
     '- "apply": "zh" is a natural Traditional Chinese sentence; "words" is the English sentence split into words/short chunks in SHUFFLED order (6–12 pieces); "answerText" is the complete correct English sentence (capitalise the first word, keep punctuation; pieces must exactly form the sentence). Only use one correct order.',
     '- Every item needs "explain": a short explanation in Traditional Chinese (Taiwan usage) of the rule and why the answer is right.',
     '- Sentences must be natural, CEFR B1–B2, 8–20 words, about school life, daily life or social topics. Do not repeat the same sentence frame.',
@@ -1451,7 +1465,7 @@ var AI_PROMPT_DEFAULTS = {
     '- Write a mock exam review modelled on the Taiwan GSAT (學測) English test, in this order: mc (詞彙), spell, phrase, cloze (綜合測驗), bank (文意選填), struct (篇章結構), reading (閱讀測驗) — using only the section counts requested.',
     '- "mc": a vocabulary item, one blank ____, exactly 4 options of the SAME part of speech and similar meaning/form so the answer depends on context; "answerIndex" 0-based; "explain" in Traditional Chinese.',
     '- "spell": a sentence with a blank ____ where the student types ONE word; "hint" = first letter + Chinese meaning (e.g. "c（冷靜的）"); "answerText" is the exact word (| for alternatives).',
-    '- "phrase": a sentence with a blank ____ for a whole PHRASE (2–4 words); "hint" = Chinese meaning; "answerText" is the exact phrase (| for alternatives, e.g. "look forward to|looks forward to").',
+    '- "phrase": a sentence with a blank ____ for a whole PHRASE (2–4 words); "hint" = Chinese meaning. The answer is NOT limited to one wording: "answerText" lists EVERY form that is grammatically correct and idiomatic in that exact sentence, separated by | (e.g. different inflections that fit the sentence, or an equally natural synonym phrase with the same meaning); use ( ) for optional words. The sentence must force the grammar (tense, subject agreement, -ing after "to") so that wrong forms really are wrong, and never list a form that would be ungrammatical or unnatural in the sentence.',
     '- "cloze": "title" + "passage" (array of paragraphs, 120–180 words in total, blanks written as (1), (2), (3)… in order, each number once) + "blanks" (one per number, exactly 4 options each, answerIndex, explain). Mix vocabulary, grammar/word forms, connectives and discourse in the blanks.',
     '- "bank": 文意選填. "title" + "passage" (150–200 words, blanks (1), (2)…) + "bank" (an array of 10 words/phrases shared by all blanks, e.g. verbs, nouns, adjectives, adverbs mixed, in random order; there are more words than blanks, so a few are distractors) + "blanks" (one per number: answerIndex = 0-based index into "bank", explain).',
     '- "struct": 篇章結構. "title" + "passage" (a passage of 3–4 paragraphs with blanks (1)–(4) where a whole sentence was removed) + "bank" (5 complete sentences: the 4 removed ones plus 1 distractor, random order) + "blanks" (answerIndex into "bank", explain pointing out the cohesion clue).',
@@ -1602,6 +1616,37 @@ function aiGenerateExam(topic, counts, hint) {
   });
   if (!blocks.length) throw new Error('AI 沒有產生可用的題目，請再試一次');
   return { topic: topic, blocks: blocks };
+}
+
+// 老師用：檢查填空／拼寫／片語的答案寫法是否文法、用法都正確，並補上其他同樣正確的寫法
+// items: [{ id, sentence, hint, answer }]；回傳 [{ id, ok, answer, note }]（answer 是建議的完整寫法，用 | 與 ( ) 表示）
+function aiCheckAnswers(items) {
+  assertTeacher_();
+  items = (items || []).filter(function (x) { return x && x.sentence && x.answer; }).slice(0, 30);
+  if (!items.length) throw new Error('沒有可以檢查的填空、拼寫或片語題');
+  var schema = {
+    type: 'OBJECT',
+    properties: { items: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+      id: { type: 'STRING' }, ok: { type: 'BOOLEAN' }, answer: { type: 'STRING' }, note: { type: 'STRING' },
+    }, required: ['id', 'ok', 'answer', 'note'] } } },
+    required: ['items'],
+  };
+  var prompt = [
+    'You are a careful English grammar reviewer for a Taiwanese senior-high school exam. Each item is a sentence with one blank ____ and the answer key the teacher wrote.',
+    'The answer key lists acceptable wordings separated by "|"; words in ( ) are optional.',
+    'For each item:',
+    '1. Test every wording in the key by putting it into the blank. It must be grammatical (tense, subject–verb agreement, word form, preposition, article) AND natural/idiomatic in THAT exact sentence. Remove any wording that fails.',
+    '2. Add other wordings that are equally correct and natural in that sentence and fit the hint (other valid inflections, an equally natural phrase with the same meaning), but do NOT add anything doubtful, stylistically odd, or that changes the meaning.',
+    '3. Return "answer" = the corrected full key (use | between wordings and ( ) for optional words; keep the teacher\'s main answer first when it is correct). If the key was already complete and correct, return it unchanged with ok=true. Otherwise ok=false.',
+    '4. "note" = one short sentence in Traditional Chinese (Taiwan usage) saying what you removed or added and why; if nothing changed, say 答案正確。',
+    '',
+    'Items:',
+    items.map(function (x) { return x.id + '. Sentence: ' + x.sentence + (x.hint ? '  (hint: ' + x.hint + ')' : '') + '\n   Answer key: ' + x.answer; }).join('\n'),
+  ].join('\n');
+  var out = (aiCall_(prompt, schema).items || []).map(function (x) {
+    return { id: String(x.id || '').replace(/\.$/, '').trim(), ok: !!x.ok, answer: String(x.answer || '').trim(), note: String(x.note || '').trim() };
+  }).filter(function (x) { return x.id && x.answer; });
+  return { items: out };
 }
 
 // 課文理解：依文章產生選擇題（題目、選項改寫，不照抄文章）
