@@ -872,16 +872,17 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 /* ---------------- 動畫升級：彈簧手感、卡片轉場、成績畫面 ---------------- */
 :root { --spring-soft: linear(0, .27 6%, .8 14%, 1.1 22%, 1.07 30%, .98 42%, 1.01 58%, 1); }
 
-/* 首頁 ↔ 單元頁（View Transitions）：只有主要內容（#app）換頁，導覽列、頁尾不動；進入往上浮現、返回往下浮現，兩個方向動作一致。不支援的瀏覽器沒有這段，用原本的淡入 */
-html[data-vt] #app { view-transition-name: page; } /* 轉場進行中才命名，平常不影響版面與固定定位 */
-::view-transition-group(page) { animation-duration: .34s; }
-::view-transition-old(page) { animation: vt-page-out .16s ease-in both; }
-::view-transition-new(page) { animation: vt-page-in .34s cubic-bezier(.2, .8, .2, 1) both; }
-html[data-vt="back"]::view-transition-new(page) { animation-name: vt-page-in-back; }
-@keyframes vt-page-out { to { opacity: 0; transform: translate3d(0, -6px, 0); } }
-@keyframes vt-page-in { from { opacity: 0; transform: translate3d(0, 14px, 0); } }
-@keyframes vt-page-in-back { from { opacity: 0; transform: translate3d(0, -10px, 0); } }
-::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+/* 首頁 ↔ 單元頁（View Transitions）：被點的卡片逐漸放大成整個頁面，放大完才浮現試題說明；退出時整個頁面縮回原本的卡片。
+   進入與退出用同一張「放大的卡片」，時間、曲線一致。不支援的瀏覽器沒有這段，用原本的淡入 */
+.unit-expand { view-transition-name: unit-card; min-height: calc(100vh - 170px); min-height: calc(100dvh - 170px); border-radius: 22px; background: var(--wash); }
+::view-transition-group(unit-card) { animation-duration: .62s; animation-timing-function: cubic-bezier(.22, .72, .18, 1); }
+::view-transition-image-pair(unit-card) { isolation: auto; }
+::view-transition-old(unit-card) { animation: vt-card-old .62s ease both; }
+::view-transition-new(unit-card) { animation: vt-card-new .62s ease both; }
+@keyframes vt-card-old { 0% { opacity: 1; } 40% { opacity: 0; } 100% { opacity: 0; } }
+@keyframes vt-card-new { 0% { opacity: 0; } 30% { opacity: 0; } 85% { opacity: 1; } 100% { opacity: 1; } }
+/* 放大完成後，卡片底色順著淡成頁面底色，再浮現內容 */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .4s; }
 .unit-head.shell + .loading { animation-delay: .35s; }
 
 /* 彈簧：放開按鈕、卡片、選項時像有重量地回彈（按下去仍然很快） */

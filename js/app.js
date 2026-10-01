@@ -45,6 +45,16 @@ function pageIn(changed, first) {
 }
 app.addEventListener('animationend', (e) => { if (e.target === app) app.classList.remove('page-in'); });
 
+// 等這一頁用到的字型載入完才顯示畫面，不會先出現系統字型、再跳成網站字型（最多等 1.2 秒，字型自己的網站提供，通常很快）
+async function settleFonts() {
+  void app.offsetHeight; // 先排版一次，瀏覽器才知道這頁要用哪些字型
+  if (document.fonts && document.fonts.status === 'loading') {
+    app.style.visibility = 'hidden';
+    await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1200))]);
+    app.style.visibility = '';
+  }
+}
+
 async function route() {
   const here = location.hash || '#/';
   const changed = here !== lastRendered;
@@ -90,21 +100,49 @@ async function route() {
   const toHome = (!kind || kind === '') && prevKind === 'u';
   const useVT = changed && !first && !reduceMotion.matches && typeof document.startViewTransition === 'function' && (toUnit || toHome);
   if (useVT) {
-    // 進入和返回用同一種動作：舊內容淡出，新內容往內容方向淡入（只動主要內容，導覽列和頁尾不動）。
-    // 資料已經在快取時（通常如此）新畫面立刻完整；還在載入就最多等 0.5 秒，不會凍住畫面
-    document.documentElement.dataset.vt = toUnit ? 'fwd' : 'back';
-    let renderDone;
-    const vt = document.startViewTransition(async () => {
-      renderDone = render();
-      await Promise.race([renderDone, new Promise((r) => setTimeout(r, 500))]);
-    });
-    await vt.updateCallbackDone.catch(() => {});
-    await renderDone;
-    vt.finished.finally(() => { delete document.documentElement.dataset.vt; });
-    prevUnitId = toUnit ? findUnit(id).id : '';
+    // 進入：被點的卡片逐漸放大成整個頁面，放大完才載入並浮現試題說明。
+    // 退出：內容先淡出，整個頁面縮回原本的卡片。兩個方向用同一張「放大的卡片」當轉場，時間與手感一致。
+    const EXPAND = '<div class="unit-expand" aria-hidden="true"></div>';
+    const clearNames = () => document.querySelectorAll('[style*="view-transition-name"]').forEach((e) => { e.style.viewTransitionName = ''; });
+    try {
+      if (toUnit) {
+        const tile = app.querySelector(`.unit-tile[data-id="${CSS.escape(findUnit(id).id)}"]`);
+        if (tile) tile.style.viewTransitionName = 'unit-card';
+        const vt = document.startViewTransition(() => { app.innerHTML = EXPAND; });
+        await vt.finished.catch(() => {});
+        clearNames();
+        prevUnitId = findUnit(id).id;
+        await render();
+        await settleFonts();
+        pageIn(true, false);
+      } else {
+        const backId = prevUnitId;
+        // 內容先淡出（只有透明度），再換成放大的卡片縮回去
+        app.style.transition = 'opacity .22s ease';
+        app.style.opacity = '0';
+        await new Promise((r) => setTimeout(r, 230));
+        app.innerHTML = EXPAND;
+        app.style.transition = 'none';
+        app.style.opacity = '';
+        void app.offsetWidth;
+        app.style.transition = '';
+        const vt = document.startViewTransition(async () => {
+          await render();
+          const tile = backId && app.querySelector(`.unit-tile[data-id="${CSS.escape(backId)}"]`);
+          if (tile) tile.style.viewTransitionName = 'unit-card';
+        });
+        await vt.finished.catch(() => {});
+        clearNames();
+        prevUnitId = '';
+      }
+    } finally {
+      delete document.documentElement.dataset.vt;
+      app.style.transition = ''; app.style.opacity = '';
+    }
     return;
   }
   await render();
+  await settleFonts();
   prevUnitId = kind === 'u' && id && findUnit(id) ? findUnit(id).id : (kind === 'u' ? prevUnitId : '');
   pageIn(changed, first);
 }
