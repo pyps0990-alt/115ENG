@@ -299,7 +299,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 .q-prompt .w { font-family: var(--font-read); font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.8rem); color: var(--navy); letter-spacing: -.01em; line-height: 1.15; }
 .q-prompt .zh { font-weight: 900; font-size: clamp(1.4rem, 6vw, 2rem); color: var(--navy); line-height: 1.35; }
 .q-sentence { font-family: var(--font-read); font-size: clamp(1.1rem, 4.4vw, 1.4rem); line-height: 1.75; color: var(--navy); font-weight: 600; max-width: 34em; }
-.q-sentence .blank { display: inline-block; min-width: 4.5em; border-bottom: 3px solid var(--amber); margin: 0 4px; height: 1.1em; vertical-align: -0.1em; }
+.q-sentence .blank, .pq-q .blank, .rv-prompt .blank { display: inline-block; min-width: 4.5em; border-bottom: 3px solid var(--amber); margin: 0 4px; height: 1.1em; vertical-align: -0.1em; }
 .q-sub { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; font-size: .92rem; }
 
 .options { display: grid; gap: 10px; }
