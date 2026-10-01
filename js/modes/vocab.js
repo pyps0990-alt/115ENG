@@ -9,7 +9,7 @@ import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { exampleHTML } from '../util.js';
 import { submitScore } from '../submit.js';
-import { PASS, pickWords } from '../levels.js';
+import { PASS, stageSizes, partitionWords } from '../levels.js';
 
 const HINT_COST = 0.25;
 const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ''));
@@ -18,7 +18,8 @@ export function mount(stage, ctx) {
   const levels = ctx.levels;
   const all = ctx.allWords;
   const unitId = ctx.unit.id;
-  const n = Math.min(ctx.questionCount, all.length);
+  const sizes = stageSizes(all.length, levels.length);
+  const nPhrase = all.filter((w) => w.type === 'phrase').length;
   let alive = true;
   let advanceTimer = null;
   let onKey = null;
@@ -60,27 +61,26 @@ export function mount(stage, ctx) {
     eyebrow: levels.map((l) => l.en).join(' → '),
     title: `${ctx.unit.title}連續測驗`,
     rules: [
-      `連續 <b>${levels.length}</b> 段，每段 <b>${n}</b> 題，共 <b>${levels.length * n}</b> 題，同一組單字片語越考越難`,
+      `共 <b>${all.length}</b> 個（單字 ${all.length - nPhrase}、片語 ${nPhrase}），分成 <b>${levels.length}</b> 段（${sizes.join('、')} 題），每個字這次只考一次，全部都會考到`,
+      '複習時單字會重新分配到不同的階段，題型和例句也會換',
       ...levels.map((l, i) => `第 ${i + 1} 段 <b>${l.name}</b>：${esc(l.desc)}`),
       `三段總分達 <b>${PASS}%</b> 就算通過`,
     ],
     best: () => store.best(unitId).vocab,
     review: () => store.done(unitId),
     reviewed: () => store.reviewed(unitId),
-    onStart: (s, review) => play(s, levels.map((l) => ({ level: l, words: pickedWords() })), true, review),
+    onStart: (s, review) => play(s, stagesNow(), true, review),
     onReview: () => startReview((store.first(unitId) || {}).details),
   });
 
-  let picked = null;
-  function pickedWords() {
-    // 三段共用同一組單字，第一次呼叫時抽字
-    if (!picked) picked = pickWords(all, n, unitId);
-    return picked;
-  }
+  // 每次開始（含複習）重新分配：全部單字分到各階段，每個字只考一次
+  const stagesNow = () => {
+    const groups = partitionWords(all, levels.length, unitId);
+    return levels.map((l, i) => ({ level: l, words: groups[i] })).filter((x) => x.words.length);
+  };
 
   // stagesIn: [{ level, words }]；official=false 為錯題練習，不送出成績；review=true 為做過正式測驗後的複習
   function play(student, stagesIn, official, review = false) {
-    picked = null;
     const stages = stagesIn.map(({ level, words }) => ({ level, qs: level.build(shuffle(words), all), points: 0, wrong: [] }));
     const total = stages.reduce((s, x) => s + x.qs.length, 0);
     let si = 0; let qi = 0; let done = 0; let streak = 0; let bestStreak = 0;
@@ -250,7 +250,7 @@ export function mount(stage, ctx) {
           });
         }
         if (official) actions.push({ label: '逐題檢討', icon: icon.bulb, onClick: () => startReview(details) });
-        actions.push({ label: '再複習一次', icon: icon.shuffle, primary: !wrong.length, onClick: () => play(student, levels.map((l) => ({ level: l, words: pickedWords() })), true, true) });
+        actions.push({ label: '再複習一次', icon: icon.shuffle, primary: !wrong.length, onClick: () => play(student, stagesNow(), true, true) });
       }
       const box = renderResult(stage, {
         title: !official ? '錯題練習完成' : `${review ? '複習' : '三段測驗'}${passed ? '通過！' : '完成'}`,

@@ -1250,6 +1250,7 @@ function validateContent_(type, d) {
   if (!d || typeof d !== 'object') return '資料格式錯誤';
   if (type === 'vocab') {
     if (!Array.isArray(d.words) || d.words.length < 4) return '單字片語至少要 4 個';
+    if (d.words.length > 30) return '一個單元最多 30 個單字片語，請拆成兩個單元';
     for (var i = 0; i < d.words.length; i++) {
       var w = d.words[i];
       if (!w.word || !w.zh) return '第 ' + (i + 1) + ' 個缺少英文或中文';
@@ -1655,6 +1656,7 @@ function aiGenerateReading(passage, count, title) {
 // items: [{ word, zh, example }]（example 是現有的第一句，給 AI 當參考、避免重複出同樣情境）
 function aiAddExamples(items) {
   assertTeacher_();
+  // items: [{ word, zh, example, need }]；need = 還缺幾句（1–2），目標是每個字共 3 句
   items = (items || []).filter(function (x) { return x && x.word && x.zh && x.example; }).slice(0, 60);
   if (!items.length) throw new Error('請先填好每個字的英文、中文與至少一句例句');
   var schema = {
@@ -1664,8 +1666,11 @@ function aiAddExamples(items) {
         type: 'ARRAY',
         items: {
           type: 'OBJECT',
-          properties: { word: { type: 'STRING' }, example: { type: 'STRING' }, exampleZh: { type: 'STRING' } },
-          required: ['word', 'example', 'exampleZh'],
+          properties: {
+            word: { type: 'STRING' },
+            examples: { type: 'ARRAY', items: { type: 'OBJECT', properties: { example: { type: 'STRING' }, exampleZh: { type: 'STRING' } }, required: ['example', 'exampleZh'] } },
+          },
+          required: ['word', 'examples'],
         },
       },
     },
@@ -1674,16 +1679,19 @@ function aiAddExamples(items) {
   var prompt = [
     'You are an English teacher preparing extra practice sentences for 11th-grade students in Taiwan.',
     'For each word or phrase below, its Chinese meaning and an EXISTING example sentence are given.',
-    'Write ONE NEW example sentence for it, in a clearly different context/situation than the existing one, CEFR B1–B2, 8–16 words,',
+    'Write the requested number of NEW example sentences for it. Every new sentence must be in a clearly different context/situation than the existing one and than each other, CEFR B1–B2, 8–16 words,',
     'with the target word or phrase (an inflected form is fine — past tense, plural, -ing, etc.) wrapped exactly once in square brackets,',
-    'e.g. "She [adapted] quickly to her new school." Also give a natural Traditional Chinese translation.',
+    'e.g. "She [adapted] quickly to her new school." Also give a natural Traditional Chinese translation of each sentence (students use the translation as a hint).',
     '',
     'Words:',
-    items.map(function (x, i) { return (i + 1) + '. ' + x.word + '（' + x.zh + '）existing example: ' + x.example; }).join('\n'),
+    items.map(function (x, i) { return (i + 1) + '. ' + x.word + '（' + x.zh + '）existing example: ' + x.example + ' — write ' + Math.max(1, Math.min(2, Number(x.need) || 1)) + ' new sentence(s)'; }).join('\n'),
   ].join('\n');
   var out = (aiCall_(prompt, schema).items || []).map(function (x) {
-    return { word: String(x.word || '').trim(), example: String(x.example || '').trim(), exampleZh: String(x.exampleZh || '').trim() };
-  }).filter(function (x) { return x.word && x.example; });
+    return {
+      word: String(x.word || '').trim(),
+      examples: (x.examples || []).map(function (e) { return { example: String(e.example || '').trim(), exampleZh: String(e.exampleZh || '').trim() }; }).filter(function (e) { return e.example; }),
+    };
+  }).filter(function (x) { return x.word && x.examples.length; });
   return { items: out };
 }
 
