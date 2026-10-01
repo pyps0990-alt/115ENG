@@ -22,7 +22,7 @@ assert.equal(await p.locator('.unit-head.shell').count(), 0, '載入完成後換
 await p.click('.back'); await p.waitForSelector('.unit-tile');
 assert.equal(await p.evaluate(() => window.__vt), 2, '返回要用卡片轉場');
 await sleep(600);
-assert.equal(await p.evaluate(() => document.querySelectorAll('[style*="view-transition-name"]').length), 0, '轉場結束後要清掉 view-transition-name');
+assert.equal(await p.evaluate(() => document.documentElement.dataset.vt || ""), "", "轉場結束後要清掉方向標記");
 // 成績畫面
 await p.click('.unit-tile'); await p.waitForSelector('[data-start]'); await p.click('[data-start]');
 await p.waitForSelector('.opt'); await p.locator('.opt').first().click();

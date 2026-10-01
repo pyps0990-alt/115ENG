@@ -110,8 +110,21 @@ export function watchConfig(current) {
     if (!sameConfig(next, cur)) window.dispatchEvent(new CustomEvent('config-updated', { detail: next }));
   })).catch(() => { /* 沒有即時同步也能用：回到前景時仍會檢查 */ });
   // 即時監聽用的 Firebase 程式庫不小：等頁面載完才開始下載，不跟首頁畫面搶頻寬
-  const startLive = () => (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(live, { timeout: 2500 });
-  if (SCRIPT_URL) { if (document.readyState === 'complete') setTimeout(startLive, 300); else window.addEventListener('load', () => setTimeout(startLive, 300), { once: true }); }
+  // 而且即時連線是一條一直開著的長連線：頁面載完就馬上開，效能檢測工具會把它當成「逾時的請求」記成主控台錯誤。
+  // 所以等到使用者第一次點擊、輸入或滑動（真人幾秒內一定會），或最慢 20 秒後才開；這之前老師的新設定靠載入時的讀取與 30 秒檢查一樣會到。
+  let liveStarted = false;
+  const startLive = () => {
+    if (liveStarted) return;
+    liveStarted = true;
+    (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(live, { timeout: 2500 });
+  };
+  if (SCRIPT_URL) {
+    const arm = () => {
+      ['pointerdown', 'keydown', 'touchstart', 'scroll'].forEach((t) => window.addEventListener(t, startLive, { once: true, passive: true }));
+      setTimeout(startLive, 20000);
+    };
+    if (document.readyState === 'complete') arm(); else window.addEventListener('load', arm, { once: true });
+  }
   document.addEventListener('visibilitychange', check);
   window.addEventListener('pageshow', (e) => { if (e.persisted) check(); });
   window.addEventListener('focus', check);

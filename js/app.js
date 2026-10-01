@@ -37,7 +37,6 @@ let lastRendered = null;
 let lastDepth = 0;
 let lastKind = '';
 let prevUnitId = '';
-let vtActive = false; // 轉場進行中：單元標題要帶 view-transition-name，卡片才能順著變成標題
 function pageIn(changed, first) {
   // 第一次畫面不做進場動畫：從透明開始會讓「最大內容繪製」延後；也不用強制重排，改在下一格重新加上動畫
   if (!changed || first || reduceMotion.matches) return;
@@ -86,35 +85,22 @@ async function route() {
       showError(err);
     }
   };
-  // 首頁 ↔ 單元頁：卡片放大成單元頁標題（返回時縮回卡片）。不支援 View Transitions 的瀏覽器直接用原本的淡入。
+  // 首頁 ↔ 單元頁的換頁動畫（View Transitions）。不支援的瀏覽器直接用原本的淡入。
   const toUnit = kind === 'u' && id && prevKind !== 'u' && findUnit(id);
   const toHome = (!kind || kind === '') && prevKind === 'u';
   const useVT = changed && !first && !reduceMotion.matches && typeof document.startViewTransition === 'function' && (toUnit || toHome);
   if (useVT) {
-    const out = toUnit ? app.querySelector(`.unit-tile[data-id="${CSS.escape(findUnit(id).id)}"]`) : app.querySelector('.unit-head');
-    if (out) out.style.viewTransitionName = 'unit-card';
-    const backId = prevUnitId;
-    let vt;
-    if (toUnit) {
-      // 和返回一樣：轉場的「新畫面」是完整的單元頁。資料已經在快取時（通常如此）立刻就完整；
-      // 還在載入就最多等 0.5 秒，之後先用標題外框轉場，資料到了再接著顯示，不會凍住畫面
-      vtActive = true;
-      let renderDone;
-      vt = document.startViewTransition(async () => {
-        renderDone = render();
-        await Promise.race([renderDone, new Promise((r) => setTimeout(r, 500))]);
-      });
-      await vt.updateCallbackDone.catch(() => {});
-      await renderDone;
-    } else {
-      vt = document.startViewTransition(async () => {
-        await render();
-        const tile = backId && app.querySelector(`.unit-tile[data-id="${CSS.escape(backId)}"]`);
-        if (tile) tile.style.viewTransitionName = 'unit-card';
-      });
-      await vt.updateCallbackDone.catch(() => {});
-    }
-    vt.finished.finally(() => { vtActive = false; document.querySelectorAll('[style*="view-transition-name"]').forEach((e) => { e.style.viewTransitionName = ''; }); });
+    // 進入和返回用同一種動作：舊內容淡出，新內容往內容方向淡入（只動主要內容，導覽列和頁尾不動）。
+    // 資料已經在快取時（通常如此）新畫面立刻完整；還在載入就最多等 0.5 秒，不會凍住畫面
+    document.documentElement.dataset.vt = toUnit ? 'fwd' : 'back';
+    let renderDone;
+    const vt = document.startViewTransition(async () => {
+      renderDone = render();
+      await Promise.race([renderDone, new Promise((r) => setTimeout(r, 500))]);
+    });
+    await vt.updateCallbackDone.catch(() => {});
+    await renderDone;
+    vt.finished.finally(() => { delete document.documentElement.dataset.vt; });
     prevUnitId = toUnit ? findUnit(id).id : '';
     return;
   }
@@ -267,7 +253,7 @@ function tileHTML(u) {
 /* ---------------- unit ---------------- */
 // 轉場用的單元標題外框（資料載入前先顯示，版面和正式標題一致）
 function unitShellHTML(meta) {
-  return `<div class="unit-head shell"${vtActive ? ' style="view-transition-name:unit-card"' : ''}>
+  return `<div class="unit-head shell">
       <a class="back" href="#/">${icon.back} 所有單元</a>
       <div class="eyebrow">Lesson ${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
@@ -282,7 +268,7 @@ function headHTML(meta, data) {
     : meta.type === 'pattern' ? `${(data.items || []).length} 題句型練習`
     : meta.type === 'exam' ? `${meta.count || ''} 題段考複習`.trim()
     : `${(data.questions || []).length} 題閱讀測驗`;
-  return `<div class="unit-head"${vtActive ? ' style="view-transition-name:unit-card"' : ''}>
+  return `<div class="unit-head">
       <a class="back" href="#/">${icon.back} 所有單元</a>
       <div class="eyebrow">Lesson ${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
