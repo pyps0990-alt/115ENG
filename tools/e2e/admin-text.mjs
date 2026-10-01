@@ -11,14 +11,15 @@ const code = [
   grab('function normQ(s)', '\n    function refreshRefs').replace(/function refreshRefs[^]*/, ''),
   grab('function words_(s)', '\n    function parseReading'),
   grab('var HELP = {', "    $('ai-text').onclick"),
+  grab('function reEsc(x)', '    function words_'),
   grab('function csvToTsv(text)', '    function readTextFile'),
   grab('function serVocab(d)', '    function fillForm'),
 ].join('\n').replace(/function \$\(id\) \{[^\n]*\n/, '').replace(/\$\('t-example'\)\.onclick = function[\s\S]*?\n    };\n/, '').replace(/function textShow[\s\S]*?\n    }\n    /, '');
 const els = { 't-topic': { value: '主題' }, 't-text': { value: '' }, 'imp-report': { innerHTML: '' } };
-const ctx = { $: (id) => els[id] || (els[id] = { value: '' }), console };
+const ctx = { $: (id) => els[id] || (els[id] = { value: '' }), console, impUnit: () => ({ title: 'U' }) };
 vm.createContext(ctx);
-vm.runInContext(code + '\nthis.api = { parseTextType, serPattern, serExam, EXAMPLE, validatePE, csvToTsv, serVocab, serReading, splitBlocks };', ctx);
-const { parseTextType, serPattern, serExam, EXAMPLE, csvToTsv, serVocab, serReading, splitBlocks } = ctx.api;
+vm.runInContext(code + '\nthis.api = { parseVocab, parseTextType, serPattern, serExam, EXAMPLE, validatePE, csvToTsv, serVocab, serReading, splitBlocks };', ctx);
+const { parseVocab, parseTextType, serPattern, serExam, EXAMPLE, csvToTsv, serVocab, serReading, splitBlocks } = ctx.api;
 const plain = (o) => JSON.parse(JSON.stringify(o));
 
 for (const type of ['pattern', 'exam']) {
@@ -72,4 +73,14 @@ const f = splitBlocks('[閱讀]\n' + txt)[0].f;
 assert.equal(f['Q1依據'], 'Three four');
 assert.equal(f['Q2依據句'], '1-1');
 assert.equal(f['Q1答案'], 'C');
+// 單字片語：每個字 3 句例句＋3 句翻譯
+const ph = html.match(/id="v-text"[^>]*placeholder="([^"]*)"/)[1].replace(/&#9;/g, '\t').replace(/&#10;/g, '\n');
+els['v-text'] = { value: ph + '\nadapt | v. | 適應 | She [adapted] fast. ; We must [adapt]. ; Animals [adapt]. | 她很快適應。 ; 我們必須適應。 ; 動物適應。\nbig | adj. | 大的 | A [big] dog. ; A [big] city. ; A [big] idea. | 大狗。 ; 大城市。 ; 大想法。' };
+els['v-topic'] = { value: '' };
+const vd = plain(parseVocab());
+assert(vd && vd.words.length === 4, '範例（兩行）加兩行共 4 個字：' + els['imp-report'].innerHTML);
+assert.equal(vd.words[0].examples.length, 3);
+assert.equal(vd.words[1].type, 'phrase');
+assert.equal(vd.words[1].examples[2].zh, '市場很快反彈。');
+assert.match(els['imp-report'].innerHTML, /建議每個單元：?單字|建議每個單元 20/);
 console.log('後台文字格式解析測試通過');

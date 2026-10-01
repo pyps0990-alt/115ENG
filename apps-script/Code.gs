@@ -1421,8 +1421,8 @@ var AI_PROMPT_DEFAULTS = {
     '- "word": exactly as given',
     '- "pos": one of n. / v. / adj. / adv. / prep. / conj. / phr. (use "phr." for multi-word phrases; for words with two common uses write e.g. "n. / v.")',
     '- "zh": the most common meaning in Traditional Chinese (Taiwan usage), short, with ； between senses, at most two senses',
-    '- "example": one natural example sentence at CEFR B1–B2 level, 8–16 words, in which the target word or phrase appears once and is wrapped in square brackets, e.g. "The team [bounced back] after the loss." The bracketed text may be an inflected form (past tense, plural, -ing).',
-    '- "exampleZh": a natural Traditional Chinese translation of the example',
+    '- "examples": EXACTLY 3 natural example sentences, each at CEFR B1–B2 level, 8–16 words, each in a clearly different situation/context (e.g. school, family, society). In every sentence the target word or phrase appears once and is wrapped in square brackets, e.g. "The team [bounced back] after the loss." The bracketed text may be an inflected form (past tense, plural, -ing).',
+    '- "exampleZh" of each example: a natural Traditional Chinese translation of that sentence (students read it as a hint, so it must match the sentence exactly)',
   ].join('\n'),
   reading: [
     '- Mix these question types and put the type in "skill": 主旨 (main idea), 細節 (detail), 字義 (word meaning in context), 推論 (inference), 態度 (attitude/tone). Use 主旨 at most once.',
@@ -1708,9 +1708,9 @@ function aiFillVocab(items) {
           type: 'OBJECT',
           properties: {
             word: { type: 'STRING' }, pos: { type: 'STRING' }, zh: { type: 'STRING' },
-            example: { type: 'STRING' }, exampleZh: { type: 'STRING' },
+            examples: { type: 'ARRAY', items: { type: 'OBJECT', properties: { example: { type: 'STRING' }, exampleZh: { type: 'STRING' } }, required: ['example', 'exampleZh'] } },
           },
-          required: ['word', 'pos', 'zh', 'example', 'exampleZh'],
+          required: ['word', 'pos', 'zh', 'examples'],
         },
       },
     },
@@ -1718,16 +1718,17 @@ function aiFillVocab(items) {
   };
   var prompt = [
     'You are an English teacher at a senior high school in Taiwan preparing a vocabulary list for 11th-grade students.',
-    'For each English word or phrase below, return one entry in the same order with the fields word, pos, zh, example, exampleZh, following these rules:',
+    'For each English word or phrase below, return one entry in the same order with the fields word, pos, zh, examples (each with example and exampleZh), following these rules:',
     aiGuidance_('vocab'),
     '',
     'Words:',
     items.map(function (w, i) { return (i + 1) + '. ' + w; }).join('\n'),
   ].join('\n');
   var out = (aiCall_(prompt, schema).words || []).map(function (w) {
+    var exs = (w.examples || []).map(function (e) { return { example: String(e.example || '').trim(), exampleZh: String(e.exampleZh || '').trim() }; }).filter(function (e) { return e.example; }).slice(0, 3);
     return {
       word: String(w.word || '').trim(), pos: String(w.pos || '').trim(), zh: String(w.zh || '').trim(),
-      example: String(w.example || '').trim(), exampleZh: String(w.exampleZh || '').trim(),
+      examples: exs, example: exs.length ? exs[0].example : '', exampleZh: exs.length ? exs[0].exampleZh : '',
     };
   }).filter(function (w) { return w.word; });
   return { words: out };

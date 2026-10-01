@@ -287,17 +287,19 @@
           <label>主題（顯示在首頁卡片上，可空白）<input type="text" id="v-topic" placeholder="例：Resilience"></label>
           <div class="help">
             <b>單字片語　匯入格式</b><br>
-            每行一個單字或片語，欄位順序：<b>英文、詞性、中文、例句、例句翻譯（可省略）</b>。<br>
-            從 Excel 或 Google 試算表選取這幾欄直接複製貼上即可；也可以自己打字，用 <code>|</code> 隔開。<br>
-            例句中要考的部分用 <code>[ ]</code> 括起來，例如 <code>The team [bounced back] quickly.</code>；沒括的話會自動找出來。含空格或詞性寫 <code>phr.</code> 的會當成片語。<br>
-            <b>同一個字可以放不只一句例句</b>：在例句欄用 <code>;</code> 隔開幾句（例句翻譯欄也用 <code>;</code> 對應隔開），學生每次考這個字的例句題會隨機抽一句，不會每次都一樣。<b>建議每個字 3 句，並附中文翻譯</b>（翻譯會當成例句題的中文提示）。<br><b>建議每個單元：單字 20–25 個、片語 2–5 個，最多 30 個。</b>測驗時全部單字會依數量平均分到各階段，每個字考一次。
+            每行一個單字或片語，欄位順序：<b>英文、詞性、中文、例句（3 句）、例句翻譯（3 句）</b>。<br>
+            <b>每個字請放 3 句例句</b>：在例句欄用 <code>;</code> 隔開 3 句，例句翻譯欄也用 <code>;</code> 依相同順序隔開 3 句翻譯。三句請用不同的情境；學生每次考這個字的例句題會隨機抽其中一句，不同學生拿到的題目就不會一樣。翻譯會當成例句題的中文提示，所以請一定要填。<br>
+            從 Excel 或 Google 試算表選取這幾欄直接複製貼上即可；也可以自己打字，欄位之間用 <code>|</code> 隔開。<br>
+            例句中要考的部分用 <code>[ ]</code> 括起來，例如 <code>The team [bounced back] quickly.</code>（可以是變化後的形態，如 <code>[adapted]</code>）；沒括的話會自動找出來。含空格或詞性寫 <code>phr.</code> 的會當成片語。<br>
+            範例（一行）：<code>adapt | v. | 適應 | She [adapted] quickly to her new school. ; We must [adapt] to climate change. ; Animals [adapt] to survive. | 她很快適應了新學校。 ; 我們必須適應氣候變遷。 ; 動物為了生存而適應環境。</code><br>
+            <b>建議每個單元：單字 20–25 個、片語 2–5 個，最多 30 個。</b>測驗時全部單字會依數量平均分到各階段，每個字考一次。
           </div>
           <div class="bar">
-            <button class="btn ai" id="ai-vocab" type="button">✦ AI 補齊詞性、中文與例句</button>
+            <button class="btn ai" id="ai-vocab" type="button">✦ AI 補齊詞性、中文與 3 句例句</button>
             <button class="btn ai" id="ai-more-ex" type="button">✦ AI 補齊到每個字 3 句例句</button>
-            <span class="muted">已經填好的行不會被改動；多加例句是額外補在原本的例句後面。</span>
+            <span class="muted">已經填好的欄位不會被改動；「補齊到 3 句」只補不足的句數，附在原本例句後面。</span>
           </div>
-          <label>單字片語<textarea id="v-text" spellcheck="false" placeholder="resilient&#9;adj.&#9;有韌性的&#9;Children are often more [resilient] than adults think.&#9;孩子往往比大人想像的更有韌性。&#10;bounce back | phr. | （挫折後）很快恢復 | The team [bounced back] after losing. | 球隊很快重新振作。"></textarea></label>
+          <label>單字片語<textarea id="v-text" spellcheck="false" placeholder="resilient&#9;adj.&#9;有韌性的&#9;Children are often more [resilient] than adults think. ; The [resilient] team recovered quickly. ; Plants that are [resilient] survive dry summers.&#9;孩子往往比大人想像的更有韌性。 ; 這支有韌性的隊伍很快恢復了。 ; 有韌性的植物能熬過乾燥的夏天。&#10;bounce back | phr. | （挫折後）很快恢復 | The team [bounced back] after losing. ; She [bounced back] from the illness. ; Markets [bounce back] fast. | 球隊輸球後很快重新振作。 ; 她從病中很快恢復。 ; 市場很快反彈。"></textarea></label>
         </div>
 
         <div id="imp-reading" class="imp-grid" hidden>
@@ -1638,7 +1640,8 @@
           var w = byWord[t.word.toLowerCase()];
           if (!w) return;
           var k = t.keep;
-          lines[t.i] = [t.word, k[1] || w.pos, k[2] || w.zh, k[3] || w.example, k[4] || w.exampleZh].join('\t');
+          var exs = (w.examples && w.examples.length) ? w.examples : [{ example: w.example, exampleZh: w.exampleZh }];
+          lines[t.i] = [t.word, k[1] || w.pos, k[2] || w.zh, k[3] || exs.map(function (e) { return e.example; }).join(' ; '), k[4] || exs.map(function (e) { return e.exampleZh; }).join(' ; ')].join('\t');
           filled++;
         });
         $('v-text').value = lines.join('\n');
