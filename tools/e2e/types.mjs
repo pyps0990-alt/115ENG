@@ -117,6 +117,24 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
     await shot('drag-ok');
     await p.locator('[data-next]:not([hidden])').click(); await p.waitForSelector('.result', { timeout: 8000 });
   });
+  await step(`[${label}] 句型練習：錯題重練（不計成績）`, async () => {
+    const q2 = await world.newContext({ viewport: { width: w, height: h } });
+    const p2 = await world.newPage(q2, { student: true });
+    await p2.goto(world.base + '/#/u/l2-drag'); await p2.waitForSelector('[data-start]');
+    await p2.click('[data-start]'); await p2.waitForSelector('.bank .chip-word');
+    for (const t of ['lot', 'a', 'I']) await p2.locator('.bank .chip-word:not([disabled])', { hasText: new RegExp('^' + t + '$') }).first().click();
+    await p2.locator('[data-check]').click(); await p2.waitForSelector('.build-line.no');
+    await p2.locator('[data-next]:not([hidden])').click(); await p2.waitForSelector('.result');
+    await p2.getByRole('button', { name: /重練錯的 1 題/ }).click();
+    await p2.waitForSelector('.bank .chip-word');
+    assert.match(await p2.locator('.level-chip').textContent(), /錯題重練/);
+    for (const t of ['I', 'like', 'red', 'apples', 'a', 'lot']) await p2.locator('.bank .chip-word:not([disabled])', { hasText: new RegExp('^' + t + '$') }).first().click();
+    await p2.locator('[data-check]').click(); await p2.waitForSelector('.build-line.ok');
+    await p2.locator('[data-next]:not([hidden])').click(); await p2.waitForSelector('.result');
+    assert.match(await p2.locator('.result').textContent(), /不計入成績/);
+    assert.equal(p2.errors.filter((e) => !/favicon/.test(e)).length, 0, p2.errors.join('\n'));
+    await q2.close();
+  });
   await step(`[${label}] 段考複習：一頁作答 → 交卷 → 成績 → 檢討`, async () => {
     await p.goto(world.base + '/#/u/l2-exam'); await p.waitForSelector('[data-start]');
     await p.click('[data-start]'); await p.waitForSelector('.exam-body');

@@ -56,8 +56,9 @@ export function mount(stage, ctx) {
     onReview: () => startReview((store.first(unitId) || {}).details),
   });
 
-  function play(student, review = false) {
-    const qs = shuffle(all).slice(0, n);
+  // redo：只重練指定的題目（錯題重練），不計成績、不送出
+  function play(student, review = false, redo = null) {
+    const qs = redo ? shuffle(all.filter((q) => redo.includes(q.id))) : shuffle(all).slice(0, n);
     let qi = 0; let streak = 0; let bestStreak = 0; let points = 0;
     const details = [];
     let current = null;
@@ -69,7 +70,7 @@ export function mount(stage, ctx) {
     stage.innerHTML = `
       <div class="quiz">
         <div class="quiz-bar">
-          ${review ? '<span class="level-chip">複習</span>' : ''}
+          ${redo ? '<span class="level-chip">錯題重練</span>' : review ? '<span class="level-chip">複習</span>' : ''}
           <div class="bar"><span></span></div>
           <span class="quiz-stat" data-n></span>
           <span class="quiz-stat streak" data-streak title="連續答對">${icon.flame}<b>0</b></span>
@@ -134,11 +135,11 @@ export function mount(stage, ctx) {
       const pct = Math.round((points / qs.length) * 100);
       const durationSec = Math.round((Date.now() - t0) / 1000);
       const stamp = nowStamp();
-      store.setBest(unitId, 'pattern', pct);
+      if (!redo) store.setBest(unitId, 'pattern', pct);
       const byKind = {};
       details.forEach((d) => { const k = (byKind[d.kind] = byKind[d.kind] || { ok: 0, n: 0 }); k.n++; if (d.ok) k.ok++; });
       const per = Object.entries(byKind).map(([k, v]) => `${k} ${v.ok}/${v.n}`).join('・');
-      const firstTest = !review;
+      const firstTest = !review && !redo;
       if (firstTest) store.setFirst(unitId, { mode: 'pattern', details });
       stage.innerHTML = '';
       const bars = `<div class="stage-bars">${Object.entries(byKind).map(([k, v]) => {
@@ -147,19 +148,29 @@ export function mount(stage, ctx) {
       }).join('')}</div>`;
       const wrongN = details.filter((d) => !d.ok).length;
       const actions = [];
-      if (firstTest) actions.push({ label: '開始檢討', icon: icon.bulb, primary: true, onClick: () => startReview(details) });
+      if (redo) {
+        const again = details.filter((d) => !d.ok).map((d) => d.word);
+        if (again.length) actions.push({ label: `再練錯的 ${again.length} 題`, icon: icon.shuffle, primary: true, onClick: () => play(student, review, again) });
+        actions.push({ label: '完成', icon: icon.check, primary: !again.length, onClick: () => { gate.redraw(); window.scrollTo(0, 0); } });
+      } else if (firstTest) actions.push({ label: '開始檢討', icon: icon.bulb, primary: true, onClick: () => startReview(details) });
       else {
         if (wrongN) actions.push({ label: `檢討錯的 ${wrongN} 題`, icon: icon.bulb, primary: true, onClick: () => startReview(details) });
         actions.push({ label: '再練一次', icon: icon.shuffle, primary: !wrongN, onClick: () => play(student, true) });
       }
+      if (!redo && wrongN && firstTest) actions.push({ label: `重練錯的 ${wrongN} 題（不計成績）`, icon: icon.shuffle, onClick: () => play(student, false, details.filter((d) => !d.ok).map((d) => d.word)) });
       const box = renderResult(stage, {
-        title: `${review ? '複習' : '句型練習'}${pct >= PASS ? '通過！' : '完成'}`,
+        title: redo ? '錯題重練完成' : `${review ? '複習' : '句型練習'}${pct >= PASS ? '通過！' : '完成'}`,
         pct,
         scoreText: `${points} / ${qs.length}`,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
-        extraHTML: `${bars}${stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`,
+        extraHTML: `${bars}${redo ? "" : stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`,
         actions,
       });
+      if (redo) {
+        const slot0 = box.querySelector('[data-submit]');
+        if (slot0) slot0.innerHTML = '<p class="muted">這是練習，不計入成績。</p>';
+        return;
+      }
       const res = await submitScore({
         clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
         unit: unitId, unitTitle: ctx.unit.title, mode: 'pattern', review,

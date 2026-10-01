@@ -238,6 +238,13 @@
           <button class="btn" id="imp-load" type="button">載入目前內容</button>
           <button class="btn" id="imp-reset" type="button">清除這個單元的題目</button>
         </div>
+        <div class="bar">
+          <label class="btn" style="cursor:pointer">從檔案匯入<input type="file" id="imp-file" accept=".csv,.tsv,.txt,.md,.json,text/*" hidden></label>
+          <button class="btn" id="imp-copy" type="button">複製目前題目（文字）</button>
+          <button class="btn" id="imp-dl" type="button">下載題目（文字檔）</button>
+          <button class="btn" id="imp-dljson" type="button">下載 JSON 備份</button>
+          <span class="muted">檔案支援 CSV（Excel 另存新檔）、TSV、TXT、JSON；複製、下載的是已儲存的題目，可以貼到別的單元。</span>
+        </div>
 
         <details class="ai-box" id="ai-box">
           <summary>AI 設定<span id="ai-status" class="pill">讀取中…</span></summary>
@@ -298,6 +305,14 @@
           <label>主題（顯示在首頁卡片上，可空白，預設用文章標題）<input type="text" id="r-topic"></label>
           <label>文章（段落之間空一行）<textarea id="r-passage" spellcheck="false"></textarea></label>
           <div class="help"><b>課文理解　匯入格式</b>（<b>每一題都必須有原文依據</b>，包含主旨題）<br>依序填：文章標題、主題、文章（段落之間空一行），再逐題填「題型、題目（英文）、四個選項、點選正確答案、中文解析」。「關鍵字句」從文章直接複製最能證明答案的一段，學生檢討時會標亮；沒填可改選「原文依據」的句子。<br>題目與選項請用自己的話改寫，<b>不要照抄文章</b>：和文章連續 6 個英文字以上相同會無法儲存，連續 5 個字會提醒。</div>
+          <details class="ai-box" id="r-bulk-box">
+            <summary>批次貼上文字格式（整篇一次填入表單）</summary>
+            <div class="imp-grid">
+              <div class="help">格式和段考複習的 <code>[閱讀]</code> 相同，不用寫 <code>[閱讀]</code>：<code>標題：</code>、<code>文章：</code>（段落之間空一行）、<code>Q1：</code>題目、<code>Q1選項：</code>（用 <code>|</code> 隔開）、<code>Q1答案：</code>（A–D）、<code>Q1解析：</code>、<code>Q1依據：</code>（必填，從文章複製的關鍵字句）、<code>Q1技巧：</code>（主旨／細節／字義／推論／態度）。按「填入表單」後可以再逐題調整。</div>
+              <label>文字<textarea id="r-bulk" spellcheck="false" style="min-height:180px"></textarea></label>
+              <div class="bar"><button class="btn" id="r-bulk-go" type="button">填入表單</button><span class="msg" id="r-bulk-msg"></span></div>
+            </div>
+          </details>
           <div class="bar"><button class="btn ai" id="ai-reading" type="button">✦ AI 產生題目</button>
             <label style="display:flex;align-items:center;gap:6px;font-weight:400">題數 <select id="ai-count"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>8</option><option>10</option></select></label>
             <span class="muted">會取代下方目前的題目；產生後請逐題確認再儲存。</span></div>
@@ -870,13 +885,30 @@
     $('r-add').onclick = function () { addQ(); impDirty(); };
 
     // ----- 讀取目前內容 -----
+    function serVocab(d) {
+      return (d.words || []).map(function (w) {
+        var exs = (w.examples && w.examples.length) ? w.examples : [{ ex: w.example || '', zh: w.exampleZh || '' }];
+        return [w.word, w.pos || '', w.zh, exs.map(function (e) { return e.ex; }).join(' ; '), exs.map(function (e) { return e.zh || ''; }).join(' ; ')].join('\t');
+      }).join('\n');
+    }
+    function serReading(d) {
+      var o = [];
+      if (d.title) o.push('標題：' + d.title);
+      o.push('文章：' + (d.passage || []).join('\n\n'));
+      (d.questions || []).forEach(function (q, j) {
+        var pre = 'Q' + (j + 1);
+        o.push(pre + '：' + q.q, pre + '選項：' + (q.options || []).join(' | '), pre + '答案：' + 'ABCDEFGHIJ'[q.answer]);
+        if (q.explain) o.push(pre + '解析：' + q.explain);
+        if (q.key) o.push(pre + '依據：' + q.key);
+        else if (q.ref) o.push(pre + '依據句：' + q.ref);
+        if (q.skill) o.push(pre + '技巧：' + q.skill);
+      });
+      return o.join('\n');
+    }
     function fillForm(u, d) {
       if (u.type === 'vocab') {
         $('v-topic').value = d.topic || '';
-        $('v-text').value = (d.words || []).map(function (w) {
-          var exs = (w.examples && w.examples.length) ? w.examples : [{ ex: w.example || '', zh: w.exampleZh || '' }];
-          return [w.word, w.pos || '', w.zh, exs.map(function (e) { return e.ex; }).join(' ; '), exs.map(function (e) { return e.zh || ''; }).join(' ; ')].join('\t');
-        }).join('\n');
+        $('v-text').value = serVocab(d);
       } else if (u.type === 'pattern' || u.type === 'exam') {
         $('t-topic').value = d.topic || '';
         $('t-text').value = u.type === 'pattern' ? serPattern(d) : serExam(d);
@@ -1076,7 +1108,7 @@
         var h = /^\s*\[(選擇|填空|應用|拼寫|片語|閱讀|綜合|選填|篇章)\]\s*(.*)$/.exec(line);
         if (h) { cur = { kind: KIND[h[1]], f: {}, order: [] }; blocks.push(cur); key = null; line = h[2]; if (!line) return; }
         if (!cur) return;
-        var m = /^\s*(Q\d+(?:選項|答案|解析|技巧|依據)?|\(\d+\)(?:選項|答案|解析)|句型|題目|選項|答案|解析|提示|中文|單字|文章|標題|字庫|句庫)\s*[:：]\s*(.*)$/.exec(line);
+        var m = /^\s*(Q\d+(?:選項|答案|解析|技巧|依據句|依據)?|\(\d+\)(?:選項|答案|解析)|句型|題目|選項|答案|解析|提示|中文|單字|文章|標題|字庫|句庫)\s*[:：]\s*(.*)$/.exec(line);
         if (m) { key = m[1]; cur.f[key] = m[2]; cur.order.push(key); }
         else if (key) cur.f[key] += '\n' + line;
       });
@@ -1345,6 +1377,121 @@
     $('pr-reset').onclick = function () {
       if (!prompts || !confirm('確定要把「' + TYPE_NAMES[prType()] + '」的提示詞還原成預設嗎？')) return;
       prSave('', '✓ 已還原預設');
+    };
+
+    /* ---------------- 檔案匯入、批次貼上、匯出 ---------------- */
+    // CSV → 以 Tab 分隔的文字（處理引號、欄位內的逗號與換行）
+    function csvToTsv(text) {
+      var rows = [], row = [], f = '', q = false;
+      for (var i = 0; i < text.length; i++) {
+        var c = text[i];
+        if (q) {
+          if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c;
+        } else if (c === '"') q = true;
+        else if (c === ',') { row.push(f); f = ''; }
+        else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+        else f += c;
+      }
+      if (f || row.length) { row.push(f); rows.push(row); }
+      return rows.filter(function (r) { return r.some(function (x) { return x.trim(); }); })
+        .map(function (r) { return r.map(function (x) { return x.replace(/[\t\r\n]+/g, ' ').trim(); }).join('\t'); }).join('\n');
+    }
+    function readTextFile(file, cb) {
+      var fr = new FileReader();
+      fr.onload = function () {
+        var buf = fr.result, text;
+        try { text = new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+        catch (e) { try { text = new TextDecoder('big5').decode(buf); } catch (e2) { text = new TextDecoder('utf-8').decode(buf); } } // Excel 繁中的「CSV」常是 Big5
+        cb(text.replace(/^﻿/, ''));
+      };
+      fr.onerror = function () { $('imp-msg').textContent = '讀取檔案失敗'; $('imp-msg').className = 'msg err'; };
+      fr.readAsArrayBuffer(file);
+    }
+    $('imp-file').onchange = function () {
+      var u = impUnit(), file = this.files && this.files[0]; this.value = '';
+      if (!u || !file) return;
+      readTextFile(file, function (text) {
+        var name = file.name.toLowerCase();
+        if (u.type === 'vocab') {
+          var firstLine = text.split(/\r?\n/)[0] || '';
+          $('v-text').value = (/\.csv$/.test(name) || (firstLine.indexOf('\t') < 0 && firstLine.indexOf(',') >= 0 && firstLine.indexOf('|') < 0)) ? csvToTsv(text) : text.replace(/\r/g, '');
+        } else if (u.type === 'pattern' || u.type === 'exam') {
+          $('t-text').value = text.replace(/\r/g, '');
+        } else {
+          $('r-bulk').value = text.replace(/\r/g, ''); $('r-bulk-box').open = true; $('r-bulk-go').click();
+        }
+        impDirty();
+        $('imp-msg').textContent = '✓ 已讀入「' + file.name + '」，請按「預覽與檢查」確認'; $('imp-msg').className = 'msg ok';
+      });
+    };
+
+    // 課文理解：整篇文字格式 → 填入表單
+    $('r-bulk-go').onclick = function () {
+      var msg = $('r-bulk-msg'), blocks = splitBlocks('[閱讀]\n' + $('r-bulk').value);
+      if (!blocks.length) { msg.textContent = '沒有讀到內容'; msg.className = 'msg err'; return; }
+      var f = blocks[0].f, qs = [], issues = [];
+      for (var n = 1; ('Q' + n) in f || ('Q' + n + '選項') in f || ('Q' + n + '答案') in f; n++) {
+        var pre = 'Q' + n, o = splitOpts(f[pre + '選項']), a = ansIndex(f[pre + '答案'], o);
+        if (a < 0 || a >= o.length) issues.push('第 ' + n + ' 題的答案要寫 A–' + 'ABCDEFGHIJ'[Math.max(o.length - 1, 0)]);
+        qs.push({ skill: SKILLS.indexOf(f[pre + '技巧']) >= 0 ? f[pre + '技巧'] : '細節', q: f[pre] || '', options: o.slice(0, 4).concat(['', '', '', '']).slice(0, 4), answer: a, explain: f[pre + '解析'] || '', key: f[pre + '依據'] || '', ref: f[pre + '依據句'] || '' });
+      }
+      if (!qs.length) { msg.textContent = '沒有讀到題目（要有 Q1：、Q1選項：、Q1答案：）'; msg.className = 'msg err'; return; }
+      if (f['標題']) $('r-title').value = f['標題'];
+      $('r-passage').value = paras(f['文章']).join('\n\n');
+      $('r-qs').innerHTML = '';
+      qs.forEach(addQ);
+      impDirty();
+      msg.textContent = '✓ 已填入 ' + qs.length + ' 題' + (issues.length ? '；注意：' + issues.join('、') : '') + '，請按「預覽與檢查」'; msg.className = 'msg ' + (issues.length ? 'err' : 'ok');
+    };
+
+    // 匯出：取得已儲存的題目，轉成文字／JSON
+    function withContent(cb) {
+      var u = impUnit(); if (!u) return;
+      $('imp-msg').textContent = '讀取中…'; $('imp-msg').className = 'msg';
+      google.script.run.withSuccessHandler(function (res) {
+        if (!res || !res.data) { $('imp-msg').textContent = '這個單元還沒有儲存的題目'; $('imp-msg').className = 'msg err'; return; }
+        $('imp-msg').textContent = ''; cb(u, res.data);
+      }).withFailureHandler(function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; }).getContent(u.id);
+    }
+    function exportText(u, d) {
+      var head = (d.topic ? '主題：' + d.topic + '\n\n' : '');
+      if (u.type === 'vocab') return serVocab(d);
+      if (u.type === 'reading') return serReading(d);
+      return head + (u.type === 'pattern' ? serPattern(d) : serExam(d));
+    }
+    function copyText(text, ok) {
+      function fallback() {
+        var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+        var done = false; try { done = document.execCommand('copy'); } catch (e) { done = false; } ta.remove(); return done;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { ok(true); }, function () { ok(fallback()); });
+      else ok(fallback());
+    }
+    function downloadText(name, text, mime) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob(['﻿' + text], { type: mime + ';charset=utf-8' }));
+      a.download = name; document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    }
+    $('imp-copy').onclick = function () {
+      withContent(function (u, d) {
+        copyText(exportText(u, d), function (ok) {
+          $('imp-msg').textContent = ok ? '✓ 已複製，可以貼到別的單元的匯入欄位' : '複製失敗，請改用「下載題目」';
+          $('imp-msg').className = 'msg ' + (ok ? 'ok' : 'err');
+        });
+      });
+    };
+    $('imp-dl').onclick = function () {
+      withContent(function (u, d) {
+        downloadText((u.id || 'unit') + '.txt', exportText(u, d), 'text/plain');
+        $('imp-msg').textContent = '✓ 已下載（若沒有跳出下載，請改用「複製目前題目」）'; $('imp-msg').className = 'msg ok';
+      });
+    };
+    $('imp-dljson').onclick = function () {
+      withContent(function (u, d) {
+        downloadText((u.id || 'unit') + '.json', JSON.stringify(d, null, 2), 'application/json');
+        $('imp-msg').textContent = '✓ 已下載 JSON 備份'; $('imp-msg').className = 'msg ok';
+      });
     };
     $('imp-check').onclick = function () {
       var u = impUnit(); if (!u) return;

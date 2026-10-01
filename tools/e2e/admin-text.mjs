@@ -11,12 +11,14 @@ const code = [
   grab('function normQ(s)', '\n    function refreshRefs').replace(/function refreshRefs[^]*/, ''),
   grab('function words_(s)', '\n    function parseReading'),
   grab('var HELP = {', "    $('ai-text').onclick"),
+  grab('function csvToTsv(text)', '    function readTextFile'),
+  grab('function serVocab(d)', '    function fillForm'),
 ].join('\n').replace(/function \$\(id\) \{[^\n]*\n/, '').replace(/\$\('t-example'\)\.onclick = function[\s\S]*?\n    };\n/, '').replace(/function textShow[\s\S]*?\n    }\n    /, '');
 const els = { 't-topic': { value: '主題' }, 't-text': { value: '' }, 'imp-report': { innerHTML: '' } };
 const ctx = { $: (id) => els[id] || (els[id] = { value: '' }), console };
 vm.createContext(ctx);
-vm.runInContext(code + '\nthis.api = { parseTextType, serPattern, serExam, EXAMPLE, validatePE };', ctx);
-const { parseTextType, serPattern, serExam, EXAMPLE } = ctx.api;
+vm.runInContext(code + '\nthis.api = { parseTextType, serPattern, serExam, EXAMPLE, validatePE, csvToTsv, serVocab, serReading, splitBlocks };', ctx);
+const { parseTextType, serPattern, serExam, EXAMPLE, csvToTsv, serVocab, serReading, splitBlocks } = ctx.api;
 const plain = (o) => JSON.parse(JSON.stringify(o));
 
 for (const type of ['pattern', 'exam']) {
@@ -60,4 +62,14 @@ els['t-text'].value = '[選擇]\n題目：x ____\n選項：a | b\n答案：Z';
 assert.equal(parseTextType('pattern'), null);
 els['t-text'].value = '[拼寫]\n題目：x ____\n答案：y';
 assert.equal(parseTextType('pattern'), null, '句型練習不接受拼寫');
+// CSV：引號、逗號、欄位內換行
+assert.equal(csvToTsv('apple,n.,蘋果,"I like [apples], a lot.",我喜歡\n"b,c",v.,"兩\n行",x [y],z\n'), 'apple\tn.\t蘋果\tI like [apples], a lot.\t我喜歡\nb,c\tv.\t兩 行\tx [y]\tz');
+assert.equal(serVocab({ words: [{ word: 'a', pos: 'n.', zh: '甲', example: 'x [a]', exampleZh: '乙' }] }), 'a\tn.\t甲\tx [a]\t乙');
+// 課文理解：匯出文字可以再讀回來
+const rdata = { title: 'T', passage: ['One two.', 'Three four.'], questions: [{ skill: '細節', q: 'Q?', options: ['a', 'b', 'c', 'd'], answer: 2, explain: 'e', key: 'Three four' }, { skill: '主旨', q: 'R?', options: ['a', 'b'], answer: 0, ref: '1-1' }] };
+const txt = serReading(rdata);
+const f = splitBlocks('[閱讀]\n' + txt)[0].f;
+assert.equal(f['Q1依據'], 'Three four');
+assert.equal(f['Q2依據句'], '1-1');
+assert.equal(f['Q1答案'], 'C');
 console.log('後台文字格式解析測試通過');
