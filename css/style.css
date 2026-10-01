@@ -872,16 +872,6 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 /* ---------------- 動畫升級：彈簧手感、卡片轉場、成績畫面 ---------------- */
 :root { --spring-soft: linear(0, .27 6%, .8 14%, 1.1 22%, 1.07 30%, .98 42%, 1.01 58%, 1); }
 
-/* 首頁 ↔ 單元頁（View Transitions）：被點的卡片逐漸放大成整個單元頁，退出時整頁縮回原本的卡片。
-   兩個方向用同一個命名元素與同一組曲線、時間，動作一致。裁切成圓角卡片的形狀，內容從卡片裡「長出來」。不支援的瀏覽器沒有這段，用原本的淡入 */
-::view-transition-group(unit-card) { animation-duration: .62s; animation-timing-function: cubic-bezier(.22, .72, .18, 1); overflow: clip; border-radius: 20px; }
-::view-transition-image-pair(unit-card) { isolation: auto; }
-::view-transition-old(unit-card), ::view-transition-new(unit-card) { height: 100%; object-fit: none; object-position: top left; }
-::view-transition-old(unit-card) { animation: vt-card-old .62s ease both; }
-::view-transition-new(unit-card) { animation: vt-card-new .62s ease both; }
-@keyframes vt-card-old { 0% { opacity: 1; } 45% { opacity: 0; } 100% { opacity: 0; } }
-@keyframes vt-card-new { 0% { opacity: 0; } 25% { opacity: 0; } 75% { opacity: 1; } 100% { opacity: 1; } }
-::view-transition-old(root), ::view-transition-new(root) { animation-duration: .4s; }
 .unit-head.shell + .loading { animation-delay: .35s; }
 
 /* 彈簧：放開按鈕、卡片、選項時像有重量地回彈（按下去仍然很快） */
@@ -947,10 +937,6 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .open-sum > summary { cursor: pointer; font-weight: 700; color: var(--navy); }
 .open-sum .rv-pq { border: 0; padding: 10px 0 0; box-shadow: none; }
 
-/* 從單元選單切換頁面：整頁換景（和點卡片的放大不同）。舊頁面輕輕縮小淡出，新頁面從下方升起 */
-::view-transition-group(page) { animation-duration: .5s; }
-::view-transition-old(page) { animation: vt-menu-out .26s cubic-bezier(.4, 0, 1, 1) both; }
-::view-transition-new(page) { animation: vt-menu-in .5s cubic-bezier(.22, .72, .18, 1) .1s both; }
-@keyframes vt-menu-out { to { opacity: 0; transform: translate3d(0, -10px, 0) scale(.985); } }
-@keyframes vt-menu-in { from { opacity: 0; transform: translate3d(0, 28px, 0) scale(.99); } }
-@media (prefers-reduced-motion: reduce) { ::view-transition-old(page), ::view-transition-new(page) { animation: none !important; } }
+
+/* 段考複習、課文理解的測驗說明卡：靠左和上面的標題對齊（這兩種頁面不是置中版面） */
+#app > #stage > .gate { margin-inline: 0; }

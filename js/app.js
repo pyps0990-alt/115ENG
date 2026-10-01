@@ -36,10 +36,6 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let lastRendered = null;
 let lastDepth = 0;
 let lastKind = '';
-let prevUnitId = '';
-let homeScrollY = 0;
-let viaMenu = -1e9; // 最近一次從「單元選單」點選的時間：從選單進入的換頁用獨立的動畫
-document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('#unit-menu a')) viaMenu = performance.now(); }, true);
 function pageIn(changed, first) {
   // 第一次畫面不做進場動畫：從透明開始會讓「最大內容繪製」延後；也不用強制重排，改在下一格重新加上動畫
   if (!changed || first || reduceMotion.matches) return;
@@ -76,16 +72,7 @@ async function route() {
   if (location.hash === '#/' || location.hash === '#') history.replaceState(null, '', location.pathname + location.search);
   const [, kind, id, sub] = location.hash.split('/').map(decodeURIComponent);
   lastKind = kind || '';
-  // 要播卡片／換景動畫時先不捲到頂端：動畫要從這張卡片「現在在畫面上的位置」開始（捲到哪就從哪裡長出來），換好新頁面才捲到頂端
-  const toUnit = kind === 'u' && id && prevKind !== 'u' && findUnit(id);
-  const toHome = (!kind || kind === '') && prevKind === 'u';
-  const unitSwitch = kind === 'u' && prevKind === 'u' && changed;
-  const menuNav = performance.now() - viaMenu < 1200;
-  const vtOK = changed && !first && !reduceMotion.matches && typeof document.startViewTransition === 'function';
-  const menuVT = vtOK && menuNav && (toUnit || toHome || unitSwitch);
-  const cardVT = vtOK && !menuVT && (toUnit || toHome);
-  if (!menuVT && !cardVT) window.scrollTo(0, 0);
-  else if (toUnit && prevKind !== 'u') homeScrollY = window.scrollY; // 記住首頁捲到哪，退出時縮回同一個位置
+  window.scrollTo(0, 0);
   // 還沒確認身分：隱藏單元選單，單元網址一律導回首頁填資料
   const loggedIn = !!store.student();
   // 老師頁是獨立頁面：不顯示單元選單和學生名牌
@@ -107,82 +94,8 @@ async function route() {
       showError(err);
     }
   };
-  // 首頁 ↔ 單元頁的換頁動畫（View Transitions）。不支援的瀏覽器直接用原本的淡入。
-  if (menuVT) {
-    // 從單元選單切換：和點卡片不同，用「整頁換景」——舊頁面輕輕縮小淡出，新頁面從下方升起（導覽列、頁尾不動）
-    const meta = kind === 'u' && id ? findUnit(id) : null;
-    if (meta) Promise.all([loadUnit(meta.id, config), modes[typeOf(meta.type)](), historyReady()]).catch(() => {}); // 預先載入
-    document.documentElement.dataset.vt = 'menu';
-    app.style.viewTransitionName = 'page';
-    let renderDone;
-    const vt = document.startViewTransition(async () => {
-      renderDone = render();
-      await Promise.race([renderDone, new Promise((r) => setTimeout(r, 450))]);
-      window.scrollTo(0, toHome ? homeScrollY : 0);
-      if (document.fonts && document.fonts.status === 'loading') await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 700))]);
-      app.style.viewTransitionName = 'page';
-    });
-    await vt.updateCallbackDone.catch(() => {});
-    await renderDone;
-    await vt.finished.catch(() => {});
-    app.style.viewTransitionName = '';
-    delete document.documentElement.dataset.vt;
-    prevUnitId = meta ? meta.id : '';
-    return;
-  }
-  if (cardVT) {
-    // 進入：被點的卡片逐漸放大成整個單元頁（頁面內容從卡片裡「長出來」）。
-    // 退出：整個單元頁縮回原本那張卡片。兩個方向用同一個命名元素、同樣的時間與曲線，所以動作一致。
-    // 轉場一開始就先在背景載好單元資料，放大過程中不會停下來等資料。
-    const NAME = 'unit-card';
-    const clearNames = () => document.querySelectorAll('[style*="view-transition-name"]').forEach((e) => { e.style.viewTransitionName = ''; });
-    const fontsReady = () => (document.fonts && document.fonts.status === 'loading' ? Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 700))]) : Promise.resolve());
-    try {
-      if (toUnit) {
-        const meta = findUnit(id);
-        const tile = app.querySelector(`.unit-tile[data-id="${CSS.escape(meta.id)}"]`);
-        if (tile) tile.style.viewTransitionName = NAME;
-        Promise.all([loadUnit(meta.id, config), modes[typeOf(meta.type)](), historyReady()]).catch(() => {}); // 預先載入
-        let renderDone;
-        const vt = document.startViewTransition(async () => {
-          renderDone = render();
-          await Promise.race([renderDone, new Promise((r) => setTimeout(r, 450))]);
-          window.scrollTo(0, 0); // 新頁面在最上方；卡片是從它原本的位置長大
-          await fontsReady();
-          app.style.viewTransitionName = NAME;
-        });
-        await vt.updateCallbackDone.catch(() => {});
-        await renderDone;
-        await vt.finished.catch(() => {});
-        clearNames();
-        prevUnitId = meta.id;
-      } else {
-        const backId = prevUnitId;
-        app.style.viewTransitionName = NAME;
-        const vt = document.startViewTransition(async () => {
-          app.style.viewTransitionName = '';
-          await render();
-          window.scrollTo(0, homeScrollY); // 首頁捲回原本的位置，頁面才會縮回「原來那張卡片」所在的地方
-          await fontsReady();
-          const tile = backId && app.querySelector(`.unit-tile[data-id="${CSS.escape(backId)}"]`);
-          if (tile) {
-            const r = tile.getBoundingClientRect();
-            if (r.bottom < 80 || r.top > window.innerHeight - 20) { tile.scrollIntoView({ block: 'center' }); homeScrollY = window.scrollY; }
-            tile.style.viewTransitionName = NAME;
-          }
-        });
-        await vt.finished.catch(() => {});
-        clearNames();
-        prevUnitId = '';
-      }
-    } finally {
-      clearNames();
-    }
-    return;
-  }
   await render();
   await settleFonts();
-  prevUnitId = kind === 'u' && id && findUnit(id) ? findUnit(id).id : (kind === 'u' ? prevUnitId : '');
   pageIn(changed, first);
 }
 
