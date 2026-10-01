@@ -35,6 +35,8 @@ const findUnit = (id) => index.units.find((u) => u.id === id || (u.aliases || []
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let lastRendered = null;
 let lastDepth = 0;
+let lastKind = '';
+let prevUnitId = '';
 function pageIn(changed, first) {
   // 第一次畫面不做進場動畫：從透明開始會讓「最大內容繪製」延後；也不用強制重排，改在下一格重新加上動畫
   if (!changed || first || reduceMotion.matches) return;
@@ -51,6 +53,7 @@ async function route() {
   // 回到上一層（單元 → 首頁）和進到下一層的進場方向相反，前進／後退有空間感（只做垂直位移，不左右移動）
   const depth = here === '#/' || here === '#' ? 0 : 1;
   if (changed) app.dataset.dir = depth < lastDepth ? 'back' : 'fwd';
+  const prevKind = lastKind;
   lastDepth = depth;
   if (cleanup) { try { cleanup(); } catch { /* ignore */ } cleanup = null; }
   delete document.body.dataset.busy;
@@ -59,6 +62,7 @@ async function route() {
   // 首頁不顯示「#/」，網址保持乾淨（replaceState 不會再觸發 hashchange）
   if (location.hash === '#/' || location.hash === '#') history.replaceState(null, '', location.pathname + location.search);
   const [, kind, id, sub] = location.hash.split('/').map(decodeURIComponent);
+  lastKind = kind || '';
   window.scrollTo(0, 0);
   // 還沒確認身分：隱藏單元選單，單元網址一律導回首頁填資料
   const loggedIn = !!store.student();
@@ -69,16 +73,45 @@ async function route() {
   else renderStudentChip();
   if (kind === 'u' && !loggedIn) { location.replace('#/'); return; }
   updateNav(kind === 'u' && id ? (findUnit(id) || {}).id : null);
-  try {
-    if (kind === 'u' && id) await renderUnit(id, sub);
-    else if (kind === 'teacher') renderTeacher();
-    else if (kind === 'me') await renderMe();
-    else if (kind === 'privacy') renderPrivacy();
-    else if (kind === 'diag') renderDiag();
-    else renderHome();
-  } catch (err) {
-    showError(err);
+  const render = async () => {
+    try {
+      if (kind === 'u' && id) await renderUnit(id, sub);
+      else if (kind === 'teacher') renderTeacher();
+      else if (kind === 'me') await renderMe();
+      else if (kind === 'privacy') renderPrivacy();
+      else if (kind === 'diag') renderDiag();
+      else renderHome();
+    } catch (err) {
+      showError(err);
+    }
+  };
+  // 首頁 ↔ 單元頁：卡片放大成單元頁標題（返回時縮回卡片）。不支援 View Transitions 的瀏覽器直接用原本的淡入。
+  const toUnit = kind === 'u' && id && prevKind !== 'u' && findUnit(id);
+  const toHome = (!kind || kind === '') && prevKind === 'u';
+  const useVT = changed && !first && !reduceMotion.matches && typeof document.startViewTransition === 'function' && (toUnit || toHome);
+  if (useVT) {
+    const out = toUnit ? app.querySelector(`.unit-tile[data-id="${CSS.escape(findUnit(id).id)}"]`) : app.querySelector('.unit-head');
+    if (out) out.style.viewTransitionName = 'unit-card';
+    const backId = prevUnitId;
+    let vt;
+    if (toUnit) {
+      vt = document.startViewTransition(() => { app.innerHTML = unitShellHTML(findUnit(id)); });
+      await vt.updateCallbackDone.catch(() => {});
+      await render(); // 資料載入在轉場之外，不會凍住畫面
+    } else {
+      vt = document.startViewTransition(async () => {
+        await render();
+        const tile = backId && app.querySelector(`.unit-tile[data-id="${CSS.escape(backId)}"]`);
+        if (tile) tile.style.viewTransitionName = 'unit-card';
+      });
+      await vt.updateCallbackDone.catch(() => {});
+    }
+    vt.finished.finally(() => { document.querySelectorAll('[style*="view-transition-name"]').forEach((e) => { e.style.viewTransitionName = ''; }); });
+    prevUnitId = toUnit ? findUnit(id).id : '';
+    return;
   }
+  await render();
+  prevUnitId = kind === 'u' && id && findUnit(id) ? findUnit(id).id : (kind === 'u' ? prevUnitId : '');
   pageIn(changed, first);
 }
 
@@ -224,6 +257,15 @@ function tileHTML(u) {
 }
 
 /* ---------------- unit ---------------- */
+// 轉場用的單元標題外框（資料載入前先顯示，版面和正式標題一致）
+function unitShellHTML(meta) {
+  return `<div class="unit-head shell" style="view-transition-name:unit-card">
+      <a class="back" href="#/">${icon.back} 所有單元</a>
+      <div class="eyebrow">Lesson ${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
+      <h1>${esc(meta.title)}</h1>
+    </div><div class="loading"><span class="spinner"></span>載入中…</div>`;
+}
+
 function headHTML(meta, data) {
   const vocab = meta.type === 'vocab';
   const words = data.words || [];
@@ -252,7 +294,7 @@ async function renderUnit(id, sub) {
   }
   if (meta.id !== id) { location.replace(`#/u/${meta.id}${sub ? `/${sub}` : ''}`); return; }
 
-  app.innerHTML = '<div class="loading"><span class="spinner"></span>載入中…</div>';
+  if (!app.querySelector('.unit-head.shell')) app.innerHTML = '<div class="loading"><span class="spinner"></span>載入中…</div>';
   // 剛登入時紀錄還在背景載入：等它載完（最多幾秒），才不會把做過的單元當成沒做過
   const [data, mod] = await Promise.all([loadUnit(meta.id, config), modes[typeOf(meta.type)](), historyReady()]);
 

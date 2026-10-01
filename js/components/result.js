@@ -27,7 +27,7 @@ function countUp(el, to, ms = 1000) {
 // actions: [{ label, icon, primary, onClick }]
 export function renderResult(host, { title, pct, scoreText, pills = [], wrong = [], actions = [], extraHTML = '' }) {
   const box = document.createElement('div');
-  box.className = 'result';
+  box.className = pct >= 80 ? 'result pass' : 'result';
   box.innerHTML = `
     <div class="ring" role="img" aria-label="得分 ${pct}%">
       <svg viewBox="0 0 120 120">

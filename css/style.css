@@ -859,3 +859,55 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .bank-select { width: 100%; max-width: 280px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--white); color: var(--navy); font-size: 1rem; font-weight: 700; }
 .bank-select:focus-visible { outline: 3px solid var(--navy-soft); border-color: var(--navy); }
 .sel-pq { gap: 8px; }
+
+/* ---------------- 動畫升級：彈簧手感、卡片轉場、成績畫面 ---------------- */
+:root { --spring-soft: linear(0, .27 6%, .8 14%, 1.1 22%, 1.07 30%, .98 42%, 1.01 58%, 1); }
+
+/* 首頁卡片 ↔ 單元頁標題（View Transitions）：卡片放大延伸成標題，返回時縮回；不支援的瀏覽器沒有這段，用原本的淡入 */
+::view-transition-group(unit-card) { animation-duration: .45s; animation-timing-function: cubic-bezier(.2, .8, .2, 1); }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .22s; }
+.unit-head.shell + .loading { animation-delay: .35s; }
+
+/* 彈簧：放開按鈕、卡片、選項時像有重量地回彈（按下去仍然很快） */
+@supports (transition-timing-function: linear(0, 1)) {
+  .btn, .unit-tile, .opt, .chip-word {
+    transition-property: transform, border-color, background, box-shadow, opacity;
+    transition-duration: .5s, .2s, .2s, .25s, .25s;
+    transition-timing-function: var(--spring-soft), ease, ease, ease, ease;
+  }
+  .btn:active:not(:disabled), .unit-tile:active, .opt:active:not(:disabled), .chip-word:active {
+    transition-duration: .08s, .2s, .2s, .25s, .25s;
+    transition-timing-function: ease-out, ease, ease, ease, ease;
+  }
+}
+
+/* 答對、答錯：打勾／叉叉用畫的，答對的選項彈一下 */
+.opt.correct .opt-mark path, .opt.wrong .opt-mark path { stroke-dasharray: 60; stroke-dashoffset: 60; animation: draw-mark .4s .06s ease-out forwards; }
+@keyframes draw-mark { to { stroke-dashoffset: 0; } }
+@supports (animation-timing-function: linear(0, 1)) {
+  .opt.correct:not(.reveal) { animation: pop-spring .6s var(--spring-soft); }
+}
+@keyframes pop-spring { 0% { transform: scale(.96); } 100% { transform: scale(1); } }
+
+/* 成績畫面：圓環、標題、數據、按鈕依序浮現；通過（80% 以上）時圓環亮一下 */
+.result > * { animation: result-in .5s var(--ease) both; }
+.result > :nth-child(2) { animation-delay: .12s; }
+.result > :nth-child(3) { animation-delay: .2s; }
+.result > :nth-child(4) { animation-delay: .28s; }
+.result > :nth-child(n+5) { animation-delay: .36s; }
+@keyframes result-in { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(.97); } }
+.result .ring { position: relative; }
+.result.pass .ring::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; animation: ring-glow 1.1s ease-out 1.15s both; }
+@keyframes ring-glow { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, .55); opacity: 1; } 100% { box-shadow: 0 0 0 22px rgba(245, 158, 11, 0); opacity: 0; } }
+.result.pass .ring .pct { animation: score-pop .55s var(--spring-soft) 1.1s both; }
+@keyframes score-pop { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+/* 拖動單字：落下時彈一下 */
+.build-line .chip-word.on { animation: chip-drop .4s var(--spring-soft) both; }
+@keyframes chip-drop { from { transform: scale(.85); opacity: .6; } }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  .result > *, .result.pass .ring::after, .result.pass .ring .pct, .build-line .chip-word.on, .opt.correct, .opt.correct .opt-mark path, .opt.wrong .opt-mark path { animation: none !important; }
+  .opt.correct .opt-mark path, .opt.wrong .opt-mark path { stroke-dashoffset: 0; }
+}
