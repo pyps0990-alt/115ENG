@@ -285,9 +285,7 @@ async function renderUnit(id, sub) {
   if (meta.type !== 'vocab') {
     if (!modeOn(config, meta.id, meta.type)) { locked(); return; }
     document.title = `${meta.title} — B5 Practice`;
-    app.innerHTML = meta.type === 'pattern'
-      ? `<div class="focus">${headHTML(meta, data)}<section id="stage"></section></div>`
-      : `${headHTML(meta, data)}<section id="stage"></section>`;
+    app.innerHTML = `<div class="focus">${headHTML(meta, data)}<section id="stage"></section></div>`;
     cleanup = mod.mount(app.querySelector('#stage'), { unit: meta, data, config, questionCount: questionCount(config, meta.id) }) || null;
     return;
   }

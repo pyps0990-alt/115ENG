@@ -938,5 +938,5 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .open-sum .rv-pq { border: 0; padding: 10px 0 0; box-shadow: none; }
 
 
-/* 段考複習、課文理解的測驗說明卡：靠左和上面的標題對齊（這兩種頁面不是置中版面） */
-#app > #stage > .gate { margin-inline: 0; }
+/* 所有單元頁的標題與說明卡都在同一條置中的欄裡；課文理解、段考複習開始作答後需要寬版面（文章與題目並排），才放寬 */
+.focus:has(.passage-layout, .exam-body, .passage-foot) { max-width: 1200px; }
