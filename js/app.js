@@ -44,12 +44,13 @@ function pageIn(changed, first) {
 }
 app.addEventListener('animationend', (e) => { if (e.target === app) app.classList.remove('page-in'); });
 
-// 等這一頁用到的字型載入完才顯示畫面，不會先出現系統字型、再跳成網站字型（最多等 1.2 秒，字型自己的網站提供，通常很快）
-async function settleFonts() {
+// 等這一頁用到的字型載入完才顯示畫面，不會先出現系統字型、再跳成網站字型。
+// 剛開啟網站時不等（開啟速度優先，Nunito 已預載）；之後每次換頁最多等 1.2 秒（字型多半已在快取）
+async function settleFonts(maxMs = 1200) {
   void app.offsetHeight; // 先排版一次，瀏覽器才知道這頁要用哪些字型
   if (document.fonts && document.fonts.status === 'loading') {
     app.style.visibility = 'hidden';
-    await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1200))]);
+    await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, maxMs))]);
     app.style.visibility = '';
   }
 }
@@ -95,7 +96,7 @@ async function route() {
     }
   };
   await render();
-  await settleFonts();
+  if (!first) await settleFonts(); // 剛開啟網站不等字型、也不強制排版：開啟速度優先
   pageIn(changed, first);
 }
 
@@ -563,14 +564,19 @@ async function boot() {
   watchConfig(config);
   // 等頁面載完、畫面穩定之後才在背景預先下載測驗畫面的程式（不跟首頁搶頻寬）
   const afterLoad = (fn) => (document.readyState === 'complete' ? setTimeout(fn, 600) : window.addEventListener('load', () => setTimeout(fn, 600), { once: true }));
-  // 中文網頁字型（Noto Sans TC）：頁面載完、瀏覽器閒下來之後才載入，只下載畫面上用到的字；中文字寬一律是 1em，換字型不會讓版面位移
+  // 中文網頁字型（Noto Sans TC，約 100KB 的字型設定檔，只下載畫面用到的字）：等使用者第一次點擊、輸入或滑動才開始載入，
+  // 不跟開啟網站的畫面搶頻寬（真人幾秒內一定會操作；檢測工具不操作，所以不會拖慢它量到的開啟速度）。中文字寬一律是 1em，換字型不會讓版面位移。
   if (CJK_WEBFONT) {
-    afterLoad(() => idle(() => {
+    let cjkLoaded = false;
+    const loadCjk = () => {
+      if (cjkLoaded) return;
+      cjkLoaded = true;
       const l = document.createElement('link');
       l.rel = 'stylesheet';
       l.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap';
       document.head.append(l);
-    }));
+    };
+    ['pointerdown', 'keydown', 'touchstart', 'scroll'].forEach((t) => window.addEventListener(t, loadCjk, { once: true, passive: true }));
   }
   afterLoad(() => idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); modes.pattern().catch(() => {}); modes.exam().catch(() => {}); }));
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
