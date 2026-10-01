@@ -141,6 +141,18 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
     await p.goto(world.base + '/#/u/l2-exam'); await p.waitForSelector('[data-start]');
     await p.click('[data-start]'); await p.waitForSelector('.exam-body');
     await shot('exam-page');
+    // 題號導覽：看作答狀態、點題號前往
+    await p.click('[data-nav-btn]'); await p.waitForSelector('.exam-nav:not([hidden])');
+    assert.equal(await p.locator('.en-chip').count(), 11, '每題一個題號');
+    assert.equal(await p.locator('.en-chip.done').count(), 0, '一開始都沒作答');
+    await p.locator('.pq[data-id="b0"] .opt').first().click();
+    assert.equal(await p.locator('.en-chip.done').count(), 1, '作答後題號變色');
+    await p.locator('.en-chip[data-go="b8"]').click();
+    await sleep(900);
+    const inView = await p.evaluate(() => { const r = document.querySelector('.pq[data-id="b8"]').getBoundingClientRect(); return r.top < window.innerHeight && r.bottom > 0; });
+    assert(inView, '點題號要捲到那一題');
+    await shot('exam-nav');
+    if (await p.locator('.exam-nav:not([hidden])').count()) await p.click('[data-nav-close]');
     await p.locator('.pq[data-id="b0"] .opt').first().click();
     await p.locator('.pq[data-id="b1"] [data-spell]').fill('calm');
     await p.locator('.pq[data-id="b2.0"] .opt').nth(1).click(); // 故意答錯

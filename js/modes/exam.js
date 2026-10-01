@@ -123,6 +123,7 @@ export function mount(stage, ctx) {
 
   /* ---------------- 作答 ---------------- */
   // redo：只重練指定的題目（錯題重練），不計成績、不送出
+  let stopNav = () => {};
   function run(student, review = false, redo = null) {
     const scope = redo ? scored.filter((q) => redo.includes(q.id)) : all;
     const inScope = new Set(scope.map((q) => q.id));
@@ -176,7 +177,14 @@ export function mount(stage, ctx) {
         <div class="pq-intro"><span class="eyebrow">${redo ? '錯題重練' : `Exam${review ? ' · 複習' : ''}`}</span><span class="muted">${redo ? '只有剛才答錯的題目，這次練習不計成績' : '全部題目在這一頁，可以隨時回頭修改，最後按「交卷」'}</span></div>
         ${parts}
       </div>
+      <div class="exam-nav" data-nav hidden role="dialog" aria-label="題號導覽">
+        <div class="en-head"><b>題號導覽</b><span class="muted" data-nav-sum></span>
+          <button class="en-close" type="button" data-nav-close aria-label="關閉">${icon.x}</button></div>
+        <div class="en-body" data-nav-body></div>
+        <button class="btn small" type="button" data-nav-next>${icon.arrowR} 跳到下一題還沒作答的</button>
+      </div>
       <div class="passage-foot">
+        <button class="btn small ghost nav-btn" type="button" data-nav-btn aria-expanded="false">${icon.list} 題號</button>
         <span class="count" data-count></span>
         <button class="btn primary" type="button" data-submit-btn>${icon.send} ${redo ? '看結果' : '交卷'}</button>
       </div>`;
@@ -186,7 +194,50 @@ export function mount(stage, ctx) {
     const answeredN = () => scopeScored.filter((q) => filled(ans[q.id])).length;
     const openFilledN = () => scopeOpen.filter((q) => filled(ans[q.id])).length;
     const countEl = stage.querySelector('[data-count]');
-    const updateFoot = () => { countEl.textContent = `已作答 ${answeredN()} / ${scopeScored.length}${scopeOpen.length ? `・寫作 ${openFilledN()} / ${scopeOpen.length}` : ''}`; };
+    /* ---- 題號導覽：看每題有沒有作答，點題號快速前往 ---- */
+    const navEl = stage.querySelector('[data-nav]');
+    const navBtn = stage.querySelector('[data-nav-btn]');
+    const cards = [...stage.querySelectorAll('.pq')];
+    const numOf = Object.fromEntries(cards.map((c) => [c.dataset.id, c.querySelector('.pq-num').textContent.trim()]));
+    const groups = [];
+    scope.forEach((q) => {
+      const label = SECTION[blocks[q.block].type].replace(/（.*?）/, '');
+      let g = groups[groups.length - 1];
+      if (!g || g.label !== label) groups.push(g = { label, ids: [] });
+      g.ids.push(q.id);
+    });
+    stage.querySelector('[data-nav-body]').innerHTML = groups.map((g) => `<div class="en-group"><span class="en-label">${esc(g.label)}</span><div class="en-chips">${g.ids.map((qid) => `<button class="en-chip${byId[qid].kind === 'open' ? ' open' : ''}" type="button" data-go="${qid}" aria-label="第 ${numOf[qid]} 題">${numOf[qid]}</button>`).join('')}</div></div>`).join('');
+    const chipOf = (qid) => navEl.querySelector(`[data-go="${qid}"]`);
+    let curId = null;
+    const setNavOpen = (on) => { navEl.hidden = !on; navBtn.setAttribute('aria-expanded', String(on)); navBtn.classList.toggle('on', on); };
+    const go = (qid) => {
+      const card = stage.querySelector(`.pq[data-id="${qid}"]`);
+      if (!card) return;
+      card.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+      card.classList.add('flash'); setTimeout(() => card.classList.remove('flash'), 1200);
+      if (window.innerWidth < 700) setNavOpen(false);
+    };
+    navBtn.addEventListener('click', () => setNavOpen(navEl.hidden));
+    navEl.querySelector('[data-nav-close]').addEventListener('click', () => setNavOpen(false));
+    navEl.addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); });
+    navEl.querySelector('[data-nav-next]').addEventListener('click', () => {
+      const order = scope.map((q) => q.id);
+      const from = Math.max(0, order.indexOf(curId));
+      const next = [...order.slice(from + 1), ...order.slice(0, from + 1)].find((qid) => !filled(ans[qid]) && byId[qid].kind !== 'open') || order.find((qid) => !filled(ans[qid]));
+      if (next) go(next);
+    });
+    // 目前看到哪一題（畫面中間附近的那張卡片）
+    const io = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
+      entries.forEach((en) => { if (en.isIntersecting) { curId = en.target.dataset.id; navEl.querySelectorAll('.en-chip.cur').forEach((c) => c.classList.remove('cur')); chipOf(curId)?.classList.add('cur'); } });
+    }, { rootMargin: '-40% 0px -45% 0px' }) : null;
+    cards.forEach((c) => io && io.observe(c));
+    stopNav = () => { if (io) io.disconnect(); };
+    const paintNav = () => {
+      scope.forEach((q) => chipOf(q.id)?.classList.toggle('done', filled(ans[q.id])));
+      const left = scopeScored.length - answeredN();
+      stage.querySelector('[data-nav-sum]').textContent = left ? `還有 ${left} 題沒作答` : '都作答了';
+    };
+    const updateFoot = () => { paintNav(); countEl.textContent = `已作答 ${answeredN()} / ${scopeScored.length}${scopeOpen.length ? `・寫作 ${openFilledN()} / ${scopeOpen.length}` : ''}`; };
     stage.querySelectorAll('.pq').forEach((card) => {
       const id = card.dataset.id;
       card.querySelectorAll('.opt').forEach((o) => o.addEventListener('click', () => {
@@ -225,6 +276,7 @@ export function mount(stage, ctx) {
   async function finish(student, review, ans, t0, scope = all, redo = null) {
     window.removeEventListener('beforeunload', unload);
     delete document.body.dataset.busy;
+    stopNav();
     const stamp = nowStamp();
     const durationSec = Math.round((Date.now() - t0) / 1000);
     const details = scope.map((q, i) => {
