@@ -8,6 +8,7 @@ const grab = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i); asse
 const code = [
   grab('function esc(s)', '\n    function $(id)'),
   grab('function countOf(type, d)', '\n    var TABS'),
+  grab('function normQ(s)', '\n    function refreshRefs').replace(/function refreshRefs[^]*/, ''),
   grab('function words_(s)', '\n    function parseReading'),
   grab('var HELP = {', "    $('ai-text').onclick"),
 ].join('\n').replace(/function \$\(id\) \{[^\n]*\n/, '').replace(/\$\('t-example'\)\.onclick = function[\s\S]*?\n    };\n/, '').replace(/function textShow[\s\S]*?\n    }\n    /, '');

@@ -1298,6 +1298,7 @@ function validateContent_(type, d) {
         if (!Array.isArray(qs) || !qs.length) return bn + '至少要 1 小題';
         for (var n = 0; n < qs.length; n++) {
           if (!validChoice_(qs[n]) || (b.type === 'reading' && !qs[n].q)) return bn + '第 ' + (n + 1) + ' 小題不完整或沒有正確答案';
+          if (b.type === 'reading') { var ev2 = evidenceError_(qs[n], b.passage); if (ev2) return bn + '第 ' + (n + 1) + ' 小題' + ev2; }
         }
         if (b.type === 'cloze') {
           var text = b.passage.join(' ');
@@ -1313,6 +1314,25 @@ function validateContent_(type, d) {
     var q = d.questions[j];
     if (!q.q || !Array.isArray(q.options) || q.options.length < 2) return '第 ' + (j + 1) + ' 題不完整';
     if (!(q.answer >= 0 && q.answer < q.options.length)) return '第 ' + (j + 1) + ' 題沒有設定正確答案';
+    var ev = evidenceError_(q, d.passage);
+    if (ev) return '第 ' + (j + 1) + ' 題' + ev;
+  }
+  return '';
+}
+
+// 閱讀題一定要有原文依據：關鍵字句（要真的出現在文章裡）或原文句子編號（段-句）
+function evidenceError_(q, passage) {
+  var paras = (passage || []).map(String);
+  var key = String(q.key || '').replace(/\s+/g, ' ').trim();
+  if (key) {
+    var nk = normQ_(key);
+    return paras.some(function (p) { return normQ_(p).replace(/\s+/g, ' ').indexOf(nk) >= 0; }) ? '' : '的關鍵字句在文章裡找不到';
+  }
+  var refs = String(q.ref || '').split(',').map(function (r) { return r.trim(); }).filter(String);
+  if (!refs.length) return '缺少原文依據（關鍵字句或原文句子）';
+  for (var i = 0; i < refs.length; i++) {
+    var m = /^(\d+)-(\d+)$/.exec(refs[i]);
+    if (!m || !paras[Number(m[1]) - 1] || !splitSentences_(paras[Number(m[1]) - 1])[Number(m[2]) - 1]) return '的原文句子編號 ' + refs[i] + ' 不存在';
   }
   return '';
 }
@@ -1429,7 +1449,7 @@ var AI_PROMPT_DEFAULTS = {
     '- "cloze": "title" + "passage" (array of paragraphs, 120–180 words in total, blanks written as (1), (2), (3)… in order, each number once) + "blanks" (one per number, exactly 4 options each, answerIndex, explain). Mix vocabulary, grammar/word forms, connectives and discourse in the blanks.',
     '- "bank": 文意選填. "title" + "passage" (150–200 words, blanks (1), (2)…) + "bank" (an array of 10 words/phrases shared by all blanks, e.g. verbs, nouns, adjectives, adverbs mixed, in random order; there are more words than blanks, so a few are distractors) + "blanks" (one per number: answerIndex = 0-based index into "bank", explain).',
     '- "struct": 篇章結構. "title" + "passage" (a passage of 3–4 paragraphs with blanks (1)–(4) where a whole sentence was removed) + "bank" (5 complete sentences: the 4 removed ones plus 1 distractor, random order) + "blanks" (answerIndex into "bank", explain pointing out the cohesion clue).',
-    '- "reading": "title" + "passage" (an array of 3–4 paragraphs, about 200–260 words in total, CEFR B1–B2, informative or narrative) + "questions" (each with skill 主旨/細節/字義/推論/態度, q, exactly 4 options, answerIndex, explain). Paraphrase; never copy {{copy}}+ consecutive words from the passage into a question or option.',
+    '- "reading": "title" + "passage" (an array of 3–4 paragraphs, about 200–260 words in total, CEFR B1–B2, informative or narrative) + "questions" (each with skill 主旨/細節/字義/推論/態度, q, exactly 4 options, answerIndex, explain, and "key": the exact words copied verbatim from the passage (3–25 words, within one paragraph) that prove the correct answer — required for every question). Paraphrase; never copy {{copy}}+ consecutive words from the passage into a question or option.',
     '- All "explain" fields are short explanations in Traditional Chinese (Taiwan usage). Vary the position of the correct answer.',
   ].join('\n'),
 };
@@ -1530,7 +1550,7 @@ function aiGenerateExam(topic, counts, hint) {
       type: { type: 'STRING', enum: ['mc', 'spell', 'phrase', 'reading', 'cloze', 'bank', 'struct'] }, tag: { type: 'STRING' }, q: { type: 'STRING' }, bank: { type: 'ARRAY', items: { type: 'STRING' } },
       options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, answerText: { type: 'STRING' },
       hint: { type: 'STRING' }, explain: { type: 'STRING' }, title: { type: 'STRING' }, passage: { type: 'ARRAY', items: { type: 'STRING' } },
-      questions: { type: 'ARRAY', items: { type: 'OBJECT', properties: { skill: { type: 'STRING' }, q: { type: 'STRING' }, options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, explain: { type: 'STRING' } }, required: ['q', 'options', 'answerIndex', 'explain'] } },
+      questions: { type: 'ARRAY', items: { type: 'OBJECT', properties: { skill: { type: 'STRING' }, q: { type: 'STRING' }, options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, explain: { type: 'STRING' }, key: { type: 'STRING' } }, required: ['q', 'options', 'answerIndex', 'explain', 'key'] } },
       blanks: { type: 'ARRAY', items: { type: 'OBJECT', properties: { options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, explain: { type: 'STRING' } }, required: ['answerIndex', 'explain'] } },
     }, required: ['type'] } } },
     required: ['blocks'],
@@ -1557,7 +1577,7 @@ function aiGenerateExam(topic, counts, hint) {
       if (x.q && String(x.answerText || '').trim()) blocks.push({ type: x.type, q: String(x.q).trim(), hint: String(x.hint || '').trim(), answer: String(x.answerText).trim(), explain: explain });
     } else if (x.type === 'reading') {
       var passage = strs_(x.passage).filter(String), qs = [];
-      (x.questions || []).forEach(function (q) { var c2 = cleanChoice_(q); if (c2 && q.q) qs.push({ skill: String(q.skill || '').trim(), q: String(q.q).trim(), options: c2.options, answer: c2.answer, explain: String(q.explain || '').trim() }); });
+      (x.questions || []).forEach(function (q) { var c2 = cleanChoice_(q); if (c2 && q.q) qs.push({ skill: String(q.skill || '').trim(), q: String(q.q).trim(), options: c2.options, answer: c2.answer, explain: String(q.explain || '').trim(), key: String(q.key || '').replace(/\s+/g, ' ').trim() }); });
       if (passage.length && qs.length) blocks.push({ type: 'reading', title: String(x.title || '').trim(), passage: passage, questions: qs });
     } else if (x.type === 'cloze') {
       var cp = strs_(x.passage).filter(String), bl = [];
@@ -1608,8 +1628,8 @@ function aiGenerateReading(passage, count, title) {
     'Rules:',
     aiGuidance_('reading'),
     '- Every sentence in the passage is labelled [paragraph-sentence], e.g. [2-3] is paragraph 2, sentence 3.',
-    '- "ref" is the label (without brackets, e.g. "2-3") of the ONE sentence that best supports the correct answer. For 主旨 questions with no single supporting sentence, use "".',
-    '- "key" is the exact words copied from the passage (3–25 words, within one paragraph, may cross a sentence boundary, without the [x-y] labels) that directly prove the correct answer — the precise clue a teacher would underline, not the whole sentence if only part of it matters. This is the ONLY field that must be copied verbatim. For 主旨 questions use "".',
+    '- "ref" is the label (without brackets, e.g. "2-3") of the ONE sentence that best supports the correct answer. EVERY question must have a ref, including 主旨 questions (use the sentence that states the main idea).',
+    '- "key" is the exact words copied from the passage (3–25 words, within one paragraph, may cross a sentence boundary, without the [x-y] labels) that directly prove the correct answer — the precise clue a teacher would underline, not the whole sentence if only part of it matters. This is the ONLY field that must be copied verbatim. EVERY question must have a key, including 主旨 questions.',
     '',
     'Passage:',
     text,

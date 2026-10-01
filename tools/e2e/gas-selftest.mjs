@@ -70,7 +70,7 @@ assert.equal(r.config.units['l1-voc'].since, t1, '不重製時 since 不變');
 assert.equal(r.config.content['l1-voc'].updated, t2);
 
 // 課文
-const reading = { title: 'T', topic: 'Tea', passage: ['Tea is a drink made from leaves.'], questions: [{ q: 'What is tea?', options: ['A', 'B'], answer: 0, explain: 'x' }] };
+const reading = { title: 'T', topic: 'Tea', passage: ['Tea is a drink made from leaves.'], questions: [{ ref: '1-1', q: 'What is tea?', options: ['A', 'B'], answer: 0, explain: 'x' }] };
 r = ok(g.api('saveContent', ['l1-reading', reading, true, null]));
 assert.equal(r.count, 1);
 assert.equal(r.config.content['l1-reading'].topic, 'Tea');
@@ -115,7 +115,7 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   const words = ['apple', 'bread', 'candy', 'dance'].map((w, i) => ({ word: w, pos: 'n.', zh: '中' + i, example: `I [${w}] it.`, exampleZh: '我。' }));
   okc(g2.api('saveContent', ['v1', { topic: 't', words }, true]));
   okc(g2.api('saveContent', ['r1', { title: 'T', topic: 't', passage: ['Tea is good.'], questions: [
-    { skill: '細節', q: 'Q1?', options: ['Leaves', 'Rocks'], answer: 0, explain: 'x' }, { skill: '細節', q: 'Q2?', options: ['a', 'b'], answer: 1, explain: 'x' }] }, true]));
+    { ref: '1-1', skill: '細節', q: 'Q1?', options: ['Leaves', 'Rocks'], answer: 0, explain: 'x' }, { ref: '1-1', skill: '細節', q: 'Q2?', options: ['a', 'b'], answer: 1, explain: 'x' }] }, true]));
   const send = (o) => g2.post(Object.assign({ cls: '306', seat: '1', name: '王小明', clientTs: '2026-10-01 10:00:00' }, o));
   const lastCheck = () => { const sh = g2.sheets.get('scores'); return String(sh.rows[sh.getLastRow() - 1][18] || ''); };
   // 課文：正確的成績

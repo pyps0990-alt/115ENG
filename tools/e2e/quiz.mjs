@@ -11,8 +11,8 @@ g.api('saveAllSettings', [[], [
 const words = ['apple', 'bread', 'candy', 'dance', 'eagle', 'flame', 'grape', 'honey'].map((w, i) => ({ word: w, pos: 'n.', zh: '中文' + i, example: `I like [${w}] a lot.`, exampleZh: '我很喜歡。' }));
 g.api('saveContent', ['l1-voc', { topic: 'Food', words }, true]);
 g.api('saveContent', ['l1-reading', { title: 'Tea', topic: 'Tea', passage: ['Tea is a drink made from leaves. People all over the world enjoy it every day.', 'It can be hot or cold, sweet or plain.'], questions: [
-  { skill: '細節', q: 'What is tea made from?', options: ['Leaves', 'Rocks', 'Milk', 'Sand'], answer: 0, explain: '第一句。', ref: '1-1', key: 'made from leaves' },
-  { skill: '主旨', q: 'Who enjoys tea?', options: ['Nobody', 'Only kids', 'People worldwide', 'Cats'], answer: 2, explain: '第二句。' },
+  { ref: '1-1', skill: '細節', q: 'What is tea made from?', options: ['Leaves', 'Rocks', 'Milk', 'Sand'], answer: 0, explain: '第一句。', ref: '1-1', key: 'made from leaves' },
+  { ref: '1-1', skill: '主旨', q: 'Who enjoys tea?', options: ['Nobody', 'Only kids', 'People worldwide', 'Cats'], answer: 2, explain: '第二句。' },
 ] }, true]);
 const scoreBodies = [];
 const origPost = world.gas.post.bind(world.gas);

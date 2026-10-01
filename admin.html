@@ -308,7 +308,7 @@
           <label>文章標題<input type="text" id="r-title" placeholder="例：Mia's Second Try"></label>
           <label>主題（顯示在首頁卡片上，可空白，預設用文章標題）<input type="text" id="r-topic"></label>
           <label>文章（段落之間空一行）<textarea id="r-passage" spellcheck="false"></textarea></label>
-          <div class="help"><b>課文理解　匯入格式</b><br>依序填：文章標題、主題、文章（段落之間空一行），再逐題填「題型、題目（英文）、四個選項、點選正確答案、中文解析」。「關鍵字句」從文章直接複製最能證明答案的一段，學生檢討時會標亮；沒填可改選「原文依據」的句子。<br>題目與選項請用自己的話改寫，<b>不要照抄文章</b>：和文章連續 6 個英文字以上相同會無法儲存，連續 5 個字會提醒。</div>
+          <div class="help"><b>課文理解　匯入格式</b>（<b>每一題都必須有原文依據</b>，包含主旨題）<br>依序填：文章標題、主題、文章（段落之間空一行），再逐題填「題型、題目（英文）、四個選項、點選正確答案、中文解析」。「關鍵字句」從文章直接複製最能證明答案的一段，學生檢討時會標亮；沒填可改選「原文依據」的句子。<br>題目與選項請用自己的話改寫，<b>不要照抄文章</b>：和文章連續 6 個英文字以上相同會無法儲存，連續 5 個字會提醒。</div>
           <div class="bar"><button class="btn ai" id="ai-reading" type="button">✦ AI 產生題目</button>
             <label style="display:flex;align-items:center;gap:6px;font-weight:400">題數 <select id="ai-count"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>8</option><option>10</option></select></label>
             <span class="muted">會取代下方目前的題目；產生後請逐題確認再儲存。</span></div>
@@ -1013,8 +1013,8 @@
         if (key) {
           if (!inPassage(key, passage)) issues.push(['err', tag + '：關鍵字句在文章裡找不到，請直接從文章複製（不要改字）']);
           else q.key = key;
-        } else if (!ref && q.skill !== '主旨') {
-          issues.push(['warn', tag + '：沒有設定原文依據，學生檢討時看不到「看原文依據」']);
+        } else if (!ref) {
+          issues.push(['err', tag + '：每一題都要有原文依據：填「關鍵字句」，或在下拉選單選一個原文句子']);
         }
         qs.push(q);
       });
@@ -1041,7 +1041,7 @@
         '<code>[綜合]</code>（克漏字）標題／文章（空格寫 <code>(1)</code>、<code>(2)</code>…）／<code>(1)選項</code>、<code>(1)答案</code>、<code>(1)解析</code>，再接 <code>(2)…</code><br>' +
         '<code>[選填]</code>（文意選填）標題／文章（空格 <code>(1)</code>…）／<code>字庫</code>（所有空格共用的字，<code>|</code> 隔開，最多 10 個，A、B、C…依序編號）／<code>(1)答案</code>、<code>(1)解析</code>…<br>' +
         '<code>[篇章]</code>（篇章結構）標題／文章（空格 <code>(1)</code>…）／<code>句庫</code>（共用的句子，<code>|</code> 隔開）／<code>(1)答案</code>、<code>(1)解析</code>…<br>' +
-        '<code>[閱讀]</code> 標題／文章（段落之間空一行）／<code>Q1</code>（題目）、<code>Q1選項</code>、<code>Q1答案</code>、<code>Q1解析</code>、<code>Q1技巧</code>（主旨／細節…，可空白），再接 <code>Q2…</code><br>' +
+        '<code>[閱讀]</code> 標題／文章（段落之間空一行）／<code>Q1</code>（題目）、<code>Q1選項</code>、<code>Q1答案</code>、<code>Q1解析</code>、<code>Q1依據</code>（<b>必填</b>：從文章複製、最能證明答案的那段話，檢討時會標亮）、<code>Q1技巧</code>（主旨／細節…，可空白），再接 <code>Q2…</code><br>' +
         '作文、翻譯沒有標準答案，不在這裡。也可以直接貼 JSON。'
     };
     var EXAMPLE = {
@@ -1054,7 +1054,7 @@
         '[綜合]\n標題：A Big Change\n文章：Tom moved to a new city last year. At first he felt (1) because he knew no one. (2), he joined a club and made friends.\n(1)選項：lonely | noisy | hungry | proud\n(1)答案：A\n(1)解析：knew no one → 孤單。\n(2)選項：However | Therefore | Besides | Otherwise\n(2)答案：A\n(2)解析：前後語意轉折，用 However。\n\n' +
         '[選填]\n標題：Napping\n文章：A short nap can (1) your memory. It is by no means (2). Find a quiet place with (3) light.\n字庫：boost | unproductive | minimal | delay | atmosphere | retain\n(1)答案：A\n(1)解析：boost 提升。\n(2)答案：B\n(2)解析：by no means unproductive 絕非沒效率。\n(3)答案：C\n(3)解析：minimal light 極少的光。\n\n' +
         '[篇章]\n標題：Smiling\n文章：Smiling is common today. (1) In the past, people rarely smiled in portraits. (2) Today a smile shows friendliness.\n句庫：The meaning of a smile has changed over time. | Cats like to sleep all day. | That is why photos look more cheerful now.\n(1)答案：A\n(1)解析：承接上句，引出「隨時間改變」。\n(2)答案：C\n(2)解析：That is why 承接前面的原因。\n\n' +
-        '[閱讀]\n標題：Mia\'s Second Try\n文章：Mia failed her first driving test. She felt ashamed, but she decided to try again.\n\nA month later she passed.\nQ1：What is the passage mainly about?\nQ1選項：Learning to drive | Trying again after failing | Buying a car | Making friends\nQ1答案：B\nQ1解析：整篇描述 Mia 失敗後再試一次。\nQ1技巧：主旨\nQ2：How did Mia feel after the first test?\nQ2選項：Proud | Ashamed | Bored | Angry\nQ2答案：B\nQ2解析：第一段提到 She felt ashamed。'
+        '[閱讀]\n標題：Mia\'s Second Try\n文章：Mia failed her first driving test. She felt ashamed, but she decided to try again.\n\nA month later she passed.\nQ1：What is the passage mainly about?\nQ1選項：Learning to drive | Trying again after failing | Buying a car | Making friends\nQ1答案：B\nQ1解析：整篇描述 Mia 失敗後再試一次。\nQ1依據：she decided to try again\nQ1技巧：主旨\nQ2：How did Mia feel after the first test?\nQ2選項：Proud | Ashamed | Bored | Angry\nQ2答案：B\nQ2解析：第一段提到 She felt ashamed。\nQ2依據：She felt ashamed'
     };
     var KEYSET = { '句型': 'tag', '題目': 'q', '選項': 'options', '答案': 'answer', '解析': 'explain', '提示': 'hint', '中文': 'zh', '單字': 'words', '文章': 'passage', '標題': 'title' };
     var KIND = { '選擇': 'mc', '填空': 'fill', '應用': 'apply', '拼寫': 'spell', '片語': 'phrase', '閱讀': 'reading', '綜合': 'cloze', '選填': 'bank', '篇章': 'struct' };
@@ -1094,7 +1094,7 @@
         var h = /^\s*\[(選擇|填空|應用|拼寫|片語|閱讀|綜合|選填|篇章)\]\s*(.*)$/.exec(line);
         if (h) { cur = { kind: KIND[h[1]], f: {}, order: [] }; blocks.push(cur); key = null; line = h[2]; if (!line) return; }
         if (!cur) return;
-        var m = /^\s*(Q\d+(?:選項|答案|解析|技巧)?|\(\d+\)(?:選項|答案|解析)|句型|題目|選項|答案|解析|提示|中文|單字|文章|標題|字庫|句庫)\s*[:：]\s*(.*)$/.exec(line);
+        var m = /^\s*(Q\d+(?:選項|答案|解析|技巧|依據)?|\(\d+\)(?:選項|答案|解析)|句型|題目|選項|答案|解析|提示|中文|單字|文章|標題|字庫|句庫)\s*[:：]\s*(.*)$/.exec(line);
         if (m) { key = m[1]; cur.f[key] = m[2]; cur.order.push(key); }
         else if (key) cur.f[key] += '\n' + line;
       });
@@ -1182,7 +1182,12 @@
             if (ai < 0 || ai >= o.length) issues.push(['err', sub + '：答案要寫 A–' + 'ABCDEFGHIJ'[Math.max(o.length - 1, 0)] + ' 或選項原文']);
             if (!f[pre + '解析']) issues.push(['warn', sub + '：沒有解析']);
             if (cloze) list.push({ options: o, answer: ai, explain: f[pre + '解析'] || '' });
-            else list.push({ skill: f[pre + '技巧'] || '', q: f[pre] || '', options: o, answer: ai, explain: f[pre + '解析'] || '' });
+            else {
+              var evk = String(f[pre + '依據'] || '').replace(/\s+/g, ' ').trim();
+              if (!evk) issues.push(['err', sub + '：缺少原文依據（' + pre + '依據：從文章複製的關鍵字句）']);
+              else if (!inPassage(evk, passage)) issues.push(['err', sub + '：原文依據在文章裡找不到，請直接從文章複製（不要改字）']);
+              list.push({ skill: f[pre + '技巧'] || '', q: f[pre] || '', options: o, answer: ai, explain: f[pre + '解析'] || '', key: evk });
+            }
           }
           if (!list.length) issues.push(['err', tag + '：至少要 1 個' + (cloze ? '空格（(1)選項、(1)答案…）' : '小題（Q1、Q1選項、Q1答案…）')]);
           if (cloze) {
@@ -1299,6 +1304,7 @@
             o.push(pre + '選項：' + join(q.options), pre + '答案：' + 'ABCDEFGHIJ'[q.answer]);
             if (q.explain) o.push(pre + '解析：' + q.explain);
             if (b.type === 'reading' && q.skill) o.push(pre + '技巧：' + q.skill);
+            if (b.type === 'reading' && q.key) o.push(pre + '依據：' + q.key);
           });
           return o.join('\n');
         }

@@ -1,6 +1,6 @@
 // 段考複習：像真的考卷，一頁看完所有題目（選擇、拼寫、閱讀、綜合），一次交卷；交卷後看各題型成績，再逐題檢討答錯的題目
 import { store } from '../storage.js';
-import { esc, nowStamp, confirmDialog, centerInView } from '../util.js';
+import { esc, nowStamp, confirmDialog, centerInView, splitSentences } from '../util.js';
 import { icon } from '../icons.js';
 import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
@@ -40,7 +40,34 @@ export function mount(stage, ctx) {
       ${b.title ? `<h2 class="passage-title en">${esc(b.title)}</h2>` : ''}
       ${bankHTML(b)}${(b.passage || []).map((p) => `<p><span class="ptext">${b.type === 'cloze' || b.type === 'bank' || b.type === 'struct' ? clozeHTML(p) : esc(p)}</span></p>`).join('')}
     </article>`;
-  const passageText = (b) => `<details class="rv-passage"><summary>${icon.book} 看文章</summary>${passageCard(b)}</details>`;
+  // 檢討時：展開文章並標亮這題的原文依據（關鍵字句，或原文句子編號 段-句）
+  const normQ = (t) => String(t).replace(/[‘’]/g, "'").replace(/[“”]/g, '"').toLowerCase();
+  const evidencePassage = (b, q) => {
+    const key = String((q && q.key) || '').replace(/\s+/g, ' ').trim();
+    const refs = String((q && q.ref) || '').split(',').map((r) => r.trim()).filter(Boolean);
+    let found = false;
+    const paras = (b.passage || []).map((p, i) => {
+      if (key) {
+        const at = normQ(p).indexOf(normQ(key));
+        if (at >= 0) { found = true; return `${esc(p.slice(0, at))}<mark class="evidence">${esc(p.slice(at, at + key.length))}</mark>${esc(p.slice(at + key.length))}`; }
+        return esc(p);
+      }
+      return splitSentences(p).map((s, j) => {
+        const hit = refs.includes(`${i + 1}-${j + 1}`);
+        found = found || hit;
+        return hit ? `<mark class="evidence">${esc(s)}</mark>` : esc(s);
+      }).join(' ');
+    });
+    return { found, html: paras.map((p) => `<p><span class="ptext">${p}</span></p>`).join('') };
+  };
+  const passageText = (b, q) => {
+    if (b.type === 'reading' && q && (q.key || q.ref)) {
+      const ev = evidencePassage(b, q);
+      if (ev.found) return `<details class="rv-passage" open><summary>${icon.book} 原文依據</summary><article class="passage-card">${b.title ? `<h2 class="passage-title en">${esc(b.title)}</h2>` : ''}${ev.html}</article></details>`;
+    }
+    return passageText0(b);
+  };
+  const passageText0 = (b) => `<details class="rv-passage"><summary>${icon.book} 看文章</summary>${passageCard(b)}</details>`;
 
   /* ---------------- 交卷後逐題檢討 ---------------- */
   function startReview(details) {
@@ -53,7 +80,7 @@ export function mount(stage, ctx) {
         const q = byId[d.word];
         if (!q) return { html: `<div class="rv-card"><div class="rv-prompt">${esc(d.q || d.question || '')}</div><div class="rv-row ok"><span>正確答案</span><b class="en">${esc(d.correct || '')}</b></div></div>` };
         const b = blocks[q.block];
-        return { html: reviewCardHTML(q, d.yours, q.group ? passageText(b) : '') };
+        return { html: reviewCardHTML(q, d.yours, q.group ? passageText(b, q.group === 'reading' ? (b.questions || [])[q.sub] : null) : '') };
       }),
       onDone: () => { if (firstTime) completeReview(unitId); gate.redraw(); window.scrollTo(0, 0); },
       onExit: () => { gate.redraw(); window.scrollTo(0, 0); },

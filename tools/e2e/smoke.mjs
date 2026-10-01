@@ -25,8 +25,8 @@ const words = ['apple', 'bread', 'candy', 'dance', 'eagle', 'flame'].map((w, i) 
 okApi('saveContent', ['l1-voc', { topic: 'Food', words }, true]);
 okApi('saveContent', ['l2-voc', { topic: 'Sports', words }, true]);
 okApi('saveContent', ['l1-reading', { title: 'Tea', topic: 'Tea time', passage: ['Tea is a drink made from leaves. People all over the world enjoy it every day.'], questions: [
-  { skill: '細節', q: 'What is tea made from?', options: ['Leaves', 'Rocks', 'Milk', 'Sand'], answer: 0, explain: '第一句。' },
-  { skill: '主旨', q: 'Who enjoys tea?', options: ['Nobody', 'Only kids', 'People worldwide', 'Cats'], answer: 2, explain: '第二句。' },
+  { ref: '1-1', skill: '細節', q: 'What is tea made from?', options: ['Leaves', 'Rocks', 'Milk', 'Sand'], answer: 0, explain: '第一句。' },
+  { ref: '1-1', skill: '主旨', q: 'Who enjoys tea?', options: ['Nobody', 'Only kids', 'People worldwide', 'Cats'], answer: 2, explain: '第二句。' },
 ] }, true]);
 world.gas.calls.commit.length = 0;
 

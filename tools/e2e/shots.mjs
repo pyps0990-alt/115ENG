@@ -12,8 +12,8 @@ const words = ['apple', 'bread', 'candy', 'dance', 'eagle', 'flame'].map((w, i) 
 g.api('saveContent', ['l1-voc', { topic: 'Food and Drink', words }, true]);
 g.api('saveContent', ['l2-voc', { topic: 'Sports', words }, true]);
 g.api('saveContent', ['l1-reading', { title: 'Tea', topic: "Mia's Second Try", passage: ['Tea is a drink made from leaves. People all over the world enjoy it every day.', 'It can be hot or cold, sweet or plain.'], questions: [
-  { skill: '細節', q: 'What is tea made from?', options: ['Leaves', 'Rocks', 'Milk', 'Sand'], answer: 0, explain: '第一句。', ref: '1-1', key: 'made from leaves' },
-  { skill: '主旨', q: 'Who enjoys tea?', options: ['Nobody', 'Only kids', 'People worldwide', 'Cats'], answer: 2, explain: '第二句。' },
+  { ref: '1-1', skill: '細節', q: 'What is tea made from?', options: ['Leaves', 'Rocks', 'Milk', 'Sand'], answer: 0, explain: '第一句。', ref: '1-1', key: 'made from leaves' },
+  { ref: '1-1', skill: '主旨', q: 'Who enjoys tea?', options: ['Nobody', 'Only kids', 'People worldwide', 'Cats'], answer: 2, explain: '第二句。' },
 ] }, true]);
 for (const [name, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
   const ctx = await world.newContext({ viewport: { width: w, height: h } });

@@ -17,7 +17,7 @@ const exam = { topic: '段考', blocks: [
   { type: 'mc', q: 'Her ____ helped us.', options: ['contribution', 'competition', 'connection', 'conclusion'], answer: 0, explain: '貢獻。' },
   { type: 'spell', q: 'Stay ____ now.', hint: 'c（冷靜）', answer: 'calm', explain: 'calm。' },
   { type: 'reading', title: 'Tea', passage: ['Tea is a drink made from leaves. People enjoy it.', 'It can be hot or cold.'], questions: [
-    { skill: '細節', q: 'What is tea made from?', options: ['Leaves', 'Rocks', 'Milk', 'Sand'], answer: 0, explain: '第一句。' }] },
+    { key: 'made from leaves', skill: '細節', q: 'What is tea made from?', options: ['Leaves', 'Rocks', 'Milk', 'Sand'], answer: 0, explain: '第一句。' }] },
   { type: 'phrase', q: 'We are ____ seeing you.', hint: '期待', answer: 'looking forward to', explain: 'x' },
   { type: 'bank', title: 'Nap', passage: ['A nap can (1) memory. It is not (2).'], bank: ['boost', 'unproductive', 'delay'], blanks: [{ answer: 0, explain: 'a' }, { answer: 1, explain: 'b' }] },
   { type: 'struct', title: 'Smile', passage: ['Smiles are common. (1) Long ago people rarely smiled.'], bank: ['Things changed over time.', 'Cats sleep.'], blanks: [{ answer: 0, explain: 'c' }] },
@@ -37,6 +37,10 @@ const bad1 = JSON.stringify(g.api('saveContent', ['l2-pat', { items: [{ type: 'a
 assert(/排成/.test(bad1), '伺服器要擋掉單字對不上答案的應用題：' + bad1);
 const bad2 = JSON.stringify(g.api('saveContent', ['l2-exam', { blocks: [{ type: 'cloze', passage: ['none'], blanks: [{ options: ['a', 'b'], answer: 0 }] }] }, true]));
 assert(/空格/.test(bad2), '綜合題文章缺空格要擋：' + bad2);
+const bad3 = JSON.stringify(g.api('saveContent', ['l2-exam', { blocks: [{ type: 'reading', passage: ['Tea is good.'], questions: [{ q: 'x?', options: ['a', 'b'], answer: 0 }] }] }, true]));
+assert(/原文依據/.test(bad3), '閱讀題沒有原文依據要擋：' + bad3);
+const bad4 = JSON.stringify(g.api('saveContent', ['l2-exam', { blocks: [{ type: 'reading', passage: ['Tea is good.'], questions: [{ q: 'x?', options: ['a', 'b'], answer: 0, key: 'not here' }] }] }, true]));
+assert(/找不到/.test(bad4), '關鍵字句不在文章裡要擋：' + bad4);
 let fails = 0;
 const step = async (name, fn) => { try { await fn(); console.log('✓', name); } catch (e) { fails++; console.log('✗', name, '\n  ', String(e.message).split('\n').join('\n   ')); } };
 for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
@@ -134,6 +138,8 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
     await shot('exam-result');
     await p.getByRole('button', { name: /開始檢討/ }).click(); await sleep(400);
     const rvc = await p.locator('.rv-pq, .rv-card').count(); assert(rvc >= 1, 'rv-card=' + rvc + ' ' + (await p.locator('#stage').innerHTML()).slice(0, 600));
+    assert.equal(await p.locator('mark.evidence').count(), 1, '檢討時要標亮原文依據');
+    assert.match(await p.locator('mark.evidence').textContent(), /made from leaves/);
     await shot('exam-review');
   });
   await step(`[${label}] 沒有錯誤`, async () => {

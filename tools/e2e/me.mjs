@@ -7,7 +7,7 @@ const mk = (id, t, extra = {}) => ({ id, title: id, type: t, lesson: 1, topic: '
 g.api('saveAllSettings', [[], [mk('a-voc', 'vocab'), mk('b-voc', 'vocab'), mk('c-voc', 'vocab', { closeAt: '2020-01-01T00:00' }), mk('d-read', 'reading', { closeAt: '2099-01-01T00:00' }), mk('e-voc', 'vocab', { openAt: '2099-01-01T00:00' })]]);
 const words = ['a1', 'b2', 'c3', 'd4', 'e5', 'f6'].map((w) => ({ word: w, pos: 'n.', zh: '字', example: `I [${w}] it.`, exampleZh: '我。' }));
 ['a-voc', 'b-voc', 'c-voc', 'e-voc'].forEach((id) => g.api('saveContent', [id, { topic: 'T ' + id, words }, true]));
-g.api('saveContent', ['d-read', { title: 'R', topic: 'T d-read', passage: ['Tea is good.'], questions: [{ skill: '細節', q: 'Q?', options: ['a', 'b'], answer: 0, explain: 'x' }] }, true]);
+g.api('saveContent', ['d-read', { title: 'R', topic: 'T d-read', passage: ['Tea is good.'], questions: [{ ref: '1-1', skill: '細節', q: 'Q?', options: ['a', 'b'], answer: 0, explain: 'x' }] }, true]);
 const ctx = await world.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 const p = await world.newPage(ctx, { student: true });
 await p.addInitScript(() => {

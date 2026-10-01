@@ -9,7 +9,7 @@ const SERVICE = Number(process.argv[3] || 1.0) * 1000;
 const world = await startWorld({ scriptLatency: 0 });
 const g = world.gas;
 g.api('saveAllSettings', [[], [{ id: 'r1', title: 'R', type: 'reading', lesson: 1, topic: '', visible: true, disabled: [], questionCount: 5, custom: true }]]);
-g.api('saveContent', ['r1', { title: 'T', topic: 't', passage: ['Tea is good.'], questions: [{ skill: '細節', q: 'Q1?', options: ['a', 'b'], answer: 0, explain: 'x' }] }, true]);
+g.api('saveContent', ['r1', { title: 'T', topic: 't', passage: ['Tea is good.'], questions: [{ ref: '1-1', skill: '細節', q: 'Q1?', options: ['a', 'b'], answer: 0, explain: 'x' }] }, true]);
 
 // ---- 假的 Apps Script：排隊、鎖逾時、同時執行上限
 let inflight = 0;
