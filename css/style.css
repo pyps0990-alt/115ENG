@@ -946,3 +946,11 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .open-sum { border: 1.5px solid var(--line); border-radius: 14px; padding: 8px 12px; background: var(--white); }
 .open-sum > summary { cursor: pointer; font-weight: 700; color: var(--navy); }
 .open-sum .rv-pq { border: 0; padding: 10px 0 0; box-shadow: none; }
+
+/* 從單元選單切換頁面：整頁換景（和點卡片的放大不同）。舊頁面輕輕縮小淡出，新頁面從下方升起 */
+::view-transition-group(page) { animation-duration: .5s; }
+::view-transition-old(page) { animation: vt-menu-out .26s cubic-bezier(.4, 0, 1, 1) both; }
+::view-transition-new(page) { animation: vt-menu-in .5s cubic-bezier(.22, .72, .18, 1) .1s both; }
+@keyframes vt-menu-out { to { opacity: 0; transform: translate3d(0, -10px, 0) scale(.985); } }
+@keyframes vt-menu-in { from { opacity: 0; transform: translate3d(0, 28px, 0) scale(.99); } }
+@media (prefers-reduced-motion: reduce) { ::view-transition-old(page), ::view-transition-new(page) { animation: none !important; } }
