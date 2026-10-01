@@ -1084,6 +1084,9 @@
         '<code>[綜合]</code>（克漏字）標題／文章（空格寫 <code>(1)</code>、<code>(2)</code>…）／<code>(1)選項</code>、<code>(1)答案</code>、<code>(1)解析</code>，再接 <code>(2)…</code><br>' +
         '<code>[選填]</code>（文意選填）標題／文章（空格 <code>(1)</code>…）／<code>字庫</code>（所有空格共用的字，<code>|</code> 隔開，最多 10 個，A、B、C…依序編號）／<code>(1)答案</code>、<code>(1)解析</code>…<br>' +
         '<code>[篇章]</code>（篇章結構）標題／文章（空格 <code>(1)</code>…）／<code>句庫</code>（共用的句子，<code>|</code> 隔開）／<code>(1)答案</code>、<code>(1)解析</code>…<br>' +
+        '<code>[翻譯]</code> 中文（要翻成英文的句子）／答案（參考答案，其他可接受的寫法用 <code>|</code> 隔開）／提示（可空白）／解析（評分重點）<br>' +
+        '<code>[作文]</code> 題目／字數（最少幾個英文字，預設 120）／範文（參考範文）／解析（評分重點）<br>' +
+        '<b>翻譯、作文沒有標準答案，不計分</b>：學生寫完交卷後會並排看到自己的答案、參考答案與評分重點，自己對照；答案也會存進成績試算表的 details 分頁，老師可以閱讀。<br>' +
         '<code>[閱讀]</code> 標題／文章（段落之間空一行）／<code>Q1</code>（題目）、<code>Q1選項</code>、<code>Q1答案</code>、<code>Q1解析</code>、<code>Q1依據</code>（<b>必填</b>：從文章複製、最能證明答案的那段話，檢討時會標亮）、<code>Q1技巧</code>（主旨／細節…，可空白），再接 <code>Q2…</code><br>' +
         '作文、翻譯沒有標準答案，不在這裡。也可以直接貼 JSON。'
     };
@@ -1097,18 +1100,20 @@
         '[綜合]\n標題：A Big Change\n文章：Tom moved to a new city last year. At first he felt (1) because he knew no one. (2), he joined a club and made friends.\n(1)選項：lonely | noisy | hungry | proud\n(1)答案：A\n(1)解析：knew no one → 孤單。\n(2)選項：However | Therefore | Besides | Otherwise\n(2)答案：A\n(2)解析：前後語意轉折，用 However。\n\n' +
         '[選填]\n標題：Napping\n文章：A short nap can (1) your memory. It is by no means (2). Find a quiet place with (3) light.\n字庫：boost | unproductive | minimal | delay | atmosphere | retain\n(1)答案：A\n(1)解析：boost 提升。\n(2)答案：B\n(2)解析：by no means unproductive 絕非沒效率。\n(3)答案：C\n(3)解析：minimal light 極少的光。\n\n' +
         '[篇章]\n標題：Smiling\n文章：Smiling is common today. (1) In the past, people rarely smiled in portraits. (2) Today a smile shows friendliness.\n句庫：The meaning of a smile has changed over time. | Cats like to sleep all day. | That is why photos look more cheerful now.\n(1)答案：A\n(1)解析：承接上句，引出「隨時間改變」。\n(2)答案：C\n(2)解析：That is why 承接前面的原因。\n\n' +
+        '[翻譯]\n中文：她決定再試一次。\n答案：She decided to try again.|She made up her mind to try once more.\n解析：decide to + V；try again 再試一次。\n\n' +
+        '[作文]\n題目：請寫一篇短文，描述一次你克服困難的經驗，並說明你學到了什麼。\n字數：120\n範文：Last year, I was afraid of speaking in public. When the teacher asked me to give a speech, my hands shook. However, I practiced every night in front of the mirror.\n\nOn the day of the speech, I took a deep breath and smiled. Although I made a few mistakes, everyone clapped for me. I learned that practice can turn fear into confidence.\n解析：內容完整（經驗＋學到的事）、段落清楚、使用連接詞與時態正確。\n\n' +
         '[閱讀]\n標題：Mia\'s Second Try\n文章：Mia failed her first driving test. She felt ashamed, but she decided to try again.\n\nA month later she passed.\nQ1：What is the passage mainly about?\nQ1選項：Learning to drive | Trying again after failing | Buying a car | Making friends\nQ1答案：B\nQ1解析：整篇描述 Mia 失敗後再試一次。\nQ1依據：she decided to try again\nQ1技巧：主旨\nQ2：How did Mia feel after the first test?\nQ2選項：Proud | Ashamed | Bored | Angry\nQ2答案：B\nQ2解析：第一段提到 She felt ashamed。\nQ2依據：She felt ashamed'
     };
     var KEYSET = { '句型': 'tag', '題目': 'q', '選項': 'options', '答案': 'answer', '解析': 'explain', '提示': 'hint', '中文': 'zh', '單字': 'words', '文章': 'passage', '標題': 'title' };
-    var KIND = { '選擇': 'mc', '填空': 'fill', '應用': 'apply', '拼寫': 'spell', '片語': 'phrase', '閱讀': 'reading', '綜合': 'cloze', '選填': 'bank', '篇章': 'struct' };
-    var KIND_ZH = { mc: '選擇', fill: '填空', apply: '應用', spell: '拼寫', phrase: '片語', reading: '閱讀', cloze: '綜合', bank: '選填', struct: '篇章' };
+    var KIND = { '選擇': 'mc', '填空': 'fill', '應用': 'apply', '拼寫': 'spell', '片語': 'phrase', '閱讀': 'reading', '綜合': 'cloze', '選填': 'bank', '篇章': 'struct', '翻譯': 'translate', '作文': 'essay' };
+    var KIND_ZH = { mc: '選擇', fill: '填空', apply: '應用', spell: '拼寫', phrase: '片語', reading: '閱讀', cloze: '綜合', bank: '選填', struct: '篇章', translate: '翻譯', essay: '作文' };
 
     function textShow(type) {
       $('t-help').innerHTML = HELP[type];
       if (type === 'pattern') {
         $('t-counts').innerHTML = '<label style="display:inline-flex;gap:6px;align-items:center;font-weight:400">題數 <select id="c-n"><option>5</option><option selected>10</option><option>15</option><option>20</option></select></label>';
       } else {
-        $('t-counts').innerHTML = ['mc:詞彙:8', 'spell:拼寫:3', 'phrase:片語:3', 'cloze:克漏字(篇):1', 'bank:選填(篇):1', 'struct:篇章(篇):1', 'reading:閱讀(篇):1'].map(function (x) {
+        $('t-counts').innerHTML = ['mc:詞彙:8', 'spell:拼寫:3', 'phrase:片語:3', 'cloze:克漏字(篇):1', 'bank:選填(篇):1', 'struct:篇章(篇):1', 'reading:閱讀(篇):1', 'translate:翻譯:2', 'essay:作文:0'].map(function (x) {
           var a = x.split(':');
           return '<label style="display:inline-flex;gap:4px;align-items:center;font-weight:400">' + a[1] + ' <input type="number" id="c-' + a[0] + '" min="0" max="15" value="' + a[2] + '" style="width:56px"></label>';
         }).join(' ');
@@ -1134,10 +1139,10 @@
     function splitBlocks(text) {
       var blocks = [], cur = null, key = null;
       text.split(/\r?\n/).forEach(function (line) {
-        var h = /^\s*\[(選擇|填空|應用|拼寫|片語|閱讀|綜合|選填|篇章)\]\s*(.*)$/.exec(line);
+        var h = /^\s*\[(選擇|填空|應用|拼寫|片語|閱讀|綜合|選填|篇章|翻譯|作文)\]\s*(.*)$/.exec(line);
         if (h) { cur = { kind: KIND[h[1]], f: {}, order: [] }; blocks.push(cur); key = null; line = h[2]; if (!line) return; }
         if (!cur) return;
-        var m = /^\s*(Q\d+(?:選項|答案|解析|技巧|依據句|依據)?|\(\d+\)(?:選項|答案|解析)|句型|題目|選項|答案|解析|提示|中文|單字|文章|標題|字庫|句庫)\s*[:：]\s*(.*)$/.exec(line);
+        var m = /^\s*(Q\d+(?:選項|答案|解析|技巧|依據句|依據)?|\(\d+\)(?:選項|答案|解析)|句型|題目|選項|答案|解析|提示|中文|單字|文章|標題|字庫|句庫|字數|範文)\s*[:：]\s*(.*)$/.exec(line);
         if (m) { key = m[1]; cur.f[key] = m[2]; cur.order.push(key); }
         else if (key) cur.f[key] += '\n' + line;
       });
@@ -1206,6 +1211,16 @@
           var bextra = (bpass.join(' ').match(/\((\d+)\)/g) || []).filter(function (x) { return Number(x.slice(1, -1)) > bl.length; });
           if (bextra.length) issues.push(['err', tag + '：文章裡的空格 ' + bextra.join('、') + ' 沒有對應的答案']);
           blocks.push({ type: b.kind, title: f['標題'] || '', passage: bpass, bank: bank, blanks: bl });
+        } else if (b.kind === 'translate') {
+          if (!f['中文']) issues.push(['err', tag + '：缺少中文句子（中文：…）']);
+          if (!f['答案']) issues.push(['err', tag + '：缺少參考答案（答案：…，多種寫法用 | 隔開）']);
+          blocks.push({ type: 'translate', zh: f['中文'] || '', answer: f['答案'] || '', hint: f['提示'] || '', explain: f['解析'] || '' });
+        } else if (b.kind === 'essay') {
+          var mw = f['字數'] ? Number(f['字數']) : 120;
+          if (!f['題目']) issues.push(['err', tag + '：缺少作文題目（題目：…）']);
+          if (!f['範文']) issues.push(['err', tag + '：缺少參考範文（範文：…）']);
+          if (!(mw >= 0 && mw <= 1000)) issues.push(['err', tag + '：字數要寫 0–1000 的數字']);
+          blocks.push({ type: 'essay', q: f['題目'] || '', minWords: mw, sample: f['範文'] || '', explain: f['解析'] || '' });
         } else if (b.kind === 'spell' || b.kind === 'phrase') {
           if (!f['題目'] || !/_{2,}/.test(f['題目'])) issues.push(['err', tag + '：題目要有 ____ 空格']);
           if (!f['答案']) issues.push(['err', tag + '：缺少答案']);
@@ -1258,7 +1273,7 @@
     function parseTextType(type) {
       var text = $('t-text').value, issues = [], data;
       var trimmed = text.trim();
-      if (/^[\[{]/.test(trimmed) && !/^\[(選擇|填空|應用|拼寫|片語|閱讀|綜合|選填|篇章)\]/.test(trimmed)) {
+      if (/^[\[{]/.test(trimmed) && !/^\[(選擇|填空|應用|拼寫|片語|閱讀|綜合|選填|篇章|翻譯|作文)\]/.test(trimmed)) {
         try {
           var j = JSON.parse(trimmed);
           if (Array.isArray(j)) j = type === 'pattern' ? { items: j } : { blocks: j };
@@ -1301,6 +1316,8 @@
         var b = d.blocks[k], m = '第 ' + (k + 1) + ' 大題';
         if (b.type === 'mc') { if (!b.q || !ok(b)) return m + '（選擇）不完整或沒有正確答案'; }
         else if (b.type === 'spell' || b.type === 'phrase') { if (!b.q || !String(b.answer || '').trim()) return m + '（拼寫／片語）不完整'; }
+        else if (b.type === 'translate') { if (!b.zh || !String(b.answer || '').trim()) return m + '（翻譯）不完整'; }
+        else if (b.type === 'essay') { if (!b.q || !String(b.sample || '').trim()) return m + '（作文）不完整'; }
         else if (b.type === 'bank' || b.type === 'struct') {
           if (!Array.isArray(b.passage) || !b.passage.length || !Array.isArray(b.bank) || b.bank.length < 2 || b.bank.length > 10 || !Array.isArray(b.blanks) || !b.blanks.length) return m + '（選填／篇章）缺少文章、字庫或空格';
           for (var y = 0; y < b.blanks.length; y++) if (!(typeof b.blanks[y].answer === 'number' && b.blanks[y].answer >= 0 && b.blanks[y].answer < b.bank.length)) return m + '第 (' + (y + 1) + ') 格沒有正確答案';
@@ -1332,6 +1349,8 @@
         var o = ['[' + KIND_ZH[b.type] + ']'];
         if (b.type === 'mc') o.push('題目：' + b.q, '選項：' + join(b.options), '答案：' + 'ABCDEFGHIJ'[b.answer]);
         else if (b.type === 'spell' || b.type === 'phrase') { o.push('題目：' + b.q); if (b.hint) o.push('提示：' + b.hint); o.push('答案：' + b.answer); }
+        else if (b.type === 'translate') { o.push('中文：' + b.zh, '答案：' + b.answer); if (b.hint) o.push('提示：' + b.hint); }
+        else if (b.type === 'essay') { o.push('題目：' + b.q, '字數：' + (b.minWords == null ? 120 : b.minWords), '範文：' + b.sample); }
         else if (b.type === 'bank' || b.type === 'struct') {
           if (b.title) o.push('標題：' + b.title);
           o.push('文章：' + (b.passage || []).join('\n\n'), (b.type === 'bank' ? '字庫：' : '句庫：') + join(b.bank));
@@ -1375,7 +1394,7 @@
         aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
       });
       if (u.type === 'pattern') run.aiGeneratePattern(topic || hint, Number($('c-n').value), topic ? hint : '');
-      else run.aiGenerateExam(topic || hint, { mc: Number($('c-mc').value), spell: Number($('c-spell').value), phrase: Number($('c-phrase').value), reading: Number($('c-reading').value), cloze: Number($('c-cloze').value), bank: Number($('c-bank').value), struct: Number($('c-struct').value) }, topic ? hint : '');
+      else run.aiGenerateExam(topic || hint, { mc: Number($('c-mc').value), spell: Number($('c-spell').value), phrase: Number($('c-phrase').value), reading: Number($('c-reading').value), cloze: Number($('c-cloze').value), translate: Number($('c-translate').value), essay: Number($('c-essay').value), bank: Number($('c-bank').value), struct: Number($('c-struct').value) }, topic ? hint : '');
     };
 
     /* ---------------- 四種題型的 AI 提示詞 ---------------- */

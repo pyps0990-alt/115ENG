@@ -4,3 +4,6 @@ export const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw1KgAc6VsJkF
 
 // 老師後台網址。留空時會使用 SCRIPT_URL（同一個 Web App 不帶參數開啟就是後台）。
 export const ADMIN_URL = '';
+
+// 中文網頁字型（Noto Sans TC，Google Fonts）：頁面載完後才在背景載入。想完全不下載中文字型、只用裝置內建字型，改成 false。
+export const CJK_WEBFONT = true;

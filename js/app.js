@@ -7,7 +7,7 @@ import { renderStudentChip, mountInlineForm, historyReady, closeChipPanel } from
 import { LEVELS, PASS } from './levels.js';
 import { initNav, updateNav } from './nav.js';
 import { flushOutbox, pendingItems, clearOutbox } from './submit.js';
-import { SCRIPT_URL } from './config.js';
+import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
 import { TYPES, typeOf, typeLabel, bestKey, typeIcon } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
@@ -581,6 +581,15 @@ async function boot() {
   watchConfig(config);
   // 等頁面載完、畫面穩定之後才在背景預先下載測驗畫面的程式（不跟首頁搶頻寬）
   const afterLoad = (fn) => (document.readyState === 'complete' ? setTimeout(fn, 600) : window.addEventListener('load', () => setTimeout(fn, 600), { once: true }));
+  // 中文網頁字型（Noto Sans TC）：頁面載完、瀏覽器閒下來之後才載入，只下載畫面上用到的字；中文字寬一律是 1em，換字型不會讓版面位移
+  if (CJK_WEBFONT) {
+    afterLoad(() => idle(() => {
+      const l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap';
+      document.head.append(l);
+    }));
+  }
   afterLoad(() => idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); modes.pattern().catch(() => {}); modes.exam().catch(() => {}); }));
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();

@@ -5,7 +5,7 @@ import { esc, shuffle } from '../util.js';
 import { icon } from '../icons.js';
 
 export const KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-export const KIND_LABEL = { mc: '選擇', fill: '填空', apply: '應用', spell: '拼寫', phrase: '片語', reading: '閱讀', cloze: '綜合', bank: '文意選填', struct: '篇章結構' };
+export const KIND_LABEL = { mc: '選擇', fill: '填空', apply: '應用', spell: '拼寫', phrase: '片語', reading: '閱讀', cloze: '綜合', bank: '文意選填', struct: '篇章結構', translate: '翻譯', essay: '作文' };
 
 // 比對答案：不分大小寫、忽略標點與多餘空白（Code.gs 的 normAns_ 要保持一樣）
 export const normAns = (s) => String(s == null ? '' : s).toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -26,6 +26,9 @@ export function flattenExam(blocks) {
       out.push({ id: `b${i}`, kind: b.type === 'mc' ? 'mc' : 'spell', label: KIND_LABEL[b.type], tag: b.tag || '', stem: b.q || '', hint: b.hint || '', options: b.options || [], answer: b.answer, explain: b.explain || '', block: i });
     } else if (b.type === 'reading') {
       (b.questions || []).forEach((q, j) => out.push({ id: `b${i}.${j}`, kind: 'mc', label: '閱讀', group: 'reading', tag: q.skill || '', stem: q.q || '', options: q.options || [], answer: q.answer, explain: q.explain || '', block: i, sub: j }));
+    } else if (b.type === 'translate' || b.type === 'essay') {
+      // 翻譯、作文沒有標準答案：不計分，交卷後對照參考答案自己檢查
+      out.push({ id: `b${i}`, kind: 'open', label: KIND_LABEL[b.type], open: b.type, tag: '', stem: b.type === 'translate' ? (b.zh || '') : (b.q || ''), hint: b.hint || '', answer: b.type === 'translate' ? (b.answer || '') : (b.sample || ''), explain: b.explain || '', minWords: Number(b.minWords) || 0, block: i });
     } else if (b.type === 'bank' || b.type === 'struct') {
       // 文意選填、篇章結構：所有空格共用同一份選項（字庫／句子庫）
       (b.blanks || []).forEach((q, j) => out.push({ id: `b${i}.${j}`, kind: 'mc', label: KIND_LABEL[b.type], group: b.type, tag: '', stem: `第 ${j + 1} 格`, options: b.bank || [], answer: q.answer, explain: q.explain || '', block: i, sub: j }));
@@ -36,7 +39,7 @@ export function flattenExam(blocks) {
   return out;
 }
 
-export const correctText = (q) => (q.kind === 'mc' ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : altsOf(q)[0] || '');
+export const correctText = (q) => (q.kind === 'mc' ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : q.kind === 'open' ? String(q.answer || '') : altsOf(q)[0] || '');
 export const isChoice = (q) => q.kind === 'mc';
 
 // 從「A. 選項文字」找回選項索引（Firestore 讀回的紀錄用）

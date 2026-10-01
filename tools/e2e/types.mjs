@@ -23,6 +23,8 @@ const exam = { topic: '段考', blocks: [
   { type: 'struct', title: 'Smile', passage: ['Smiles are common. (1) Long ago people rarely smiled.'], bank: ['Things changed over time.', 'Cats sleep.'], blanks: [{ answer: 0, explain: 'c' }] },
   { type: 'cloze', title: 'Change', passage: ['Tom felt (1) at first. (2), he made friends.'], blanks: [
     { options: ['lonely', 'noisy', 'hungry', 'proud'], answer: 0, explain: '孤單。' }, { options: ['However', 'Therefore', 'Besides', 'Otherwise'], answer: 0, explain: '轉折。' }] },
+  { type: 'translate', zh: '她決定再試一次。', answer: 'She decided to try again.|She made up her mind to try once more.', explain: 'decide to + V' },
+  { type: 'essay', q: '寫一篇短文：你克服困難的經驗。', minWords: 20, sample: 'Last year I was afraid of speaking in public. I practiced every night and finally succeeded.', explain: '內容、段落、文法' },
 ] };
 g.api('saveAllSettings', [[], [
   { id: 'l2-pat', title: 'L2 句型練習', type: 'pattern', lesson: 2, topic: '', visible: true, disabled: [], questionCount: 10, custom: true },
@@ -148,17 +150,49 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
     await p.locator('.pq[data-id="b5.0"] select').selectOption('0');
     await p.locator('.pq[data-id="b6.0"] .opt').first().click();
     await p.locator('.pq[data-id="b6.1"] .opt').first().click();
-    assert.match(await p.locator('[data-count]').textContent(), /9 \/ 9/);
+    await p.locator('.pq[data-id="b7"] [data-open]').fill('She decided to try again.');
+    await p.locator('.pq[data-id="b8"] [data-open]').fill('I once failed a test but I studied harder and passed the next one. It taught me never to give up easily.');
+    assert.match(await p.locator('[data-count]').textContent(), /9 \/ 9・寫作 2 \/ 2/);
+    assert.match(await p.locator('.pq[data-id="b8"] [data-wc]').textContent(), /^2\d \/ 20 字/);
     await p.click('[data-submit-btn]'); await p.waitForSelector('dialog.modal[open]');
     await p.locator('dialog.modal[open] .btn.primary').click();
     await p.waitForSelector('.result', { timeout: 8000 });
     assert.match(await p.locator('.result').textContent(), /8 \/ 9/);
+    assert.match(await p.locator('.result').textContent(), /寫作題（不計分/);
+    assert.match(await p.locator('.writing-sum').textContent(), /She decided to try again/);
     await shot('exam-result');
     await p.getByRole('button', { name: /開始檢討/ }).click(); await sleep(400);
     const rvc = await p.locator('.rv-pq, .rv-card').count(); assert(rvc >= 1, 'rv-card=' + rvc + ' ' + (await p.locator('#stage').innerHTML()).slice(0, 600));
     assert.equal(await p.locator('mark.evidence').count(), 1, '檢討時要標亮原文依據');
     assert.match(await p.locator('mark.evidence').textContent(), /made from leaves/);
+    await p.locator('[data-next]').first().click(); await sleep(300);
+    assert.equal(await p.locator('.open-rv').count(), 1, '檢討要有翻譯對照');
+    assert.match(await p.locator('.open-rv').textContent(), /評分重點/);
     await shot('exam-review');
+  });
+  await step(`[${label}] 段考複習：錯題重練（不計成績）`, async () => {
+    const c3 = await world.newContext({ viewport: { width: w, height: h } });
+    const p3 = await world.newPage(c3, { student: true });
+    await p3.goto(world.base + '/#/u/l2-exam'); await p3.waitForSelector('[data-start]');
+    await p3.click('[data-start]'); await p3.waitForSelector('.exam-body');
+    await p3.locator('.pq[data-id="b0"] .opt').nth(1).click(); // 答錯
+    await p3.locator('.pq[data-id="b1"] [data-spell]').fill('calm'); // 答對
+    await p3.click('[data-submit-btn]'); await p3.waitForSelector('dialog.modal[open]');
+    await p3.locator('dialog.modal[open] .btn.primary').click(); await p3.waitForSelector('.result', { timeout: 8000 });
+    await sleep(900);
+    const before = g.sheets.get('scores').getLastRow();
+    await p3.getByRole('button', { name: /重練錯的/ }).click(); await p3.waitForSelector('.exam-body');
+    assert.match(await p3.locator('.exam-body .eyebrow').first().textContent(), /錯題重練/);
+    const left = await p3.locator('.exam-body .pq').count();
+    assert(left >= 1 && left < 12, '只剩錯的題目：' + left);
+    await p3.locator('.pq[data-id="b0"] .opt').first().click();
+    await p3.click('[data-submit-btn]'); await p3.waitForSelector('dialog.modal[open]');
+    await p3.locator('dialog.modal[open] .btn.primary').click(); await p3.waitForSelector('.result');
+    assert.match(await p3.locator('.result').textContent(), /錯題重練完成/);
+    await sleep(900);
+    assert.equal(g.sheets.get('scores').getLastRow(), before, '重練不能送出成績');
+    assert.equal(p3.errors.filter((e) => !/favicon/.test(e)).length, 0, p3.errors.join('\n'));
+    await c3.close();
   });
   await step(`[${label}] 沒有錯誤`, async () => {
     const bad = p.errors.filter((e) => !/favicon/.test(e));

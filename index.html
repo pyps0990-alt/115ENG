@@ -15,11 +15,8 @@
   <link rel="icon" href="icon.png" type="image/png" sizes="512x512">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- 字型不擋畫面：先用系統字型顯示，字型載入後再換（display=swap） -->
-  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Nunito:wght@500;700;800;900&display=swap">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Nunito:wght@500;700;800;900&display=swap"></noscript>
+  <!-- 英文字型放在自己的網站（fonts/）：不用再連到 Google 兩次，一開始就預載，同網站載入很快，換字幾乎看不出來 -->
+  <link rel="preload" href="fonts/nunito-500-900-normal.woff2" as="font" type="font/woff2" crossorigin>
   <!-- 程式還在下載的時候就先發出「設定」和「單元清單」的請求，程式一載完資料通常已經到了 -->
   <script>
     window.__early = {
@@ -67,7 +64,7 @@
     <div class="loading"><span class="spinner"></span>載入中…</div>
   </main>
 
-  <footer class="site-foot container" id="site-foot"></footer>
+  <footer class="site-foot container" id="site-foot"><span>B5 Practice · 內湖高中英文科</span><a href="#/privacy">隱私權說明</a></footer>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <div id="fx" aria-hidden="true"></div>

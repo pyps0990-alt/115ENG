@@ -3,6 +3,13 @@
    配色：#FFFFFF 背景主色｜#F4F6F9 卡片／區塊｜#1E3A8A 導覽列與標題
         #64748B 內文與副標題｜#F59E0B 答對提示與重要按鈕
    =========================================================== */
+/* ---- 字型（自己的網站提供，只含英文字母：中文用裝置字型，或事後載入的 Noto Sans TC）---- */
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 500 900; font-display: swap; src: url(../fonts/nunito-500-900-normal.woff2) format("woff2"); }
+@font-face { font-family: "Atkinson Hyperlegible"; font-style: normal; font-weight: 400; font-display: swap; src: url(../fonts/atkinson-hyperlegible-400-normal.woff2) format("woff2"); }
+@font-face { font-family: "Atkinson Hyperlegible"; font-style: normal; font-weight: 700; font-display: swap; src: url(../fonts/atkinson-hyperlegible-700-normal.woff2) format("woff2"); }
+/* Merriweather 只有閱讀文章會用到，用到才下載 */
+@font-face { font-family: "Merriweather"; font-style: normal; font-weight: 300 900; font-display: swap; src: url(../fonts/merriweather-var.woff2) format("woff2"); }
+
 :root {
   --white: #FFFFFF;
   --wash: #F4F6F9;
@@ -30,10 +37,10 @@
   --shadow: 0 2px 6px rgba(30, 58, 138, .06), 0 10px 28px rgba(30, 58, 138, .08);
   --radius: 18px;
   /* 單字、選項、例句、課文、拼字格用 Atkinson Hyperlegible：專為「絕不認錯字母」設計（大寫 I、小寫 l、數字 1 有明顯差別），拼字題最需要；標題與數字維持 Nunito */
-  --font-read: "Atkinson Hyperlegible", "Nunito", system-ui, -apple-system, "PingFang TC", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
-  --font-en: "Nunito", system-ui, -apple-system, "PingFang TC", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
+  --font-read: "Atkinson Hyperlegible", "Nunito", "Noto Sans TC", system-ui, -apple-system, "PingFang TC", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
+  --font-en: "Nunito", "Noto Sans TC", system-ui, -apple-system, "PingFang TC", "Noto Sans CJK TC", "Microsoft JhengHei", sans-serif;
   /* 中文直接用裝置內建字型（蘋果 PingFang、安卓 Noto Sans CJK、Windows 微軟正黑體），不下載中文網頁字型：省下上百 KB 的字型設定與檔案 */
-  --font: "Nunito", system-ui, -apple-system, "PingFang TC", "Noto Sans CJK TC", "Noto Sans TC", "Microsoft JhengHei", "Heiti TC", sans-serif;
+  --font: "Nunito", "Noto Sans TC", system-ui, -apple-system, "PingFang TC", "Noto Sans CJK TC", "Noto Sans TC", "Microsoft JhengHei", "Heiti TC", sans-serif;
   --ease: cubic-bezier(.2, .8, .2, 1);
   --spring: cubic-bezier(.34, 1.56, .64, 1);
   color-scheme: light;
@@ -46,7 +53,8 @@
 /* 字級隨螢幕放大：1000px 以下 16px，大螢幕最多 18px */
 html { -webkit-text-size-adjust: 100%; font-size: clamp(16px, 0.25vw + 13.5px, 18px); }
 body {
-  margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+  margin: 0; min-height: 100vh; min-height: 100dvh; background: var(--bg); color: var(--text);
+  display: flex; flex-direction: column; /* 頁尾從一開始就在畫面底部，內容載入後不會被推著跑（避免版面位移） */
   font-family: var(--font); font-size: 1rem; line-height: 1.65;
 }
 /* 裁掉左右溢出要設在 html（會套用到整個視窗）；只設在 body 時 iPhone Safari 不理會，頁面會左右晃、上下滑卡住 */
@@ -67,7 +75,8 @@ button { cursor: pointer; }
 /* 單字測驗：標題與題目對齊在同一個置中欄位 */
 .focus { max-width: 760px; margin-inline: auto; }
 .focus .quiz, .focus .gate, .focus .result { max-width: none; }
-main.container { padding-block: 24px 56px; outline: none; }
+main.container { padding-block: 24px 56px; outline: none; flex: 1 0 auto; }
+.site-foot { flex: none; min-height: 109px; box-sizing: border-box; }
 
 /* ===========================================================
    Top bar（深海藍）
@@ -75,7 +84,7 @@ main.container { padding-block: 24px 56px; outline: none; }
 .topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--navy); color: var(--white); }
 /* 在頁面頂端往下拉（iPhone 回彈）時，導覽列上方露出的區域也填成深藍，不會出現白邊 */
 .topbar::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 100vh; background: var(--navy); pointer-events: none; }
-.topbar-inner { max-width: 1200px; margin: 0 auto; padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); display: flex; align-items: center; gap: 12px; }
+.topbar-inner { max-width: 1200px; min-height: 62px; box-sizing: border-box; margin: 0 auto; padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); display: flex; align-items: center; gap: 12px; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--white); font-family: var(--font-en); font-weight: 900; font-size: 1.15rem; letter-spacing: .01em; }
 .brand-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--amber); color: var(--navy); font-size: .95rem; }
 .top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -446,7 +455,7 @@ dialog.modal[open] { animation: pop-in .28s var(--spring); }
 }
 .passage-card { background: var(--surface); border-radius: 20px; padding: 24px 22px; display: grid; gap: 14px; }
 .passage-title { font-size: 1.5rem; font-weight: 900; }
-.passage-card p { font-family: var(--font-read); font-size: 1.07rem; line-height: 1.9; color: var(--text); }
+.passage-card p { font-family: "Merriweather", Georgia, "Times New Roman", var(--font-read); font-size: 1.07rem; line-height: 1.9; color: var(--text); }
 .pnum { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 8px; border-radius: 6px; background: var(--navy); color: var(--white); font-size: .78rem; font-weight: 900; vertical-align: 2px; }
 .pq-list { display: grid; gap: 12px; }
 .pq-intro { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: .88rem; }
@@ -911,3 +920,22 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
   .result > *, .result.pass .ring::after, .result.pass .ring .pct, .build-line .chip-word.on, .opt.correct, .opt.correct .opt-mark path, .opt.wrong .opt-mark path { animation: none !important; }
   .opt.correct .opt-mark path, .opt.wrong .opt-mark path { stroke-dashoffset: 0; }
 }
+
+/* 英文文章：襯線體，像書本一樣好讀；字距稍微放開 */
+.passage-card p .ptext, .passage-card .sent { letter-spacing: .005em; }
+.passage-card p { font-size: 1.02rem; }
+
+/* 翻譯、作文（不計分） */
+.open-input { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--white); color: var(--navy); font-size: 1.02rem; line-height: 1.6; resize: vertical; min-height: 84px; }
+.open-input:focus-visible { outline: 3px solid var(--navy-soft); border-color: var(--navy); }
+.wc { text-align: right; font-size: .85rem; color: var(--steel); font-variant-numeric: tabular-nums; }
+.wc.ok { color: var(--amber-ink, #92400E); font-weight: 700; }
+.open-pq .pq-q { font-size: 1.04rem; }
+.open-ans { margin: 0; white-space: pre-wrap; line-height: 1.7; }
+.rv-row { display: grid; gap: 4px; }
+.rv-row > span { font-size: .8rem; font-weight: 800; color: var(--steel); letter-spacing: .06em; }
+.writing-sum { display: grid; gap: 10px; text-align: left; width: 100%; }
+.writing-sum h3 { margin: 0; font-size: 1rem; }
+.open-sum { border: 1.5px solid var(--line); border-radius: 14px; padding: 8px 12px; background: var(--white); }
+.open-sum > summary { cursor: pointer; font-weight: 700; color: var(--navy); }
+.open-sum .rv-pq { border: 0; padding: 10px 0 0; box-shadow: none; }

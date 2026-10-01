@@ -190,8 +190,8 @@ function doPost(e) {
       var rows = details.map(function (x) {
         return [
           now, cell_(attemptId, 64), cell_(d.cls, 8), cell_(d.seat, 4), cell_(d.name, 40), cell_(d.unit, 60),
-          cell_(x.stage, 20), cell_(x.kind, 20), num_(x.n), cell_(x.q, 300), cell_(x.correct, 200), cell_(x.yours, 200),
-          x.ok ? '✓' : '✗', num_(x.points), num_(x.hints), cell_(x.word, 80), cell_(x.err, 20),
+          cell_(x.stage, 20), cell_(x.kind, 20), num_(x.n), cell_(x.q, 300), cell_(x.correct, x.open ? 800 : 200), cell_(x.yours, x.open ? 3000 : 200),
+          x.open ? '—' : (x.ok ? '✓' : '✗'), num_(x.points), num_(x.hints), cell_(x.word, 80), cell_(x.err, 20),
         ];
       });
       var ds = sheet_(SHEET_DETAILS, DETAILS_HEADER);
@@ -491,6 +491,7 @@ function checkAttempt_(d) {
         details.forEach(function (x) {
           var q = byId[String(x.word)];
           if (!q) { bad++; return; }
+          if (q.kind === 'open') return; // 翻譯、作文沒有標準答案
           var truth = q.kind === 'mc' ? (KEYS2[q.answer] + '. ' + q.options[q.answer]) : '';
           var yoursOk = q.kind === 'mc' ? String(x.yours || '') === truth : fillOk_(q.answer, x.yours);
           if (!!x.ok !== yoursOk && String(x.yours || '') !== '') bad++;
@@ -778,6 +779,7 @@ function getWrongStats(filter) {
   rows.forEach(function (r) {
     var word = String(r[cWord] || '').trim();
     if (!word) return;
+    if (String(r[cOk]) === '—') return; // 翻譯、作文不計對錯
     if (filter.cls && String(r[cCls]).trim() !== String(filter.cls).trim()) return;
     if (filter.unit && String(r[cUnit]) !== filter.unit) return;
     answered++;
@@ -1233,6 +1235,7 @@ function flattenExam_(blocks) {
   var out = [];
   (blocks || []).forEach(function (b, i) {
     if (b.type === 'mc' || b.type === 'spell' || b.type === 'phrase') out.push({ id: 'b' + i, kind: b.type === 'mc' ? 'mc' : 'spell', options: b.options || [], answer: b.answer });
+    else if (b.type === 'translate' || b.type === 'essay') out.push({ id: 'b' + i, kind: 'open' });
     else if (b.type === 'bank' || b.type === 'struct') (b.blanks || []).forEach(function (q, j) { out.push({ id: 'b' + i + '.' + j, kind: 'mc', options: b.bank || [], answer: q.answer }); });
     else if (b.type === 'reading') (b.questions || []).forEach(function (q, j) { out.push({ id: 'b' + i + '.' + j, kind: 'mc', options: q.options || [], answer: q.answer }); });
     else if (b.type === 'cloze') (b.blanks || []).forEach(function (q, j) { out.push({ id: 'b' + i + '.' + j, kind: 'mc', options: q.options || [], answer: q.answer }); });
@@ -1281,6 +1284,8 @@ function validateContent_(type, d) {
       var b = d.blocks[m], bn = '第 ' + (m + 1) + ' 大題';
       if (b.type === 'mc') { if (!b.q || !validChoice_(b)) return bn + '（選擇）不完整或沒有正確答案'; }
       else if (b.type === 'spell' || b.type === 'phrase') { if (!b.q || !String(b.answer || '').trim()) return bn + '（拼寫／片語）要有題目與答案'; }
+      else if (b.type === 'translate') { if (!b.zh || !String(b.answer || '').trim()) return bn + '（翻譯）要有中文句子與參考答案'; }
+      else if (b.type === 'essay') { if (!b.q || !String(b.sample || '').trim()) return bn + '（作文）要有題目與參考範文'; if (b.minWords != null && !(Number(b.minWords) >= 0 && Number(b.minWords) <= 1000)) return bn + '（作文）字數要在 0–1000'; }
       else if (b.type === 'bank' || b.type === 'struct') {
         var nm = b.type === 'bank' ? '文意選填' : '篇章結構';
         if (!Array.isArray(b.passage) || !b.passage.length) return bn + '（' + nm + '）缺少文章';
@@ -1450,6 +1455,8 @@ var AI_PROMPT_DEFAULTS = {
     '- "cloze": "title" + "passage" (array of paragraphs, 120–180 words in total, blanks written as (1), (2), (3)… in order, each number once) + "blanks" (one per number, exactly 4 options each, answerIndex, explain). Mix vocabulary, grammar/word forms, connectives and discourse in the blanks.',
     '- "bank": 文意選填. "title" + "passage" (150–200 words, blanks (1), (2)…) + "bank" (an array of 10 words/phrases shared by all blanks, e.g. verbs, nouns, adjectives, adverbs mixed, in random order; there are more words than blanks, so a few are distractors) + "blanks" (one per number: answerIndex = 0-based index into "bank", explain).',
     '- "struct": 篇章結構. "title" + "passage" (a passage of 3–4 paragraphs with blanks (1)–(4) where a whole sentence was removed) + "bank" (5 complete sentences: the 4 removed ones plus 1 distractor, random order) + "blanks" (answerIndex into "bank", explain pointing out the cohesion clue).',
+    '- "translate": 中譯英. "zh" = a Traditional Chinese sentence to translate (one idea, 15–30 characters, a grammar point from the scope); "answerText" = the model English translation (use | to list 1–2 equally good alternatives); "explain" = scoring points in Traditional Chinese (key vocabulary and grammar that must be correct).',
+    '- "essay": 英文作文. "q" = the writing prompt in Traditional Chinese (a situation, 2–3 guiding points); "minWords" = 120; "sample" = a model essay of 130–160 words, CEFR B1–B2, in 2–3 paragraphs; "explain" = marking points in Traditional Chinese (content, organisation, vocabulary, grammar).',
     '- "reading": "title" + "passage" (an array of 3–4 paragraphs, about 200–260 words in total, CEFR B1–B2, informative or narrative) + "questions" (each with skill 主旨/細節/字義/推論/態度, q, exactly 4 options, answerIndex, explain, and "key": the exact words copied verbatim from the passage (3–25 words, within one paragraph) that prove the correct answer — required for every question). Paraphrase; never copy {{copy}}+ consecutive words from the passage into a question or option.',
     '- All "explain" fields are short explanations in Traditional Chinese (Taiwan usage). Vary the position of the correct answer.',
   ].join('\n'),
@@ -1543,12 +1550,13 @@ function aiGenerateExam(topic, counts, hint) {
     mc: Math.max(0, Math.min(15, Number(counts.mc) || 0)), spell: Math.max(0, Math.min(10, Number(counts.spell) || 0)), phrase: Math.max(0, Math.min(10, Number(counts.phrase) || 0)),
     reading: Math.max(0, Math.min(2, Number(counts.reading) || 0)), cloze: Math.max(0, Math.min(2, Number(counts.cloze) || 0)),
     bank: Math.max(0, Math.min(1, Number(counts.bank) || 0)), struct: Math.max(0, Math.min(1, Number(counts.struct) || 0)),
+    translate: Math.max(0, Math.min(4, Number(counts.translate) || 0)), essay: Math.max(0, Math.min(1, Number(counts.essay) || 0)),
   };
-  if (!n.mc && !n.spell && !n.phrase && !n.reading && !n.cloze && !n.bank && !n.struct) throw new Error('至少要選一種題型');
+  if (!n.mc && !n.spell && !n.phrase && !n.reading && !n.cloze && !n.bank && !n.struct && !n.translate && !n.essay) throw new Error('至少要選一種題型');
   var schema = {
     type: 'OBJECT',
     properties: { blocks: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
-      type: { type: 'STRING', enum: ['mc', 'spell', 'phrase', 'reading', 'cloze', 'bank', 'struct'] }, tag: { type: 'STRING' }, q: { type: 'STRING' }, bank: { type: 'ARRAY', items: { type: 'STRING' } },
+      type: { type: 'STRING', enum: ['mc', 'spell', 'phrase', 'reading', 'cloze', 'bank', 'struct', 'translate', 'essay'] }, zh: { type: 'STRING' }, sample: { type: 'STRING' }, minWords: { type: 'INTEGER' }, tag: { type: 'STRING' }, q: { type: 'STRING' }, bank: { type: 'ARRAY', items: { type: 'STRING' } },
       options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, answerText: { type: 'STRING' },
       hint: { type: 'STRING' }, explain: { type: 'STRING' }, title: { type: 'STRING' }, passage: { type: 'ARRAY', items: { type: 'STRING' } },
       questions: { type: 'ARRAY', items: { type: 'OBJECT', properties: { skill: { type: 'STRING' }, q: { type: 'STRING' }, options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, explain: { type: 'STRING' }, key: { type: 'STRING' } }, required: ['q', 'options', 'answerIndex', 'explain', 'key'] } },
@@ -1559,7 +1567,7 @@ function aiGenerateExam(topic, counts, hint) {
   var prompt = [
     'You are an experienced English teacher at a senior high school in Taiwan, writing a mock exam review for 11th-grade students.',
     'Scope: ' + topic + (hint ? ' (' + hint + ')' : ''),
-    'Requested: ' + n.mc + ' mc, ' + n.spell + ' spell, ' + n.phrase + ' phrase, ' + n.cloze + ' cloze passage(s) with 5 blanks each, ' + n.bank + ' bank passage(s) with 10 blanks, ' + n.struct + ' struct passage(s) with 4 blanks, ' + n.reading + ' reading passage(s) with 4 questions each. Rules:',
+    'Requested: ' + n.mc + ' mc, ' + n.spell + ' spell, ' + n.phrase + ' phrase, ' + n.cloze + ' cloze passage(s) with 5 blanks each, ' + n.bank + ' bank passage(s) with 10 blanks, ' + n.struct + ' struct passage(s) with 4 blanks, ' + n.translate + ' translate, ' + n.essay + ' essay, ' + n.reading + ' reading passage(s) with 4 questions each. Rules:',
     aiGuidance_('exam'),
   ].join('\n');
   var blocks = [];
@@ -1568,6 +1576,10 @@ function aiGenerateExam(topic, counts, hint) {
     if (x.type === 'mc') {
       var c = cleanChoice_(x);
       if (c && x.q) blocks.push({ type: 'mc', q: String(x.q).trim(), options: c.options, answer: c.answer, explain: explain });
+    } else if (x.type === 'translate') {
+      if (x.zh && String(x.answerText || '').trim()) blocks.push({ type: 'translate', zh: String(x.zh).trim(), answer: String(x.answerText).trim(), explain: explain });
+    } else if (x.type === 'essay') {
+      if (x.q && String(x.sample || '').trim()) blocks.push({ type: 'essay', q: String(x.q).trim(), minWords: Math.max(0, Math.min(1000, Number(x.minWords) || 120)), sample: String(x.sample).trim(), explain: explain });
     } else if (x.type === 'bank' || x.type === 'struct') {
       var bp = strs_(x.passage).filter(String), bk = strs_(x.bank).filter(String), bb = [];
       (x.blanks || []).forEach(function (q) { var ai = Number(q.answerIndex); if (ai >= 0 && ai < bk.length) bb.push({ answer: ai, explain: String(q.explain || '').trim() }); });
