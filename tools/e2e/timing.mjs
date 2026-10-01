@@ -10,7 +10,7 @@ const words = ['a1', 'b2', 'c3', 'd4', 'e5'].map((w) => ({ word: w, pos: 'n.', z
 ['a-voc', 'b-voc'].forEach((id) => g.api('saveContent', [id, { topic: 't', words }, true]));
 const ctx = await world.newContext();
 const student = await world.newPage(ctx, { student: true });
-await student.goto(world.base + '/'); await student.waitForSelector('.unit-tile');
+await student.goto(world.base + '/'); await student.waitForSelector('.unit-tile'); await student.evaluate(() => window.dispatchEvent(new Event('pointerdown'))); await sleep(400);
 await student.evaluate(() => {
   window.__log = [];
   const op = window.__fb.push;
