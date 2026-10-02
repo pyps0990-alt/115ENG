@@ -12,14 +12,15 @@ const code = [
   grab('function words_(s)', '\n    function parseReading'),
   grab('var HELP = {', "    $('ai-text').onclick"),
   grab('function reEsc(x)', '    function words_'),
+  grab('var PROMPT_COMMON', '    function copyAiPrompt'),
   grab('function csvToTsv(text)', '    function readTextFile'),
   grab('function serVocab(d)', '    function fillForm'),
 ].join('\n').replace(/function \$\(id\) \{[^\n]*\n/, '').replace(/\$\('t-example'\)\.onclick = function[\s\S]*?\n    };\n/, '').replace(/function textShow[\s\S]*?\n    }\n    /, '');
 const els = { 't-topic': { value: '主題' }, 't-text': { value: '' }, 'imp-report': { innerHTML: '' } };
 const ctx = { $: (id) => els[id] || (els[id] = { value: '' }), console, impUnit: () => ({ title: 'U' }) };
 vm.createContext(ctx);
-vm.runInContext(code + '\nthis.api = { parseVocab, parseTextType, serPattern, serExam, EXAMPLE, validatePE, csvToTsv, serVocab, serReading, splitBlocks };', ctx);
-const { parseVocab, parseTextType, serPattern, serExam, EXAMPLE, csvToTsv, serVocab, serReading, splitBlocks } = ctx.api;
+vm.runInContext(code + '\nthis.api = { parseVocab, parseTextType, serPattern, serExam, EXAMPLE, validatePE, csvToTsv, serVocab, serReading, splitBlocks, aiPromptFor };', ctx);
+const { parseVocab, parseTextType, serPattern, serExam, EXAMPLE, csvToTsv, serVocab, serReading, splitBlocks, aiPromptFor } = ctx.api;
 const plain = (o) => JSON.parse(JSON.stringify(o));
 
 for (const type of ['pattern', 'exam']) {
@@ -131,4 +132,13 @@ assert(parseTextType('exam'), 'JSON 包在程式碼框也要能讀');
 els['v-text'] = { value: '| 英文 | 詞性 | 中文 | 例句 | 翻譯 |\n|---|---|---|---|---|\n| adapt | v. | 適應 | She [adapted] fast. ; We [adapt]. ; Animals [adapt]. | 她適應。 ; 我們適應。 ; 動物適應。 |\n| big | adj. | 大的 | A [big] dog. ; A [big] city. ; A [big] idea. | 大狗。 ; 大城市。 ; 大想法。 |\n| hot | adj. | 熱的 | A [hot] day. | 熱天。 |\n| cold | adj. | 冷的 | A [cold] day. | 冷天。 |' };
 const vt = plain(parseVocab());
 assert(vt && vt.words.length === 4, 'Markdown 表格也要能讀：' + els['imp-report'].innerHTML);
+// 「給 AI 的完整提示詞」：四種題型都有，格式規則齊全，裡面的範例本身要能通過解析
+for (const t of ['vocab', 'reading', 'pattern', 'exam']) {
+  const pr = aiPromptFor(t);
+  assert(pr.length > 500 && /請在這裡填/.test(pr), t + ' 提示詞要完整');
+  if (t === 'pattern' || t === 'exam') {
+    assert(/輸出規則/.test(pr) && /____/.test(pr) && pr.includes(EXAMPLE[t].slice(0, 40)), t + ' 提示詞要含規則與範例');
+  }
+}
+assert(/依據.*必填/.test(aiPromptFor('exam')) && /依據.*必填/.test(aiPromptFor('reading')));
 console.log('後台文字格式解析測試通過');

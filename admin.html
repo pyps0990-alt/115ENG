@@ -303,11 +303,12 @@
             從 Excel 或 Google 試算表選取這幾欄直接複製貼上即可；也可以自己打字，欄位之間用 <code>|</code> 隔開。<br>
             例句中要考的部分用 <code>[ ]</code> 括起來，例如 <code>The team [bounced back] quickly.</code>（可以是變化後的形態，如 <code>[adapted]</code>）；沒括的話會自動找出來。含空格或詞性寫 <code>phr.</code> 的會當成片語。<br>
             範例（一行）：<code>adapt | v. | 適應 | She [adapted] quickly to her new school. ; We must [adapt] to climate change. ; Animals [adapt] to survive. | 她很快適應了新學校。 ; 我們必須適應氣候變遷。 ; 動物為了生存而適應環境。</code><br>
-            <b>建議每個單元：單字 20–25 個、片語 2–5 個，最多 30 個。</b>測驗時全部單字會依數量平均分到各階段，每個字考一次。
+            <b>建議每個單元：單字 20–25 個、片語 2–5 個，最多 30 個。</b>測驗時全部單字會依數量平均分到各階段，每個字考一次。<br><b>用外部 AI 整理單字</b>：按下方「複製『給 AI 的完整提示詞』」貼到 ChatGPT、Gemini 或 Claude，把最後一行改成你的單字，再把回覆整段貼回下面的欄位（Markdown 表格、程式碼框都會自動整理）。
           </div>
           <div class="bar">
             <button class="btn ai" id="ai-vocab" type="button">✦ AI 補齊詞性、中文與 3 句例句</button>
             <button class="btn ai" id="ai-more-ex" type="button">✦ AI 補齊到每個字 3 句例句</button>
+            <button class="btn" id="v-copy-prompt" type="button" data-copy-prompt="vocab">複製「給 AI 的完整提示詞」</button>
             <span class="muted">已經填好的欄位不會被改動；「補齊到 3 句」只補不足的句數，附在原本例句後面。</span>
           </div>
           <label>單字片語<textarea id="v-text" spellcheck="false" placeholder="resilient&#9;adj.&#9;有韌性的&#9;Children are often more [resilient] than adults think. ; The [resilient] team recovered quickly. ; Plants that are [resilient] survive dry summers.&#9;孩子往往比大人想像的更有韌性。 ; 這支有韌性的隊伍很快恢復了。 ; 有韌性的植物能熬過乾燥的夏天。&#10;bounce back | phr. | （挫折後）很快恢復 | The team [bounced back] after losing. ; She [bounced back] from the illness. ; Markets [bounce back] fast. | 球隊輸球後很快重新振作。 ; 她從病中很快恢復。 ; 市場很快反彈。"></textarea></label>
@@ -317,13 +318,13 @@
           <label>文章標題<input type="text" id="r-title" placeholder="例：Mia's Second Try"></label>
           <label>主題（顯示在首頁卡片上，可空白，預設用文章標題）<input type="text" id="r-topic"></label>
           <label>文章（段落之間空一行）<textarea id="r-passage" spellcheck="false"></textarea></label>
-          <div class="help"><b>課文理解　匯入格式</b>（<b>每一題都必須有原文依據</b>，包含主旨題）<br>依序填：文章標題、主題、文章（段落之間空一行），再逐題填「題型、題目（英文）、四個選項、點選正確答案、中文解析」。「關鍵字句」從文章直接複製最能證明答案的一段，學生檢討時會標亮；沒填可改選「原文依據」的句子。<br>題目與選項請用自己的話改寫，<b>不要照抄文章</b>：和文章連續 6 個英文字以上相同會無法儲存，連續 5 個字會提醒。</div>
+          <div class="help"><b>課文理解　匯入格式</b>（<b>每一題都必須有原文依據</b>，包含主旨題）<br>想用外部 AI 出題：按「複製『給 AI 的完整提示詞』」，貼到 AI 後把最後一行改成主題與題數，回覆貼進「批次貼上文字格式」再按「填入表單」。<br>依序填：文章標題、主題、文章（段落之間空一行），再逐題填「題型、題目（英文）、四個選項、點選正確答案、中文解析」。「關鍵字句」從文章直接複製最能證明答案的一段，學生檢討時會標亮；沒填可改選「原文依據」的句子。<br>題目與選項請用自己的話改寫，<b>不要照抄文章</b>：和文章連續 6 個英文字以上相同會無法儲存，連續 5 個字會提醒。</div>
           <details class="ai-box" id="r-bulk-box">
             <summary>批次貼上文字格式（整篇一次填入表單）</summary>
             <div class="imp-grid">
               <div class="help">格式和段考複習的 <code>[閱讀]</code> 相同，不用寫 <code>[閱讀]</code>：<code>標題：</code>、<code>文章：</code>（段落之間空一行）、<code>Q1：</code>題目、<code>Q1選項：</code>（用 <code>|</code> 隔開）、<code>Q1答案：</code>（A–D）、<code>Q1解析：</code>、<code>Q1依據：</code>（必填，從文章複製的關鍵字句）、<code>Q1技巧：</code>（主旨／細節／字義／推論／態度）。按「填入表單」後可以再逐題調整。</div>
               <label>文字<textarea id="r-bulk" spellcheck="false" style="min-height:180px"></textarea></label>
-              <div class="bar"><button class="btn" id="r-bulk-go" type="button">填入表單</button><span class="msg" id="r-bulk-msg"></span></div>
+              <div class="bar"><button class="btn" id="r-bulk-go" type="button">填入表單</button><button class="btn" type="button" data-copy-prompt="reading">複製「給 AI 的完整提示詞」</button><span class="msg" id="r-bulk-msg"></span></div>
             </div>
           </details>
           <div class="bar"><button class="btn ai" id="ai-reading" type="button">✦ AI 產生題目</button>
@@ -338,6 +339,7 @@
           <div class="help" id="t-help"></div>
           <div class="bar">
             <button class="btn" id="t-example" type="button">插入範例格式</button>
+            <button class="btn" id="t-copy-prompt" type="button" data-copy-prompt="auto">複製「給 AI 的完整提示詞」</button>
             <button class="btn ai" id="ai-text" type="button">✦ AI 產生題目</button>
             <button class="btn ai" id="ai-check" type="button" title="檢查填空、拼寫、片語的答案寫法是否文法、用法都正確，並補上其他同樣正確的寫法">✦ AI 檢查答案寫法</button>
             <span id="t-counts"></span>
@@ -1093,6 +1095,8 @@
         '<code>[閱讀]</code> 標題／文章（段落之間空一行）／<code>Q1</code>（題目）、<code>Q1選項</code>、<code>Q1答案</code>、<code>Q1解析</code>、<code>Q1依據</code>（<b>必填</b>：從文章複製、最能證明答案的那段話，檢討時會標亮）、<code>Q1技巧</code>（主旨／細節…，可空白），再接 <code>Q2…</code><br>' +
         '作文、翻譯沒有標準答案，不在這裡。也可以直接貼 JSON。'
     };
+    var HELP_COMMON = '<br><br><b>怎麼用 AI 出題</b>：按「複製『給 AI 的完整提示詞』」，貼到 ChatGPT、Gemini 或 Claude，把最後一行「請在這裡填」改成你的範圍與題數，送出；再把 AI 的回覆整段複製、貼到下面的欄位，按「預覽與檢查」。<br>' +
+      '<b>格式規則</b>：① 每題一個 <code>[題型]</code> 標題獨占一行，題與題之間空一行。② 每個欄位一行，寫成「欄位名稱：內容」，欄位名稱要和範例完全一樣。③ 選項用 <code>|</code> 隔開寫在同一行，答案只寫字母（A、B、C…）。④ 題目裡的空格寫 <code>____</code>（四個底線）。⑤ 解析用繁體中文。⑥ 用 AI 複製回來的程式碼框、粗體、項目符號都會自動整理，不用手動刪。';
     var EXAMPLE = {
       pattern: '[選擇]\n句型：not only…but also\n題目：Not only ____ the exam, but he also got the highest score.\n選項：passed | did he pass | he passed | has passed\n答案：B\n解析：Not only 放句首時，後面的主要子句要倒裝（助動詞 + 主詞）。\n\n' +
         '[填空]\n句型：so…that\n題目：The movie was so ____ that everyone cried.\n答案：touching|moving\n提示：（感人的）\n解析：so + 形容詞 + that 表示「如此…以致於…」。\n\n' +
@@ -1112,7 +1116,7 @@
     var KIND_ZH = { mc: '選擇', fill: '填空', apply: '應用', spell: '拼寫', phrase: '片語', reading: '閱讀', cloze: '綜合', bank: '選填', struct: '篇章', translate: '翻譯', essay: '作文' };
 
     function textShow(type) {
-      $('t-help').innerHTML = HELP[type];
+      $('t-help').innerHTML = HELP[type] + HELP_COMMON;
       if (type === 'pattern') {
         $('t-counts').innerHTML = '<label style="display:inline-flex;gap:6px;align-items:center;font-weight:400">題數 <select id="c-n"><option>5</option><option selected>10</option><option>15</option><option>20</option></select></label>';
       } else {
@@ -1614,6 +1618,86 @@
         $('imp-msg').textContent = '✓ 已下載 JSON 備份'; $('imp-msg').className = 'msg ok';
       });
     };
+    /* ---------------- 複製「給 AI 的完整提示詞」：貼到 ChatGPT／Gemini／Claude，回覆再貼回來就能直接解析 ---------------- */
+    var PROMPT_COMMON = [
+      '【輸出規則，非常重要，請逐條遵守】',
+      '1. 只輸出題目本身的純文字，前後不要加任何說明、問候、結語或「以下是」之類的句子。',
+      '2. 不要使用 Markdown：不要程式碼框（```）、不要粗體（**）、不要項目符號（-、*、•）、不要編號（1. 2.）、不要標題井字號（#）、不要表格。',
+      '3. 每個欄位獨占一行，格式是「欄位名稱：內容」，冒號用全形「：」；欄位名稱必須和範例完全相同，不可改名、翻譯或省略。',
+      '4. 每一題以獨占一行的 [題型] 開頭（方括號，不可改成【】或加「題」字），題與題之間空一行。',
+      '5. 選項寫在同一行，用「 | 」（半形直線，前後各一個空格）隔開，不要自己加 A. B. C. D.；答案只寫大寫字母（A、B、C、D…）。',
+      '6. 題目裡的空格一律寫成四個底線 ____，每一格只有一個空格。',
+      '7. 英文用英文寫，解析一律用繁體中文（臺灣用語）。',
+      '8. 答案必須只有一個正確選項；錯誤選項要合理但明確錯誤，不要用 All of the above / None of the above。',
+    ].join('\n');
+    var PROMPT_HEAD = '你是臺灣高中英文老師，為高二學生出題。';
+    function aiPromptFor(type) {
+      if (type === 'vocab') {
+        return [PROMPT_HEAD + '請依照下面的格式，幫我整理一份單字片語清單。', '',
+          '【格式】每行一個單字或片語，共 5 個欄位，欄位之間用 Tab 或「 | 」隔開（整份請統一一種）：',
+          '英文 | 詞性 | 中文 | 例句（3 句，句與句之間用「 ; 」隔開） | 例句翻譯（3 句，同樣用「 ; 」隔開，順序要和例句一一對應）', '',
+          '【規則】',
+          '1. 詞性用 n. / v. / adj. / adv. / prep. / conj.；片語詞性寫 phr.。一個字有兩種常見用法時寫成 n. / v.。',
+          '2. 中文寫最常見的意思，用繁體中文（臺灣用語），最多兩個意思，之間用「；」隔開。',
+          '3. 每個字剛好 3 句例句，三句要用不同情境（學校、家庭、社會）；每句 8–16 個英文字，程度 CEFR B1–B2。',
+          '4. 每一句例句裡，要考的字或片語用方括號 [ ] 括起來，且只括一次，例如 She [adapted] quickly to her new school.（括號裡可以是變化後的形態：過去式、複數、-ing）。',
+          '5. 例句翻譯要自然通順，並且和例句完全對應（學生會把它當成提示）。',
+          '6. 整份清單單字約 20–25 個、片語 2–5 個，總數不超過 30 個；不要重複。',
+          '7. 第一行不要寫欄位標題。', PROMPT_COMMON.split('\n').filter(function (l, i) { return i === 0 || /^(1|2|7)\./.test(l); }).join('\n'), '',
+          '【範例（兩行）】', 'adapt | v. | 適應 | She [adapted] quickly to her new school. ; We must [adapt] to climate change. ; Animals [adapt] to survive. | 她很快適應了新學校。 ; 我們必須適應氣候變遷。 ; 動物為了生存而適應環境。',
+          'look forward to | phr. | 期待 | I am [looking forward to] the trip. ; They [look forward to] meeting you. ; She [looks forward to] summer. | 我很期待這趟旅行。 ; 他們期待與你見面。 ; 她期待夏天。', '',
+          '【我要的範圍】請在這裡填：單字或主題（例如：Lesson 5 的單字清單如下…）'].join('\n');
+      }
+      if (type === 'reading') {
+        return [PROMPT_HEAD + '請寫一篇英文文章，並依照下面格式出閱讀測驗題。', '',
+          '【格式】欄位名稱固定如下（第一題用 Q1，第二題用 Q2…）：',
+          '標題：文章標題', '文章：整篇文章（段落之間空一行；不要在段落中間換行）',
+          'Q1：題目（英文）', 'Q1選項：選項A | 選項B | 選項C | 選項D', 'Q1答案：B', 'Q1解析：中文解析', 'Q1依據：從文章直接複製的關鍵字句', 'Q1技巧：細節',
+          '（Q2、Q3… 同樣的欄位）', '',
+          '【規則】',
+          '1. 文章約 200–260 字，3–4 段，CEFR B1–B2，內容完整有主題。',
+          '2. 題數依我的要求；題型（Q?技巧）從 主旨 / 細節 / 字義 / 推論 / 態度 選一個，主旨題最多一題。',
+          '3. 每題 4 個選項，只有一個正確；題目與選項要用自己的話改寫，不可連續 6 個英文字以上和文章相同。',
+          '4. 「Q?依據」每一題都必填，包含主旨題：從文章裡逐字複製 3–25 個英文字（同一段內，一個字都不能改），是最能證明答案的那段話。',
+          '5. 解析寫明答案在哪一段、為什麼對，並簡短說明其他選項為什麼錯。', PROMPT_COMMON.split('\n').filter(function (l, i) { return i === 0 || /^(1|2|3|5|7)\./.test(l); }).join('\n'), '',
+          '【我要的主題與題數】請在這裡填：例如「關於友誼的文章，5 題」'].join('\n');
+      }
+      var ex = EXAMPLE[type];
+      if (type === 'pattern') {
+        return [PROMPT_HEAD + '請依照下面的格式出「句型練習」題。', '', PROMPT_COMMON, '',
+          '【題型與欄位】',
+          '[選擇]：句型 / 題目 / 選項（4 個，用 | 隔開）/ 答案（A–D）/ 解析。題目是一個含 ____ 的英文句子；錯誤選項要是常見文法錯誤（時態、詞形、語序），不能是亂湊的。',
+          '[填空]：句型 / 題目（含 ____）/ 答案 / 提示 / 解析。答案列出「在這個句子裡文法與用法都正確」的所有寫法，用 | 隔開（例如 touching|moving），可有可無的字用 ( ) 括起來；絕不可列出會讓句子錯誤的寫法。提示寫原形單字或中文線索，例如（感人的）。',
+          '[應用]：句型 / 中文 / 單字 / 答案 / 解析。中文是一句自然的中文；單字是把答案句拆開的單字或詞組（6–12 個，用 | 隔開，順序要打亂）；答案是完整英文句子（第一個字大寫、保留標點）。單字合起來必須剛好等於答案句，不可多也不可少。',
+          '句型欄位寫這題考的句型名稱，例如 not only…but also、so…that、倒裝句、關係代名詞。', '',
+          '【比例】選擇與填空為主，應用題約每 6 題 1 題，不要超過總題數的四分之一。每題句子 8–20 個字，程度 CEFR B1–B2，不要重複同樣的句型框架。', '',
+          '【範例】', ex, '', '【我要的範圍與題數】請在這裡填：例如「not only…but also 與倒裝句，10 題」'].join('\n');
+      }
+      return [PROMPT_HEAD + '請依照下面的格式出「段考複習」考卷，題型參考學測，依下列順序出現（只出我要求的題型）。', '', PROMPT_COMMON, '',
+        '【題型與欄位】',
+        '[選擇]（文意字彙）：題目（含 ____）/ 選項（4 個，詞性相同、語意相近，答案要靠上下文判斷）/ 答案 / 解析。',
+        '[拼寫]：題目（含 ____）/ 提示（首字母加中文，例如 c（冷靜的））/ 答案（一個單字）/ 解析。',
+        '[片語]：題目（含 ____）/ 提示（中文意思）/ 答案 / 解析。答案列出在這個句子裡文法與用法都正確的所有寫法，用 | 隔開，可有可無的字用 ( ) 括起來。',
+        '[綜合]（克漏字）：標題 / 文章（約 120–180 字，空格寫成 (1)、(2)…，依序各出現一次）/ (1)選項 / (1)答案 / (1)解析 /（(2)… 同樣的欄位）。每格 4 個選項，混合單字、文法詞形與連接詞。',
+        '[選填]（文意選填）：標題 / 文章（約 150–200 字，空格 (1)、(2)…）/ 字庫（10 個單字或片語，用 | 隔開，所有空格共用；比空格多，會有幾個干擾項）/ (1)答案 / (1)解析 /（(2)…）。答案是字庫的字母，A 是第一個。',
+        '[篇章]（篇章結構）：標題 / 文章（3–4 段，被拿掉的句子用 (1)–(4) 表示）/ 句庫（5 個完整句子，用 | 隔開：4 個被拿掉的加 1 個干擾句）/ (1)答案 / (1)解析（指出銜接線索）。',
+        '[閱讀]：標題 / 文章（3–4 段，約 200–260 字，段落之間空一行）/ Q1 / Q1選項 / Q1答案 / Q1解析 / Q1依據 / Q1技巧（主旨、細節、字義、推論、態度擇一）。Q1依據 每題必填：從文章逐字複製 3–25 個英文字（同一段，一字不改）。題目選項不可連續 6 個英文字以上與文章相同。',
+        '[翻譯]：中文（一句要翻成英文的中文）/ 答案（參考答案；其他同樣正確的寫法用 | 隔開）/ 提示 / 解析（評分重點：關鍵單字與文法）。',
+        '[作文]：題目（繁體中文的情境與 2–3 個引導重點）/ 字數（120）/ 範文（130–160 字，2–3 段，用 \\n 換行，或直接換行也可）/ 解析（評分重點：內容、組織、字彙、文法）。', '',
+        '【範例】', ex, '', '【我要的範圍與各題型題數】請在這裡填：例如「Lesson 3–4；選擇 8 題、拼寫 3 題、片語 3 題、克漏字 1 篇、閱讀 1 篇」'].join('\n');
+    }
+    function copyAiPrompt(btn) {
+      var u = impUnit(); if (!u) return;
+      var type = btn.dataset.copyPrompt === 'auto' ? u.type : btn.dataset.copyPrompt;
+      var text = aiPromptFor(type), label = btn.textContent;
+      copyText(text, function (ok) {
+        btn.textContent = ok ? '✓ 已複製，貼到 AI 對話裡' : '複製失敗，請手動選取';
+        if (!ok) { $('imp-report').innerHTML = '<textarea readonly rows="14" style="width:100%">' + esc(text) + '</textarea>'; }
+        setTimeout(function () { btn.textContent = label; }, 2600);
+      });
+    }
+    [].forEach.call(document.querySelectorAll('[data-copy-prompt]'), function (b) { b.onclick = function () { copyAiPrompt(b); }; });
+
     $('imp-check').onclick = function () {
       var u = impUnit(); if (!u) return;
       pending = u.type === 'vocab' ? parseVocab() : u.type === 'reading' ? parseReading() : parseTextType(u.type);
