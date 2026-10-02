@@ -1457,21 +1457,72 @@
       var u = impUnit(); if (!u) return;
       var topic = $('t-topic').value.trim(), hint = $('t-hint').value.trim();
       if (!topic && !hint) { $('imp-msg').textContent = '請先填「主題」或「AI 出題範圍」，讓 AI 知道要考什麼'; $('imp-msg').className = 'msg err'; return; }
-      if ($('t-text').value.trim() && !confirm('AI 產生的題目會取代目前的內容，確定嗎？')) return;
+      var appendMode = !!$('t-text').value.trim();
+      if (appendMode && !confirm('目前欄位已經有題目。AI 產生的題目會「附加」在後面，不會刪掉原本的；要繼續嗎？')) return;
       var btn = $('ai-text'), label = btn.textContent;
       aiBusy(btn, true, label); impDirty();
-      var run = google.script.run.withSuccessHandler(function (res) {
+      var fail = function (err) { aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; };
+      if (u.type === 'pattern') {
+        // 句型練習：題數多時分批（每批最多 8 題），一批失敗不影響其他批
+        var total = Number($('c-n').value), parts = [];
+        for (var left = total; left > 0; left -= 8) parts.push(Math.min(8, left));
+        var items = [], errs = [], pi = 0;
+        (function nextBatch() {
+          if (pi >= parts.length) return done();
+          var k = pi, tried = 0;
+          $('imp-msg').textContent = 'AI 出題中…（第 ' + (k + 1) + ' / ' + parts.length + ' 批）'; $('imp-msg').className = 'msg';
+          (function attempt() {
+            tried++;
+            google.script.run.withSuccessHandler(function (res) { items = items.concat(res.items || []); pi++; nextBatch(); })
+              .withFailureHandler(function (err) { if (tried < 2) return attempt(); errs.push('第 ' + (k + 1) + ' 批：' + err.message); pi++; nextBatch(); })
+              .aiGeneratePattern(topic || hint, parts[k], (topic ? hint : '') + (k ? ' (batch ' + (k + 1) + ': use different sentence frames from earlier batches)' : ''));
+          })();
+        })();
+        function done() {
+          if (!items.length) return fail(new Error(errs[0] || 'AI 沒有產生可用的題目，請再試一次'));
+          finishGen({ topic: topic || hint, items: items }, errs);
+        }
+      } else {
+        // 段考複習：一次只出一種題型（回覆短、不容易失敗）；每一部分失敗會自動重試一次，仍失敗的部分只提醒，不影響其他部分
+        var ORDER = ['mc', 'spell', 'phrase', 'cloze', 'bank', 'struct', 'reading', 'translate', 'essay'];
+        var NAMES = { mc: '選擇', spell: '拼寫', phrase: '片語', cloze: '克漏字', bank: '文意選填', struct: '篇章結構', reading: '閱讀', translate: '翻譯', essay: '作文' };
+        var plan = ORDER.map(function (t) { return { t: t, n: Number($('c-' + t).value) || 0 }; }).filter(function (x) { return x.n > 0; });
+        if (!plan.length) return fail(new Error('至少要選一種題型'));
+        var got = {}, errs2 = [], idx = 0;
+        (function nextPart() {
+          if (idx >= plan.length) return done2();
+          var cur = plan[idx], tried = 0;
+          $('imp-msg').textContent = 'AI 出題中…（' + (idx + 1) + ' / ' + plan.length + '：' + NAMES[cur.t] + '）'; $('imp-msg').className = 'msg';
+          (function attempt() {
+            tried++;
+            var counts = {}; counts[cur.t] = cur.n;
+            google.script.run.withSuccessHandler(function (res) {
+              got[cur.t] = res.blocks || [];
+              var have = got[cur.t].filter(function (b) { return b.type === cur.t; }).length;
+              if (have < cur.n && cur.t !== 'mc' && cur.t !== 'spell' && cur.t !== 'phrase' && cur.t !== 'translate') errs2.push(NAMES[cur.t] + '只產生了 ' + have + ' / ' + cur.n + ' 篇');
+              idx++; nextPart();
+            }).withFailureHandler(function (err) {
+              if (tried < 2) return attempt();
+              errs2.push(NAMES[cur.t] + '失敗：' + err.message); idx++; nextPart();
+            }).aiGenerateExamPart(topic || hint, counts, topic ? hint : '');
+          })();
+        })();
+        function done2() {
+          var blocks = []; ORDER.forEach(function (t) { blocks = blocks.concat(got[t] || []); });
+          if (!blocks.length) return fail(new Error(errs2[0] || 'AI 沒有產生可用的題目，請再試一次'));
+          finishGen({ topic: topic || hint, blocks: blocks }, errs2);
+        }
+      }
+      function finishGen(res, errList) {
         aiBusy(btn, false, label);
         if (res.topic && !$('t-topic').value.trim()) $('t-topic').value = res.topic;
-        $('t-text').value = u.type === 'pattern' ? serPattern(res) : serExam(res);
+        var gen = u.type === 'pattern' ? serPattern(res) : serExam(res);
+        $('t-text').value = appendMode ? $('t-text').value.replace(/\s+$/, '') + '\n\n' + gen : gen;
         $('imp-check').click();
-        $('imp-msg').textContent = 'AI 產生了 ' + countOf(u.type, res) + ' 題，請逐題確認答案與解析後再儲存'; $('imp-msg').className = 'msg ok';
+        $('imp-msg').textContent = 'AI 產生了 ' + countOf(u.type, res) + ' 題' + (errList.length ? '；有 ' + errList.length + ' 部分沒成功（' + errList.join('；') + '），把沒成功的題型單獨勾選題數、再按一次，會附加在後面補上' : '，請逐題確認答案與解析後再儲存');
+        $('imp-msg').className = 'msg ' + (errList.length ? 'err' : 'ok');
         $('t-text').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }).withFailureHandler(function (err) {
-        aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
-      });
-      if (u.type === 'pattern') run.aiGeneratePattern(topic || hint, Number($('c-n').value), topic ? hint : '');
-      else run.aiGenerateExam(topic || hint, { mc: Number($('c-mc').value), spell: Number($('c-spell').value), phrase: Number($('c-phrase').value), reading: Number($('c-reading').value), cloze: Number($('c-cloze').value), translate: Number($('c-translate').value), essay: Number($('c-essay').value), bank: Number($('c-bank').value), struct: Number($('c-struct').value) }, topic ? hint : '');
+      }
     };
 
     /* ---------------- 四種題型的 AI 提示詞 ---------------- */

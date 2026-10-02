@@ -118,7 +118,7 @@ function handleApi_(d) {
     syncGradebookRoster: syncGradebookRoster, syncAllGradebooks: syncAllGradebooks,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
     getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey, testLocalAi: testLocalAi,
-    aiGenerateReading: aiGenerateReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, aiGenerateExam: aiGenerateExam, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
+    aiGenerateReading: aiGenerateReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, aiGenerateExam: aiGenerateExam, aiGenerateExamPart: aiGenerateExamPart, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
     lookupStudent: lookupStudent, deleteStudent: deleteStudent,
     backupSpreadsheet: backupSpreadsheet, semesterReset: semesterReset, purgeUnitScores: purgeUnitScores,
   };
@@ -1555,6 +1555,9 @@ function aiGeneratePattern(topic, count, hint) {
 }
 
 // 段考複習：選擇、拼寫、閱讀、綜合。counts = { mc, spell, reading, cloze }（reading／cloze 是「篇數」）
+// 段考複習一次出一種題型（網頁分次呼叫，每次的回覆短、失敗只影響那一部分）；counts 只放一種題型即可
+function aiGenerateExamPart(topic, counts, hint) { return aiGenerateExam(topic, counts, hint); }
+
 function aiGenerateExam(topic, counts, hint) {
   assertTeacher_();
   topic = String(topic || '').trim();
@@ -1567,10 +1570,11 @@ function aiGenerateExam(topic, counts, hint) {
     translate: Math.max(0, Math.min(4, Number(counts.translate) || 0)), essay: Math.max(0, Math.min(1, Number(counts.essay) || 0)),
   };
   if (!n.mc && !n.spell && !n.phrase && !n.reading && !n.cloze && !n.bank && !n.struct && !n.translate && !n.essay) throw new Error('至少要選一種題型');
+  var wanted = Object.keys(n).filter(function (k) { return n[k] > 0; });
   var schema = {
     type: 'OBJECT',
     properties: { blocks: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
-      type: { type: 'STRING', enum: ['mc', 'spell', 'phrase', 'reading', 'cloze', 'bank', 'struct', 'translate', 'essay'] }, zh: { type: 'STRING' }, sample: { type: 'STRING' }, minWords: { type: 'INTEGER' }, tag: { type: 'STRING' }, q: { type: 'STRING' }, bank: { type: 'ARRAY', items: { type: 'STRING' } },
+      type: { type: 'STRING', enum: wanted }, zh: { type: 'STRING' }, sample: { type: 'STRING' }, minWords: { type: 'INTEGER' }, tag: { type: 'STRING' }, q: { type: 'STRING' }, bank: { type: 'ARRAY', items: { type: 'STRING' } },
       options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, answerText: { type: 'STRING' },
       hint: { type: 'STRING' }, explain: { type: 'STRING' }, title: { type: 'STRING' }, passage: { type: 'ARRAY', items: { type: 'STRING' } },
       questions: { type: 'ARRAY', items: { type: 'OBJECT', properties: { skill: { type: 'STRING' }, q: { type: 'STRING' }, options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, explain: { type: 'STRING' }, key: { type: 'STRING' } }, required: ['q', 'options', 'answerIndex', 'explain', 'key'] } },
@@ -1582,7 +1586,8 @@ function aiGenerateExam(topic, counts, hint) {
     'You are an experienced English teacher at a senior high school in Taiwan, writing a mock exam review for 11th-grade students.',
     'Scope: ' + topic + (hint ? ' (' + hint + ')' : ''),
     'Requested: ' + n.mc + ' mc, ' + n.spell + ' spell, ' + n.phrase + ' phrase, ' + n.cloze + ' cloze passage(s) with 5 blanks each, ' + n.bank + ' bank passage(s) with 10 blanks, ' + n.struct + ' struct passage(s) with 4 blanks, ' + n.translate + ' translate, ' + n.essay + ' essay, ' + n.reading + ' reading passage(s) with 4 questions each. Rules:',
-    aiGuidance_('exam'),
+    // 只附上這次要的題型的規則：提示詞短、回覆短，比較不容易失敗
+    aiGuidance_('exam').split('\n').filter(function (l) { var m = /^- "(\w+)":/.exec(l); return !m || wanted.indexOf(m[1]) >= 0; }).join('\n'),
   ].join('\n');
   var blocks = [];
   (aiCall_(prompt, schema).blocks || []).forEach(function (x) {
@@ -1825,7 +1830,7 @@ function aiCallOnce_(model, key, prompt, schema) {
     muteHttpExceptions: true,
     payload: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0.7 },
+      generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0.7, maxOutputTokens: 16384 },
     }),
   });
   var code = res.getResponseCode();
@@ -1843,11 +1848,12 @@ function aiCallOnce_(model, key, prompt, schema) {
   var data = JSON.parse(body);
   var cand = data.candidates && data.candidates[0];
   var text = cand && cand.content && cand.content.parts && cand.content.parts.map(function (p) { return p.text || ''; }).join('');
-  if (!text) throw new Error('Gemini 沒有回傳內容' + (cand && cand.finishReason ? '（' + cand.finishReason + '）' : '') + '，請再試一次');
+  // 沒內容、被截斷（回覆太長）或格式壞掉：多半重試一次就好，所以走「重試／換模型」的流程，而不是直接報錯
+  if (!text) throw new Error('RETRY:BUSY「' + model + '」沒有回傳內容' + (cand && cand.finishReason ? '（' + cand.finishReason + '）' : ''));
   try {
     return JSON.parse(text);
   } catch (err) {
-    throw new Error('Gemini 回傳的格式無法解析，請再試一次');
+    throw new Error('RETRY:BUSY「' + model + '」回傳的格式無法解析' + (cand && cand.finishReason === 'MAX_TOKENS' ? '（回覆太長被截斷）' : ''));
   }
 }
 
