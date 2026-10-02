@@ -86,4 +86,49 @@ assert.equal(vd.words[0].examples.length, 3);
 assert.equal(vd.words[1].type, 'phrase');
 assert.equal(vd.words[1].examples[2].zh, '市場很快反彈。');
 assert.match(els['imp-report'].innerHTML, /建議每個單元：?單字|建議每個單元 20/);
+// AI 回覆常見的裝飾：程式碼框、粗體、項目符號、編號、全形符號、標題別名、欄位別名、一行 A. B. C. D.
+const messy = [
+  '好的，以下是 3 題句型練習：',
+  '```',
+  '1. 【選擇題】',
+  '- **句型**：not only…but also',
+  '- **題幹**：Not only ____ the exam, but he also won.',
+  '- **選項**：A. passed B. did he pass C. he passed D. has passed',
+  '- **正確答案**：B（did he pass）',
+  '- **詳解**：Not only 放句首要倒裝。',
+  '---',
+  '### [填空題]',
+  '題目: It was so ____ that we cried.',
+  '答案: touching｜moving',
+  '提示：（感人的）',
+  '解析：so…that。',
+  '',
+  '**[應用]**',
+  '中文：她很快適應了。',
+  '單字：adapted ｜ She ｜ quickly',
+  '答案：She adapted quickly.',
+  '```',
+  '希望對你有幫助！',
+].join('\n');
+els['t-text'].value = messy;
+const md = plain(parseTextType('pattern'));
+assert(md, 'AI 裝飾過的回覆也要能解析：' + els['imp-report'].innerHTML);
+assert.deepEqual(md.items.map((x) => x.type), ['mc', 'fill', 'apply']);
+assert.equal(md.items[0].answer, 1);
+assert.equal(md.items[0].options.length, 4);
+assert.equal(md.items[1].answer, 'touching|moving');
+assert.equal(md.items[2].words.length, 3);
+// 段考：克漏字／文意選填別名，Q1. 寫法，（1）全形，JSON 包在程式碼框
+els['t-text'].value = '```text\n[克漏字]\n標題：A Big Change\n文章：Tom felt (1) at first. (2), he made friends.\n（1）選項：A. lonely B. noisy C. hungry D. proud\n（1）答案：A\n（1）解析：孤單。\n（2）選項：However | Therefore | Besides | Otherwise\n（2）答案：(A) However\n（2）解析：轉折。\n```';
+const ex = plain(parseTextType('exam'));
+assert(ex, '克漏字別名：' + els['imp-report'].innerHTML);
+assert.equal(ex.blocks[0].type, 'cloze');
+assert.equal(ex.blocks[0].blanks.length, 2);
+assert.equal(ex.blocks[0].blanks[1].answer, 0);
+els['t-text'].value = '```json\n' + JSON.stringify({ blocks: [{ type: 'mc', q: 'x ____', options: ['a', 'b'], answer: 1, explain: 'e' }] }) + '\n```';
+assert(parseTextType('exam'), 'JSON 包在程式碼框也要能讀');
+// 單字片語：Markdown 表格
+els['v-text'] = { value: '| 英文 | 詞性 | 中文 | 例句 | 翻譯 |\n|---|---|---|---|---|\n| adapt | v. | 適應 | She [adapted] fast. ; We [adapt]. ; Animals [adapt]. | 她適應。 ; 我們適應。 ; 動物適應。 |\n| big | adj. | 大的 | A [big] dog. ; A [big] city. ; A [big] idea. | 大狗。 ; 大城市。 ; 大想法。 |\n| hot | adj. | 熱的 | A [hot] day. | 熱天。 |\n| cold | adj. | 冷的 | A [cold] day. | 冷天。 |' };
+const vt = plain(parseVocab());
+assert(vt && vt.words.length === 4, 'Markdown 表格也要能讀：' + els['imp-report'].innerHTML);
 console.log('後台文字格式解析測試通過');

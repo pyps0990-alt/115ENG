@@ -962,7 +962,9 @@
       return { ex: ex.slice(0, m.index) + '[' + m[0] + ']' + ex.slice(m.index + m[0].length), auto: true };
     }
     function parseVocab() {
-      var lines = $('v-text').value.split(/\r?\n/).map(function (l) { return l.replace(/\s+$/, ''); }).filter(function (l) { return l.trim(); });
+      var lines = normalizeAI($('v-text').value).split('\n').map(function (l) { return l.replace(/\s+$/, ''); })
+        .filter(function (l) { return l.trim() && !/^\s*\|?[\s:|-]+\|?\s*$/.test(l); })                  // 表格分隔線 |---|---|
+        .map(function (l) { return /^\s*\|.*\|\s*$/.test(l) ? l.replace(/^\s*\|/, '').replace(/\|\s*$/, '') : l; }); // Markdown 表格的頭尾 |
       if (lines.length && /^(word|英文|單字|片語)/i.test(lines[0].split(/\t|\|/)[0].trim())) lines.shift();
       var seen = {}, seenZh = {}, rows = [], words = [];
       lines.forEach(function (line, i) {
@@ -1078,7 +1080,7 @@
         '<code>[選擇]</code> 句型／題目（空格寫 <code>____</code>）／選項（用 <code>|</code> 隔開，4 個）／答案（A、B、C、D）／解析<br>' +
         '<code>[填空]</code> 句型／題目（含 <code>____</code>）／答案（可接受的寫法用 <code>|</code> 隔開；可有可無的字用 <code>( )</code>）／提示（可空白，例如 <code>(succeed)</code>）／解析<br>' +
         '<code>[應用]</code> 句型／中文／單字（用 <code>|</code> 隔開，順序隨意）／答案（完整句子）／解析<br>' +
-        '「句型」是顯示在題目旁的小標籤，「解析」學生每題作答後立刻看到。也可以直接貼 JSON。',
+        '「句型」是顯示在題目旁的小標籤，「解析」學生每題作答後立刻看到。也可以直接貼 JSON。<br><b>從 AI 複製回來的內容可以直接貼</b>：程式碼框、**粗體**、項目符號、編號、【選擇題】這類標題、「題幹／正確答案／詳解」這類欄位名稱、一行寫完的 A. B. C. D. 選項、Markdown 表格，都會自動整理。',
       exam: '<b>段考複習</b>：參考學測題型，可以混合下列大題，依貼上的順序出現。每題以 <code>[種類]</code> 開頭：<br>' +
         '<code>[選擇]</code>（文意字彙）題目（空格 <code>____</code>）／選項（<code>|</code> 隔開）／答案（A–D）／解析<br>' +
         '<code>[拼寫]</code> 題目（含 <code>____</code>）／提示（首字母與中文）／答案／解析　<code>[片語]</code> 欄位相同，答案是整個片語。<b>答案不限於一種</b>：用 <code>|</code> 列出所有在這個句子裡文法、用法都正確的寫法（例如不同詞形、意思相同的說法），可有可無的字用 <code>( )</code>，例如 <code>look forward to (the)|looking forward to</code>。寫了不對的寫法，學生打那個就會被算對，所以按「✦ AI 檢查答案寫法」讓 AI 幫忙檢查<br>' +
@@ -1126,20 +1128,44 @@
       $('t-text').value = EXAMPLE[u.type]; impDirty();
     };
 
+    // AI 回覆常帶的「裝飾」先整理掉再解析：程式碼框、**粗體**、`反引號`、項目符號、編號、全形符號、【選擇】／[選擇題] 這類標題寫法、
+    // 欄位別名（題幹、正確答案、詳解…）、一行裡的 A. B. C. D. 選項。整理不掉的才會顯示錯誤。
+    var KIND_ALIAS = { '選擇題': '選擇', '文意字彙': '選擇', '詞彙': '選擇', '詞彙題': '選擇', '填空題': '填空', '應用題': '應用', '重組': '應用', '單字拼寫': '拼寫', '拼字': '拼寫', '拼寫題': '拼寫', '片語題': '片語', '閱讀測驗': '閱讀', '閱讀題': '閱讀', '克漏字': '綜合', '綜合測驗': '綜合', '文意選填': '選填', '篇章結構': '篇章', '中譯英': '翻譯', '翻譯題': '翻譯', '英文作文': '作文', '作文題': '作文' };
+    var KEY_ALIAS = { '題幹': '題目', '問題': '題目', '句子': '題目', '選項們': '選項', '正確答案': '答案', '參考答案': '答案', '解答': '答案', '詳解': '解析', '解說': '解析', '說明': '解析', '提示詞': '提示', '中文句子': '中文', '中文翻譯': '中文', '單字庫': '字庫', '詞庫': '字庫', '句子庫': '句庫', '範例作文': '範文', '參考範文': '範文', '最少字數': '字數', '句型名稱': '句型', '文法': '句型', '段落': '文章', '全文': '文章', '文章標題': '標題', '主題': '標題' };
+    var KINDS_RE = '選擇|填空|應用|拼寫|片語|閱讀|綜合|選填|篇章|翻譯|作文';
+    function normalizeAI(text) {
+      var t = String(text || '').replace(/\r/g, '').replace(/^﻿/, '');
+      t = t.replace(/^\s*```[a-zA-Z]*\s*$/gm, '');                       // 程式碼框
+      t = t.replace(/\*\*|`/g, '').replace(/(^|[^_])__(?!_)([^_\n]+?)__(?!_)/g, '$1$2'); // 粗體、反引號（保留 ____ 空格）
+      t = t.replace(/｜/g, '|').replace(/［/g, '[').replace(/］/g, ']').replace(/（(\d+)）/g, '($1)').replace(/＼/g, '\\');
+      var aliasKind = Object.keys(KIND_ALIAS).concat((KINDS_RE).split('|')).join('|');
+      var aliasKey = Object.keys(KEY_ALIAS).join('|');
+      return t.split('\n').map(function (line) {
+        var l = line.replace(/^\s*(?:#{1,6}\s+|>\s+|[-*•●○▪‧]\s+|\d{1,2}[.)、]\s+(?=[\[【]))/, ''); // 標題井字號、引用、項目符號、「1. [選擇]」的編號
+        l = l.replace(new RegExp('^\\s*[\\[【〔「]\\s*(' + aliasKind + ')\\s*[\\]】〕」](.*)$'), function (m, k, rest) { return '[' + (KIND_ALIAS[k] || k) + ']' + rest; });
+        l = l.replace(new RegExp('^\\s*(' + aliasKey + ')\\s*[:：]'), function (m, k) { return KEY_ALIAS[k] + '：'; });
+        l = l.replace(/^(\s*(?:Q\d+|\(\d+\)))\s*(選項|答案|解析|技巧|依據句|依據)\s*[:：]/, '$1$2：').replace(/^(\s*Q\d+)\s*[.．)]\s*/, '$1：').replace(/^(\s*Q\d+)\s*[:：]/, '$1：');
+        l = l.replace(/^(\s*(?:Q\d+|\(\d+\))(?:選項|答案|解析|技巧|依據句|依據)?)\s*:/, '$1：');
+        return l;
+      }).join('\n').replace(/\n[ \t]*-{3,}[ \t]*(?=\n)/g, '\n');
+    }
     function splitOpts(v) {
-      return String(v || '').split(/\s*\|\s*|\n/).map(function (o) { return o.replace(/^\s*[A-Ja-j][.)、．]\s*/, '').trim(); }).filter(Boolean);
+      v = String(v || '').trim();
+      // 一行寫成 "A. xxx  B. yyy  C. zzz"（沒有 | 的寫法）
+      if (v.indexOf('|') < 0 && /^[A-J][.)、．]\s*\S/.test(v) && /\s[B-J][.)、．]\s*\S/.test(v)) v = v.replace(/\s+(?=[B-J][.)、．]\s*\S)/g, ' | ');
+      return v.split(/\s*\|\s*|\n/).map(function (o) { return o.replace(/^\s*[A-Ja-j][.)、．]\s*/, '').replace(/^\s*\(?[A-Ja-j]\)\s*/, '').trim(); }).filter(Boolean);
     }
     function ansIndex(v, opts) {
       v = String(v || '').trim();
       if (/^[A-Ja-j]$/.test(v)) return v.toUpperCase().charCodeAt(0) - 65;
-      var m = /^([A-Ja-j])[.)、．]/.exec(v); if (m) return m[1].toUpperCase().charCodeAt(0) - 65;
+      var m = /^\(?([A-Ja-j])(?:[.)、．：:\s）(（]|$)/.exec(v); if (m) return m[1].toUpperCase().charCodeAt(0) - 65;
       var i = opts.map(function (o) { return o.toLowerCase(); }).indexOf(v.toLowerCase());
       return i;
     }
     // 切成 [{kind, fields:{key:value}}]；欄位可以換行，遇到下一個「名稱：」才換欄位
     function splitBlocks(text) {
       var blocks = [], cur = null, key = null;
-      text.split(/\r?\n/).forEach(function (line) {
+      normalizeAI(text).split('\n').forEach(function (line) {
         var h = /^\s*\[(選擇|填空|應用|拼寫|片語|閱讀|綜合|選填|篇章|翻譯|作文)\]\s*(.*)$/.exec(line);
         if (h) { cur = { kind: KIND[h[1]], f: {}, order: [] }; blocks.push(cur); key = null; line = h[2]; if (!line) return; }
         if (!cur) return;
@@ -1273,8 +1299,8 @@
 
     function parseTextType(type) {
       var text = $('t-text').value, issues = [], data;
-      var trimmed = text.trim();
-      if (/^[\[{]/.test(trimmed) && !/^\[(選擇|填空|應用|拼寫|片語|閱讀|綜合|選填|篇章|翻譯|作文)\]/.test(trimmed)) {
+      var trimmed = String(text).replace(/^\s*```[a-zA-Z]*\s*\n?/, '').replace(/\n?\s*```\s*$/, '').trim(); // AI 常把 JSON 包在程式碼框裡
+      if (/^(\{|\[\s*[\{\[\]])/.test(trimmed)) { // JSON：以 { 或 [{ 開頭（[選擇] 這類標題不是 JSON）
         try {
           var j = JSON.parse(trimmed);
           if (Array.isArray(j)) j = type === 'pattern' ? { items: j } : { blocks: j };
@@ -1295,7 +1321,7 @@
         ['mc', 'spell', 'reading', 'cloze'].forEach(function (k) { var c = data.blocks.filter(function (x) { return x.type === k; }).length; if (c) parts.push(KIND_ZH[k] + ' ' + c); });
       }
       $('imp-report').innerHTML = '<div class="stats"><span class="stat">共 ' + n + ' 題</span>' + parts.map(function (x) { return '<span class="stat">' + x + '</span>'; }).join('') + '</div>' +
-        (issues.length ? '<ul class="issues">' + issues.map(function (x) { return '<li class="' + x[0] + '">' + esc(x[1]) + '</li>'; }).join('') + '</ul>' : '<p class="st-ok">✓ 檢查通過</p>');
+        (issues.length ? '<ul class="issues">' + issues.slice(0, 12).map(function (x) { return '<li class="' + x[0] + '">' + esc(x[1]) + '</li>'; }).join('') + (issues.length > 12 ? '<li class="warn">還有 ' + (issues.length - 12) + ' 項，先修正上面的再按一次檢查</li>' : '') + '</ul>' : '<p class="st-ok">✓ 檢查通過</p>');
       return errs || !data ? null : data;
     }
     // 和 Code.gs 的 validateContent_ 相同的把關
