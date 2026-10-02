@@ -147,6 +147,9 @@
     .issues li.err { color:var(--bad); } .issues li.warn { color:#B45309; }
     .btn[disabled] { opacity:.4; cursor:not-allowed; box-shadow:none; }
     .ai-box { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:12px 16px; margin-top:14px; }
+    .ex-box { margin-top:10px; background:var(--white,#fff); border:1px solid var(--line); border-radius:12px; padding:8px 12px; }
+    .ex-box summary { cursor:pointer; font-weight:700; }
+    .ex-box pre { margin:8px 0; white-space:pre-wrap; word-break:break-word; font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; max-height:300px; overflow:auto; }
     .seg { display:flex; flex-wrap:wrap; gap:8px; }
     .seg label { display:flex; align-items:center; gap:6px; padding:8px 14px; border:1px solid var(--line); border-radius:999px; cursor:pointer; font-weight:600; transition:background .2s, border-color .2s; }
     .seg label:has(input:checked) { border-color:var(--navy, #1e3a5f); background:rgba(30,58,95,.08); }
@@ -292,7 +295,7 @@
             從 Excel 或 Google 試算表選取這幾欄直接複製貼上即可；也可以自己打字，欄位之間用 <code>|</code> 隔開。<br>
             例句中要考的部分用 <code>[ ]</code> 括起來，例如 <code>The team [bounced back] quickly.</code>（可以是變化後的形態，如 <code>[adapted]</code>）；沒括的話會自動找出來。含空格或詞性寫 <code>phr.</code> 的會當成片語。<br>
             範例（一行）：<code>adapt | v. | 適應 | She [adapted] quickly to her new school. ; We must [adapt] to climate change. ; Animals [adapt] to survive. | 她很快適應了新學校。 ; 我們必須適應氣候變遷。 ; 動物為了生存而適應環境。</code><br>
-            <b>建議每個單元：單字 20–25 個、片語 2–5 個，最多 30 個。</b>測驗時全部單字會依數量平均分到各階段，每個字考一次。<br><b>用外部 AI 整理單字</b>：按下方「複製『給 AI 的完整提示詞』」貼到 ChatGPT、Gemini 或 Claude，把最後一行改成你的單字，再把回覆整段貼回下面的欄位（Markdown 表格、程式碼框都會自動整理）。
+            <b>建議每個單元：單字 20–25 個、片語 2–5 個，最多 30 個。</b>測驗時全部單字會依數量平均分到各階段，每個字考一次。<br><div id="v-ex"></div><b>用外部 AI 整理單字</b>：按下方「複製『給 AI 的完整提示詞』」貼到 ChatGPT、Gemini 或 Claude，把最後一行改成你的單字，再把回覆整段貼回下面的欄位（Markdown 表格、程式碼框都會自動整理）。
           </div>
           <div class="bar">
             <button class="btn ai" id="ai-vocab" type="button">✦ AI 補齊詞性、中文與 3 句例句</button>
@@ -307,7 +310,7 @@
           <label>文章標題<input type="text" id="r-title" placeholder="例：Mia's Second Try"></label>
           <label>主題（顯示在首頁卡片上，可空白，預設用文章標題）<input type="text" id="r-topic"></label>
           <label>文章（段落之間空一行）<textarea id="r-passage" spellcheck="false"></textarea></label>
-          <div class="help"><b>課文理解　匯入格式</b>（<b>每一題都必須有原文依據</b>，包含主旨題）<br>想用外部 AI 出題：按「複製『給 AI 的完整提示詞』」，貼到 AI 後把最後一行改成主題與題數，回覆貼進「批次貼上文字格式」再按「填入表單」。<br>依序填：文章標題、主題、文章（段落之間空一行），再逐題填「題型、題目（英文）、四個選項、點選正確答案、中文解析」。「關鍵字句」從文章直接複製最能證明答案的一段，學生檢討時會標亮；沒填可改選「原文依據」的句子。<br>題目與選項請用自己的話改寫，<b>不要照抄文章</b>：和文章連續 6 個英文字以上相同會無法儲存，連續 5 個字會提醒。</div>
+          <div class="help"><b>課文理解　匯入格式</b>（<b>每一題都必須有原文依據</b>，包含主旨題）<br><span id="r-ex"></span>想用外部 AI 出題：按「複製『給 AI 的完整提示詞』」，貼到 AI 後把最後一行改成主題與題數，回覆貼進「批次貼上文字格式」再按「填入表單」。<br>依序填：文章標題、主題、文章（段落之間空一行），再逐題填「題型、題目（英文）、四個選項、點選正確答案、中文解析」。「關鍵字句」從文章直接複製最能證明答案的一段，學生檢討時會標亮；沒填可改選「原文依據」的句子。<br>題目與選項請用自己的話改寫，<b>不要照抄文章</b>：和文章連續 6 個英文字以上相同會無法儲存，連續 5 個字會提醒。</div>
           <details class="ai-box" id="r-bulk-box">
             <summary>批次貼上文字格式（整篇一次填入表單）</summary>
             <div class="imp-grid">
@@ -1079,6 +1082,11 @@
     };
     var HELP_COMMON = '<br><br><b>怎麼用 AI 出題</b>：按「複製『給 AI 的完整提示詞』」，貼到 ChatGPT、Gemini 或 Claude，把最後一行「請在這裡填」改成你的範圍與題數，送出；再把 AI 的回覆整段複製、貼到下面的欄位，按「預覽與檢查」。<br>' +
       '<b>格式規則</b>：① 每題一個 <code>[題型]</code> 標題獨占一行，題與題之間空一行。② 每個欄位一行，寫成「欄位名稱：內容」，欄位名稱要和範例完全一樣。③ 選項用 <code>|</code> 隔開寫在同一行，答案只寫字母（A、B、C…）。④ 題目裡的空格寫 <code>____</code>（四個底線）。⑤ 解析用繁體中文。⑥ 用 AI 複製回來的程式碼框、粗體、項目符號都會自動整理，不用手動刪。';
+    function exampleBox(title, text) {
+      return '<details class="ex-box" open><summary>' + esc(title) + '</summary><pre>' + esc(text) + '</pre><button class="btn small" type="button" data-copy-ex>複製範例</button></details>';
+    }
+    var VOCAB_EX = 'adapt | v. | 適應 | She [adapted] quickly to her new school. ; We must [adapt] to climate change. ; Animals [adapt] to survive. | 她很快適應了新學校。 ; 我們必須適應氣候變遷。 ; 動物為了生存而適應環境。\nlook forward to | phr. | 期待 | I am [looking forward to] the trip. ; They [look forward to] meeting you. ; She [looks forward to] summer. | 我很期待這趟旅行。 ; 他們期待與你見面。 ; 她期待夏天。';
+    var READING_EX = '標題：Mia\'s Second Try\n文章：Mia failed her first driving test. She felt ashamed, but she decided to try again.\n\nA month later she practiced every day and passed.\nQ1：What is the passage mainly about?\nQ1選項：Learning to drive | Trying again after failing | Buying a car | Making friends\nQ1答案：B\nQ1解析：整篇描述 Mia 失敗後再試一次。\nQ1依據：she decided to try again\nQ1技巧：主旨\nQ2：How did Mia feel after the first test?\nQ2選項：Proud | Ashamed | Bored | Angry\nQ2答案：B\nQ2解析：第一段提到 She felt ashamed。\nQ2依據：She felt ashamed\nQ2技巧：細節';
     var EXAMPLE = {
       pattern: '[選擇]\n句型：not only…but also\n題目：Not only ____ the exam, but he also got the highest score.\n選項：passed | did he pass | he passed | has passed\n答案：B\n解析：Not only 放句首時，後面的主要子句要倒裝（助動詞 + 主詞）。\n\n' +
         '[填空]\n句型：so…that\n題目：The movie was so ____ that everyone cried.\n答案：touching|moving\n提示：（感人的）\n解析：so + 形容詞 + that 表示「如此…以致於…」。\n\n' +
@@ -1098,7 +1106,7 @@
     var KIND_ZH = { mc: '選擇', fill: '填空', apply: '應用', spell: '拼寫', phrase: '片語', reading: '閱讀', cloze: '綜合', bank: '選填', struct: '篇章', translate: '翻譯', essay: '作文' };
 
     function textShow(type) {
-      $('t-help').innerHTML = HELP[type] + HELP_COMMON;
+      $('t-help').innerHTML = HELP[type] + HELP_COMMON + exampleBox('範例（可以整段複製貼給 AI，說「照這個格式出題」）', EXAMPLE[type]);
       if (type === 'pattern') {
         $('t-counts').innerHTML = '<label style="display:inline-flex;gap:6px;align-items:center;font-weight:400">題數 <select id="c-n"><option>5</option><option selected>10</option><option>15</option><option>20</option></select></label>';
       } else {
@@ -1677,8 +1685,7 @@
           '5. 例句翻譯要自然通順，並且和例句完全對應（學生會把它當成提示）。',
           '6. 整份清單單字約 20–25 個、片語 2–5 個，總數不超過 30 個；不要重複。',
           '7. 第一行不要寫欄位標題。', PROMPT_COMMON.split('\n').filter(function (l, i) { return i === 0 || /^(1|2|7)\./.test(l); }).join('\n'), '',
-          '【範例（兩行）】', 'adapt | v. | 適應 | She [adapted] quickly to her new school. ; We must [adapt] to climate change. ; Animals [adapt] to survive. | 她很快適應了新學校。 ; 我們必須適應氣候變遷。 ; 動物為了生存而適應環境。',
-          'look forward to | phr. | 期待 | I am [looking forward to] the trip. ; They [look forward to] meeting you. ; She [looks forward to] summer. | 我很期待這趟旅行。 ; 他們期待與你見面。 ; 她期待夏天。', '',
+          '【範例（兩行）】', VOCAB_EX, '',
           '【我要的範圍】請在這裡填：單字或主題（例如：Lesson 5 的單字清單如下…）'].join('\n');
       }
       if (type === 'reading') {
@@ -1693,7 +1700,7 @@
           '3. 每題 4 個選項，只有一個正確；題目與選項要用自己的話改寫，不可連續 6 個英文字以上和文章相同。',
           '4. 「Q?依據」每一題都必填，包含主旨題：從文章裡逐字複製 3–25 個英文字（同一段內，一個字都不能改），是最能證明答案的那段話。',
           '5. 解析寫明答案在哪一段、為什麼對，並簡短說明其他選項為什麼錯。', PROMPT_COMMON.split('\n').filter(function (l, i) { return i === 0 || /^(1|2|3|5|7)\./.test(l); }).join('\n'), '',
-          '【我要的主題與題數】請在這裡填：例如「關於友誼的文章，5 題」'].join('\n');
+          '【範例】', READING_EX, '', '【我要的主題與題數】請在這裡填：例如「關於友誼的文章，5 題」'].join('\n');
       }
       var ex = EXAMPLE[type];
       if (type === 'pattern') {
@@ -1729,6 +1736,13 @@
         setTimeout(function () { btn.textContent = label; }, 2600);
       });
     }
+    $('v-ex').innerHTML = exampleBox('範例（每行一個字，可以整段複製貼給 AI）', VOCAB_EX);
+    $('r-ex').innerHTML = exampleBox('範例（可以整段複製貼給 AI，說「照這個格式出題」）', READING_EX);
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-copy-ex]'); if (!b) return;
+      var pre = b.parentNode.querySelector('pre'), label = b.textContent;
+      copyText(pre.textContent, function (ok) { b.textContent = ok ? '✓ 已複製' : '請手動選取'; setTimeout(function () { b.textContent = label; }, 1800); });
+    });
     [].forEach.call(document.querySelectorAll('[data-copy-prompt]'), function (b) { b.onclick = function () { copyAiPrompt(b); }; });
 
     $('imp-check').onclick = function () {

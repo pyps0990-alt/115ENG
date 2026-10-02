@@ -19,8 +19,8 @@ const code = [
 const els = { 't-topic': { value: '主題' }, 't-text': { value: '' }, 'imp-report': { innerHTML: '' } };
 const ctx = { $: (id) => els[id] || (els[id] = { value: '' }), console, impUnit: () => ({ title: 'U' }) };
 vm.createContext(ctx);
-vm.runInContext(code + '\nthis.api = { parseVocab, parseTextType, serPattern, serExam, EXAMPLE, validatePE, csvToTsv, serVocab, serReading, splitBlocks, aiPromptFor };', ctx);
-const { parseVocab, parseTextType, serPattern, serExam, EXAMPLE, csvToTsv, serVocab, serReading, splitBlocks, aiPromptFor } = ctx.api;
+vm.runInContext(code + '\nthis.api = { parseVocab, parseTextType, serPattern, serExam, EXAMPLE, validatePE, csvToTsv, serVocab, serReading, splitBlocks, aiPromptFor, VOCAB_EX, READING_EX };', ctx);
+const { parseVocab, parseTextType, serPattern, serExam, EXAMPLE, csvToTsv, serVocab, serReading, splitBlocks, aiPromptFor, VOCAB_EX, READING_EX } = ctx.api;
 const plain = (o) => JSON.parse(JSON.stringify(o));
 
 for (const type of ['pattern', 'exam']) {
@@ -141,4 +141,11 @@ for (const t of ['vocab', 'reading', 'pattern', 'exam']) {
   }
 }
 assert(/依據.*必填/.test(aiPromptFor('exam')) && /依據.*必填/.test(aiPromptFor('reading')));
+// 灰色區塊裡顯示的範例本身要能通過
+const rf = splitBlocks('[閱讀]\n' + READING_EX)[0].f;
+assert.equal(rf['Q2依據'], 'She felt ashamed');
+assert.equal(rf['Q1答案'], 'B');
+els['v-text'] = { value: VOCAB_EX + '\nbig | adj. | 大的 | A [big] dog. ; A [big] city. ; A [big] idea. | 大狗。 ; 大城市。 ; 大想法。\nhot | adj. | 熱的 | A [hot] day. ; A [hot] cup. ; A [hot] sun. | 熱天。 ; 熱杯。 ; 熱日。' };
+els['v-topic'] = { value: '' };
+assert(parseVocab(), '單字範例要能通過：' + els['imp-report'].innerHTML);
 console.log('後台文字格式解析測試通過');
