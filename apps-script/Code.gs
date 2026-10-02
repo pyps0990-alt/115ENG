@@ -1970,12 +1970,6 @@ function copiedParts_(qs, pw) {
 /* Config                                                              */
 /* ------------------------------------------------------------------ */
 
-function publishDoc_(docId, json) {
-  var docs = {};
-  docs[docId] = json;
-  publishDocs_(docs);
-}
-
 // 一次把幾份文件寫進 Firestore 的 public 集合（單一請求、不可分割）：{ 文件代號: JSON 字串 }
 function publishDocs_(docs) {
   var ids = Object.keys(docs);

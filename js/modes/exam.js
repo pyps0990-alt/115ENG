@@ -8,7 +8,7 @@ import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore } from '../submit.js';
 import { PASS } from '../levels.js';
-import { flattenExam, KEYS, blankHTML, reviewCardHTML, correctText, judge, KIND_LABEL } from '../components/items.js';
+import { flattenExam, KEYS, blankHTML, reviewCardHTML, correctText, judge } from '../components/items.js';
 
 const SECTION = { mc: '詞彙・選擇題', spell: '單字拼寫', phrase: '片語拼寫', reading: '閱讀測驗', cloze: '綜合測驗（克漏字）', bank: '文意選填', struct: '篇章結構', translate: '中譯英（不計分）', essay: '英文作文（不計分）' };
 const wordCount = (t) => (String(t).match(/[A-Za-z0-9'’-]+/g) || []).length;

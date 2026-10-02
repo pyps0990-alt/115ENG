@@ -6,7 +6,6 @@
       "**/.*",
       "**/node_modules/**",
       "apps-script/**",
-      "docs/**",
       "tools/**",
       "README.md",
       "firestore.rules",

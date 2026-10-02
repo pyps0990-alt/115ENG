@@ -22,8 +22,7 @@
 
 學生不用登入，只要填班級、座號和姓名。每次完成整份測驗，成績會自動送到老師的 Google 試算表（總表、班級分頁、每題作答明細；沒網路時會自動補送）。老師可以用 Google 帳號登入後台，控制學生看得到哪些單元，以及單字測驗要包含哪幾段。
 
-- 分析與設計說明：[`docs/analysis.md`](docs/analysis.md)
-- 目前的單字與文章都是**範例資料**，替換方法請見下方「更換內容」。
+- 網站沒有內建題目：單元與題目都由老師在後台新增、匯入，說明見下方「更換內容」。
 
 ## 配色
 
@@ -80,18 +79,10 @@ python3 -m http.server 8000
 - `answer` 是正確選項的索引，從 0 開始。
 - `skill` 是題型標籤，例如主旨、細節、字義、推論、態度。
 
-改完後執行內容檢查：
+後台匯入時會自動檢查：
 
-```bash
-node tools/check-content.mjs
-```
-
-檢查項目：
-
-- 課文理解的題目或選項，只要跟文章有**連續 6 個英文字以上相同**，就算照抄，會列為錯誤；連續 5 個字會列為警告。
+- 課文理解的題目或選項，只要跟文章有**連續 6 個英文字以上相同**，就算照抄，會列為錯誤；連續 5 個字會列為警告。每一題都要有原文依據。
 - 單字片語的例句有沒有用 `[ ]` 標出目標字、有沒有重複的字，以及中文意思有沒有重複。
-
-換成真正的內容後，記得把 `data/lessons/index.json` 裡對應單元的 `"sample": true` 拿掉，並更新 `count`。
 
 ## 發布到 Firebase Hosting
 
@@ -118,7 +109,7 @@ node tools/check-content.mjs
 4. 部署完成後，網址會是 `https://eng-3385e.web.app`（或 `https://eng-3385e.firebaseapp.com`）。
 5. 在原本的 Google Sites 用「插入 → 嵌入 → 依網址」貼上這個網址，或把導覽連結改到新網站。
 
-> `firebase.json` 只上傳網站需要的靜態檔案（`index.html`、`css/`、`js/`、`data/`），排除 `apps-script/`、`docs/`、`tools/` 等開發用檔案。
+> `firebase.json` 只上傳網站需要的靜態檔案（`index.html`、`admin.html`、`css/`、`js/`、`fonts/`、`data/`、圖示與 `robots.txt`），排除 `apps-script/`、`tools/`、`README.md` 等開發用檔案。
 
 ## 載入速度
 
@@ -255,16 +246,22 @@ admins/{email}                                    老師／管理員名單
 
 ```
 index.html               入口（hash 路由：#/u/<單元>）
+admin.html               老師後台（網站版；由 apps-script/Admin.html 產生，勿直接改）
+robots.txt               搜尋引擎規則
 css/style.css            配色與版面
+fonts/                   英文字型（Nunito、Atkinson Hyperlegible、Merriweather），自己的網站提供
 js/app.js                首頁、單元頁、路由
+js/types.js              四種單元類型、及格分數（PASS）
 js/nav.js                導覽列「選擇單元」下拉選單
-js/levels.js             三段的出題規則
-js/modes/vocab.js        單字片語三段連續測驗
-js/modes/reading.js      課文理解流程
-js/components/*.js       題目元件（選擇題、字母框拼字）、結果頁、測驗前關卡
-data/lessons/*.json      課程資料
-tools/check-content.mjs  內容檢查（防止閱讀題照抄文章）
-apps-script/             Google Apps Script：Code.gs（成績、設定、初始化）＋ Admin.html（老師後台）
+js/levels.js             單字片語三段的出題規則與分配
+js/modes/*.js            vocab 單字片語、reading 課文理解、pattern 句型練習、exam 段考複習
+js/components/*.js       題目元件、結果頁、測驗前關卡、檢討
+js/firebase.js           Firestore 讀寫（登入帳本、成績、即時同步）
+data/                    config.default.json（沒有連到 Apps Script 時的預設設定）、lessons/index.json
+apps-script/             Google Apps Script：Code.gs（成績、設定、AI 出題）＋ Admin.html（老師後台）
+tools/build-admin.py     由 apps-script/Admin.html 產生 admin.html（改了後台要執行）
+tools/module-graph.mjs   維護 index.html 的 modulepreload 清單（--check 檢查）
+tools/e2e/               自動化測試（Playwright）
 ```
 
 ## 老師後台（網站版）

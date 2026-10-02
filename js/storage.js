@@ -33,9 +33,6 @@ export const store = {
     const w = this.wrong(unit);
     if (!w.includes(word)) { w.push(word); write(`wrong:${unit}`, w); }
   },
-  removeWrong(unit, word) {
-    write(`wrong:${unit}`, this.wrong(unit).filter((x) => x !== word));
-  },
 
   // 最近一次單字片語測驗的三段百分比：{ basic, advanced, mastery }
   last: (unit) => read(`last:${unit}`, null),

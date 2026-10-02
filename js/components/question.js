@@ -58,9 +58,6 @@ export function buildSpell(word, variant) {
   return { type: 'spell', variant: 'spell', word, answer: word.word };
 }
 
-export const gradeMC = (q, chosen) => chosen === q.answer;
-export const gradeSpell = (q, typed) => lettersOf(typed) === lettersOf(q.answer);
-
 export function promptText(q) {
   if (q.type === 'mc' && q.dir === 'cloze') return `${q.parts.before}____${q.parts.after}`;
   if (q.type === 'mc') return q.dir === 'en2zh' ? q.word.word : q.word.zh;
