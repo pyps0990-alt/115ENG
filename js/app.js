@@ -582,6 +582,8 @@ async function boot() {
     };
     ['pointerdown', 'keydown', 'touchstart', 'scroll'].forEach((t) => window.addEventListener(t, loadCjk, { once: true, passive: true }));
   }
+  // 偵測網站有沒有部署新版：沒在考試時，換頁的瞬間自動更新成新版
+  afterLoad(() => idle(() => import('./update.js').then((m) => m.watchForUpdate({ auto: true, isBusy: () => !!document.body.dataset.busy })).catch(() => {})));
   afterLoad(() => idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); modes.pattern().catch(() => {}); modes.exam().catch(() => {}); }));
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();

@@ -12,6 +12,8 @@
 
 段考複習另有 **翻譯** 與 **作文**（沒有標準答案，不計分）：學生在手機上打字作答，交卷後並排看到自己的答案、參考答案與評分重點自己對照；答案存進成績試算表的 details 分頁，老師可以閱讀。段考複習和句型練習做完後都能「重練錯的題目」（練習不計成績）。
 
+自動更新：部署時 `firebase.json` 的 `predeploy` 會先執行 `tools/stamp-version.mjs`，依所有網站檔案算出版本碼寫進 `version.json`（**部署的資料夾要有 `tools/stamp-version.mjs`**）。已經開著的網頁會在回到畫面、取得焦點或每 5 分鐘偵測版本碼；學生端沒在考試時，換頁的瞬間自動載入新版（考試中不打斷），老師後台只顯示「有新版本了」提示列，由老師儲存編輯後按「立即更新」。
+
 及格與補考：正式測驗總分達 **65%** 才算通過（`js/types.js` 的 `PASS` 可以改）。沒通過的單元顯示「需補考」，學生重新做一次正式測驗，可以一直補考到通過；通過後才進入檢討與複習。補考的成績在試算表的「階段」欄會標「補考 ·」，成績單（矩陣式）記的是最高分。
 
 字型：英文字型（Nunito、Atkinson Hyperlegible）放在 `fonts/`，由自己的網站提供並預載；英文文章用 Merriweather（只有讀文章時才下載）；中文網頁字型 Noto Sans TC 等使用者第一次點擊、輸入或滑動後才在背景載入（不拖慢開啟速度），只下載畫面用到的字。想完全不載入中文網頁字型，把 `js/config.js` 的 `CJK_WEBFONT` 改成 `false`。
@@ -259,6 +261,7 @@ js/components/*.js       題目元件、結果頁、測驗前關卡、檢討
 js/firebase.js           Firestore 讀寫（登入帳本、成績、即時同步）
 data/                    config.default.json（沒有連到 Apps Script 時的預設設定）、lessons/index.json
 apps-script/             Google Apps Script：Code.gs（成績、設定、AI 出題）＋ Admin.html（老師後台）
+tools/stamp-version.mjs  部署前自動算出版本碼（version.json）
 tools/build-admin.py     由 apps-script/Admin.html 產生 admin.html（改了後台要執行）
 tools/module-graph.mjs   維護 index.html 的 modulepreload 清單（--check 檢查）
 tools/e2e/               自動化測試（Playwright）

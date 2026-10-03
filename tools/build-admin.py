@@ -40,6 +40,8 @@ out = sub1('<body>\n', '''<body>
   <div id="app-root" hidden>
 ''', out)
 out = sub1('  <div id="toast"', '  </div>\n  <div id="toast"', out)
+# 偵測網站有沒有部署新版：只顯示提示列，由老師按「立即更新」（可能有還沒儲存的編輯）
+out = sub1('</body>', '<script type="module">import("./js/update.js").then(function (m) { m.watchForUpdate({ auto: false }); }).catch(function () {});</script>\n</body>', out)
 
 # 學生名單分頁：原本只放一個連到網站老師頁的連結，改成直接在這裡匯入
 old_roster = re.search(r'(<section id="tab-roster" hidden>\s*)<div class="card">.*?</div>\s*</div>\s*(<div class="card">)', out, re.S)

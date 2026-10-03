@@ -2054,6 +2054,7 @@
       .withFailureHandler(function (err) { $('units').innerHTML = '<tr><td colspan="5" class="msg err">' + esc(err.message) + '</td></tr>'; })
       .getAdminData();
   </script>
+<script type="module">import("./js/update.js").then(function (m) { m.watchForUpdate({ auto: false }); }).catch(function () {});</script>
 
   <script type="module">
     import { SCRIPT_URL } from './js/config.js';
