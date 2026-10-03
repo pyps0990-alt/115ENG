@@ -21,7 +21,7 @@ cases.forEach(([input, want]) => assert.deepEqual(normLesson(input), want, `norm
 
 const index = { units: [] };
 addCustomUnits(index, { customUnits: [
-  { id: 'mid', title: 'Midterm', type: 'exam', lesson: 'R-X' },
+  { id: 'mid', title: 'Extra', type: 'pattern', lesson: 'R-X' },
   { id: 'a', title: 'A', type: 'vocab', lesson: 3 },
   { id: 'b', title: 'B', type: 'vocab', lesson: '' },
   { id: 'c', title: 'C', type: 'vocab' },

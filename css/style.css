@@ -823,7 +823,7 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .unit-tile h3 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .unit-tile .tile-meta { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
-/* ---- 句型練習、段考複習 ---- */
+/* ---- 句型練習 ---- */
 .tagchip { display: inline-block; padding: 0 8px; border-radius: 6px; background: var(--navy-soft); color: var(--navy); font-size: .78rem; font-weight: 700; margin-bottom: 6px; }
 .fill-area { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
 .fill-input { flex: 1 1 200px; min-width: 0; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--edge); background: var(--white); font-size: 1.05rem; color: var(--navy); }
@@ -839,15 +839,7 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .chip-word:active { transform: scale(.95); }
 .chip-word:disabled { opacity: .35; cursor: default; }
 .chip-word.on { background: var(--navy-soft); border-color: var(--navy); }
-.exam-sec { margin: 22px 0 8px; font-size: 1.05rem; color: var(--navy); padding-bottom: 6px; border-bottom: 2px solid var(--navy-soft); }
-.exam-body { display: grid; gap: 12px; }
-.exam-group { margin-top: 4px; }
-.exam-body .pq { padding: 16px; border-radius: 16px; border: 1.5px solid var(--line); background: var(--white); display: grid; gap: 10px; }
-.exam-body .pq.done { border-color: var(--navy-soft); }
-.cloze-no { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; margin: 0 3px; border-radius: 6px; background: var(--navy); color: #fff; font-size: .78rem; font-weight: 800; vertical-align: 1px; }
 .ptext { white-space: pre-wrap; }
-.rv-passage { border: 1.5px solid var(--line); border-radius: 14px; padding: 8px 12px; }
-.rv-passage > summary { cursor: pointer; font-weight: 700; color: var(--navy); }
 
 .chip-word { touch-action: none; user-select: none; -webkit-user-select: none; }
 .chip-word.dragging { opacity: .3; }
@@ -855,13 +847,6 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .build-line.over { border-color: var(--navy); background: var(--navy-soft); }
 .drop-mark { width: 4px; height: 34px; border-radius: 2px; background: var(--navy); flex: none; }
 .drag-ghost { transition: none !important; }
-.bank-list { list-style: none; margin: 0; padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; border-radius: 12px; background: var(--wash); }
-.bank-list.struct { grid-template-columns: 1fr; }
-.bank-list li { display: flex; gap: 8px; align-items: baseline; font-size: .95rem; }
-.bank-list .opt-key { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--navy); color: #fff; font-size: .78rem; font-weight: 800; }
-.bank-select { width: 100%; max-width: 280px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--edge); background: var(--white); color: var(--navy); font-size: 1rem; font-weight: 700; }
-.bank-select:focus-visible { outline: 3px solid var(--navy-soft); border-color: var(--navy); }
-.sel-pq { gap: 8px; }
 
 /* ---------------- 動畫升級：彈簧手感、卡片轉場、成績畫面 ---------------- */
 
@@ -914,49 +899,15 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .passage-card p .ptext, .passage-card .sent { letter-spacing: .005em; }
 .passage-card p { font-size: 1.02rem; }
 
-/* 翻譯、作文（不計分） */
-.open-input { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--edge); background: var(--white); color: var(--navy); font-size: 1.02rem; line-height: 1.6; resize: vertical; min-height: 84px; }
-.open-input:focus-visible { outline: 3px solid var(--navy-soft); border-color: var(--navy); }
-.wc { text-align: right; font-size: .85rem; color: var(--steel); font-variant-numeric: tabular-nums; }
-.wc.ok { color: var(--good-ink); font-weight: 700; }
-.open-pq .pq-q { font-size: 1.04rem; }
-.open-ans { margin: 0; white-space: pre-wrap; line-height: 1.7; }
 .rv-row { display: grid; gap: 4px; }
 .rv-row > span { font-size: .8rem; font-weight: 800; color: var(--steel); letter-spacing: .06em; }
-.writing-sum { display: grid; gap: 10px; text-align: left; width: 100%; }
-.writing-sum h3 { margin: 0; font-size: 1rem; }
-.open-sum { border: 1.5px solid var(--line); border-radius: 14px; padding: 8px 12px; background: var(--white); }
-.open-sum > summary { cursor: pointer; font-weight: 700; color: var(--navy); }
-.open-sum .rv-pq { border: 0; padding: 10px 0 0; box-shadow: none; }
 
 
-/* 所有單元頁的標題與說明卡都在同一條置中的欄裡；課文理解、段考複習開始作答後需要寬版面（文章與題目並排），才放寬 */
-.focus:has(.passage-layout, .exam-body, .passage-foot) { max-width: 1200px; }
+/* 所有單元頁的標題與說明卡都在同一條置中的欄裡；課文理解開始作答後需要寬版面（文章與題目並排），才放寬 */
+.focus:has(.passage-layout, .passage-foot) { max-width: 1200px; }
 
-/* 段考複習：題號導覽（看每題作答情況、點題號快速前往） */
-.nav-btn { flex: none; }
-.nav-btn.on { background: var(--navy-soft); border-color: var(--navy); }
 .passage-foot { gap: 10px; }
 .passage-foot .count { margin-right: auto; }
-.exam-nav { position: fixed; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(86px + env(safe-area-inset-bottom, 0px)); z-index: 30; width: min(380px, calc(100vw - 24px)); max-height: min(60vh, 460px); overflow: auto; display: grid; gap: 10px; padding: 14px; border-radius: 18px; background: var(--white); border: 1.5px solid var(--line); box-shadow: 0 18px 44px rgba(15, 23, 42, .18); animation: fade-up .22s var(--ease); }
-.exam-nav[hidden] { display: none; }
-.en-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.en-head b { color: var(--navy); }
-.en-head .muted { font-size: .85rem; }
-.en-close { margin-left: auto; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 12px; background: var(--wash); color: var(--navy); cursor: pointer; }
-.en-close .ic { width: 16px; height: 16px; }
-.en-body { display: flex; flex-wrap: wrap; gap: 12px 18px; }
-.en-group { display: grid; gap: 6px; align-content: start; }
-.en-label { font-size: .78rem; font-weight: 800; color: var(--steel); letter-spacing: .06em; }
-.en-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.en-chip { min-width: 44px; height: 44px; padding: 0 8px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--white); color: var(--navy); font-family: var(--font-en); font-weight: 800; font-size: .95rem; cursor: pointer; transition: transform .15s var(--ease), background .2s, border-color .2s; }
-.en-chip:active { transform: scale(.94); }
-.en-chip.open { border-style: dashed; }
-.en-chip.done { background: var(--navy); border-color: var(--navy); color: var(--white); }
-.en-chip.cur { box-shadow: 0 0 0 3px var(--amber); }
-.pq.flash { animation: pq-flash 1.1s ease; }
-@keyframes pq-flash { 0%, 60% { box-shadow: 0 0 0 3px var(--amber); } 100% { box-shadow: 0 0 0 0 transparent; } }
-@media (prefers-reduced-motion: reduce) { .exam-nav, .pq.flash { animation: none; } }
 
 .retake-note { color: var(--bad-ink); list-style: none; margin-left: -1.1em; }
 .retake-note .ic { width: 14px; height: 14px; vertical-align: -2px; }
@@ -1055,15 +1006,6 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 
 /* 卡片像練習簿的填寫欄：標題與說明之間一條點線 */
 .unit-tile .tile-meta { padding-top: 8px; border-top: 1.5px dotted var(--line-strong); }
-
-/* 段考頁排版：底部列文字不在字中間換行；大螢幕單獨的題目排成兩欄（文章與題目的區塊、標題、寫作題仍整列） */
-.passage-foot .count { display: flex; flex-wrap: wrap; gap: 0 4px; line-height: 1.35; }
-.passage-foot .count span { white-space: nowrap; }
-@media (max-width: 520px) { .passage-foot .count .sep { display: none; } .passage-foot .count { gap: 0 8px; } }
-@media (min-width: 900px) {
-  .exam-body { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; align-items: start; }
-  .exam-body > .pq-intro, .exam-body > .exam-sec, .exam-body > .exam-group, .exam-body > .open-pq { grid-column: 1 / -1; }
-}
 
 /* 文章要看得到全部：黏住的文章卡高度要扣掉上方導覽列與下方固定的作答列（約 81px），否則最後幾行被作答列蓋住，捲到底也看不到。
    文章比卡片高時可以在卡片內捲動：上下加漸層陰影提示「還有內容」（iPad 的捲軸平常是隱藏的） */

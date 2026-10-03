@@ -1,12 +1,11 @@
-// 句型練習與段考複習共用的題目：資料整理成一份「扁平題目清單」，作答、計分、檢討、伺服器核對都用同一套編號。
+// 句型練習的題目：資料整理成一份「扁平題目清單」，作答、計分、檢討、伺服器核對都用同一套編號。
 //   句型練習 items：mc（選擇）、fill（填空）、apply（應用：把打散的單字重組成句子）
-//   段考複習 blocks：mc（選擇）、spell（拼寫）、reading（閱讀：一篇文章多題）、cloze（綜合：文章挖空，每格四選一）
 import { esc, shuffle } from '../util.js';
 import { icon } from '../icons.js';
 import { diffAnswer } from './diff.js';
 
 export const KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-export const KIND_LABEL = { mc: '選擇', fill: '填空', apply: '應用', spell: '拼寫', phrase: '片語', reading: '閱讀', cloze: '綜合', bank: '文意選填', struct: '篇章結構', translate: '翻譯', essay: '作文' };
+export const KIND_LABEL = { mc: '選擇', fill: '填空', apply: '應用' };
 
 // 比對答案：不分大小寫、忽略標點與多餘空白（Code.gs 的 normAns_ 要保持一樣）
 export const normAns = (s) => String(s == null ? '' : s).toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -56,33 +55,13 @@ export function flattenPattern(items) {
   return (items || []).map((it, i) => ({ id: `i${i}`, kind: it.type, label: KIND_LABEL[it.type] || '', tag: it.tag || '', stem: it.q || it.zh || '', hint: it.hint || '', zh: it.zh || '', words: it.words || [], options: it.options || [], answer: it.answer, explain: it.explain || '' }));
 }
 
-export function flattenExam(blocks) {
-  const out = [];
-  (blocks || []).forEach((b, i) => {
-    if (b.type === 'mc' || b.type === 'spell' || b.type === 'phrase') {
-      out.push({ id: `b${i}`, kind: b.type === 'mc' ? 'mc' : 'spell', label: KIND_LABEL[b.type], tag: b.tag || '', stem: b.q || '', hint: b.hint || '', options: b.options || [], answer: b.answer, explain: b.explain || '', block: i });
-    } else if (b.type === 'reading') {
-      (b.questions || []).forEach((q, j) => out.push({ id: `b${i}.${j}`, kind: 'mc', label: '閱讀', group: 'reading', tag: q.skill || '', stem: q.q || '', options: q.options || [], answer: q.answer, explain: q.explain || '', block: i, sub: j }));
-    } else if (b.type === 'translate' || b.type === 'essay') {
-      // 翻譯、作文沒有標準答案：不計分，交卷後對照參考答案自己檢查
-      out.push({ id: `b${i}`, kind: 'open', label: KIND_LABEL[b.type], open: b.type, tag: '', stem: b.type === 'translate' ? (b.zh || '') : (b.q || ''), hint: b.hint || '', answer: b.type === 'translate' ? (b.answer || '') : (b.sample || ''), explain: b.explain || '', minWords: Number(b.minWords) || 0, block: i });
-    } else if (b.type === 'bank' || b.type === 'struct') {
-      // 文意選填、篇章結構：所有空格共用同一份選項（字庫／句子庫）
-      (b.blanks || []).forEach((q, j) => out.push({ id: `b${i}.${j}`, kind: 'mc', label: KIND_LABEL[b.type], group: b.type, tag: '', stem: `第 ${j + 1} 格`, options: b.bank || [], answer: q.answer, explain: q.explain || '', block: i, sub: j }));
-    } else if (b.type === 'cloze') {
-      (b.blanks || []).forEach((q, j) => out.push({ id: `b${i}.${j}`, kind: 'mc', label: '綜合', group: 'cloze', tag: '', stem: `第 ${j + 1} 格`, options: q.options || [], answer: q.answer, explain: q.explain || '', block: i, sub: j }));
-    }
-  });
-  return out;
-}
-
 // 答錯後顯示：你的答案（錯的地方標出來）＋正確答案（你漏掉的字標出來）
 export function wrongLineHTML(yours, alts) {
   const d = diffAnswer(yours, alts);
   return `${d.yoursHTML ? `<div>你的答案：<b class="en">${d.yoursHTML}</b></div>` : ''}<div>正確答案：<b class="en">${d.correctHTML}</b></div>`;
 }
 
-export const correctText = (q) => (q.kind === 'mc' ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : q.kind === 'open' ? String(q.answer || '') : altsOf(q).slice(0, 4).join(' / '));
+export const correctText = (q) => (q.kind === 'mc' ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : altsOf(q).slice(0, 4).join(' / '));
 export const isChoice = (q) => q.kind === 'mc';
 
 // 從「A. 選項文字」找回選項索引（Firestore 讀回的紀錄用）

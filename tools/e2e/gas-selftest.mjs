@@ -171,8 +171,8 @@ console.log('Code.gs 儲存邏輯測試全部通過');
 {
   const g4 = createGas();
   const ok4 = (r) => { assert.equal(r.ok, true, JSON.stringify(r)); return r.data; };
-  ok4(g4.api('saveAllSettings', [[], [{ id: 'e1', title: 'E', type: 'exam', lesson: 1, topic: '', visible: true, disabled: [], questionCount: 5, custom: true }]]));
-  const send = (o) => g4.postScore(Object.assign({ unit: 'e1', unitTitle: 'E', mode: 'exam', score: 1, total: 1, durationSec: 60, clientTs: '2026-10-01 10:00:00', details: [] }, o));
+  ok4(g4.api('saveAllSettings', [[], [{ id: 'e1', title: 'E', type: 'pattern', lesson: 1, topic: '', visible: true, disabled: [], questionCount: 5, custom: true }]]));
+  const send = (o) => g4.postScore(Object.assign({ unit: 'e1', unitTitle: 'E', mode: 'pattern', score: 1, total: 1, durationSec: 60, clientTs: '2026-10-01 10:00:00', details: [] }, o));
   const scoreIds = () => (g4.sheets.get('scores')?.rows || []).slice(1).map((r) => r[17]).filter(Boolean);
   // 別人正在整理（拿不到鎖）：收件照樣成功，先放在 inbox
   g4.lock.busy = true;

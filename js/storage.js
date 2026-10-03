@@ -128,7 +128,7 @@ export const store = {
     const passedUnits = {};
     attempts.forEach((a) => {
       if (!a.unit) return;
-      const mode = ['reading', 'pattern', 'exam'].includes(a.mode) ? a.mode : 'vocab';
+      const mode = ['reading', 'pattern'].includes(a.mode) ? a.mode : 'vocab';
       this.setBest(a.unit, mode, Number(a.pct) || 0);
       (passedUnits[a.unit] = passedUnits[a.unit] || false);
       if (a.review || Number(a.pct) >= PASS) passedUnits[a.unit] = true;

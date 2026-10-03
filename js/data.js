@@ -63,9 +63,10 @@ export async function loadUnit(id, config) {
 export function addCustomUnits(index, config) {
   const list = (config && config.customUnits) || [];
   list.forEach((u) => {
+    if (u.type === 'exam') return; // 已經取消的類型（舊資料還留著）：不顯示
     if (index.units.some((x) => x.id === u.id)) return;
     index.units.push({
-      id: u.id, lesson: normLesson(u.lesson), type: ['reading', 'pattern', 'exam'].includes(u.type) ? u.type : 'vocab',
+      id: u.id, lesson: normLesson(u.lesson), type: ['reading', 'pattern'].includes(u.type) ? u.type : 'vocab',
       title: u.title || u.id, topic: u.topic || '', count: 0, sample: false,
     });
   });

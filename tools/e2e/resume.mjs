@@ -1,4 +1,4 @@
-// 測驗中途存檔（繼續上次）：綁定同一位學生與同一種測驗、3 天後失效、題目存成 JSON 再讀回內容不變、段考不存
+// 測驗中途存檔（繼續上次）：綁定同一位學生與同一種測驗、3 天後失效、題目存成 JSON 再讀回內容不變
 import assert from 'node:assert/strict';
 const mem = new Map();
 globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k), key: (i) => [...mem.keys()][i], get length() { return mem.size; } };
@@ -65,7 +65,7 @@ levels.forEach((level, i) => {
 });
 assert(checked > 0);
 
-// has() 與離開確認的說明：有存才說「可以接著做」，沒存（例如段考）老實說不會保存
+// has() 與離開確認的說明：有存才說「可以接著做」，沒存老實說不會保存
 const { leaveBody } = await import('../../js/resume.js');
 progress.clear('u9');
 assert.equal(progress.has('u9'), false);

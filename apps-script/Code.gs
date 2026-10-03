@@ -118,7 +118,7 @@ function handleApi_(d) {
     syncGradebookRoster: syncGradebookRoster, syncAllGradebooks: syncAllGradebooks,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
     getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey, testLocalAi: testLocalAi,
-    aiGenerateReading: aiGenerateReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, aiGenerateExam: aiGenerateExam, aiGenerateExamPart: aiGenerateExamPart, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
+    aiGenerateReading: aiGenerateReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
     lookupStudent: lookupStudent, deleteStudent: deleteStudent,
     backupSpreadsheet: backupSpreadsheet, semesterReset: semesterReset, purgeUnitScores: purgeUnitScores,
   };
@@ -657,15 +657,14 @@ function checkAttempt_(d) {
           else if (/^(英→中|中→英|拼字)$/.test(String(x.kind)) && norm(x.correct) !== norm(w.word) && norm(x.correct) !== norm(w.zh)) bad++;
         });
       }
-      if ((d.mode === 'pattern' && Array.isArray(data.items)) || (d.mode === 'exam' && Array.isArray(data.blocks))) {
-        var flat = d.mode === 'exam' ? flattenExam_(data.blocks) : data.items.map(function (it, i) { return { id: 'i' + i, kind: it.type, options: it.options || [], answer: it.answer }; });
+      if (d.mode === 'pattern' && Array.isArray(data.items)) {
+        var flat = data.items.map(function (it, i) { return { id: 'i' + i, kind: it.type, options: it.options || [], answer: it.answer }; });
         var byId = {};
         flat.forEach(function (q) { byId[q.id] = q; });
         var KEYS2 = 'ABCDEFGHIJ';
         details.forEach(function (x) {
           var q = byId[String(x.word)];
           if (!q) { bad++; return; }
-          if (q.kind === 'open') return; // 翻譯、作文沒有標準答案
           var truth = q.kind === 'mc' ? (KEYS2[q.answer] + '. ' + q.options[q.answer]) : '';
           var yoursOk = q.kind === 'mc' ? String(x.yours || '') === truth : fillOk_(q.answer, x.yours);
           if (!!x.ok !== yoursOk && String(x.yours || '') !== '') bad++;
@@ -866,7 +865,7 @@ function readCustomUnitsRows_() {
   var last = sh.getLastRow();
   if (last < 2) return [];
   return sh.getRange(2, 1, last - 1, CUSTOM_UNITS_FIELDS.length).getValues()
-    .filter(function (r) { return String(r[0]).trim(); })
+    .filter(function (r) { return String(r[0]).trim() && String(r[2]).trim() !== 'exam'; }) // 已取消的「段考複習」舊單元不再讀取
     .map(function (r) {
       return {
         id: String(r[0]).trim(),
@@ -1363,7 +1362,7 @@ function readContentMeta_() {
     missing.forEach(function (r) {
       var data = {};
       try { data = JSON.parse(sh.getRange(r.index, 2).getValue()); } catch (err) { return; }
-      var type = types[r.id] || (data.words ? 'vocab' : data.items ? 'pattern' : data.blocks ? 'exam' : 'reading');
+      var type = types[r.id] || (data.words ? 'vocab' : data.items ? 'pattern' : 'reading');
       r.count = countOf_(type, data);
       r.topic = String(data.topic || '');
       sh.getRange(r.index, 5, 1, 2).setValues([[r.count, r.topic]]);
@@ -1405,14 +1404,13 @@ function unitType_(unitId) {
   return unitTypes_()[unitId] || '';
 }
 
-// 四種單元類型：單字片語、課文理解、句型練習、段考複習
-var UNIT_TYPES = ['vocab', 'reading', 'pattern', 'exam'];
+// 三種單元類型：單字片語、課文理解、句型練習
+var UNIT_TYPES = ['vocab', 'reading', 'pattern'];
 function normType_(t) { return UNIT_TYPES.indexOf(String(t)) >= 0 ? String(t) : 'vocab'; }
 
 function countOf_(type, data) {
   if (type === 'vocab') return (data.words || []).length;
   if (type === 'pattern') return (data.items || []).length;
-  if (type === 'exam') return flattenExam_(data.blocks).length;
   return (data.questions || []).length;
 }
 
@@ -1437,19 +1435,6 @@ function expandAlts_(str) {
 function fillOk_(answer, typed) {
   var t = normAns_(typed);
   return expandAlts_(answer).some(function (a) { return normAns_(a) === t; });
-}
-
-// 段考複習：把區塊攤平成單題清單，編號和學生端一致（b{區塊} 或 b{區塊}.{小題}）
-function flattenExam_(blocks) {
-  var out = [];
-  (blocks || []).forEach(function (b, i) {
-    if (b.type === 'mc' || b.type === 'spell' || b.type === 'phrase') out.push({ id: 'b' + i, kind: b.type === 'mc' ? 'mc' : 'spell', options: b.options || [], answer: b.answer });
-    else if (b.type === 'translate' || b.type === 'essay') out.push({ id: 'b' + i, kind: 'open' });
-    else if (b.type === 'bank' || b.type === 'struct') (b.blanks || []).forEach(function (q, j) { out.push({ id: 'b' + i + '.' + j, kind: 'mc', options: b.bank || [], answer: q.answer }); });
-    else if (b.type === 'reading') (b.questions || []).forEach(function (q, j) { out.push({ id: 'b' + i + '.' + j, kind: 'mc', options: q.options || [], answer: q.answer }); });
-    else if (b.type === 'cloze') (b.blanks || []).forEach(function (q, j) { out.push({ id: 'b' + i + '.' + j, kind: 'mc', options: q.options || [], answer: q.answer }); });
-  });
-  return out;
 }
 
 function validChoice_(q) {
@@ -1484,42 +1469,6 @@ function validateContent_(type, d) {
         if (!it.zh || !Array.isArray(it.words) || it.words.length < 3 || !String(it.answer || '').trim()) return no + '（應用）要有中文、至少 3 個單字與完整句子';
         if (normAns_(it.words.join(' ')).split(' ').sort().join(' ') !== normAns_(it.answer).split(' ').sort().join(' ')) return no + '（應用）的單字要剛好能排成答案句子';
       } else return no + ' 的題型不明（要是 mc / fill / apply）';
-    }
-    return '';
-  }
-  if (type === 'exam') {
-    if (!Array.isArray(d.blocks) || !d.blocks.length) return '段考複習至少要 1 題';
-    for (var m = 0; m < d.blocks.length; m++) {
-      var b = d.blocks[m], bn = '第 ' + (m + 1) + ' 大題';
-      if (b.type === 'mc') { if (!b.q || !validChoice_(b)) return bn + '（選擇）不完整或沒有正確答案'; }
-      else if (b.type === 'spell' || b.type === 'phrase') { if (!b.q || !String(b.answer || '').trim()) return bn + '（拼寫／片語）要有題目與答案'; }
-      else if (b.type === 'translate') { if (!b.zh || !String(b.answer || '').trim()) return bn + '（翻譯）要有中文句子與參考答案'; }
-      else if (b.type === 'essay') { if (!b.q || !String(b.sample || '').trim()) return bn + '（作文）要有題目與參考範文'; if (b.minWords != null && !(Number(b.minWords) >= 0 && Number(b.minWords) <= 1000)) return bn + '（作文）字數要在 0–1000'; }
-      else if (b.type === 'bank' || b.type === 'struct') {
-        var nm = b.type === 'bank' ? '文意選填' : '篇章結構';
-        if (!Array.isArray(b.passage) || !b.passage.length) return bn + '（' + nm + '）缺少文章';
-        if (!Array.isArray(b.bank) || b.bank.length < 2 || b.bank.length > 10 || b.bank.some(function (o) { return !String(o).trim(); })) return bn + '（' + nm + '）的' + (b.type === 'bank' ? '字庫' : '句子庫') + '要有 2–10 個項目';
-        if (!Array.isArray(b.blanks) || !b.blanks.length) return bn + '（' + nm + '）至少要 1 個空格';
-        var btext = b.passage.join(' ');
-        for (var z = 0; z < b.blanks.length; z++) {
-          var ba = b.blanks[z].answer;
-          if (!(typeof ba === 'number' && ba >= 0 && ba < b.bank.length)) return bn + '（' + nm + '）第 (' + (z + 1) + ') 格沒有正確答案';
-          if (btext.indexOf('(' + (z + 1) + ')') < 0) return bn + '（' + nm + '）文章裡找不到空格 (' + (z + 1) + ')';
-        }
-      }
-      else if (b.type === 'reading' || b.type === 'cloze') {
-        if (!Array.isArray(b.passage) || !b.passage.length) return bn + '缺少文章';
-        var qs = b.type === 'reading' ? b.questions : b.blanks;
-        if (!Array.isArray(qs) || !qs.length) return bn + '至少要 1 小題';
-        for (var n = 0; n < qs.length; n++) {
-          if (!validChoice_(qs[n]) || (b.type === 'reading' && !qs[n].q)) return bn + '第 ' + (n + 1) + ' 小題不完整或沒有正確答案';
-          if (b.type === 'reading') { var ev2 = evidenceError_(qs[n], b.passage); if (ev2) return bn + '第 ' + (n + 1) + ' 小題' + ev2; }
-        }
-        if (b.type === 'cloze') {
-          var text = b.passage.join(' ');
-          for (var c = 1; c <= qs.length; c++) if (text.indexOf('(' + c + ')') < 0) return bn + '文章裡找不到空格 (' + c + ')';
-        }
-      } else return bn + ' 的題型不明（要是 mc / spell / reading / cloze）';
     }
     return '';
   }
@@ -1656,22 +1605,8 @@ var AI_PROMPT_DEFAULTS = {
     '- Every item needs "explain": a short explanation in Traditional Chinese (Taiwan usage) of the rule and why the answer is right.',
     '- Sentences must be natural, CEFR B1–B2, 8–20 words, about school life, daily life or social topics. Do not repeat the same sentence frame.',
   ].join('\n'),
-  exam: [
-    '- Write a mock exam review modelled on the Taiwan GSAT (學測) English test, in this order: mc (詞彙), spell, phrase, cloze (綜合測驗), bank (文意選填), struct (篇章結構), reading (閱讀測驗) — using only the section counts requested.',
-    '- "mc": a vocabulary item, one blank ____, exactly 4 options of the SAME part of speech and similar meaning/form so the answer depends on context; "answerIndex" 0-based; "explain" in Traditional Chinese.',
-    '- "spell": a sentence with a blank ____ where the student types ONE word; "hint" = first letter + Chinese meaning (e.g. "c（冷靜的）"); "answerText" is the exact word (| for alternatives).',
-    '- "phrase": a sentence with a blank ____ for a whole PHRASE (2–4 words); "hint" = Chinese meaning. The answer is NOT limited to one wording: "answerText" lists EVERY form that is grammatically correct and idiomatic in that exact sentence, separated by | (e.g. different inflections that fit the sentence, or an equally natural synonym phrase with the same meaning); use ( ) for optional words. The sentence must force the grammar (tense, subject agreement, -ing after "to") so that wrong forms really are wrong, and never list a form that would be ungrammatical or unnatural in the sentence.',
-    '- "cloze": "title" + "passage" (array of paragraphs, 120–180 words in total, blanks written as (1), (2), (3)… in order, each number once) + "blanks" (one per number, exactly 4 options each, answerIndex, explain). Mix vocabulary, grammar/word forms, connectives and discourse in the blanks.',
-    '- "bank": 文意選填. "title" + "passage" (150–200 words, blanks (1), (2)…) + "bank" (an array of 10 words/phrases shared by all blanks, e.g. verbs, nouns, adjectives, adverbs mixed, in random order; there are more words than blanks, so a few are distractors) + "blanks" (one per number: answerIndex = 0-based index into "bank", explain).',
-    '- "struct": 篇章結構. "title" + "passage" (a passage of 3–4 paragraphs with blanks (1)–(4) where a whole sentence was removed) + "bank" (5 complete sentences: the 4 removed ones plus 1 distractor, random order) + "blanks" (answerIndex into "bank", explain pointing out the cohesion clue).',
-    '- "translate": 中譯英. "zh" = a Traditional Chinese sentence to translate (one idea, 15–30 characters, a grammar point from the scope); "answerText" = the model English translation (use | to list 1–2 equally good alternatives); "explain" = scoring points in Traditional Chinese (key vocabulary and grammar that must be correct).',
-    '- "essay": 英文作文. "q" = the writing prompt in Traditional Chinese (a situation, 2–3 guiding points); "minWords" = 120; "sample" = a model essay of 130–160 words, CEFR B1–B2, in 2–3 paragraphs; "explain" = marking points in Traditional Chinese (content, organisation, vocabulary, grammar).',
-    '- "reading": "title" + "passage" (an array of 3–4 paragraphs, about 200–260 words in total, CEFR B1–B2, informative or narrative) + "questions" (each with skill 主旨/細節/字義/推論/態度, q, exactly 4 options, answerIndex, explain, and "key": the exact words copied verbatim from the passage (3–25 words, within one paragraph) that prove the correct answer — required for every question). Paraphrase; never copy {{copy}}+ consecutive words from the passage into a question or option.',
-    '- EVERY "explain" field must be a COMPLETE explanation in Traditional Chinese (Taiwan usage), written as 3–5 short lines separated by a newline character: line 1 = why the correct answer is right (name the grammar rule, collocation, connective or clue, and give a Chinese translation of the completed sentence); then one line per wrong option saying exactly why it does not fit (wrong meaning, wrong form, wrong collocation or wrong part of speech), written like "(A) go：…"; last line = a useful extension (a similar word or phrase, a common mistake, or a quick tip). For cloze, bank and struct blanks, point to the exact clue word or sentence in the passage. For reading questions, also say which paragraph contains the evidence and why each tempting wrong option is wrong. For spell and phrase items, explain the word or phrase (meaning, form, usage) and the clue in the sentence. Never write only "答案是…" or a single short sentence.',
-    '- Vary the position of the correct answer.',
-  ].join('\n'),
 };
-var AI_PROMPT_LABELS = { vocab: '單字片語', reading: '課文理解', pattern: '句型練習', exam: '段考複習' };
+var AI_PROMPT_LABELS = { vocab: '單字片語', reading: '課文理解', pattern: '句型練習' };
 
 function aiGuidance_(type) {
   var v = PropertiesService.getScriptProperties().getProperty('AI_PROMPT_' + type);
@@ -1748,75 +1683,6 @@ function aiGeneratePattern(topic, count, hint) {
   });
   if (!items.length) throw new Error('AI 沒有產生可用的題目，請再試一次');
   return { topic: topic, items: items.slice(0, count) };
-}
-
-// 段考複習：選擇、拼寫、閱讀、綜合。counts = { mc, spell, reading, cloze }（reading／cloze 是「篇數」）
-// 段考複習一次出一種題型（網頁分次呼叫，每次的回覆短、失敗只影響那一部分）；counts 只放一種題型即可
-function aiGenerateExamPart(topic, counts, hint) { return aiGenerateExam(topic, counts, hint); }
-
-function aiGenerateExam(topic, counts, hint) {
-  assertTeacher_();
-  topic = String(topic || '').trim();
-  if (!topic) throw new Error('請輸入範圍（例如：Lesson 3–4 段考範圍）');
-  counts = counts || {};
-  var n = {
-    mc: Math.max(0, Math.min(15, Number(counts.mc) || 0)), spell: Math.max(0, Math.min(10, Number(counts.spell) || 0)), phrase: Math.max(0, Math.min(10, Number(counts.phrase) || 0)),
-    reading: Math.max(0, Math.min(2, Number(counts.reading) || 0)), cloze: Math.max(0, Math.min(2, Number(counts.cloze) || 0)),
-    bank: Math.max(0, Math.min(1, Number(counts.bank) || 0)), struct: Math.max(0, Math.min(1, Number(counts.struct) || 0)),
-    translate: Math.max(0, Math.min(4, Number(counts.translate) || 0)), essay: Math.max(0, Math.min(1, Number(counts.essay) || 0)),
-  };
-  if (!n.mc && !n.spell && !n.phrase && !n.reading && !n.cloze && !n.bank && !n.struct && !n.translate && !n.essay) throw new Error('至少要選一種題型');
-  var wanted = Object.keys(n).filter(function (k) { return n[k] > 0; });
-  var schema = {
-    type: 'OBJECT',
-    properties: { blocks: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
-      type: { type: 'STRING', enum: wanted }, zh: { type: 'STRING' }, sample: { type: 'STRING' }, minWords: { type: 'INTEGER' }, tag: { type: 'STRING' }, q: { type: 'STRING' }, bank: { type: 'ARRAY', items: { type: 'STRING' } },
-      options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, answerText: { type: 'STRING' },
-      hint: { type: 'STRING' }, explain: { type: 'STRING' }, title: { type: 'STRING' }, passage: { type: 'ARRAY', items: { type: 'STRING' } },
-      questions: { type: 'ARRAY', items: { type: 'OBJECT', properties: { skill: { type: 'STRING' }, q: { type: 'STRING' }, options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, explain: { type: 'STRING' }, key: { type: 'STRING' } }, required: ['q', 'options', 'answerIndex', 'explain', 'key'] } },
-      blanks: { type: 'ARRAY', items: { type: 'OBJECT', properties: { options: { type: 'ARRAY', items: { type: 'STRING' } }, answerIndex: { type: 'INTEGER' }, explain: { type: 'STRING' } }, required: ['answerIndex', 'explain'] } },
-    }, required: ['type'] } } },
-    required: ['blocks'],
-  };
-  var prompt = [
-    'You are an experienced English teacher at a senior high school in Taiwan, writing a mock exam review for 11th-grade students.',
-    'Scope: ' + topic + (hint ? ' (' + hint + ')' : ''),
-    'Requested: ' + n.mc + ' mc, ' + n.spell + ' spell, ' + n.phrase + ' phrase, ' + n.cloze + ' cloze passage(s) with 5 blanks each, ' + n.bank + ' bank passage(s) with 10 blanks, ' + n.struct + ' struct passage(s) with 4 blanks, ' + n.translate + ' translate, ' + n.essay + ' essay, ' + n.reading + ' reading passage(s) with 4 questions each. Rules:',
-    // 只附上這次要的題型的規則：提示詞短、回覆短，比較不容易失敗
-    aiGuidance_('exam').split('\n').filter(function (l) { var m = /^- "(\w+)":/.exec(l); return !m || wanted.indexOf(m[1]) >= 0; }).join('\n'),
-  ].join('\n');
-  var blocks = [];
-  (aiCall_(prompt, schema).blocks || []).forEach(function (x) {
-    var explain = String(x.explain || '').trim();
-    if (x.type === 'mc') {
-      var c = cleanChoice_(x);
-      if (c && x.q) blocks.push({ type: 'mc', q: String(x.q).trim(), options: c.options, answer: c.answer, explain: explain });
-    } else if (x.type === 'translate') {
-      if (x.zh && String(x.answerText || '').trim()) blocks.push({ type: 'translate', zh: String(x.zh).trim(), answer: String(x.answerText).trim(), explain: explain });
-    } else if (x.type === 'essay') {
-      if (x.q && String(x.sample || '').trim()) blocks.push({ type: 'essay', q: String(x.q).trim(), minWords: Math.max(0, Math.min(1000, Number(x.minWords) || 120)), sample: String(x.sample).trim(), explain: explain });
-    } else if (x.type === 'bank' || x.type === 'struct') {
-      var bp = strs_(x.passage).filter(String), bk = strs_(x.bank).filter(String), bb = [];
-      (x.blanks || []).forEach(function (q) { var ai = Number(q.answerIndex); if (ai >= 0 && ai < bk.length) bb.push({ answer: ai, explain: String(q.explain || '').trim() }); });
-      var bj = bp.join(' '), bok = bb.length > 0 && bk.length >= 2 && bk.length <= 10;
-      for (var bi = 1; bi <= bb.length; bi++) if (bj.indexOf('(' + bi + ')') < 0) bok = false;
-      if (bp.length && bok) blocks.push({ type: x.type, title: String(x.title || '').trim(), passage: bp, bank: bk, blanks: bb });
-    } else if (x.type === 'spell' || x.type === 'phrase') {
-      if (x.q && String(x.answerText || '').trim()) blocks.push({ type: x.type, q: String(x.q).trim(), hint: String(x.hint || '').trim(), answer: String(x.answerText).trim(), explain: explain });
-    } else if (x.type === 'reading') {
-      var passage = strs_(x.passage).filter(String), qs = [];
-      (x.questions || []).forEach(function (q) { var c2 = cleanChoice_(q); if (c2 && q.q) qs.push({ skill: String(q.skill || '').trim(), q: String(q.q).trim(), options: c2.options, answer: c2.answer, explain: String(q.explain || '').trim(), key: String(q.key || '').replace(/\s+/g, ' ').trim() }); });
-      if (passage.length && qs.length) blocks.push({ type: 'reading', title: String(x.title || '').trim(), passage: passage, questions: qs });
-    } else if (x.type === 'cloze') {
-      var cp = strs_(x.passage).filter(String), bl = [];
-      (x.blanks || []).forEach(function (q) { var c3 = cleanChoice_(q); if (c3) bl.push({ options: c3.options, answer: c3.answer, explain: String(q.explain || '').trim() }); });
-      var joined = cp.join(' '), okAll = bl.length > 0;
-      for (var i = 1; i <= bl.length; i++) if (joined.indexOf('(' + i + ')') < 0) okAll = false;
-      if (cp.length && okAll) blocks.push({ type: 'cloze', title: String(x.title || '').trim(), passage: cp, blanks: bl });
-    }
-  });
-  if (!blocks.length) throw new Error('AI 沒有產生可用的題目，請再試一次');
-  return { topic: topic, blocks: blocks };
 }
 
 // 老師用：檢查填空／拼寫／片語的答案寫法是否文法、用法都正確，並補上其他同樣正確的寫法

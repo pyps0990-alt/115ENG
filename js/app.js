@@ -10,7 +10,7 @@ import { flushOutbox, pendingItems, clearOutbox, pendingCount } from './submit.j
 import { submitStateHTML } from './components/gate.js';
 import { leaveBody } from './resume.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
-import { TYPES, typeOf, typeLabel, typeIcon, bestKey, lessonLabel, lessonCmp, EXAM_ENABLED } from './types.js';
+import { TYPES, typeOf, typeLabel, typeIcon, bestKey, lessonLabel, lessonCmp } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
 
@@ -19,7 +19,6 @@ const modes = {
   vocab: () => import('./modes/vocab.js'),
   reading: () => import('./modes/reading.js'),
   pattern: () => import('./modes/pattern.js'),
-  exam: () => import('./modes/exam.js'),
 };
 const idle = (fn) => (window.requestIdleCallback || ((f) => setTimeout(f, 800)))(fn, { timeout: 3000 });
 
@@ -111,7 +110,7 @@ function syncNav() {
 const openLevels = (u) => LEVELS.filter((l) => modeOn(config, u.id, l.id));
 // 還沒有題目的單元不給學生看（老師匯入內容後才出現）
 const hasContent = (id) => !!(config && config.content && config.content[id]);
-const visibleUnits = () => index.units.filter((u) => (EXAM_ENABLED || u.type !== 'exam') && unitVisible(config, u.id) && hasContent(u.id)
+const visibleUnits = () => index.units.filter((u) => unitVisible(config, u.id) && hasContent(u.id)
   && (u.type === 'vocab' ? openLevels(u).length : modeOn(config, u.id, u.type)))
   .sort((a, b) => lessonCmp(a.lesson, b.lesson));
 
@@ -242,7 +241,6 @@ function windowText(id, done) {
 function tileMeta(u, stages) {
   if (u.type === 'vocab') return `${u.count} 個單字與片語 · ${stages}`;
   if (u.type === 'pattern') return `${u.count} 題 · 選擇、填空、應用`;
-  if (u.type === 'exam') return `${u.count} 題 · 學測題型`;
   return `一篇文章 · ${u.count} 題閱讀測驗`;
 }
 
@@ -286,7 +284,6 @@ function headHTML(meta, data) {
   const phrases = words.filter((w) => w.type === 'phrase').length;
   const sub = vocab ? `單字 ${words.length - phrases} 個 · 片語 ${phrases} 個`
     : meta.type === 'pattern' ? `${(data.items || []).length} 題`
-    : meta.type === 'exam' ? (meta.count ? `${meta.count} 題` : '')
     : `${(data.questions || []).length} 題`;
   return `<div class="unit-head">
       <a class="back" href="#/">${icon.back} 所有單元</a>
@@ -306,10 +303,6 @@ async function renderUnit(id, sub) {
   const meta = findUnit(id);
   if (!meta) {
     app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><h2>找不到這個單元</h2><p>網址可能不完整，或這個單元已經被移除。</p><div class="btn-row center"><a class="btn primary" href="#/">回首頁</a></div></div>`;
-    return;
-  }
-  if (meta.type === 'exam' && !EXAM_ENABLED) {
-    app.innerHTML = `<div class="empty"><div class="big">${icon.lock}</div><h2>段考複習暫時關閉</h2><p>老師修正完成後會重新開放，先做其他單元吧。</p><div class="btn-row center"><a class="btn primary" href="#/">回首頁</a></div></div>`;
     return;
   }
   if (!unitVisible(config, meta.id)) { locked(meta); return; }
@@ -629,7 +622,7 @@ async function boot() {
   }
   // 偵測網站有沒有部署新版：沒在考試時，換頁的瞬間自動更新成新版
   afterLoad(() => idle(() => import('./update.js').then((m) => m.watchForUpdate({ auto: true, isBusy: () => !!document.body.dataset.busy })).catch(() => {})));
-  afterLoad(() => idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); modes.pattern().catch(() => {}); if (EXAM_ENABLED) modes.exam().catch(() => {}); }));
+  afterLoad(() => idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); modes.pattern().catch(() => {}); }));
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();
   window.addEventListener('online', () => flushOutbox());

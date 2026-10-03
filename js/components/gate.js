@@ -10,7 +10,7 @@ import { PASS } from '../types.js';
 // review()：做過正式測驗了嗎；reviewed()：檢討完了嗎。
 // 做過但還沒檢討：只能先檢討，「開始複習」鎖住；檢討完才能複習。
 // resume()：回傳 { label, onResume(student), discard() } 代表有做到一半的測驗，沒有就回傳 null
-// total：計分的總分（題數）；integer：每題只有 1 分或 0 分（課文理解、段考），過關分數用整數題數表示
+// total：計分的總分（題數）；integer：每題只有 1 分或 0 分（課文理解），過關分數用整數題數表示
 export function testGate(stage, { eyebrow = '', rules = [], best, review = false, reviewed = true, retake = false, timeWindow, onStart, onReview, resume }) {
   let wake = null;
   const draw = () => {
