@@ -1,5 +1,4 @@
 // 單字片語測驗：同一組單字，依序連續完成基礎 → 進階 → 精熟三段，最後一張總成績單
-import { unitName } from '../types.js';
 import { store } from '../storage.js';
 import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog } from '../util.js';
 import { icon } from '../icons.js';
@@ -56,7 +55,7 @@ export function mount(stage, ctx) {
     document.getElementById('fx').replaceChildren();
     const firstTime = !store.reviewed(unitId);
     mountReview(stage, {
-      title: `${unitName(ctx.unit)}｜${firstTime ? '檢討' : '再看一次檢討'}`,
+      title: `${ctx.unit.title}｜${firstTime ? '檢討' : '再看一次檢討'}`,
       items: (details || []).filter((d) => !d.ok).map((d) => ({ html: reviewItemHTML(d) })),
       onDone: () => { if (firstTime) completeReview(unitId); gate.redraw(); window.scrollTo(0, 0); },
       onExit: () => { gate.redraw(); window.scrollTo(0, 0); },
@@ -332,7 +331,7 @@ export function mount(stage, ctx) {
         passLine: firstTest,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
         extraHTML: bars + (official
-          ? `${stampHTML(student, unitName(ctx.unit), stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`
+          ? `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`
           : '<p class="muted">錯題練習不會送出成績</p>'),
         // 正式測驗的錯題改用逐題檢討，這裡只在錯題練習時列出
         wrong: official ? [] : wrong.map((w) => ({ p: `〔${w.level.name}〕${promptText(w.q)}`, a: answerText(w.q), y: w.yours, x: w.xp })),

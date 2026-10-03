@@ -1,5 +1,4 @@
 // 句型練習：一次一題，選擇、填空、應用（重組句子）混合出現，作答後立刻看到解析；做完逐題檢討錯題
-import { unitName } from '../types.js';
 import { store } from '../storage.js';
 import { esc, nowStamp, wait, shuffle, centerInView } from '../util.js';
 import { icon } from '../icons.js';
@@ -33,7 +32,7 @@ export function mount(stage, ctx) {
     const firstTime = !store.reviewed(unitId);
     const wrong = (details || []).filter((d) => !d.ok);
     mountReview(stage, {
-      title: `${unitName(ctx.unit)}｜${firstTime ? '檢討' : '再看一次檢討'}`,
+      title: `${ctx.unit.title}｜${firstTime ? '檢討' : '再看一次檢討'}`,
       items: wrong.map((d) => {
         const q = all.find((x) => x.id === d.word);
         return { html: q ? reviewCardHTML(q, d.yours) : `<div class="rv-card"><div class="rv-prompt">${esc(d.q || d.question || '')}</div><div class="rv-row ok"><span>正確答案</span><b class="en">${esc(d.correct || '')}</b></div></div>` };
@@ -186,7 +185,7 @@ export function mount(stage, ctx) {
         scoreText: `${fmt(points)} / ${qs.length}`,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
         passLine: official && !review && !redo,
-        extraHTML: `${bars}${redo ? "" : stampHTML(student, unitName(ctx.unit), stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`,
+        extraHTML: `${bars}${redo ? "" : stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`,
         actions,
       });
       if (redo) {

@@ -1,7 +1,7 @@
 // 導覽列的「選擇單元」下拉選單：任何頁面都能直接跳到各課的單字片語或課文理解
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
-import { typeLabel, typeIcon, typeOf, unitName } from './types.js';
+import { typeLabel, typeIcon } from './types.js';
 import { leaveBody } from './resume.js';
 
 const root = document.getElementById('nav-menu');
@@ -9,8 +9,7 @@ const btn = document.getElementById('unit-menu-btn');
 const panel = document.getElementById('unit-menu');
 let units = [];
 
-// 選單裡：一般單元只寫種類（課次由上面的 L1 分組標題表示）；段考寫 MIDTERM | 段考複習
-const kindLabel = (u) => (typeOf(u.type) === 'exam' ? unitName(u) : typeLabel(u.type));
+const kindLabel = (u) => typeLabel(u.type);
 const isOpen = () => panel.classList.contains('open');
 const items = () => [...panel.querySelectorAll('[role="menuitem"]')];
 
@@ -52,7 +51,7 @@ export function updateNav(currentId) {
   // 一個按鈕三種樣子（見 style.css 的 .menu-btn）：平常是「B5 ☰」；往下捲動只留「B5 ⌄」；點開時 B5 淡出，變成「選擇單元 ⌃」並展開選單
   const slot = (cls, inner) => `<span class="mb-slot ${cls}" aria-hidden="true"><span class="mb-in">${inner}</span></span>`;
   btn.innerHTML = slot('mb-b5', '<span class="brand-mark">B5</span>') + slot('mb-burger', icon.menu) + slot('mb-label', '<span class="menu-label">選擇單元</span>') + slot('mb-chev', icon.chevDown);
-  btn.setAttribute('aria-label', u ? `B5 選單，目前在 ${unitName(u)}` : 'B5 選單');
+  btn.setAttribute('aria-label', u ? `B5 選單，目前在 L${u.lesson} ${kindLabel(u)}` : 'B5 選單');
   items().forEach((a) => {
     const on = a.dataset.id ? a.dataset.id === currentId : !currentId;
     a.classList.toggle('current', on);

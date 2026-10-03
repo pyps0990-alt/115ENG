@@ -1,5 +1,4 @@
 // 段考複習：像真的考卷，一頁看完所有題目（選擇、拼寫、閱讀、綜合），一次交卷；交卷後看各題型成績，再逐題檢討答錯的題目
-import { unitName } from '../types.js';
 import { store } from '../storage.js';
 import { esc, nowStamp, confirmDialog, centerInView, splitSentences } from '../util.js';
 import { icon } from '../icons.js';
@@ -116,7 +115,7 @@ export function mount(stage, ctx) {
     const allCards = numbered.map((x) => card(x.d, x.no));
     const writingCards = writing.map((d) => ({ html: openReviewHTML(byId[d.word], d.yours) }));
     mountReview(stage, {
-      title: `${unitName(ctx.unit)}｜${firstTime ? '檢討' : '再看一次檢討'}`,
+      title: `${ctx.unit.title}｜${firstTime ? '檢討' : '再看一次檢討'}`,
       modes: [
         { label: `答錯 ${wrongCards.length}`, items: wrongCards.concat(writingCards) },
         { label: `全部 ${allCards.length + writingCards.length}`, items: allCards.concat(writingCards) },
@@ -356,7 +355,7 @@ export function mount(stage, ctx) {
       scoreText: `${points} / ${sd.length}`,
       pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, redo ? '這是練習，不計入成績' : official && !passed ? '' : firstTest ? '接著逐題檢討，完成後才能複習' : '可以再看一次檢討'].filter(Boolean),
       passLine: official,
-      extraHTML: `${bars}${writingSummaryHTML(details)}${redo ? '' : `${stampHTML(student, unitName(ctx.unit), stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`}`,
+      extraHTML: `${bars}${writingSummaryHTML(details)}${redo ? '' : `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`}`,
       actions,
     });
     if (redo) return;

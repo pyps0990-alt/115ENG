@@ -8,7 +8,7 @@ import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore } from '../submit.js';
 import { progress } from '../resume.js';
-import { PASS, unitName } from '../types.js';
+import { PASS } from '../types.js';
 
 const KEYS = ['A', 'B', 'C', 'D', 'E'];
 
@@ -194,7 +194,7 @@ export function mount(stage, ctx) {
       scoreText: `${score} / ${qs.length}`,
       pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, official && !passed ? '' : firstTest ? '接著逐題檢討，完成後才能複習' : '可以逐題檢討這次的作答'].filter(Boolean),
       passLine: official,
-      extraHTML: `${stampHTML(student, unitName(ctx.unit), stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`,
+      extraHTML: `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`,
       actions,
     });
     const res = await submitScore({
@@ -247,7 +247,7 @@ export function mount(stage, ctx) {
     stage.innerHTML = `<div class="passage-layout review-layout">${passageHTML()}<section class="pq-list" data-review></section></div>`;
     window.scrollTo(0, 0);
     mountReview(stage.querySelector('[data-review]'), {
-      title: `${unitName(ctx.unit)}｜${firstTime ? '檢討' : '再看一次檢討'}`,
+      title: `${ctx.unit.title}｜${firstTime ? '檢討' : '再看一次檢討'}`,
       items: qs.map((q, i) => reviewItem(q, i, answers[i])),
       onDone: () => { if (firstTime) completeReview(unitId); gate.redraw(); window.scrollTo(0, 0); },
       onExit: () => { gate.redraw(); window.scrollTo(0, 0); },
