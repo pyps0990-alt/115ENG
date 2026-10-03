@@ -81,6 +81,19 @@ export const store = {
     } catch { /* ignore */ }
   },
 
+  // 老師重製了某個單元（題目更新時勾選「重製學生的進度」，或刪掉單元重建）：這台裝置上這個單元的所有紀錄一併清掉
+  // （成績、完成／補考／檢討標記、第一次作答、錯題本、抽題袋、做到一半的進度）。其他單元不動。
+  resetUnit(unit) {
+    const names = ['best', 'last', 'done', 'tried', 'first', 'reviewed', 'wrong', 'resume'].map((n) => `b5p:${n}:${unit}`);
+    const bag = `b5p:bag:${unit}:`;
+    try {
+      Object.keys(localStorage).filter((k) => names.includes(k) || k.startsWith(bag)).forEach((k) => localStorage.removeItem(k));
+    } catch { /* ignore */ }
+  },
+  // 這台裝置上次看到的各單元「重製時間」：不一樣就代表老師重製過，要清掉這個單元的本機紀錄
+  unitStamp: (unit) => read(`stamp:${unit}`, null),
+  setUnitStamp: (unit, t) => write(`stamp:${unit}`, t),
+
   resetProgress(scoresOnly = false) {
     const re = scoresOnly ? /^b5p:(best|last|done|tried|first):/ : /^b5p:(best|last|done|tried|first|reviewed|wrong|bag):/;
     try {
@@ -123,6 +136,15 @@ export const store = {
     });
     // 有通過（或做過複習）的單元才算完成；做過但沒通過的要補考
     Object.entries(passedUnits).forEach(([unit, ok]) => { if (ok) this.setDone(unit); else { this.clearDone(unit); this.setTried(unit); } });
+    // 「需補考」標記：伺服器上已經沒有這個單元的有效作答了（例如老師重製過），就清掉；還在排隊送出的成績不動
+    let queued = [];
+    try { queued = JSON.parse(localStorage.getItem(P + 'outbox') || '[]').map((x) => x.unit); } catch { /* ignore */ }
+    try {
+      Object.keys(localStorage).filter((k) => /^b5p:tried:/.test(k)).forEach((k) => {
+        const unit = k.slice('b5p:tried:'.length);
+        if (!(unit in passedUnits) && !queued.includes(unit)) localStorage.removeItem(k);
+      });
+    } catch { /* ignore */ }
     Object.entries(latest).forEach(([unit, a]) => {
       const last = {};
       ['basic', 'advanced', 'mastery'].forEach((k) => { const p = pctOf(a[k]); if (p != null) last[k] = p; });

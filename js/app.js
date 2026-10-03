@@ -557,6 +557,24 @@ async function boot() {
     const since = {};
     Object.entries((config && config.units) || {}).forEach(([id, u]) => { const t = Date.parse(u.since); if (t) since[id] = t; });
     store.setSince(since);
+    // 老師重製過的單元（題目更新時勾選「重製學生的進度」，或刪掉單元重建）：這台裝置上那個單元的本機紀錄一併清掉。
+    // 每台裝置記住各單元上次看到的重製時間，不一樣就是重製過；第一次看到的不清（沒有東西可比）。
+    const reset = [];
+    Object.entries(since).forEach(([id, t]) => {
+      const prev = store.unitStamp(id);
+      if (prev != null && prev !== t) { store.resetUnit(id); reset.push(id); }
+      if (prev !== t) store.setUnitStamp(id, t);
+    });
+    return reset;
+  };
+  // 重製後重新讀一次伺服器上的紀錄（舊的在 storage.applyHistory 裡會被忽略），再重畫畫面
+  const reloadHistory = () => {
+    const s = store.student();
+    if (!(s && s.key)) return;
+    firebase().then((fb) => fb.loadHistory(s.key)).then((h) => {
+      store.applyHistory(h.attempts, h.reviews);
+      if (!document.body.dataset.busy && (location.hash.split('/')[1] || '') !== 'teacher') route();
+    }).catch(() => {});
   };
   try {
     // 還沒登入的人只看得到登入表單，不需要老師的設定：不等它（第一次來訪、沒有暫存時可能要等 1～2 秒），先把畫面畫出來，
@@ -569,24 +587,16 @@ async function boot() {
       config = await Promise.race([cfgP, Promise.resolve(null)]) || { units: {}, source: 'pending' };
       if (config.source === 'pending') cfgP.then((c) => window.dispatchEvent(new CustomEvent('config-updated', { detail: c }))).catch(() => {});
     }
-    build();
+    if (build().length) reloadHistory();
   } catch (err) {
     showError(err);
     return;
   }
   // 先用上次存下的設定畫出畫面；背景抓到老師的新設定後再重畫（測驗進行中不打斷）
   window.addEventListener('config-updated', (e) => {
-    const prevSince = JSON.stringify(Object.entries(config.units || {}).map(([k, u]) => [k, u.since]));
     config = e.detail;
-    build();
-    // 老師刪掉單元又用同代號重建：重新讀一次紀錄，舊的完成／檢討標記不再算數
-    const s = store.student();
-    if (s && s.key && prevSince !== JSON.stringify(Object.entries(config.units || {}).map(([k, u]) => [k, u.since]))) {
-      firebase().then((fb) => fb.loadHistory(s.key)).then((h) => {
-        store.applyHistory(h.attempts, h.reviews);
-        if (!document.body.dataset.busy && (location.hash.split('/')[1] || '') !== 'teacher') route();
-      }).catch(() => {});
-    }
+    // 老師重製了單元（題目更新或刪掉重建）：清掉本機紀錄，重新讀一次伺服器上的紀錄，舊的完成／檢討標記不再算數
+    if (build().length) reloadHistory();
     // 作答中不打斷（交卷後換頁就會用新設定）；老師頁不需要重畫
     const kind = location.hash.split('/')[1] || '';
     if (kind === 'teacher' || document.body.dataset.busy) return;
