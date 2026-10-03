@@ -182,7 +182,10 @@ export function mount(stage, ctx) {
 
     stage.innerHTML = '';
     window.scrollTo(0, 0);
-    const actions = [{ label: firstTest ? '開始檢討' : '逐題檢討', icon: icon.bulb, primary: true, onClick: () => startReview(answers) }];
+    const perfect = firstTest && details.every((d) => d.ok);
+    // 全部答對：沒有要檢討的，直接視為檢討完成（才能開始複習），按鈕改成返回首頁
+    if (perfect) completeReview(unitId);
+    const actions = [perfect ? { label: '返回首頁', icon: icon.home, primary: true, onClick: () => { location.hash = '#/'; } } : { label: firstTest ? '開始檢討' : '逐題檢討', icon: icon.bulb, primary: true, onClick: () => startReview(answers) }];
     if (!firstTest) actions.push({ label: '再複習一次', icon: icon.redo, onClick: () => run(student, true) });
     const box = renderResult(stage, {
       title: review ? '複習完成' : passed ? '通過！' : '未通過',

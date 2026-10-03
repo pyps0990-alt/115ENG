@@ -311,7 +311,11 @@ export function mount(stage, ctx) {
       const actions = [];
       if (firstTest) {
         // 第一次正式測驗：先檢討，檢討完才能複習
-        actions.push({ label: '開始檢討', icon: icon.bulb, primary: true, onClick: () => startReview(details) });
+        if (details.every((d) => d.ok)) {
+          // 全部答對：沒有要檢討的，直接視為檢討完成（才能開始複習），按鈕改成返回首頁
+          completeReview(unitId);
+          actions.push({ label: '返回首頁', icon: icon.home, primary: true, onClick: () => { location.hash = '#/'; } });
+        } else actions.push({ label: '開始檢討', icon: icon.bulb, primary: true, onClick: () => startReview(details) });
       } else {
         if (wrong.length) {
           actions.push({

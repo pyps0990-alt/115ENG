@@ -170,6 +170,10 @@ export function mount(stage, ctx) {
         const again = details.filter((d) => !d.ok).map((d) => d.word);
         if (again.length) actions.push({ label: `再練錯的 ${again.length} 題`, icon: icon.shuffle, primary: true, onClick: () => play(student, review, again) });
         actions.push({ label: '完成', icon: icon.check, primary: !again.length, onClick: () => { gate.redraw(); window.scrollTo(0, 0); } });
+      } else if (firstTest && !wrongN) {
+        // 全部答對：沒有要檢討的，直接視為檢討完成（才能開始複習），按鈕改成返回首頁
+        completeReview(unitId);
+        actions.push({ label: '返回首頁', icon: icon.home, primary: true, onClick: () => { location.hash = '#/'; } });
       } else if (firstTest) actions.push({ label: '開始檢討', icon: icon.bulb, primary: true, onClick: () => startReview(details) });
       else {
         if (wrongN) actions.push({ label: `檢討錯的 ${wrongN} 題`, icon: icon.bulb, primary: true, onClick: () => startReview(details) });
