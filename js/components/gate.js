@@ -50,19 +50,24 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
       buttons = `<button class="btn" type="button" data-start disabled>${icon.lock} 已截止</button>`;
       timeNote = `${icon.clock} 已於 ${fmtWhen(win.closeAt)} 截止，不能再做正式測驗`;
     }
+    // 一句話說明這次要做什麼；詳細規則收在下面，第一次進來的人預設展開
+    const lead = needReview ? '先逐題檢討完第一次測驗，才能開始複習。'
+      : isReview ? '你已經通過這個單元，這次是複習，成績會標記為複習送給老師。'
+      : needRetake ? `上次${bestNow != null ? ` ${bestNow}%` : ''}還沒通過。這次重新做一次，總分達 ${PASS}% 就通過，沒有次數限制。`
+      : `做完整份測驗，總分達 ${PASS}% 就通過；沒通過可以一直補考。`;
+    const firstTime = bestNow == null && !isReview && !needRetake;
     const box = document.createElement('div');
     box.className = 'gate';
     box.innerHTML = `<div class="card gate-card">
         <div><div class="eyebrow">${esc(eyebrow)}${isReview ? ' · 複習' : needRetake ? ' · 補考' : ''}</div><h2>${esc(title)}</h2></div>
-        <ul class="rules">${rules.map((r) => `<li>${r}</li>`).join('')}
-          ${isReview ? '<li>你已經完成這個單元的正式測驗，這次是<b>複習</b>，成績會標記為複習送給老師</li>' : ''}
-          ${needRetake ? `<li class="retake-note">${icon.alert} 上次的成績${bestNow != null ? ` <b>${bestNow}%</b>` : ''}還沒有通過，這次是<b>補考</b>：重新做一次正式測驗，總分達 <b>${PASS}%</b> 才算通過（沒通過可以一直補考）</li>` : ''}
-          <li>${SCRIPT_URL ? '完成後成績會自動傳送給老師' : '完成後請截圖成績單繳交給老師'}</li></ul>
+        <p class="gate-lead">${lead}</p>
         ${bestNow != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${bestNow}%</b></div>` : ''}
-        <p class="who-line">以 <b>${esc(s.name)}</b>（${esc(s.cls)} 班 ${esc(s.seat)} 號）的身分作答 <button class="link-btn edit" type="button">不是我？切換</button></p>
         ${timeNote ? `<p class="gate-note">${timeNote}</p>` : ''}
-        ${needReview ? `<p class="gate-note">${icon.lock} 先逐題檢討完第一次測驗，才能開始複習</p>` : ''}
         <div class="btn-row">${buttons}</div>
+        <p class="who-line">以 <b>${esc(s.name)}</b>（${esc(s.cls)} 班 ${esc(s.seat)} 號）的身分作答 <button class="link-btn edit" type="button">不是我？切換</button></p>
+        <details class="gate-rules"${firstTime ? ' open' : ''}><summary>測驗規則</summary>
+          <ul class="rules">${rules.map((r) => `<li>${r}</li>`).join('')}
+            <li>${SCRIPT_URL ? '完成後成績會自動傳送給老師' : '完成後請截圖成績單繳交給老師'}</li></ul></details>
       </div>`;
     box.querySelector('.edit').onclick = () => openStudentDialog(draw);
     const start = box.querySelector('[data-start]');

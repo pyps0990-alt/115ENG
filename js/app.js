@@ -151,6 +151,16 @@ function renderHome() {
         <h1>${esc(s.name)}，今天從哪一課開始？</h1>
         <p id="progress-slot"></p>
         <p>總分達 ${PASS}% 就通過；沒通過可以一直補考。</p>
+        <details class="legend"><summary>狀態是什麼意思？</summary>
+          <dl>
+            <dt>需補考</dt><dd>測驗還沒到 ${PASS}%，可以隨時重做，沒有次數限制。</dd>
+            <dt>待檢討</dt><dd>已經通過，先逐題檢討，才能開始複習。</dd>
+            <dt>已完成</dt><dd>通過而且檢討完了，可以隨時複習。</dd>
+            <dt>缺交</dt><dd>單元已截止，還沒有正式測驗紀錄，請找老師。</dd>
+            <dt>尚未開始</dt><dd>還沒做過，隨時可以開始。</dd>
+            <dt>未開放</dt><dd>老師設定了開放時間，到時候才能做。</dd>
+          </dl>
+        </details>
       </section>
       <div id="next-slot"></div>
       <div id="lessons"></div>`
@@ -197,13 +207,29 @@ function renderHome() {
       </a>`;
   }
   app.querySelector('#progress-slot').innerHTML = `<a class="hp-link" href="#/me">已完成 ${nOk} / ${visible.length}${nTodo ? ` · 待檢討 ${nTodo}` : ''}${nMiss ? ` · 缺交 ${nMiss}` : ''} · 詳細 ${icon.arrowR}</a>`;
-  host.innerHTML = lessons.map((n) => {
+  const filterHTML = `<div class="seg" role="group" aria-label="顯示哪些單元"><button type="button" data-filter="all">全部</button><button type="button" data-filter="todo">還沒完成的</button></div>`;
+  host.innerHTML = filterHTML + lessons.map((n) => {
     const units = visible.filter((u) => u.lesson === n);
     return `<section class="lesson">
       <h2 class="lesson-head">Lesson ${n}</h2>
       <div class="unit-grid">${units.map((u) => tileHTML(u)).join('')}</div>
     </section>`;
   }).join('');
+  const applyFilter = () => {
+    let mode = 'all';
+    try { mode = localStorage.getItem('b5p:filter') || 'all'; } catch { /* ignore */ }
+    host.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.filter === mode ? 'true' : 'false'));
+    host.querySelectorAll('.unit-tile').forEach((t) => { t.hidden = mode === 'todo' && (t.classList.contains('st-ok') || t.classList.contains('st-wait')); });
+    host.querySelectorAll('.lesson').forEach((l) => { l.hidden = ![...l.querySelectorAll('.unit-tile')].some((t) => !t.hidden); });
+    if (mode === 'todo' && ![...host.querySelectorAll('.unit-tile')].some((t) => !t.hidden)) {
+      if (!host.querySelector('.filter-empty')) host.insertAdjacentHTML('beforeend', '<p class="filter-empty">全部都完成了，沒有要做的單元。</p>');
+    } else host.querySelector('.filter-empty')?.remove();
+  };
+  host.querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => {
+    try { localStorage.setItem('b5p:filter', b.dataset.filter); } catch { /* ignore */ }
+    applyFilter();
+  }));
+  applyFilter();
 }
 
 // 開放時段：放在卡片說明列的純文字（還沒開放、快截止、已截止）
@@ -231,11 +257,13 @@ function tileHTML(u) {
   const st = unitStatus(u);
   const chip = st.k === 'retake' && b != null && b < PASS ? `需補考 · 還差 ${PASS - b}%` : TILE_STATE[st.k];
   const sub = [b != null ? `最佳 ${b}%` : '', st.k === 'miss' ? '' : windowText(u.id, store.done(u.id))].filter(Boolean).join(' · ');
+  // 最佳成績旁的小量尺：刻度就是及格線，每張卡片都看得到離通過還有多遠
+  const meter = b != null ? `<span class="meter${b >= PASS ? ' ok' : ''}" role="img" aria-label="最佳 ${b}%，及格線 ${PASS}%"><i style="width:${Math.min(100, b)}%"></i><b style="left:${PASS}%"></b></span>` : '';
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
       <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span></div>
       <h3 class="en">${esc(u.topic || u.title)}</h3>
       <div class="tile-meta">${TYPES[typeOf(u.type)].tile} · ${tileMeta(u, stages)}</div>
-      ${sub ? `<div class="tile-sub">${esc(sub)}</div>` : ''}
+      ${sub ? `<div class="tile-sub">${meter}<span>${esc(sub)}</span></div>` : ''}
     </a>`;
 }
 

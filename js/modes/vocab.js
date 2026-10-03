@@ -1,6 +1,6 @@
 // 單字片語測驗：同一組單字，依序連續完成基礎 → 進階 → 精熟三段，最後一張總成績單
 import { store } from '../storage.js';
-import { esc, nowStamp, wait, shuffle, centerInView } from '../util.js';
+import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog } from '../util.js';
 import { icon } from '../icons.js';
 import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError, ERR_TIPS } from '../components/question.js';
 import { renderResult } from '../components/result.js';
@@ -108,23 +108,30 @@ export function mount(stage, ctx) {
         </div>
         <div data-q></div>
         <div class="q-foot"><div class="feedback" data-fb aria-live="polite"></div><button class="btn primary" type="button" data-next hidden></button></div>
-        <div class="auto-opt"><button class="link-btn" type="button" data-auto-toggle></button></div>
+        <div class="auto-opt">
+          <button class="link-btn leave" type="button" data-leave>離開測驗</button>
+          <span class="kb-hint">按 1–4 或 A–D 選答案，Enter 下一題</span>
+          <span class="auto-cue" data-auto-cue hidden>約 2 秒後自動下一題，輕點畫面可暫停</span>
+          <button class="switch" type="button" role="switch" data-auto-toggle><span class="sw" aria-hidden="true"></span>自動下一題</button>
+        </div>
       </div>`;
     const nextBtn = stage.querySelector('[data-next]');
     // 自動下一題：答對選擇題後約 1.6 秒自動跳，可以關掉（記在這台裝置）
     const getFlag = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v === '1'; } catch { return d; } };
     const setFlag = (k, v) => { try { localStorage.setItem(k, v ? '1' : '0'); } catch { /* ignore */ } };
     const autoToggle = stage.querySelector('[data-auto-toggle]');
-    const paintAuto = () => {
-      const on = getFlag('b5p:auto', true);
-      autoToggle.textContent = `自動下一題：${on ? '開' : '關'}`;
-      autoToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
-    };
+    const autoCue = stage.querySelector('[data-auto-cue]');
+    const paintAuto = () => autoToggle.setAttribute('aria-checked', getFlag('b5p:auto', true) ? 'true' : 'false');
     paintAuto();
     autoToggle.addEventListener('click', () => {
       setFlag('b5p:auto', !getFlag('b5p:auto', true));
-      if (!getFlag('b5p:auto', true)) { clearTimeout(advanceTimer); dropHold(); nextBtn.classList.remove('auto'); }
+      if (!getFlag('b5p:auto', true)) { clearTimeout(advanceTimer); dropHold(); nextBtn.classList.remove('auto'); autoCue.hidden = true; }
       paintAuto();
+    });
+    // 離開測驗：先確認，這次作答不會送出
+    stage.querySelector('[data-leave]').addEventListener('click', async () => {
+      const ok = await confirmDialog({ title: '離開這次測驗？', body: official ? '離開後這次作答不會送出成績，要重新開始。' : '離開後這次練習不會保留。', ok: '離開', cancel: '繼續作答' });
+      if (ok) { window.removeEventListener('beforeunload', unload); location.hash = '#/'; }
     });
     const foot = stage.querySelector('.q-foot');
     nextBtn.addEventListener('click', next);
@@ -197,17 +204,14 @@ export function mount(stage, ctx) {
       setTimeout(() => nextBtn.focus({ preventScroll: true }), 30);
       // 答對選擇題會自動下一題；碰一下畫面（或按任何鍵）就停住，自己按「下一題」。開啟減少動態效果的人不自動跳
       if (ok && q.type === 'mc' && getFlag('b5p:auto', true) && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        if (!getFlag('b5p:autohint', false)) { // 第一次說明一下怎麼暫停
-          fb.insertAdjacentHTML('beforeend', ' <span class="muted">· 輕點畫面可暫停</span>');
-          setFlag('b5p:autohint', true);
-        }
         clearTimeout(advanceTimer);
         nextBtn.classList.add('auto');
-        advanceTimer = setTimeout(() => alive && next(), 1600);
+        autoCue.hidden = false;
+        advanceTimer = setTimeout(() => alive && next(), 2400);
         dropHold();
         hold = (ev) => {
-          if (ev.target === nextBtn || (ev.type === 'keydown' && ev.key === 'Enter')) return;
-          clearTimeout(advanceTimer); nextBtn.classList.remove('auto');
+          if (ev.target === nextBtn || ev.target.closest('[data-auto-toggle]') || (ev.type === 'keydown' && ev.key === 'Enter')) return;
+          clearTimeout(advanceTimer); nextBtn.classList.remove('auto'); autoCue.hidden = true;
         };
         document.addEventListener('pointerdown', hold, { once: true, capture: true });
         document.addEventListener('keydown', hold, { once: true, capture: true });
@@ -218,6 +222,7 @@ export function mount(stage, ctx) {
       clearTimeout(advanceTimer);
       dropHold();
       nextBtn.classList.remove('auto');
+      autoCue.hidden = true;
       if (!alive || nextBtn.hidden || inCard) return;
       done++;
       qi++;
