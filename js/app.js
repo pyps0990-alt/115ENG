@@ -10,7 +10,7 @@ import { flushOutbox, pendingItems, clearOutbox, pendingCount } from './submit.j
 import { submitStateHTML } from './components/gate.js';
 import { leaveBody } from './resume.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
-import { TYPES, typeOf, typeLabel, typeIcon, bestKey, lessonLabel, lessonCmp } from './types.js';
+import { TYPES, typeOf, typeLabel, typeIcon, bestKey, lessonLabel, lessonCmp, EXAM_ENABLED } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
 
@@ -111,7 +111,7 @@ function syncNav() {
 const openLevels = (u) => LEVELS.filter((l) => modeOn(config, u.id, l.id));
 // 還沒有題目的單元不給學生看（老師匯入內容後才出現）
 const hasContent = (id) => !!(config && config.content && config.content[id]);
-const visibleUnits = () => index.units.filter((u) => unitVisible(config, u.id) && hasContent(u.id)
+const visibleUnits = () => index.units.filter((u) => (EXAM_ENABLED || u.type !== 'exam') && unitVisible(config, u.id) && hasContent(u.id)
   && (u.type === 'vocab' ? openLevels(u).length : modeOn(config, u.id, u.type)))
   .sort((a, b) => lessonCmp(a.lesson, b.lesson));
 
@@ -163,7 +163,7 @@ function renderHome() {
       <div id="lessons"></div>`
     : `<section class="hero">
         <h1>B5 Practice</h1>
-        <p>${esc(gradeOf(index.book || 'Book 5'))}英文 ${esc(index.book || 'Book 5')}：單字片語、課文理解、句型練習、段考複習。總分達 ${PASS}% 就通過，沒通過可以一直補考。</p>
+        <p>${esc(gradeOf(index.book || 'Book 5'))}英文 ${esc(index.book || 'Book 5')}：單字片語、課文理解、句型練習。總分達 ${PASS}% 就通過，沒通過可以一直補考。</p>
       </section>
       <div id="welcome-slot"></div>
       <div id="lessons"></div>`;
@@ -306,6 +306,10 @@ async function renderUnit(id, sub) {
   const meta = findUnit(id);
   if (!meta) {
     app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><h2>找不到這個單元</h2><p>網址可能不完整，或這個單元已經被移除。</p><div class="btn-row center"><a class="btn primary" href="#/">回首頁</a></div></div>`;
+    return;
+  }
+  if (meta.type === 'exam' && !EXAM_ENABLED) {
+    app.innerHTML = `<div class="empty"><div class="big">${icon.lock}</div><h2>段考複習暫時關閉</h2><p>老師修正完成後會重新開放，先做其他單元吧。</p><div class="btn-row center"><a class="btn primary" href="#/">回首頁</a></div></div>`;
     return;
   }
   if (!unitVisible(config, meta.id)) { locked(meta); return; }
@@ -625,7 +629,7 @@ async function boot() {
   }
   // 偵測網站有沒有部署新版：沒在考試時，換頁的瞬間自動更新成新版
   afterLoad(() => idle(() => import('./update.js').then((m) => m.watchForUpdate({ auto: true, isBusy: () => !!document.body.dataset.busy })).catch(() => {})));
-  afterLoad(() => idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); modes.pattern().catch(() => {}); modes.exam().catch(() => {}); }));
+  afterLoad(() => idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); modes.pattern().catch(() => {}); if (EXAM_ENABLED) modes.exam().catch(() => {}); }));
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();
   window.addEventListener('online', () => flushOutbox());

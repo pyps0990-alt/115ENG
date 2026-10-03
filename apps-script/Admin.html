@@ -208,7 +208,7 @@
           <input type="text" id="nu-id" placeholder="代號，例如 l5-voc" size="14">
           <input type="text" id="nu-title" placeholder="標題，例如 L5 單字片語" size="18">
           <label style="display:flex;align-items:center;gap:6px;font-weight:400">課次 <input type="text" id="nu-lesson" value="5" maxlength="20" style="width:90px" placeholder="1 or R-X" lang="en" inputmode="latin" autocapitalize="characters" pattern="[A-Za-z0-9 _\-]*" title="只能填英文、數字、連字號。數字（1、2…）顯示成 L1、L2…；英文（例如 R-X）照原樣顯示"> <span class="muted" style="font-size:.8rem">數字＝L1、L2…；英文照原樣顯示（例：R-X），不能用中文</span></label>
-          <select id="nu-type"><option value="vocab">單字片語</option><option value="reading">課文理解</option><option value="pattern">句型練習</option><option value="exam">段考複習</option></select>
+          <select id="nu-type"><option value="vocab">單字片語</option><option value="reading">課文理解</option><option value="pattern">句型練習</option></select>
           <button class="btn" id="nu-add" type="button">＋ 新增單元</button>
           <span class="msg" id="nu-msg"></span>
         </div>
@@ -279,7 +279,6 @@
               <label><input type="radio" name="pr-t" value="vocab"> 單字片語</label>
               <label><input type="radio" name="pr-t" value="reading"> 課文理解</label>
               <label><input type="radio" name="pr-t" value="pattern" checked> 句型練習</label>
-              <label><input type="radio" name="pr-t" value="exam"> 段考複習</label>
             </div>
             <label>提示詞<textarea id="pr-text" spellcheck="false" style="min-height:200px"></textarea></label>
             <div class="bar"><button class="btn primary" id="pr-save" type="button">儲存提示詞</button><button class="btn" id="pr-reset" type="button">還原預設</button><span id="pr-state" class="pill"></span><span class="msg" id="pr-msg"></span></div>
