@@ -10,7 +10,7 @@ import { flushOutbox, pendingItems, clearOutbox, pendingCount } from './submit.j
 import { submitStateHTML } from './components/gate.js';
 import { leaveBody } from './resume.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
-import { TYPES, typeOf, typeLabel, typeIcon, bestKey, lessonLabel, lessonOrder } from './types.js';
+import { TYPES, typeOf, typeLabel, typeIcon, bestKey, lessonLabel, lessonCmp } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
 
@@ -113,7 +113,7 @@ const openLevels = (u) => LEVELS.filter((l) => modeOn(config, u.id, l.id));
 const hasContent = (id) => !!(config && config.content && config.content[id]);
 const visibleUnits = () => index.units.filter((u) => unitVisible(config, u.id) && hasContent(u.id)
   && (u.type === 'vocab' ? openLevels(u).length : modeOn(config, u.id, u.type)))
-  .sort((a, b) => lessonOrder(a.lesson) - lessonOrder(b.lesson));
+  .sort((a, b) => lessonCmp(a.lesson, b.lesson));
 
 /* ---------------- 錯誤頁 ---------------- */
 // 依類型顯示學生看得懂的說明，不直接把程式的錯誤訊息丟給學生；完整訊息寫在 console，並給一個錯誤編號方便回報給老師
@@ -180,7 +180,7 @@ function renderHome() {
   }
 
   const visible = visibleUnits();
-  const lessons = [...new Set(visible.map((u) => u.lesson))].sort((a, b) => lessonOrder(a) - lessonOrder(b));
+  const lessons = [...new Set(visible.map((u) => u.lesson))].sort(lessonCmp);
   const host = app.querySelector('#lessons');
   if (!visible.length) {
     host.innerHTML = `<div class="empty"><div class="big">${icon.inbox}</div><h2>還沒有開放的單元</h2><p>老師開放後會出現在這裡，不用做任何設定。</p><button class="btn" type="button" data-refresh>${icon.redo} 重新整理</button></div>`;
@@ -197,7 +197,7 @@ function renderHome() {
   if (legendEl) legendEl.open = visible.every((u) => store.best(u.id)[bestKey(u.type)] == null);
   const order = { retake: 0, todo: 1, open: 2 };
   const nextRow = visible.map((u) => ({ u, ...unitStatus(u) })).filter((r) => r.k in order)
-    .sort((a, b) => order[a.k] - order[b.k] || lessonOrder(a.u.lesson) - lessonOrder(b.u.lesson))[0];
+    .sort((a, b) => order[a.k] - order[b.k] || lessonCmp(a.u.lesson, b.u.lesson))[0];
   if (nextRow) {
     const lead = { retake: '需要補考', todo: '待檢討', open: '下一個單元' }[nextRow.k];
     app.querySelector('#next-slot').innerHTML = `<a class="next-card ${nextRow.k}" href="#/u/${esc(nextRow.u.id)}">
@@ -357,7 +357,7 @@ async function renderMe() {
   document.title = '我的成績 — B5 Practice';
   app.innerHTML = '<div class="loading"><span class="spinner"></span>載入你的紀錄…</div>';
   await historyReady();
-  const rows = visibleUnits().map((u) => ({ u, ...unitStatus(u) })).sort((a, b) => a.rank - b.rank || lessonOrder(a.u.lesson) - lessonOrder(b.u.lesson));
+  const rows = visibleUnits().map((u) => ({ u, ...unitStatus(u) })).sort((a, b) => a.rank - b.rank || lessonCmp(a.u.lesson, b.u.lesson));
   const count = (k) => rows.filter((r) => r.k === k).length;
   const masked = s.name.length >= 2 ? `${s.name[0]}〇${s.name.slice(2)}` : s.name;
   app.innerHTML = `

@@ -1,7 +1,7 @@
 // 導覽列的「選擇單元」下拉選單：任何頁面都能直接跳到各課的單字片語或課文理解
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
-import { typeLabel, typeIcon, lessonLabel, lessonOrder } from './types.js';
+import { typeLabel, typeIcon, lessonLabel, lessonCmp } from './types.js';
 import { leaveBody } from './resume.js';
 
 const root = document.getElementById('nav-menu');
@@ -33,7 +33,7 @@ function close(focusBtn = false) {
 // visibleUnits：老師設定後仍開放的單元（依課次排序）
 export function initNav(visibleUnits) {
   units = visibleUnits;
-  const lessons = [...new Set(units.map((u) => u.lesson))].sort((a, b) => lessonOrder(a) - lessonOrder(b));
+  const lessons = [...new Set(units.map((u) => u.lesson))].sort(lessonCmp);
   panel.innerHTML = `
     <a class="menu-item home" role="menuitem" href="#/">${icon.home}<span>所有單元</span></a>
     ${lessons.map((n) => `<div class="menu-group" role="group" aria-label="${lessonLabel(n)}">

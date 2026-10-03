@@ -14,8 +14,16 @@ export const typeOf = (t) => (TYPES[t] ? t : 'vocab');
 export const typeLabel = (t) => TYPES[typeOf(t)].label;
 export const bestKey = (t) => TYPES[typeOf(t)].best;
 
-// 課次：1、2、3… 顯示成 L1、L2、L3…；課次 0 是 R-X（放段考複習），顯示成 R-X、排在所有課次的最後面
-export const lessonLabel = (n) => (Number(n) === 0 ? 'R-X' : `L${n}`);
-export const lessonOrder = (n) => (Number(n) === 0 ? 1e6 : Number(n));
+// 課次可以填數字或英文：1、2、3… 顯示成 L1、L2、L3…；填英文（例如 R-X）就照原樣顯示。排序：數字由小到大，英文排在後面
+// 只留英文字母、數字、連字號、底線與空格（不能用中文）；清掉之後什麼都不剩就當第 1 課
+export function normLesson(v) {
+  const t = String(v == null ? '' : v).replace(/[^A-Za-z0-9 _-]/g, '').trim();
+  if (!t) return 1;
+  return /^\d+$/.test(t) ? Math.min(99, Number(t)) : t.slice(0, 20);
+}
+export const lessonLabel = (l) => (typeof l === 'number' ? `L${l}` : String(l));
+export const lessonCmp = (a, b) => (typeof a === 'number' && typeof b === 'number' ? a - b
+  : typeof a === 'number' ? -1 : typeof b === 'number' ? 1
+    : String(a).localeCompare(String(b), 'zh-Hant', { numeric: true }));
 
 export const typeIcon = (t) => icon[TYPES[typeOf(t)].icon];

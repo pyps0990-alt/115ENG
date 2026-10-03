@@ -420,18 +420,23 @@ function ensureGradebook_(cls) {
 
 // 目前所有單元（依課次排序），成績單的欄位標題用單元代號、儲存格備註寫單元名稱
 function gradebookUnits_() {
-  // 課次 0 是 R-X（放段考複習），排在最後面；內建單元（沒有課次）排在最前面
-  var key = function (l) { return l === 0 ? 1e6 : l; };
+  // 數字課次由小到大，文字課次（例如 R-X）排在後面；內建單元（沒有課次）排在最前面
+  var cmp = function (x, y) {
+    if (typeof x === 'number' && typeof y === 'number') return x - y;
+    if (typeof x === 'number') return -1;
+    if (typeof y === 'number') return 1;
+    return x < y ? -1 : x > y ? 1 : 0;
+  };
   return readSettingsRows_().map(function (u) { return { id: u.id, title: u.title, lesson: -1 }; })
     .concat(readCustomUnitsRows_().map(function (u) { return { id: u.id, title: u.title, lesson: u.lesson }; }))
-    .sort(function (a, b) { return key(a.lesson) - key(b.lesson) || (a.id < b.id ? -1 : 1); });
+    .sort(function (a, b) { return cmp(a.lesson, b.lesson) || (a.id < b.id ? -1 : 1); });
 }
 
-// 課次欄位：1、2、3…；0 = R-X（放段考複習）；空白或不是數字當第 1 課
+// 課次欄位：數字（1、2、3…，學生端顯示 L1、L2…）或英文（例如 R-X，照原樣顯示）；只留英文字母、數字、連字號、底線與空格（不能用中文）；空白當第 1 課
 function lessonCell_(v) {
-  if (v === '' || v == null) return 1;
-  var n = Math.floor(Number(v));
-  return isFinite(n) && n >= 0 ? Math.min(99, n) : 1;
+  var t = String(v == null ? '' : v).replace(/[^A-Za-z0-9 _-]/g, '').trim();
+  if (!t) return 1;
+  return /^\d+$/.test(t) ? Math.min(99, Number(t)) : t.slice(0, 20);
 }
 
 // 成績單缺哪個單元的欄位就補上（不動已經有的欄位與分數）

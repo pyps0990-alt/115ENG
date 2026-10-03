@@ -11,6 +11,7 @@ async function getJSON(url) {
   return p;
 }
 
+import { normLesson } from './types.js';
 import { SCRIPT_URL } from './config.js';
 import { firestoreDoc } from './remote-config.js';
 
@@ -64,7 +65,7 @@ export function addCustomUnits(index, config) {
   list.forEach((u) => {
     if (index.units.some((x) => x.id === u.id)) return;
     index.units.push({
-      id: u.id, lesson: (u.lesson === '' || u.lesson == null || !Number.isFinite(Number(u.lesson))) ? 1 : Number(u.lesson), type: ['reading', 'pattern', 'exam'].includes(u.type) ? u.type : 'vocab',
+      id: u.id, lesson: normLesson(u.lesson), type: ['reading', 'pattern', 'exam'].includes(u.type) ? u.type : 'vocab',
       title: u.title || u.id, topic: u.topic || '', count: 0, sample: false,
     });
   });

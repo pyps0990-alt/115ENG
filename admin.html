@@ -218,7 +218,7 @@
         <div class="bar" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
           <input type="text" id="nu-id" placeholder="代號，例如 l5-voc" size="14">
           <input type="text" id="nu-title" placeholder="標題，例如 L5 單字片語" size="18">
-          <label style="display:flex;align-items:center;gap:6px;font-weight:400">課次 <input type="number" id="nu-lesson" min="0" max="99" value="5" style="width:64px" title="0 = R-X（放段考複習的課次）"> <span class="muted" style="font-size:.8rem">0＝R-X（放段考）</span></label>
+          <label style="display:flex;align-items:center;gap:6px;font-weight:400">課次 <input type="text" id="nu-lesson" value="5" maxlength="20" style="width:90px" placeholder="1 or R-X" lang="en" inputmode="latin" autocapitalize="characters" pattern="[A-Za-z0-9 _\-]*" title="只能填英文、數字、連字號。數字（1、2…）顯示成 L1、L2…；英文（例如 R-X）照原樣顯示"> <span class="muted" style="font-size:.8rem">數字＝L1、L2…；英文照原樣顯示（例：R-X），不能用中文</span></label>
           <select id="nu-type"><option value="vocab">單字片語</option><option value="reading">課文理解</option><option value="pattern">句型練習</option><option value="exam">段考複習</option></select>
           <button class="btn" id="nu-add" type="button">＋ 新增單元</button>
           <span class="msg" id="nu-msg"></span>
@@ -508,7 +508,7 @@
     function titleCellHTML(u) {
       var meta = '<span>' + esc(u.id) + '</span>';
       if (u.custom) {
-        meta += '<label style="font-weight:400;display:inline-flex;gap:4px;align-items:center">課次 <input type="number" min="0" max="99" title="0 = R-X（放段考複習的課次）" data-k="lesson" value="' + esc(u.lesson) + '" style="width:52px"></label>' +
+        meta += '<label style="font-weight:400;display:inline-flex;gap:4px;align-items:center">課次 <input type="text" maxlength="20" lang="en" inputmode="latin" autocapitalize="characters" title="只能填英文、數字、連字號。數字顯示成 L1、L2…；英文（例如 R-X）照原樣顯示" data-k="lesson" value="' + esc(u.lesson) + '" style="width:72px"></label>' +
           '<label style="font-weight:400;display:inline-flex;gap:4px;align-items:center">類型 ' + typeSelectHTML(u.type) + '</label>';
       }
       return '<input type="text" data-k="title" value="' + esc(u.title || u.id) + '" style="font-weight:700;margin-bottom:4px">' +
@@ -540,7 +540,7 @@
         u.disabled = u.disabled.filter(function (m) { return m !== t.dataset.mode; });
         if (!t.checked) u.disabled.push(t.dataset.mode);
       } else if (t.dataset.k) {
-        u[t.dataset.k] = t.type === 'checkbox' ? t.checked : (t.type === 'number' ? (t.dataset.k === 'lesson' ? lessonNum(t.value) : Number(t.value)) : t.value);
+        u[t.dataset.k] = t.type === 'checkbox' ? t.checked : (t.type === 'number' ? Number(t.value) : (t.dataset.k === 'lesson' ? lessonNum(t.value) : t.value));
         if (t.dataset.k === 'visible') tr.classList.toggle('off', !t.checked);
         if (t.dataset.k === 'type') { render(); impInit(); $('msg').textContent = '尚未儲存'; $('msg').className = 'msg'; return; }
       }
@@ -558,9 +558,13 @@
       $('msg').textContent = '尚未儲存'; $('msg').className = 'msg';
     });
 
-    // 課次 0 = R-X（放段考複習）；選「段考複習」類型時自動把課次填成 0
-    function lessonNum(v) { if (v === '' || v == null) return 1; var n = Math.floor(Number(v)); return isFinite(n) && n >= 0 ? Math.min(99, n) : 1; }
-    $('nu-type').addEventListener('change', function () { if (this.value === 'exam') $('nu-lesson').value = 0; });
+    // 課次：填數字（顯示 L1、L2…）或英文（例如 R-X，照原樣顯示），不能用中文；空白當第 1 課。選「段考複習」類型時，課次還是數字就自動改成 R-X
+    function lessonNum(v) { var t = String(v == null ? '' : v).replace(/[^A-Za-z0-9 _-]/g, '').trim(); if (!t) return 1; return /^\d+$/.test(t) ? Math.min(99, Number(t)) : t.slice(0, 20); }
+    // 課次輸入框：中文與其他符號當場擋掉（輸入法選字中不動，選完字才清）
+    function cleanLesson(e) { var t = e.target; if (!t || !(t.id === 'nu-lesson' || (t.dataset && t.dataset.k === 'lesson')) || e.isComposing) return; var c = t.value.replace(/[^A-Za-z0-9 _-]/g, ''); if (c !== t.value) t.value = c; }
+    document.addEventListener('input', cleanLesson);
+    document.addEventListener('compositionend', cleanLesson);
+    $('nu-type').addEventListener('change', function () { if (this.value === 'exam' && /^\d*$/.test($('nu-lesson').value.trim())) $('nu-lesson').value = 'R-X'; });
     $('nu-add').onclick = function () {
       var id = $('nu-id').value.trim();
       var title = $('nu-title').value.trim();
