@@ -59,19 +59,19 @@ await step('學生首頁顯示 3 個單元', async () => {
   await studentPage.goto(world.base + '/');
   await studentPage.waitForSelector('.unit-tile');
   assert.equal(await studentPage.locator('.unit-tile').count(), 3);
-  assert.ok(await studentPage.evaluate(() => window.__fb.log.some((x) => x[0] === 'initializeFirestore' && /LongPolling/.test(x[1]))), '要開啟自動偵測長輪詢');
+  assert.ok(await studentPage.evaluate(() => (window.__fb.log || []).some((x) => x[0] === 'initializeFirestore' && /LongPolling/.test(x[1]))), '要開啟自動偵測長輪詢');
 });
 await step('學生不會載入登入元件（firebase-auth）', async () => {
   await sleep(1500);
-  assert.ok(!(await studentPage.evaluate(() => window.__fb.log.some((x) => x[0] === 'getAuth'))), '學生端不該初始化 Auth');
+  assert.ok(!(await studentPage.evaluate(() => (window.__fb.log || []).some((x) => x[0] === 'getAuth'))), '學生端不該初始化 Auth');
 });
 await step('即時監聽：沒有操作時不連線（避免檢測工具記成逾時錯誤），一有操作就建立', async () => {
   await sleep(1200);
-  assert.ok(!(await studentPage.evaluate(() => window.__fb.log.some((x) => x[0] === 'onSnapshot'))), '還沒有任何操作，不該先連即時監聽');
+  assert.ok(!(await studentPage.evaluate(() => (window.__fb.log || []).some((x) => x[0] === 'onSnapshot'))), '還沒有任何操作，不該先連即時監聽');
   await studentPage.evaluate(() => window.dispatchEvent(new Event('pointerdown')));
 });
 await step('即時監聽已建立（public/config）', async () => {
-  await studentPage.waitForFunction(() => window.__fb.log.some((x) => x[0] === 'onSnapshot' && x[1] === 'public/config'), null, { timeout: 5000 });
+  await studentPage.waitForFunction(() => (window.__fb.log || []).some((x) => x[0] === 'onSnapshot' && x[1] === 'public/config'), null, { timeout: 5000 });
 });
 await step('打開單字單元可以開始測驗', async () => {
   await studentPage.click('.unit-tile[data-id="l1-voc"]');
@@ -82,7 +82,7 @@ await step('打開單字單元可以開始測驗', async () => {
   await studentPage.waitForSelector('.unit-tile');
   // 真人一定會點或滑動：這時才建立即時監聽
   await studentPage.evaluate(() => window.dispatchEvent(new Event('pointerdown')));
-  await studentPage.waitForFunction(() => window.__fb.log.some((x) => x[0] === 'onSnapshot' && x[1] === 'public/config'), null, { timeout: 5000 });
+  await studentPage.waitForFunction(() => (window.__fb.log || []).some((x) => x[0] === 'onSnapshot' && x[1] === 'public/config'), null, { timeout: 5000 });
 });
 
 // ================= 老師後台：儲存 → 學生同步 =================

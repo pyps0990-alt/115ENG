@@ -27,6 +27,12 @@ export const store = {
   student: () => read('student', null),
   setStudent: (s) => write('student', s),
 
+  // 這台裝置上次從 Firestore 讀回紀錄的時間：剛讀過（重新整理、自動更新後重新載入）就不用再下載一次
+  historyFresh(key, ms) {
+    const h = read('histAt', null);
+    return !!h && h.key === key && Date.now() - h.at < ms;
+  },
+
   // 錯題本
   wrong: (unit) => read(`wrong:${unit}`, []),
   addWrong(unit, word) {
@@ -71,7 +77,7 @@ export const store = {
   // 登出並清除這台裝置上的學生資料（姓名、座號、成績、檢討、錯題、排隊中的成績）；老師的設定暫存保留
   clearAll() {
     try {
-      Object.keys(localStorage).filter((k) => /^b5p:(student|best|last|done|tried|first|reviewed|wrong|bag|outbox)/.test(k)).forEach((k) => localStorage.removeItem(k));
+      Object.keys(localStorage).filter((k) => /^b5p:(student|best|last|done|tried|first|reviewed|wrong|bag|outbox|histAt)/.test(k)).forEach((k) => localStorage.removeItem(k));
     } catch { /* ignore */ }
   },
 
@@ -85,6 +91,7 @@ export const store = {
   // 用 Firestore 讀回的紀錄重建本機成績；reviews 是已檢討完的單元 id
   // 以 Firestore 為準：檢討狀態也一起重建（不沿用這台裝置上舊的標記）
   applyHistory(allAttempts, reviews = []) {
+    write('histAt', { key: (read('student', null) || {}).key, at: Date.now() });
     try {
       Object.keys(localStorage).filter((k) => /^b5p:(best|last|done|first|reviewed):/.test(k)).forEach((k) => localStorage.removeItem(k));
     } catch { /* ignore */ }

@@ -682,9 +682,9 @@ async function boot() {
   // 登入後在背景載入的紀錄到了：首頁的完成狀態、最佳成績跟著更新（不打斷作答）
   window.addEventListener('history-applied', () => { if (!document.body.dataset.busy && ['', 'me'].includes(location.hash.split('/')[1] || '')) route(); });
   route();
-  // 以 Firestore 為準：每次進站重新讀取紀錄（例如在別台裝置做過的測驗）
+  // 以 Firestore 為準：進站時重新讀取紀錄（例如在別台裝置做過的測驗）；5 分鐘內讀過就沿用（重新整理、自動更新不重複下載）
   const s = store.student();
-  if (s && s.key) {
+  if (s && s.key && !store.historyFresh(s.key, 5 * 60 * 1000)) {
     firebase().then((fb) => fb.loadHistory(s.key)).then((h) => {
       store.applyHistory(h.attempts, h.reviews);
       // 作答中不打斷（交卷後換頁就會用新設定）；老師頁不需要重畫

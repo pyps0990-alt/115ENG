@@ -65,6 +65,15 @@ await step('內容不存在時顯示分類的錯誤頁（沒有原始錯誤訊�
   console.log('   ', t.replace(/\s+/g, ' ').trim());
   assert.match(t, /這個單元目前無法使用/); assert.doesNotMatch(t, /Error|undefined|fetch/i);
 });
+await step('5 分鐘內重新整理不重複下載紀錄；超過就重新讀取', async () => {
+  const reads = () => p.evaluate(() => (window.__fb.log || []).filter((x) => x[0] === 'getDocs').length);
+  await p.evaluate(() => { location.hash = '#/'; }); await p.reload(); await p.waitForSelector('.unit-tile'); await sleep(600);
+  assert.equal(await reads(), 0, '剛讀過，重新整理不用再讀');
+  assert.match((await p.textContent('.home-prog')).replace(/\s+/g, ' '), /已完成 1 \/ 5/, '沿用裝置上的紀錄');
+  await p.evaluate(() => { const h = JSON.parse(localStorage.getItem('b5p:histAt')); h.at -= 6 * 60 * 1000; localStorage.setItem('b5p:histAt', JSON.stringify(h)); });
+  await p.reload(); await p.waitForSelector('.unit-tile'); await sleep(600);
+  assert.equal(await reads(), 2, '超過 5 分鐘：重新讀取作答與檢討紀錄');
+});
 await step('登出並清除這台裝置：清掉學生資料並回到登入表單', async () => {
   await p.evaluate(() => { location.hash = '#/'; }); await p.waitForSelector('#student-chip');
   await p.click('#student-chip'); await sleep(300); await p.click('[data-logout]');

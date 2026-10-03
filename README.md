@@ -139,6 +139,16 @@ node tools/e2e/smoke.mjs          # 各頁面無錯誤／無橫向捲動 + 老�
 node tools/e2e/quiz.mjs           # 學生實際作答單字與課文一輪並截圖
 node tools/e2e/timing.mjs         # 量測按下儲存到學生收到的時間
 node tools/e2e/shots.mjs          # 各畫面截圖
+node tools/e2e/load.mjs 100       # 100 位學生同一秒交卷（模擬 Apps Script 同時執行上限 30）
+node tools/e2e/anim.mjs           # 每個畫面的動畫都會播完；減少動態效果時直接顯示最終狀態
+node tools/e2e/xss.mjs            # 學生送來的 HTML／程式碼在老師後台只當文字顯示
+```
+
+Firestore 規則測試要用模擬器（需要 Java）：
+
+```bash
+mkdir /tmp/rules && (cd /tmp/rules && npm i firebase-tools @firebase/rules-unit-testing firebase)
+RULES_DEPS=/tmp/rules /tmp/rules/node_modules/.bin/firebase emulators:exec --only firestore --project demo-b5p "node tools/e2e/rules.mjs"
 ```
 
 ## 學生登入與 Firestore
@@ -154,14 +164,16 @@ classes/{班級}/seats/{座號}/units/{單元}/attempts/{attemptId}   同一份�
 admins/{email}                                    老師／管理員名單
 ```
 
-名單上沒有的組合算不出存在的 key，規則也不允許列出 `vault`。注意：沒有密碼，知道同學班級、座號、姓名的人就能用對方身分登入並看到成績。`attemptId` 當文件 ID，同一次測驗重複送出不會多一筆。
+名單上沒有的組合算不出存在的 key，規則也不允許列出 `vault`。注意：沒有密碼，知道同學班級、座號、姓名的人就能用對方身分登入、看到成績，也能用對方的身分作答送出（試算表會照收）。題目與答案存在公開的 `public/content_*`，懂技術的學生可以從瀏覽器讀到答案；正式評量請以紙本或其他方式為準，這個網站適合練習與形成性評量。`attemptId` 當文件 ID，同一次測驗重複送出不會多一筆。
 
 ### 設定步驟（一次性）
 
 1. Firebase 主控台 → **Authentication → 登入方式**，啟用 **Google**。
 2. **Firestore Database → 規則**：貼上 `firestore.rules` 並發布。
 3. **Firestore Database → 資料**：新增集合 `admins`，每位老師一份文件，文件 ID 是**小寫的 Google 帳號 email**，欄位 `role`（字串）填 `teacher` 或 `admin`。
-4. `firebase deploy --only hosting`。
+4. `firebase deploy --only hosting,firestore:rules`。
+
+規則（`firestore.rules`）的重點：測驗紀錄只能新增、不能修改或刪除，欄位、型別、長度與時間（伺服器時間）都有限制；班級路徑（`classes/...`）只有名單上的學生能寫，而且只能寫到自己的班級、座號底下；只有 `admins` 名單上的老師能改公開設定、題目與名單。規則可以在模擬器裡測試（見「自動化測試」）。
 
 ### 老師頁面
 
@@ -171,7 +183,7 @@ admins/{email}                                    老師／管理員名單
 
 1. 開啟（或建立）一份 Google 試算表 → **擴充功能 → Apps Script**。
 2. 把 `apps-script/Code.gs` 的內容貼進預設的 `程式碼.gs`（先刪掉原本的內容）。按左側「檔案」旁的 **＋ → HTML**，命名為 `Admin`，貼上 `apps-script/Admin.html`。按 **儲存**。
-3. 上方函式選單選 `setup`，按 **執行**，依畫面授權。執行後會建立 `settings`、`teachers`、`scores`、`details`、`content` 五個分頁，並把你的帳號加入老師名單。其他老師的帳號可以直接加到 `teachers` 分頁。
+3. 上方函式選單選 `setup`，按 **執行**，依畫面授權。執行後會建立 `settings`、`teachers`、`scores`、`details`、`inbox`、`content` 等分頁，並把你的帳號加入老師名單。其他老師的帳號可以直接加到 `teachers` 分頁。
 4. **部署 → 新增部署作業 → 類型選「網頁應用程式」**：執行身分選「我」，誰可以存取選「所有人」，按 **部署**。
 5. 把 Web App 網址（結尾是 `/exec`）貼到 `js/config.js` 的 `SCRIPT_URL`，然後 commit。
 6. 老師用學校 Google 帳號登入後，打開同一個網址（不帶參數）就是後台。這個網址也會出現在網站老師頁面的「開啟老師後台」按鈕，以及試算表上方的「B5 Practice → 開啟老師後台」。
@@ -225,6 +237,8 @@ admins/{email}                                    老師／管理員名單
 | `成績單 201` 等 | 矩陣式成績單（老師手動建立），每個學生固定一列、每個單元一欄，見下方說明 |
 
 - **自動補送**：送出時沒有網路，成績會先存在學生的裝置上，畫面顯示「已暫存」。之後重新開站、恢復連線或下次交卷時會自動補送。每筆成績有唯一的 `attemptId`，重複送出只會記錄一次。
+- **全班同時交卷（`inbox` 分頁）**：伺服器收到成績時先核對、查重，把整筆成績寫成 `inbox` 分頁的一列就回覆學生（不到 1 秒，不用排隊）；同一時間由其中一個請求把 `inbox` 累積的成績整批寫進 `scores`、班級分頁、成績單與 `details`，寫完刪掉 `inbox` 那幾列。老師在後台查成績、做錯題分析、打開試算表時也會先整理。`inbox` 是系統用的暫存區，**請不要手動編輯**；讀不懂的列會被搬到 `inbox_error` 保留。想讓試算表開著時也一直是最新的，可以在 Apps Script「觸發條件」新增：函式 `drainInbox`、時間驅動、每分鐘（選用）；或從選單 **B5 Practice → 整理排隊中的成績** 手動整理。100 人同一秒交卷的模擬（`node tools/e2e/load.mjs 100`）：約 30 秒內全部寫入，沒有遺失也沒有重複。
+- **名單確認**：學生登入時算出的帳本 key 會跟成績一起送出，伺服器確認 key 與班級、座號、姓名相符，而且名單上有這個人才收；直接對網址亂送的不會進試算表。更新前的舊版網頁沒附 key 的照收，但「驗證」欄會標記「未附名單憑證」。全站每分鐘最多收 400 筆，同一位學生同一單元 10 分鐘最多 8 筆（超過回忙碌，學生端稍後自動重送，不會丟掉）。
 - **錯題解析**：單字片語每題答錯時會馬上顯示解析卡：正確答案、詞性、中文、例句與翻譯；選錯的選項如果是別的單字，會說明那個字的意思；拼錯時會標出第幾個字母錯。總成績單的錯題清單也附上簡短解析。
 - **錯誤類型**：單字答錯時，解析卡會標出錯誤類型並給提示：意思混淆（選到或拼成別的字）、詞形錯誤（字對了但時態、單複數等形式不對）、拼字錯誤（差幾個字母）、不熟悉、未作答。錯誤類型也會寫進 `details` 的「錯誤類型」欄。
 - **錯題分析**：老師後台「成績」分頁按「錯題分析」，依班級／單元列出全班最常答錯的 15 個單字或題目、答錯率與主要錯誤類型。
