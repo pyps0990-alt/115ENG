@@ -855,7 +855,7 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .build-line.over { border-color: var(--navy); background: var(--navy-soft); }
 .drop-mark { width: 4px; height: 34px; border-radius: 2px; background: var(--navy); flex: none; }
 .drag-ghost { transition: none !important; }
-.bank-list { list-style: none; margin: 0 0 14px; padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; border-radius: 12px; background: var(--wash); }
+.bank-list { list-style: none; margin: 0; padding: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; border-radius: 12px; background: var(--wash); }
 .bank-list.struct { grid-template-columns: 1fr; }
 .bank-list li { display: flex; gap: 8px; align-items: baseline; font-size: .95rem; }
 .bank-list .opt-key { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--navy); color: #fff; font-size: .78rem; font-weight: 800; }
@@ -1055,3 +1055,12 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 
 /* 卡片像練習簿的填寫欄：標題與說明之間一條點線 */
 .unit-tile .tile-meta { padding-top: 8px; border-top: 1.5px dotted var(--line-strong); }
+
+/* 段考頁排版：底部列文字不在字中間換行；大螢幕單獨的題目排成兩欄（文章與題目的區塊、標題、寫作題仍整列） */
+.passage-foot .count { display: flex; flex-wrap: wrap; gap: 0 4px; line-height: 1.35; }
+.passage-foot .count span { white-space: nowrap; }
+@media (max-width: 520px) { .passage-foot .count .sep { display: none; } .passage-foot .count { gap: 0 8px; } }
+@media (min-width: 900px) {
+  .exam-body { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; align-items: start; }
+  .exam-body > .pq-intro, .exam-body > .exam-sec, .exam-body > .exam-group, .exam-body > .open-pq { grid-column: 1 / -1; }
+}

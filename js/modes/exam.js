@@ -159,10 +159,11 @@ export function mount(stage, ctx) {
 
     let no = 0;
     let prev = '';
-    const choiceCard = (q) => `<div class="pq" data-id="${q.id}">
+    // 單獨的選擇題（不在文章旁邊）選項都很短時排成兩欄，一題不用占滿整個螢幕高度
+    const choiceCard = (q, alone = false) => `<div class="pq" data-id="${q.id}">
         <div class="pq-head"><span class="pq-num">${++no}</span>
           <div>${q.tag ? `<span class="skill">${esc(q.tag)}</span>` : ''}<div class="pq-q en">${q.group === 'cloze' ? `<b>${esc(q.stem)}</b>` : blankHTML(q.stem)}</div></div></div>
-        <div class="options">${q.options.map((o, j) => `<button class="opt" type="button" data-i="${j}">
+        <div class="options${alone && q.options.every((o) => String(o).length <= 22) ? ' two' : ''}">${q.options.map((o, j) => `<button class="opt" type="button" data-i="${j}">
           <span class="opt-key">${KEYS[j]}</span><span class="opt-text en">${esc(o)}</span><span class="opt-mark" aria-hidden="true"></span></button>`).join('')}</div>
       </div>`;
     const selectCard = (q) => `<div class="pq sel-pq" data-id="${q.id}">
@@ -187,7 +188,7 @@ export function mount(stage, ctx) {
       if (redo && !scope.some((q) => q.block === i)) return '';
       const head = prev !== b.type ? `<h3 class="exam-sec">${esc(SECTION[b.type])}</h3>` : '';
       prev = b.type;
-      if (b.type === 'mc') return head + choiceCard(byId[`b${i}`]);
+      if (b.type === 'mc') return head + choiceCard(byId[`b${i}`], true);
       if (b.type === 'spell' || b.type === 'phrase') return head + spellCard(byId[`b${i}`]);
       if (b.type === 'translate' || b.type === 'essay') return head + openCard(byId[`b${i}`]);
       const qs = scope.filter((q) => q.block === i);
@@ -260,7 +261,7 @@ export function mount(stage, ctx) {
       const left = scopeScored.length - answeredN();
       stage.querySelector('[data-nav-sum]').textContent = left ? `還有 ${left} 題沒作答` : '都作答了';
     };
-    const updateFoot = () => { paintNav(); countEl.textContent = `已作答 ${answeredN()} / ${scopeScored.length}${scopeOpen.length ? `・寫作 ${openFilledN()} / ${scopeOpen.length}` : ''}`; };
+    const updateFoot = () => { paintNav(); countEl.innerHTML = `<span>已作答 ${answeredN()} / ${scopeScored.length}</span>${scopeOpen.length ? `<span class="sep">・</span><span>寫作 ${openFilledN()} / ${scopeOpen.length}</span>` : ''}`; };
     stage.querySelectorAll('.pq').forEach((card) => {
       const id = card.dataset.id;
       card.querySelectorAll('.opt').forEach((o) => o.addEventListener('click', () => {
