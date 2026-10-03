@@ -223,7 +223,7 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 /* 課次：寬螢幕兩課並排，窄螢幕一課一列 */
 #lessons { display: block; }
 .lesson { margin-top: 32px; min-width: 0; }
-.lesson-head { margin-bottom: 14px; padding-bottom: 8px; border-bottom: 3px double var(--line-strong); font-family: var(--font-en); font-weight: 900; font-size: 1.3rem; }
+.lesson-head { margin-bottom: 14px; letter-spacing: .02em; padding-bottom: 8px; border-bottom: 3px double var(--line-strong); font-family: var(--font-en); font-weight: 900; font-size: 1.3rem; }
 .unit-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); grid-auto-rows: 1fr; } /* auto-fill：只有一個單元的課次，卡片也維持同樣寬度；auto-rows：同一排卡片一樣高 */
 
 .unit-tile {
@@ -635,7 +635,6 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
    選單面板：從按鈕位置彈出，收合時反向收回；項目依序浮現。 */
 :root {
   --nav-ease: cubic-bezier(.22, 1, .36, 1);
-  --brand-shift: 48px;
   --dur-1: .18s; --dur-2: .3s; --dur-3: .42s; /* 全站動畫時間：快 / 中 / 慢 */
 }
 /* 陰影用會淡入的漸層取代 box-shadow 動畫（box-shadow 動畫每一格都要重繪） */
@@ -643,18 +642,17 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
   background: linear-gradient(rgba(15, 23, 42, .24), rgba(15, 23, 42, 0)); opacity: 0; transition: opacity var(--dur-2) ease; }
 body.scrolled .topbar::after { opacity: 1; }
 .brand { flex: none; transform-origin: left center; transition: transform .38s var(--nav-ease), opacity .24s ease, visibility 0s linear 0s; }
-/* 往下捲動：B5 縮小、淡出並往左收，選單按鈕平移過去補位（位移量 --brand-shift 由 app.js 依 B5 實際寬度量出） */
-body.scrolled .brand { transform: translate3d(-8px, 0, 0) scale(.55); opacity: 0; visibility: hidden; pointer-events: none;
-  transition: transform .38s var(--nav-ease), opacity .2s ease, visibility 0s linear .38s; }
-body.scrolled .menu-btn { --tx: calc(-1 * var(--brand-shift)); }
-body.scrolled #unit-menu { --mx: calc(-1 * var(--brand-shift)); }
-@media (max-width: 480px) { body.scrolled #unit-menu { --mx: 0px; } }
+/* B5 與「選單」合成同一個按鈕：有選單時（登入、有開放的單元）左上角只剩這一個按鈕；沒有選單的畫面（登入前）與考試中仍顯示 B5 連結 */
+body:not(.exam) .topbar:has(#nav-menu:not([hidden])) .brand { display: none; }
+.menu-btn .brand-mark { width: 28px; height: 28px; border-radius: 8px; font-size: .78rem; font-family: var(--font-en); font-weight: 900; flex: none; overflow: hidden;
+  transition: opacity .22s ease, width .28s var(--nav-ease), margin .28s var(--nav-ease), transform .28s var(--nav-ease); }
+/* 點開選單：B5 淡出並收起，按鈕變成「選單 ▴」，選單內容在下方展開 */
+.menu-btn[aria-expanded="true"] .brand-mark { opacity: 0; width: 0; margin-right: -6px; transform: scale(.6); }
 .nav-menu { flex: 0 1 auto; min-width: 0; }
-.menu-btn { max-width: 100%; min-width: 0; transform: translate3d(var(--tx, 0), 0, 0) scale(var(--sc, 1));
-  transition: transform .38s var(--nav-ease), background .2s ease, padding .3s var(--nav-ease), gap .3s var(--nav-ease); }
-.menu-btn:active { --sc: .96; transition-duration: .1s, .2s, .3s, .3s; }
-.menu-btn .menu-label { display: inline-block; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 12em; white-space: nowrap;
-  transition: max-width .3s var(--nav-ease), opacity .2s ease .04s; }
+.menu-btn { max-width: 100%; min-width: 0; padding-left: 8px; transform: scale(var(--sc, 1));
+  transition: transform .2s var(--nav-ease), background .2s ease; }
+.menu-btn:active { --sc: .96; transition-duration: .1s, .2s; }
+.menu-btn .menu-label { display: inline-block; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 12em; white-space: nowrap; }
 .menu-btn .ic:last-child { transition: transform .25s var(--nav-ease), opacity .2s ease, width .3s var(--nav-ease); }
 .top-actions { flex: 0 0 auto; }
 .chip-btn { overflow: visible; transition: background .2s ease, transform .12s ease; }
@@ -667,13 +665,6 @@ body.scrolled #unit-menu { --mx: calc(-1 * var(--brand-shift)); }
   .chip-btn { padding: 0 11px; font-size: .84rem; gap: 4px; }
   .chip-btn .ic { display: none; }
 }
-@media (max-width: 640px) {
-  .menu-btn { padding: 0 12px; }
-  .menu-btn[aria-expanded="false"] { gap: 0; }
-  .menu-btn[aria-expanded="false"] .menu-label { max-width: 0; opacity: 0; transition: max-width .26s var(--nav-ease), opacity .1s ease; }
-  .menu-btn[aria-expanded="false"] .ic:last-child { width: 0; opacity: 0; }
-  .menu-btn .ic:first-child { width: 20px; height: 20px; flex: none; }
-}
 /* 選單面板 */
 .menu-panel { transform-origin: top left; animation: none; visibility: hidden; opacity: 0; pointer-events: none;
   transform: translate3d(var(--mx, 0), -8px, 0) scale(.97);
@@ -681,7 +672,7 @@ body.scrolled #unit-menu { --mx: calc(-1 * var(--brand-shift)); }
 .menu-panel.open { visibility: visible; opacity: 1; pointer-events: auto; transform: translate3d(var(--mx, 0), 0, 0);
   transition: opacity .2s ease, transform .3s var(--nav-ease), visibility 0s; }
 @media (prefers-reduced-motion: reduce) {
-  .brand, .menu-btn, .menu-btn .menu-label, .menu-btn .ic:last-child, .topbar::after, .menu-panel { transition: none !important; }
+  .brand, .menu-btn, .menu-btn .brand-mark, .menu-btn .menu-label, .menu-btn .ic:last-child, .topbar::after, .menu-panel { transition: none !important; }
   .menu-panel.open .menu-item, .menu-panel.open .menu-head, #student-chip:not([hidden]) { animation: none; }
 }
 
@@ -1023,5 +1014,9 @@ mark.bit-wrong, mark.bit-miss { padding: 0 3px; border-radius: 4px; background: 
 mark.bit-miss { background: var(--good-soft); color: var(--good-ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .answer-line > div + div { margin-top: 4px; }
 
-.tile-cat { display: inline-flex; vertical-align: -4px; margin-right: 6px; color: var(--navy); }
+.tile-cat { display: inline-flex; vertical-align: -0.4em; margin-right: 6px; color: var(--navy); } /* 與文字第一行的垂直中心對齊（實測差不到 0.3px） */
 .tile-cat .ic { width: 20px; height: 20px; }
+
+/* 卡片的時間與進度註記（藍字下面一行）：精確到幾月幾日幾點；24 小時內截止標成琥珀色 */
+.tile-time { font-size: .86rem; color: var(--steel); font-variant-numeric: tabular-nums; }
+.tile-time.urgent { color: var(--amber-ink); font-weight: 800; }

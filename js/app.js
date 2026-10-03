@@ -8,7 +8,7 @@ import { LEVELS, PASS } from './levels.js';
 import { initNav, updateNav } from './nav.js';
 import { flushOutbox, pendingItems, clearOutbox, pendingCount } from './submit.js';
 import { submitStateHTML } from './components/gate.js';
-import { leaveBody } from './resume.js';
+import { leaveBody, progress } from './resume.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
 import { TYPES, typeOf, typeLabel, typeIcon, bestKey } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
@@ -202,7 +202,7 @@ function renderHome() {
     const lead = { retake: '需要補考', todo: '待檢討', open: '下一個單元' }[nextRow.k];
     app.querySelector('#next-slot').innerHTML = `<a class="next-card ${nextRow.k}" href="#/u/${esc(nextRow.u.id)}">
         <span class="nc-ic">${nextRow.ic}</span>
-        <span class="nc-txt"><span class="nc-lead">${lead}</span><b class="en">${esc(nextRow.u.topic || nextRow.u.title)}</b><span class="nc-note">Lesson ${nextRow.u.lesson} · ${esc(nextRow.note)}</span></span>
+        <span class="nc-txt"><span class="nc-lead">${lead}</span><b class="en">${esc(nextRow.u.topic || nextRow.u.title)}</b><span class="nc-note">L${nextRow.u.lesson} · ${esc(nextRow.note)}</span></span>
         <span class="nc-go">${icon.arrowR}</span>
       </a>`;
   }
@@ -211,7 +211,7 @@ function renderHome() {
   host.innerHTML = filterHTML + lessons.map((n) => {
     const units = visible.filter((u) => u.lesson === n);
     return `<section class="lesson">
-      <h2 class="lesson-head">Lesson ${n}</h2>
+      <h2 class="lesson-head">L${n}</h2>
       <div class="unit-grid">${units.map((u) => tileHTML(u)).join('')}</div>
     </section>`;
   }).join('');
@@ -232,12 +232,20 @@ function renderHome() {
   applyFilter();
 }
 
-// 開放時段：放在卡片說明列的純文字（還沒開放、快截止、已截止）
-function windowText(id, done) {
+// 開放時段：精確到「幾月幾日幾點」加上還剩多久；24 小時內截止會標成緊急（urgent）
+function remainText(ms) {
+  const m = Math.max(0, Math.round(ms / 60000));
+  if (m >= 2880) return `${Math.floor(m / 1440)} 天`;
+  if (m >= 60) return `${Math.floor(m / 60)} 小時`;
+  return '不到 1 小時';
+}
+function windowInfo(id, done) {
   const w = unitWindow(config, id);
-  if (w.state === 'before') return `${fmtWhen(w.openAt)} 開放`;
-  if (w.state === 'after') return done ? '' : '已截止';
-  return w.closeAt ? `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}` : '';
+  const now = Date.now();
+  if (w.state === 'before') return { text: `${fmtWhen(w.openAt)} 開放（${remainText(w.openAt - now)}後）`, urgent: false };
+  if (w.state === 'after') return done ? null : { text: `已於 ${fmtWhen(w.closeAt)} 截止`, urgent: false };
+  if (!w.closeAt) return null;
+  return { text: `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}（還有 ${remainText(w.closeAt - now)}）`, urgent: w.closeAt - now < 86400000 };
 }
 
 function tileMeta(u, stages) {
@@ -256,14 +264,19 @@ function tileHTML(u) {
   const stages = openLevels(u).map((l) => l.name).join(' → ');
   const st = unitStatus(u);
   const chip = st.k === 'retake' && b != null && b < PASS ? `需補考 · 還差 ${PASS - b}%` : TILE_STATE[st.k];
-  const sub = [b != null ? `最佳 ${b}%` : '', st.k === 'miss' ? '' : windowText(u.id, store.done(u.id))].filter(Boolean).join(' · ');
+  // 藍字註記：最佳成績與及格線並排；下一行是精確的時間（幾月幾日幾點、還有多久）與有沒有做到一半的測驗
+  const score = b != null ? `最佳 ${b}% / 及格 ${PASS}%` : '';
+  const win = st.k === 'miss' ? null : windowInfo(u.id, store.done(u.id));
+  const resumable = progress.has(u.id);
+  const timeLine = [resumable ? '有做到一半的測驗，可以繼續' : '', win ? win.text : ''].filter(Boolean).join(' · ');
   // 最佳成績旁的小量尺：刻度就是及格線，每張卡片都看得到離通過還有多遠
   const meter = b != null ? `<span class="meter${b >= PASS ? ' ok' : ''}" role="img" aria-label="最佳 ${b}%，及格線 ${PASS}%"><i style="width:${Math.min(100, b)}%"></i><b style="left:${PASS}%"></b></span>` : '';
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
       <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span></div>
       <h3 class="en">${esc(u.topic || u.title)}</h3>
       <div class="tile-meta"><span class="tile-cat">${typeIcon(u.type)}</span>${TYPES[typeOf(u.type)].tile} · ${tileMeta(u, stages)}</div>
-      ${sub ? `<div class="tile-sub">${meter}<span>${esc(sub)}</span></div>` : ''}
+      ${score ? `<div class="tile-sub">${meter}<span>${esc(score)}</span></div>` : ''}
+      ${timeLine ? `<div class="tile-time${win && win.urgent ? ' urgent' : ''}">${esc(timeLine)}</div>` : ''}
     </a>`;
 }
 
@@ -272,7 +285,7 @@ function tileHTML(u) {
 function unitShellHTML(meta) {
   return `<div class="unit-head shell">
       <a class="back" href="#/">${icon.back} 所有單元</a>
-      <div class="eyebrow">Lesson ${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
+      <div class="eyebrow">L${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
     </div><div class="loading"><span class="spinner"></span>載入中…</div>`;
 }
@@ -287,7 +300,7 @@ function headHTML(meta, data) {
     : `${(data.questions || []).length} 題閱讀測驗`;
   return `<div class="unit-head">
       <a class="back" href="#/">${icon.back} 所有單元</a>
-      <div class="eyebrow">Lesson ${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
+      <div class="eyebrow">L${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
       <div class="sub"><span class="en">${esc(meta.topic || '')}</span><span>${sub}</span></div>
     </div>`;
@@ -645,16 +658,8 @@ async function boot() {
   document.querySelector('.topbar').after(offBar);
   window.addEventListener('offline', () => { offBar.hidden = false; });
   window.addEventListener('online', () => { offBar.hidden = true; });
-  // 往下捲動時收起左上角 B5（選單按鈕平移補位）。導覽列高度不變，所以切換狀態不會改變頁面高度、不會互相觸發。
-  // 用 requestAnimationFrame 節流、加上緩衝區（>64px 收起、<24px 展開）與最短間隔，iPhone 快速滑動時不會來回閃動。
-  const brandEl = document.querySelector('.brand');
-  const measureBrand = () => {
-    const gap = parseFloat(getComputedStyle(brandEl.parentElement).columnGap) || 12;
-    document.documentElement.style.setProperty('--brand-shift', `${Math.round(brandEl.offsetWidth - 8 + gap)}px`);
-  };
-  requestAnimationFrame(measureBrand); // 畫面畫完再量，避免載入時強制重排
-  window.addEventListener('resize', measureBrand, { passive: true });
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measureBrand).catch(() => {});
+  // 往下捲動時導覽列下方加一道陰影（高度不變，切換狀態不會改變頁面高度、不會互相觸發）。
+  // 用 requestAnimationFrame 節流、加上緩衝區（>64px 出現、<24px 消失）與最短間隔，iPhone 快速滑動時不會來回閃動。
   let scrolled = false;
   let ticking = false;
   let lastFlip = 0;

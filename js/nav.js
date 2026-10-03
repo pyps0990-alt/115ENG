@@ -2,6 +2,7 @@
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
 import { typeLabel, typeIcon } from './types.js';
+import { leaveBody } from './resume.js';
 
 const root = document.getElementById('nav-menu');
 const btn = document.getElementById('unit-menu-btn');
@@ -35,8 +36,8 @@ export function initNav(visibleUnits) {
   const lessons = [...new Set(units.map((u) => u.lesson))].sort((a, b) => a - b);
   panel.innerHTML = `
     <a class="menu-item home" role="menuitem" href="#/">${icon.home}<span>所有單元</span></a>
-    ${lessons.map((n) => `<div class="menu-group" role="group" aria-label="Lesson ${n}">
-      <div class="menu-head"><span class="menu-lnum">L${n}</span>Lesson ${n}</div>
+    ${lessons.map((n) => `<div class="menu-group" role="group" aria-label="L${n}">
+      <div class="menu-head"><span class="menu-lnum">L${n}</span></div>
       ${units.filter((u) => u.lesson === n).map((u) => `<a class="menu-item" role="menuitem" href="#/u/${esc(u.id)}" data-id="${esc(u.id)}">
         <span class="menu-ic">${typeIcon(u.type)}</span>
         <span class="menu-txt"><b>${kindLabel(u)}</b><span class="en">${esc(u.topic || '')}</span></span></a>`).join('')}
@@ -47,9 +48,9 @@ export function initNav(visibleUnits) {
 // 每次換頁時更新按鈕文字與目前所在單元
 export function updateNav(currentId) {
   const u = units.find((x) => x.id === currentId);
-  const label = u ? `L${u.lesson} ${kindLabel(u)}` : '選擇單元';
-  btn.innerHTML = `${icon.list}<span class="menu-label">${label}</span>${icon.chevDown}`;
-  btn.setAttribute('aria-label', `單元選單：${label}`); // 手機收合時只顯示圖示，給螢幕報讀器用
+  // B5 標誌與「選單」合成同一個按鈕：點開時 B5 淡出、顯示選單內容（見 style.css 的 .menu-btn .brand-mark）
+  btn.innerHTML = `<span class="brand-mark" aria-hidden="true">B5</span><span class="menu-label">選單</span>${icon.chevDown}`;
+  btn.setAttribute('aria-label', u ? `B5 選單，目前在 L${u.lesson} ${kindLabel(u)}` : 'B5 選單');
   items().forEach((a) => {
     const on = a.dataset.id ? a.dataset.id === currentId : !currentId;
     a.classList.toggle('current', on);
@@ -84,8 +85,8 @@ panel.addEventListener('click', async (e) => {
   close();
   const ok = await confirmDialog({
     title: '要離開這次測驗嗎？',
-    body: '測驗還沒完成，離開後這次的作答不會保存，也不會送出成績。',
-    ok: '離開', cancel: '繼續作答',
+    body: leaveBody((/^#\/u\/([^/]+)/.exec(location.hash) || [])[1] || ''),
+    ok: '離開', cancel: '繼續作答', danger: true,
   });
   if (ok) { delete document.body.dataset.busy; location.hash = a.getAttribute('href'); }
 });
