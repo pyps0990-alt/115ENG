@@ -176,7 +176,6 @@ export function mount(stage, ctx) {
         actions.push({ label: '再練一次', icon: icon.shuffle, primary: !wrongN, onClick: () => play(student, true) });
       }
       if (official && !passed) { actions.forEach((a) => { a.primary = false; }); actions.unshift({ label: '馬上補考', icon: icon.redo, primary: true, onClick: () => play(student, false) }); }
-      if (!redo && wrongN && firstTest) actions.push({ label: `重練錯的 ${wrongN} 題（不計成績）`, icon: icon.shuffle, onClick: () => play(student, false, details.filter((d) => !d.ok).map((d) => d.word)) });
       const box = renderResult(stage, {
         title: redo ? '錯題重練完成' : `${review ? '複習' : '句型練習'}${passed ? '通過！' : official ? '未通過' : '完成'}`,
         pct,
