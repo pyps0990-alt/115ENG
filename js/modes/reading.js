@@ -108,11 +108,12 @@ export function mount(stage, ctx) {
     document.body.dataset.busy = '1';
     window.addEventListener('beforeunload', unload);
 
+    // 搭配課本使用：作答時文章預設收起來，只看題目；沒帶課本的人按「看文章」就能展開（檢討時文章與題目並排，見 startReview）
     stage.innerHTML = `
-      <div class="passage-layout">
-        ${passageHTML()}
+      <div class="reading-quiz">
+        <details class="rd-fold"><summary>${icon.book} 看文章（沒帶課本時可以在這裡看）</summary>${passageHTML()}</details>
         <section class="pq-list" aria-label="閱讀測驗">
-          <div class="pq-intro"><span class="eyebrow">Questions${review ? ' · 複習' : ''}</span><span class="muted">讀完文章後作答，可以隨時回頭查看</span></div>
+          <div class="pq-intro"><span class="eyebrow">Questions${review ? ' · 複習' : ''}</span><span class="muted">對照課本作答，需要時可以展開文章</span></div>
           ${qs.map((q, i) => `<div class="pq" data-q="${i}">
             <div class="pq-head"><span class="pq-num">${i + 1}</span>
               <div><span class="skill">${esc(q.skill || '')}</span><div class="pq-q">${esc(q.q || '')}</div></div></div>
@@ -126,7 +127,7 @@ export function mount(stage, ctx) {
         <button class="btn primary" type="button" data-submit-btn>${icon.send} 交卷</button>
       </div>`;
 
-    centerInView(stage.querySelector('.passage-layout'), 'start');
+    centerInView(stage.querySelector('.reading-quiz'), 'start');
     const countEl = stage.querySelector('[data-count]');
     const updateFoot = () => { countEl.textContent = `已作答 ${answers.filter((a) => a != null).length} / ${qs.length}`; };
 

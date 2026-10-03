@@ -904,7 +904,7 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 
 
 /* 所有單元頁的標題與說明卡都在同一條置中的欄裡；課文理解開始作答後需要寬版面（文章與題目並排），才放寬 */
-.focus:has(.passage-layout, .passage-foot) { max-width: 1200px; }
+.focus:has(.passage-layout) { max-width: 1200px; }
 
 .passage-foot { gap: 10px; }
 .passage-foot .count { margin-right: auto; }
@@ -1026,3 +1026,10 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
     background-attachment: local, local, scroll, scroll;
   }
 }
+
+/* 課文理解作答：單欄、文章收合（搭配實體課本）；展開後文章在原位置，不黏住也不限高，整篇都看得到 */
+.reading-quiz { display: grid; gap: 14px; }
+.rd-fold { border: 1.5px solid var(--line); border-radius: 16px; background: var(--white); }
+.rd-fold > summary { cursor: pointer; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 16px; font-weight: 700; color: var(--navy); }
+.rd-fold[open] > summary { border-bottom: 1.5px solid var(--line); }
+.rd-fold .passage-card { position: static; max-height: none; overflow: visible; background-image: none; border-radius: 0 0 14px 14px; }
