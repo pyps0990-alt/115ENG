@@ -34,7 +34,7 @@ async function settled(p, label, reduced, ms = 2500) {
   const finite = r.running.filter((a) => !a.infinite);
   assert.deepEqual(r.stuck, [], `${label}：有區塊停在動畫中途`);
   assert.deepEqual(finite, [], `${label}：動畫還沒播完`);
-  // 一直重複的動畫只允許載入中的轉圈與考試計時的提示
+  // 一直重複的動畫只允許載入中的轉圈
   const loops = r.running.filter((a) => a.infinite && !/spin|pulse/.test(a.name));
   assert.deepEqual(loops, [], `${label}：有不該一直重複的動畫`);
   if (reduced) assert.equal(r.running.filter((a) => a.infinite).length, 0, `${label}：減少動態效果時不該有重複播放的動畫`);

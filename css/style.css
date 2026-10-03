@@ -272,7 +272,6 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
    =========================================================== */
 .gate { max-width: 580px; margin: 0 auto; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
 .gate-card { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
-.gate-card h2 { padding-bottom: 10px; border-bottom: 3px double var(--line-strong); }
 .gate-lead { font-size: 1.02rem; font-weight: 500; color: var(--text); line-height: 1.7; }
 .gate-lead b { color: var(--navy); font-weight: 800; font-variant-numeric: tabular-nums; }
 .gate-rules > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 700; color: var(--navy); }
@@ -799,18 +798,16 @@ button.menu-item { width: 100%; border: 0; background: none; font: inherit; text
 /* ---------------- 考試中的導覽列 ----------------
    作答時單元選單與名牌都不能用，改成：左上 B5、旁邊顯示已作答時間、右上顯示目前單元。
    導覽列在考試中固定不變，不隨捲動收起。 */
-.exam-timer, .exam-unit { display: none; }
+.exam-unit { display: none; }
 body.exam #nav-menu, body.exam #student-chip, body.exam #chip-panel { display: none !important; }
-body.exam .exam-timer, body.exam .exam-unit { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 999px;
+body.exam .exam-unit { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .1); color: var(--white); font-weight: 700; font-size: .92rem; white-space: nowrap; animation: chip-in var(--dur-2) var(--ease) both; }
-body.exam .exam-timer { font-family: var(--font-en); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
-body.exam .exam-timer::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--white); opacity: .7; }
 body.exam .exam-unit { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 body.exam .brand { transform: none; opacity: 1; visibility: visible; pointer-events: auto; }
 body.exam .topbar::after { opacity: 1; }
-@media (max-width: 480px) { body.exam .exam-timer, body.exam .exam-unit { padding: 0 11px; font-size: .84rem; } }
-@media (prefers-reduced-motion: reduce) { body.exam .exam-timer, body.exam .exam-unit { animation: none; } }
-/* 手機橫放：平常導覽列不固定（省空間），但考試中要一直看得到計時與單元，所以固定在上方 */
+@media (max-width: 480px) { body.exam .exam-unit { padding: 0 11px; font-size: .84rem; } }
+@media (prefers-reduced-motion: reduce) { body.exam .exam-unit { animation: none; } }
+/* 手機橫放：平常導覽列不固定（省空間），但考試中要一直看得到單元，所以固定在上方 */
 @media (max-height: 520px) and (orientation: landscape) { body.exam .topbar { position: sticky; } }
 
 h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
@@ -1013,7 +1010,7 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .switch[aria-checked="true"] .sw::after { transform: translateX(18px); }
 
 /* 首頁：狀態說明、篩選 */
-.legend { margin-top: 4px; }
+.legend { margin: 0 0 4px; }
 .legend > summary { cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--navy); }
 .legend dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 14px; margin: 4px 0 8px; padding: 14px 16px; border-radius: 14px; background: var(--white); border: 1.5px solid var(--line-strong); font-size: .92rem; }
 .legend dt { font-weight: 800; color: var(--navy); }
@@ -1055,3 +1052,6 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 
 .unit-head .eyebrow { display: flex; align-items: center; gap: 6px; }
 .unit-head .eyebrow .ic { width: 16px; height: 16px; }
+
+/* 卡片像練習簿的填寫欄：標題與說明之間一條點線 */
+.unit-tile .tile-meta { padding-top: 8px; border-top: 1.5px dotted var(--line-strong); }

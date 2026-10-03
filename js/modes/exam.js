@@ -131,10 +131,6 @@ export function mount(stage, ctx) {
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
-    total: scored.length,
-    integer: true,
-    eyebrow: 'Exam Review',
-    title: typeLabel(ctx.unit.type),
     rules: [
       `共 <b>${scored.length}</b> 題計分：${esc(kindCount)}${openQs.length ? `；另有 <b>${openQs.length}</b> 題寫作（翻譯／作文）不計分，交卷後對照參考答案自己檢查` : ''}`,
       '像真的考卷一樣，一頁看完全部題目，最後一次交卷',

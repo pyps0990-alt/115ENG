@@ -32,10 +32,6 @@ export function mount(stage, ctx) {
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
-    total: qs.length,
-    integer: true,
-    eyebrow: 'Reading Comprehension',
-    title: typeLabel(ctx.unit.type),
     rules: [
       `文章約 <b>${nWords}</b> 字，建議閱讀 ${minutes} 分鐘`,
       `共 <b>${qs.length}</b> 題，題目經過改寫，要理解文意才答得出來`,

@@ -11,7 +11,7 @@ import { PASS } from '../types.js';
 // 做過但還沒檢討：只能先檢討，「開始複習」鎖住；檢討完才能複習。
 // resume()：回傳 { label, onResume(student), discard() } 代表有做到一半的測驗，沒有就回傳 null
 // total：計分的總分（題數）；integer：每題只有 1 分或 0 分（課文理解、段考），過關分數用整數題數表示
-export function testGate(stage, { eyebrow, title, rules = [], best, review = false, reviewed = true, retake = false, timeWindow, onStart, onReview, resume, total = 0, integer = false }) {
+export function testGate(stage, { eyebrow = '', rules = [], best, review = false, reviewed = true, retake = false, timeWindow, onStart, onReview, resume }) {
   let wake = null;
   const draw = () => {
     stage.innerHTML = '';
@@ -54,11 +54,8 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
     }
     const rs = typeof resume === 'function' && win.state === 'open' && !needReview ? resume() : null;
     // 一句話說明這次要做什麼；詳細規則收在下面，第一次進來的人預設展開
-    // 過關分數：四捨五入後要達到 PASS%，所以至少是 總分 × (PASS − 0.5)%；只有 1 分或 0 分的題型用「答對幾題」表示
-    const need = total ? (integer ? Math.ceil(total * (PASS - 0.5) / 100 - 1e-9) : Math.ceil(total * (PASS - 0.5)) / 100) : 0;
-    const needText = !need ? '' : integer ? `至少答對 <b>${need}</b> 題` : `至少 <b>${Number(need.toFixed(2))}</b> 分`;
-    // 及格線是老師設定的（PASS 在 js/types.js）：說清楚是老師訂的，以及實際要拿幾分
-    const passText = total ? `共 <b>${Number(total.toFixed(2))}</b> 題，老師設定的及格線是 <b>${PASS}%</b>（${needText}）` : `老師設定的及格線是 <b>${PASS}%</b>`;
+    // 及格線是老師設定的（PASS 在 js/types.js）：只講百分比；部分給分的題型換算成題數會出現小數，反而看不懂
+    const passText = `老師設定的及格線是 <b>${PASS}%</b>`;
     const lead = rs ? `你有一份做到一半的測驗（${rs.label}），可以接著做，也可以重新開始。`
       : needReview ? '先逐題檢討完第一次測驗，才能開始複習。'
       : isReview ? '你已經通過這個單元，這次是複習，成績會標記為複習送給老師。'
@@ -71,7 +68,7 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
     const box = document.createElement('div');
     box.className = 'gate';
     box.innerHTML = `<div class="card gate-card">
-        <div><div class="eyebrow">${esc(eyebrow)}${isReview ? ' · 複習' : needRetake ? ' · 補考' : ''}</div><h2>${esc(title)}</h2></div>
+        ${(() => { const tag = [eyebrow, isReview ? '複習' : needRetake ? '補考' : ''].filter(Boolean).join(' · '); return tag ? `<div class="eyebrow">${esc(tag)}</div>` : ''; })()}
         <p class="gate-lead">${lead}</p>
         ${bestNow != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${bestNow}%</b></div>` : ''}
         ${timeNote ? `<p class="gate-note">${timeNote}</p>` : ''}

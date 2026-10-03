@@ -151,15 +151,15 @@ function renderHome() {
     ? `<section class="hero compact">
         <h1>${esc(s.name)}，今天從哪一課開始？</h1>
         <p id="progress-slot"></p>
-        <details class="legend"><summary>狀態是什麼意思？</summary>
-          <dl>
-            <dt>需補考</dt><dd>總分還沒到 ${PASS}%。可以隨時重做，沒有次數限制。</dd>
-            <dt>待檢討</dt><dd>已經通過，先逐題檢討，才能開始複習。</dd>
-            <dt>缺交</dt><dd>單元已截止，還沒有正式測驗紀錄，請找老師。</dd>
-          </dl>
-        </details>
       </section>
       <div id="next-slot"></div>
+      <details class="legend"><summary>狀態是什麼意思？</summary>
+        <dl>
+          <dt>需補考</dt><dd>總分還沒到 ${PASS}%。可以隨時重做，沒有次數限制。</dd>
+          <dt>待檢討</dt><dd>已經通過，先逐題檢討，才能開始複習。</dd>
+          <dt>缺交</dt><dd>單元已截止，還沒有正式測驗紀錄，請找老師。</dd>
+        </dl>
+      </details>
       <div id="lessons"></div>`
     : `<section class="hero">
         <h1>B5 Practice</h1>
@@ -192,9 +192,6 @@ function renderHome() {
   const nOk = st.filter((k) => k === 'ok').length;
   const nTodo = st.filter((k) => k === 'todo').length;
   const nMiss = st.filter((k) => k === 'miss').length;
-  // 第一次來（還沒有任何成績）：狀態說明預設展開，之後收起
-  const legendEl = app.querySelector('.legend');
-  if (legendEl) legendEl.open = visible.every((u) => store.best(u.id)[bestKey(u.type)] == null);
   const order = { retake: 0, todo: 1, open: 2 };
   const nextRow = visible.map((u) => ({ u, ...unitStatus(u) })).filter((r) => r.k in order)
     .sort((a, b) => order[a.k] - order[b.k] || lessonCmp(a.u.lesson, b.u.lesson))[0];
@@ -206,7 +203,9 @@ function renderHome() {
         <span class="nc-go">${icon.arrowR}</span>
       </a>`;
   }
-  app.querySelector('#progress-slot').innerHTML = `<a class="hp-link" href="#/me">已完成 ${nOk} / ${visible.length}${nTodo ? ` · 待檢討 ${nTodo}` : ''}${nMiss ? ` · 缺交 ${nMiss}` : ''} · 詳細 ${icon.arrowR}</a>`;
+  // 還沒有任何進度時不顯示「已完成 0 / N」，第一屏只留下一步要做什麼
+  app.querySelector('#progress-slot').innerHTML = nOk || nTodo || nMiss
+    ? `<a class="hp-link" href="#/me">已完成 ${nOk} / ${visible.length}${nTodo ? ` · 待檢討 ${nTodo}` : ''}${nMiss ? ` · 缺交 ${nMiss}` : ''} · 詳細 ${icon.arrowR}</a>` : '';
   const filterHTML = `<div class="seg" role="group" aria-label="顯示哪些單元"><button type="button" data-filter="all">全部</button><button type="button" data-filter="todo">現在要做的</button></div>`;
   host.innerHTML = filterHTML + lessons.map((n) => {
     const units = visible.filter((u) => u.lesson === n);
@@ -286,9 +285,9 @@ function headHTML(meta, data) {
   const words = data.words || [];
   const phrases = words.filter((w) => w.type === 'phrase').length;
   const sub = vocab ? `單字 ${words.length - phrases} 個 · 片語 ${phrases} 個`
-    : meta.type === 'pattern' ? `${(data.items || []).length} 題句型練習`
-    : meta.type === 'exam' ? `${meta.count || ''} 題段考複習`.trim()
-    : `${(data.questions || []).length} 題閱讀測驗`;
+    : meta.type === 'pattern' ? `${(data.items || []).length} 題`
+    : meta.type === 'exam' ? (meta.count ? `${meta.count} 題` : '')
+    : `${(data.questions || []).length} 題`;
   return `<div class="unit-head">
       <a class="back" href="#/">${icon.back} 所有單元</a>
       <div class="eyebrow">${typeIcon(meta.type)}${lessonLabel(meta.lesson)} · ${TYPES[typeOf(meta.type)].tile}</div>
@@ -670,28 +669,16 @@ async function boot() {
   window.addEventListener('scroll', onScroll, { passive: true });
   evaluate();
 
-  // 考試中的導覽列：B5、已作答時間、目前單元（單元選單與名牌在考試中不能用，位置讓出來）
-  const examTimer = document.getElementById('exam-timer');
+  // 考試中的導覽列：B5、目前單元（單元選單與名牌在考試中不能用，位置讓出來）。
+  // 練習沒有時限，不顯示倒數或計時，避免製造壓力；作答時間仍由各測驗記錄、隨成績送出。
   const examUnit = document.getElementById('exam-unit');
-  let examT0 = 0;
-  let examTick = 0;
-  const paintTimer = () => {
-    const sec = Math.max(0, Math.floor((Date.now() - examT0) / 1000));
-    const h = Math.floor(sec / 3600);
-    const m = String(Math.floor((sec % 3600) / 60)).padStart(h ? 2 : 1, '0');
-    examTimer.textContent = `${h ? `${h}:` : ''}${m}:${String(sec % 60).padStart(2, '0')}`;
-  };
   const setExam = (on) => {
     if (on === document.body.classList.contains('exam')) return;
     document.body.classList.toggle('exam', on);
-    clearInterval(examTick);
     if (on) {
       flip(false); // 考試中導覽列維持完整狀態
       const u = findUnit(decodeURIComponent(location.hash.split('/')[2] || ''));
       examUnit.textContent = u ? `${lessonLabel(u.lesson)} ${typeLabel(u.type)}` : '';
-      examT0 = Date.now();
-      paintTimer();
-      examTick = setInterval(paintTimer, 1000);
     } else {
       evaluate();
     }

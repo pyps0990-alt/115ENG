@@ -46,9 +46,6 @@ export function mount(stage, ctx) {
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
-    total: n,
-    eyebrow: 'Sentence Patterns',
-    title: typeLabel(ctx.unit.type),
     rules: [
       `共 <b>${n}</b> 題，${esc(kindsIn)}混合出現，每次會從題庫（${all.length} 題）重新抽題`,
       '每題作答後馬上看到解析',

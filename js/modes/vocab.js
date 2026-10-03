@@ -66,9 +66,7 @@ export function mount(stage, ctx) {
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
-    total: all.length,
     eyebrow: levels.map((l) => l.en).join(' → '),
-    title: typeLabel(ctx.unit.type),
     rules: [
       `共 <b>${all.length}</b> 個（單字 ${all.length - nPhrase}、片語 ${nPhrase}），分成 <b>${levels.length}</b> 段（${sizes.join('、')} 題），每個字這次只考一次，全部都會考到`,
       '複習時單字會重新分配到不同的階段，題型和例句也會換',
