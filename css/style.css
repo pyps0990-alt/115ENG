@@ -682,14 +682,27 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1
   .chip-btn { padding: 0 11px; font-size: .84rem; gap: 4px; }
   .chip-btn .ic { display: none; }
 }
-/* 選單面板 */
-.menu-panel { transform-origin: top left; animation: none; visibility: hidden; opacity: 0; pointer-events: none;
-  transform: translate3d(var(--mx, 0), -8px, 0) scale(.97);
-  transition: opacity .16s ease, transform .2s var(--nav-ease), visibility 0s linear .2s; }
-.menu-panel.open { visibility: visible; opacity: 1; pointer-events: auto; transform: translate3d(var(--mx, 0), 0, 0);
-  transition: opacity .2s ease, transform .3s var(--nav-ease), visibility 0s; }
+/* 選單面板：從按鈕下方「展開」（clip-path 由上往下揭開，加上一點點回彈），裡面的項目依序淡入、輕輕往下落；收起時比展開快、不做項目動畫。
+   clip-path 的外框往外多留空間，陰影才不會被切掉。 */
+.menu-panel { --spring: cubic-bezier(.22, 1.12, .36, 1); transform-origin: 28px 0; visibility: hidden; opacity: 0; pointer-events: none;
+  clip-path: inset(-8px -56px 100% -56px round 18px);
+  transform: translate3d(var(--mx, 0), -6px, 0) scale(.97);
+  transition: opacity .14s ease, transform .18s cubic-bezier(.4, 0, 1, 1), clip-path .2s cubic-bezier(.4, 0, 1, 1), visibility 0s linear .2s; }
+.menu-panel.open { visibility: visible; opacity: 1; pointer-events: auto;
+  clip-path: inset(-8px -56px -72px -56px round 18px);
+  transform: translate3d(var(--mx, 0), 0, 0);
+  transition: opacity .2s ease, transform .46s var(--spring), clip-path .46s var(--nav-ease), visibility 0s; }
+@keyframes menu-in { from { opacity: 0; transform: translate3d(0, -8px, 0); } }
+.menu-panel.open .menu-item, .menu-panel.open .menu-head { animation: menu-in .4s var(--nav-ease) both; animation-delay: calc(60ms + var(--i, 0) * 24ms); }
+.menu-item { transition: background .15s ease, transform .15s var(--nav-ease); }
+.menu-item:active { transform: scale(.985); }
+.menu-ic { transition: transform .25s var(--nav-ease), background .15s ease, border-color .15s ease; }
+.menu-item:hover .menu-ic, .menu-item:focus-visible .menu-ic { transform: scale(1.08) rotate(-3deg); }
+.menu-btn { transition: transform .2s var(--nav-ease), background .2s ease, box-shadow .3s var(--nav-ease); }
+.menu-btn[aria-expanded="true"] { box-shadow: 0 0 0 3px rgba(255, 255, 255, .16); }
 @media (prefers-reduced-motion: reduce) {
-  .brand, .menu-btn, .mb-slot, .mb-in, .mb-chev .ic, .topbar::after, .menu-panel { transition: none !important; }
+  .brand, .menu-btn, .mb-slot, .mb-in, .mb-chev .ic, .topbar::after, .menu-panel, .menu-item, .menu-ic { transition: none !important; }
+  .menu-panel, .menu-panel.open { clip-path: none; }
   .menu-panel.open .menu-item, .menu-panel.open .menu-head, #student-chip:not([hidden]) { animation: none; }
 }
 

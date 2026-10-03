@@ -42,6 +42,8 @@ export function initNav(visibleUnits) {
         <span class="menu-ic">${typeIcon(u.type)}</span>
         <span class="menu-txt"><b>${kindLabel(u)}</b><span class="en">${esc(u.title || '')}</span></span></a>`).join('')}
     </div>`).join('')}`;
+  // 項目依序淡入的順序（style.css 的 menu-in 動畫用 --i 當延遲）
+  panel.querySelectorAll('.menu-item, .menu-head').forEach((el, i) => el.style.setProperty('--i', Math.min(i, 10)));
   root.hidden = !units.length;
 }
 
