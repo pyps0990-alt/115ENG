@@ -189,7 +189,7 @@ export function mount(stage, ctx) {
       title: review ? '複習完成' : passed ? '通過！' : '未通過',
       pct,
       scoreText: `${score} / ${qs.length}`,
-      pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, official && !passed ? '' : firstTest ? '接著逐題檢討，完成後才能複習' : '可以逐題檢討這次的作答'].filter(Boolean),
+      pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, official && !passed ? '' : firstTest ? '接著逐題檢討' : '可以逐題檢討這次的作答'].filter(Boolean),
       passLine: official,
       extraHTML: `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`,
       actions,
