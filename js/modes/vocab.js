@@ -311,8 +311,7 @@ export function mount(stage, ctx) {
       const actions = [];
       if (firstTest) {
         // 第一次正式測驗：先檢討，檢討完才能複習
-        if (!passed) actions.push({ label: '馬上補考', icon: icon.redo, primary: true, onClick: () => play(student, stagesNow(), true, false) });
-        actions.push({ label: '開始檢討', icon: icon.bulb, primary: passed, onClick: () => startReview(details) });
+        actions.push({ label: '開始檢討', icon: icon.bulb, primary: true, onClick: () => startReview(details) });
       } else {
         if (wrong.length) {
           actions.push({

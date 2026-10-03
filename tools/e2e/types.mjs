@@ -112,7 +112,10 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
     await p4.click('[data-start]'); await answer(false);
     assert.match(await p4.locator('.result').textContent(), /未通過/);
     assert.match(await p4.locator('.result').textContent(), /需要補考/);
-    await p4.getByRole('button', { name: /馬上補考/ }).click();
+    assert.equal(await p4.getByRole('button', { name: /馬上補考/ }).count(), 0); // 結果頁只有「開始檢討」
+    await p4.reload(); await p4.waitForSelector('[data-start]');
+    assert.match(await p4.locator('[data-start]').textContent(), /開始補考/);
+    await p4.click('[data-start]');
     await answer(true);
     assert.match(await p4.locator('.result').textContent(), /通過！/);
     await sleep(900);
