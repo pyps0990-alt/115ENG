@@ -132,28 +132,49 @@ function handleApi_(d) {
   }
 }
 
+// 學生交卷分兩步：
+//   1. 收件（receiveScore_）：核對後把整筆成績當成一列加到 inbox 分頁（appendRow 本身不會互相覆蓋，不用排隊等鎖），馬上回覆學生。
+//   2. 整理（drainInbox_）：一次把 inbox 裡累積的成績整批寫進 scores、班級分頁、成績單與 details，寫完刪掉 inbox 那些列。
+//      收件後順手整理（同一時間只有一個在整理，其他人收完件就回覆）；老師打開後台成績、打開試算表時也會先整理。
+// 全班同時交卷時，每個人只佔用伺服器不到一秒；以前每筆都要排隊等前一筆寫完 4 個分頁，人一多就會等到逾時。
+var SHEET_INBOX = 'inbox';
+var INBOX_HEADER = ['收到時間', '記錄編號', '資料（系統自動整理，請勿編輯）'];
+var INBOX_CHUNK = 45000;     // 試算表單一儲存格上限 50000 字元：太長的資料分成好幾格
+var INBOX_MAX_CHUNKS = 12;
+var DRAIN_BUDGET_MS = 25000; // 一次整理最多花這麼久（整理的那位學生要等它，學生端 45 秒才逾時），其餘留給下一次
+var DRAIN_MAX_ROWS = 300;    // 每一批最多整理幾筆
+var MAX_POST_CHARS = 1000000;
+
 function doPost(e) {
+  var raw = (e && e.postData && e.postData.contents) || '{}';
+  if (raw.length > MAX_POST_CHARS) return json_({ ok: false, error: 'too large' });
   var body = {};
-  try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { body = {}; }
+  try { body = JSON.parse(raw); } catch (err) { body = {}; }
+  if (!body || typeof body !== 'object') body = {};
   if (body.api === 'ping') return json_({ ok: true, version: API_VERSION, via: 'POST' }); // 連線測試頁用
   if (body.api) return handleApi_(body);
-  var d = body;
-  if (!d.name || !d.cls || !d.unit) return json_({ ok: false, error: 'missing fields' });
+  var res = receiveScore_(body);
+  // 收件成功就順手整理一批（別人正在整理時直接回覆，那邊會一起處理這筆）
+  if (res.ok && !res.duplicate) drainInbox_(0);
+  return json_(res);
+}
+
+function receiveScore_(d) {
+  if (!d.name || !d.cls || !d.unit) return { ok: false, error: 'missing fields' };
   var attemptId = String(d.attemptId || '').slice(0, 64);
   // 限頻：同一位學生、同一單元 10 分鐘內最多 8 筆（正常使用遠低於這個數字）。超過就回「忙碌」，學生端會稍後重試，不會丟掉
-  if (!allowSubmit_(d)) return json_({ ok: false, busy: true, error: 'rate' });
-  // 需要時間的核對與整理，放在鎖的外面做：全班同時交卷時，每一筆佔用鎖的時間越短，排隊越快
-  var check = checkAttempt_(d);
-  var details = Array.isArray(d.details) ? d.details.slice(0, 120) : [];
-  // 同一時間只讓一筆成績寫入試算表；排隊最多等 30 秒，等不到就回「忙碌」，學生端會留在排隊清單稍後重送
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(30000)) return json_({ ok: false, busy: true, error: 'busy' });
+  if (!allowSubmit_(d)) return { ok: false, busy: true, error: 'rate' };
   try {
-    // 學生端網路不穩時會補送，同一筆成績只寫一次
-    if (attemptId && seenAttempt_(attemptId)) return json_({ ok: true, duplicate: true });
-    var now = new Date();
+    // 學生端網路不穩時會補送，同一筆成績只收一次
+    if (attemptId && seenAttempt_(attemptId)) return { ok: true, duplicate: true };
+    // 名單確認：不在名單上的（有人直接對網址亂送）不收
+    var roster = rosterCheck_(d);
+    if (roster === 'bad') return { ok: false, error: 'not on roster' };
+    var check = checkAttempt_(d); // 伺服器用題庫核對這筆成績：空白＝核對通過；否則寫下哪裡對不起來（不拒收，只標記，避免誤傷學生的成績）
+    if (roster === 'nokey') check = (check ? check + '；' : '') + '未附名單憑證（舊版網頁送出）';
+    var details = Array.isArray(d.details) ? d.details.slice(0, 120) : [];
     var row = [
-      now,
+      '', // 時間：整理時填入收件時間
       cell_(d.cls, 8),
       cell_(d.seat, 4),
       cell_(d.name, 40),
@@ -167,47 +188,146 @@ function doPost(e) {
       text_(d.basic, 12),
       text_(d.advanced, 12),
       text_(d.mastery, 12),
-      cell_((d.wrong || []).join(', '), 1000),
+      cell_((Array.isArray(d.wrong) ? d.wrong : []).join(', '), 1000),
       num_(d.durationSec),
       cell_(d.clientTs, 30),
       cell_(attemptId, 64),
-      check, // 伺服器用題庫核對這筆成績：空白＝核對通過；否則寫下哪裡對不起來（不拒收，只標記，避免誤傷學生的成績）
+      check,
     ];
-    var ssh = sheet_(SHEET_SCORES, SCORES_HEADER);
-    ensureScoresHeader_(ssh);
-    ssh.appendRow(row);
-    // 依班級分頁（班級只接受 3–4 位數字）
-    var cls = String(d.cls || '').trim();
-    if (/^\d{3,4}$/.test(cls)) {
-      var csh = sheet_(CLASS_SHEET_PREFIX + cls, SCORES_HEADER);
-      ensureScoresHeader_(csh);
-      csh.appendRow(row);
+    var det = details.map(function (x) {
+      x = x || {};
+      return [
+        cell_(x.stage, 20), cell_(x.kind, 20), num_(x.n), cell_(x.q, 300), cell_(x.correct, x.open ? 800 : 200), cell_(x.yours, x.open ? 3000 : 200),
+        x.open ? '—' : (x.ok ? '✓' : '✗'), num_(x.points), num_(x.hints), cell_(x.word, 80), cell_(x.err, 20),
+      ];
+    });
+    var t = Date.now();
+    var json = JSON.stringify({ t: t, row: row, det: det });
+    if (json.length > INBOX_CHUNK * INBOX_MAX_CHUNKS) {
+      row[18] = (check ? check + '；' : '') + '作答明細太長，未記錄';
+      json = JSON.stringify({ t: t, row: row, det: [] });
     }
-    // 矩陣式成績單（老師預先建立好名單才會寫入，見「成績單 XXX」分頁）
-    writeGradebook_(cls, d.seat, d.unit, d.pct, d.name);
-    // 每題作答明細
-    if (details.length) {
-      var rows = details.map(function (x) {
-        return [
-          now, cell_(attemptId, 64), cell_(d.cls, 8), cell_(d.seat, 4), cell_(d.name, 40), cell_(d.unit, 60),
-          cell_(x.stage, 20), cell_(x.kind, 20), num_(x.n), cell_(x.q, 300), cell_(x.correct, x.open ? 800 : 200), cell_(x.yours, x.open ? 3000 : 200),
-          x.open ? '—' : (x.ok ? '✓' : '✗'), num_(x.points), num_(x.hints), cell_(x.word, 80), cell_(x.err, 20),
-        ];
+    // 每一格前面加 ~：資料被切開時，下一格開頭可能是 = 或 +，避免被試算表當成公式
+    var cells = [new Date(t), cell_(attemptId, 64)];
+    for (var i = 0; i < json.length; i += INBOX_CHUNK) cells.push('~' + json.slice(i, i + INBOX_CHUNK));
+    sheet_(SHEET_INBOX, INBOX_HEADER).appendRow(cells);
+    if (attemptId) CacheService.getScriptCache().put('att:' + attemptId, '1', 21600);
+    return { ok: true };
+  } catch (err) {
+    // 試算表暫時出錯：回「忙碌」，學生端留在排隊清單稍後重送（不能回 ok:false，學生端會當成被拒收而丟掉）
+    console.warn('收件失敗', err);
+    return { ok: false, busy: true, error: 'busy' };
+  }
+}
+
+// 整理 inbox：拿得到鎖才整理（waitMs 毫秒內），回傳是否有整理
+function drainInbox_(waitMs) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(waitMs || 0)) return false;
+  try {
+    drainLoop_();
+    return true;
+  } catch (err) {
+    console.warn('整理成績失敗（資料仍在 inbox，下次再整理）', err);
+    return false;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 呼叫前要先拿到鎖
+function drainLoop_() {
+  var until = Date.now() + DRAIN_BUDGET_MS;
+  while (drainBatch_() && Date.now() < until) { /* 整理期間又有新的成績進來：繼續下一批 */ }
+}
+
+// 試算表選單、或在 Apps Script「觸發條件」設定每分鐘執行（選用）
+function drainInbox() {
+  drainInbox_(30000);
+}
+
+// 整理一批，回傳處理了幾列（0＝inbox 是空的）。寫入順序：明細、班級分頁、成績單、scores，最後才刪 inbox：
+// 中途出錯時資料還在 inbox，下次重來；scores 用記錄編號去重，不會多一筆。
+function drainBatch_(maxRows) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ib = ss.getSheetByName(SHEET_INBOX);
+  if (!ib) return 0;
+  var last = ib.getLastRow();
+  if (last < 2) return 0;
+  var n = Math.min(last - 1, maxRows || DRAIN_MAX_ROWS);
+  var vals = ib.getRange(2, 1, n, Math.max(ib.getLastColumn(), INBOX_HEADER.length)).getValues();
+  var recs = [], broken = [];
+  vals.forEach(function (r) {
+    var s = '';
+    for (var c = 2; c < r.length; c++) {
+      var part = String(r[c] == null ? '' : r[c]);
+      if (!part) break;
+      s += part.charAt(0) === '~' ? part.slice(1) : part;
+    }
+    try {
+      var rec = JSON.parse(s);
+      if (!rec || !Array.isArray(rec.row)) throw new Error('bad');
+      rec.id = String(rec.row[17] || '');
+      recs.push(rec);
+    } catch (err) { broken.push(r); }
+  });
+
+  var ssh = sheet_(SHEET_SCORES, SCORES_HEADER);
+  ensureScoresHeader_(ssh);
+  var idCol = SCORES_FIELDS.indexOf('attemptId') + 1;
+  var sLast = ssh.getLastRow();
+  var seen = {};
+  if (recs.length > 5 && sLast >= 2) {
+    ssh.getRange(2, idCol, sLast - 1, 1).getValues().forEach(function (r) { seen[String(r[0])] = true; });
+  }
+  var fresh = recs.filter(function (rec) {
+    if (!rec.id) return true;
+    if (seen[rec.id]) return false;
+    if (recs.length <= 5 && sLast >= 2 && ssh.getRange(2, idCol, sLast - 1, 1).createTextFinder(rec.id).matchEntireCell(true).findNext()) return false;
+    seen[rec.id] = true; // 同一批裡重複的也只寫一次
+    return true;
+  });
+
+  if (fresh.length) {
+    var scoreRows = [], detailRows = [], byCls = {};
+    fresh.forEach(function (rec) {
+      var now = new Date(Number(rec.t) || Date.now());
+      var row = rec.row.slice(0, SCORES_HEADER.length);
+      while (row.length < SCORES_HEADER.length) row.push('');
+      row[0] = now;
+      scoreRows.push(row);
+      (rec.det || []).forEach(function (x) {
+        detailRows.push([now, row[17], row[1], row[2], row[3], row[4]].concat(x.slice(0, DETAILS_HEADER.length - 6)));
       });
+      // 依班級分頁、成績單（班級只接受 3–4 位數字）
+      var cls = String(row[1]).trim();
+      if (/^\d{3,4}$/.test(cls)) (byCls[cls] = byCls[cls] || []).push(row);
+    });
+    if (detailRows.length) {
       var ds = sheet_(SHEET_DETAILS, DETAILS_HEADER);
       // 舊版建立的 details 分頁欄位比較少：補上新欄位的標題
       if (ds.getLastColumn() < DETAILS_HEADER.length) {
         ds.getRange(1, 1, 1, DETAILS_HEADER.length).setValues([DETAILS_HEADER]).setFontWeight('bold');
       }
-      ds.getRange(ds.getLastRow() + 1, 1, rows.length, DETAILS_HEADER.length).setValues(rows);
+      detailRows.forEach(function (r) { while (r.length < DETAILS_HEADER.length) r.push(''); });
+      ds.getRange(ds.getLastRow() + 1, 1, detailRows.length, DETAILS_HEADER.length).setValues(detailRows);
     }
-    if (attemptId) CacheService.getScriptCache().put('att:' + attemptId, '1', 21600);
-    return json_({ ok: true });
-  } catch (err) {
-    return json_({ ok: false, error: String(err) });
-  } finally {
-    lock.releaseLock();
+    Object.keys(byCls).forEach(function (cls) {
+      var csh = sheet_(CLASS_SHEET_PREFIX + cls, SCORES_HEADER);
+      ensureScoresHeader_(csh);
+      csh.getRange(csh.getLastRow() + 1, 1, byCls[cls].length, SCORES_HEADER.length).setValues(byCls[cls]);
+      writeGradebook_(cls, byCls[cls]);
+    });
+    ssh.getRange(ssh.getLastRow() + 1, 1, scoreRows.length, SCORES_HEADER.length).setValues(scoreRows);
   }
+  if (broken.length) {
+    // 讀不懂的列（有人手動改過 inbox）：搬到 inbox_error 保留原始資料，不擋住後面的成績
+    var es = sheet_(SHEET_INBOX + '_error', INBOX_HEADER);
+    broken.forEach(function (r) { es.appendRow(r); });
+  }
+  ib.deleteRows(2, n);
+  SpreadsheetApp.flush();
+  return n;
 }
 
 /* ------------------------------------------------------------------ */
@@ -227,49 +347,61 @@ function padSeat_(seat) {
 }
 function seatKey_(seat) { return String(seat == null ? '' : seat).trim().replace(/^0+(?=\d)/, ''); }
 
-function writeGradebook_(cls, seat, unit, pct, name) {
-  var clsTrim = String(cls || '').trim();
-  if (!/^\d{3,4}$/.test(clsTrim)) return;
-  var seatTrim = String(seat || '').trim();
-  var unitTrim = String(unit || '').trim();
-  if (!seatTrim || !unitTrim) return;
-
-  var sh = ensureGradebook_(clsTrim);
+// rows：這個班這一批的成績列（scores 格式，已經過 cell_ 處理）。同一位學生同一單元只留這批最高分，再跟格子裡的分數比。
+// 先把需要的資料一次讀完，再寫入（試算表讀寫交錯會很慢）。
+function writeGradebook_(cls, rows) {
+  var best = {};
+  rows.forEach(function (r) {
+    var seat = String(r[2] || '').trim(), unit = String(r[4] || '').trim(), pct = Number(r[10]);
+    if (!seat || !unit || r[10] === '' || !isFinite(pct)) return;
+    var k = seatKey_(seat) + '\u0001' + unit;
+    if (!best[k] || pct > best[k].pct) best[k] = { seat: seat, unit: unit, pct: pct, name: String(r[3] || '') };
+  });
+  var keys = Object.keys(best);
+  if (!keys.length) return;
+  var base = GRADEBOOK_BASE_HEADER.length;
+  var sh = ensureGradebook_(cls);
   var lastRow = sh.getLastRow();
-
-  var rowIdx = -1;
+  var lastCol = Math.max(sh.getLastColumn(), base);
+  var rowOf = {}, colOf = {};
   if (lastRow >= 2) {
-    var seatValues = sh.getRange(2, 2, lastRow - 1, 1).getValues();
-    for (var i = 0; i < seatValues.length; i++) {
-      if (seatKey_(seatValues[i][0]) === seatKey_(seatTrim)) { rowIdx = i + 2; break; }
+    sh.getRange(2, 2, lastRow - 1, 1).getValues().forEach(function (v, i) {
+      var k = seatKey_(v[0]);
+      if (k && !rowOf[k]) rowOf[k] = i + 2;
+    });
+  }
+  var cur = [];
+  if (lastCol > base) {
+    sh.getRange(1, base + 1, 1, lastCol - base).getValues()[0].forEach(function (h, j) {
+      var k = String(h).trim();
+      if (k && !colOf[k]) colOf[k] = base + 1 + j;
+    });
+    if (lastRow >= 2) cur = sh.getRange(2, base + 1, lastRow - 1, lastCol - base).getValues();
+  }
+  // 名單裡還沒有的學生補一列、還沒有的單元補一欄
+  var add = [];
+  keys.forEach(function (k) {
+    var b = best[k];
+    var sk = seatKey_(b.seat);
+    if (!rowOf[sk]) { rowOf[sk] = Math.max(lastRow, 1) + 1 + add.length; add.push([cls, padSeat_(b.seat), b.name]); }
+    if (!colOf[b.unit]) {
+      colOf[b.unit] = ++lastCol;
+      sh.getRange(1, lastCol).setValue(b.unit).setFontWeight('bold');
     }
+  });
+  if (add.length) {
+    var start = Math.max(lastRow, 1) + 1;
+    sh.getRange(start, 2, add.length, 1).setNumberFormat('@');
+    sh.getRange(start, 1, add.length, 3).setValues(add);
   }
-  if (rowIdx === -1) {
-    rowIdx = Math.max(lastRow, 1) + 1;
-    sh.getRange(rowIdx, 2).setNumberFormat('@');
-    sh.getRange(rowIdx, 1, 1, 3).setValues([[clsTrim, padSeat_(seatTrim), String(name || '')]]);
-  }
-
-  var lastCol = sh.getLastColumn();
-  var unitColCount = lastCol - GRADEBOOK_BASE_HEADER.length;
-  var colIdx = -1;
-  if (unitColCount > 0) {
-    var header = sh.getRange(1, GRADEBOOK_BASE_HEADER.length + 1, 1, unitColCount).getValues()[0];
-    for (var j = 0; j < header.length; j++) {
-      if (String(header[j]).trim() === unitTrim) { colIdx = GRADEBOOK_BASE_HEADER.length + 1 + j; break; }
-    }
-  }
-  if (colIdx === -1) {
-    colIdx = lastCol + 1;
-    sh.getRange(1, colIdx).setValue(unitTrim).setFontWeight('bold');
-  }
-
-  var cell = sh.getRange(rowIdx, colIdx);
-  var next = Number(pct);
-  var current = Number(cell.getValue());
-  if (isFinite(next) && (!isFinite(current) || next > current)) {
-    cell.setValue(next);
-  }
+  // 只有比原分數高才覆蓋
+  keys.forEach(function (k) {
+    var b = best[k];
+    var r = rowOf[seatKey_(b.seat)], c = colOf[b.unit];
+    var line = cur[r - 2];
+    var current = Number(line && c - base - 1 < line.length ? line[c - base - 1] : '');
+    if (!isFinite(current) || b.pct > current) sh.getRange(r, c).setValue(b.pct);
+  });
 }
 
 // 取得（沒有就建立）某個班級的成績單分頁：班級／座號／姓名三欄，加上目前所有單元的欄位
@@ -399,23 +531,51 @@ function createGradebookSheet() {
 
 function seenAttempt_(id) {
   if (CacheService.getScriptCache().get('att:' + id)) return true;
-  var sh = sheet_(SHEET_SCORES, SCORES_HEADER);
-  var last = sh.getLastRow();
-  if (last < 2) return false;
-  // 整欄都查（不只最近幾筆）：隔很久才補送的成績也不會重複寫入。一學期幾千列，讀單一欄很快。
-  var col = SCORES_FIELDS.indexOf('attemptId') + 1;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // 整欄都查（不只最近幾筆）：隔很久才補送的成績也不會重複寫入。
   // TextFinder 在試算表伺服器端搜尋，不用把整欄資料傳回來，幾千列也只要幾十毫秒
-  return sh.getRange(2, col, last - 1, 1).createTextFinder(id).matchEntireCell(true).findNext() !== null;
+  var find = function (sh, col) {
+    var last = sh ? sh.getLastRow() : 0;
+    return last >= 2 && sh.getRange(2, col, last - 1, 1).createTextFinder(id).matchEntireCell(true).findNext() !== null;
+  };
+  // 已經收件、還在 inbox 等整理的也算
+  return find(ss.getSheetByName(SHEET_SCORES), SCORES_FIELDS.indexOf('attemptId') + 1) || find(ss.getSheetByName(SHEET_INBOX), 2);
 }
 
 // 簡單的限頻（Apps Script 拿不到來源 IP，改以「班級-座號-單元」計）。快取不是原子操作，數字是大概值，足夠擋掉亂送。
+// 另外全站每分鐘最多收 SUBMIT_PER_MINUTE 筆（全校同時交卷也遠低於這個數字），擋住有人換著座號大量亂送。
+var SUBMIT_PER_MINUTE = 400;
 function allowSubmit_(d) {
   var cache = CacheService.getScriptCache();
+  var gk = 'rlg:' + Math.floor(Date.now() / 60000);
+  var g = Number(cache.get(gk) || 0);
+  if (g >= SUBMIT_PER_MINUTE) return false;
+  cache.put(gk, String(g + 1), 120);
   var key = 'rl:' + String(d.cls).slice(0, 8) + '-' + String(d.seat).slice(0, 4) + '-' + String(d.unit).slice(0, 60);
   var n = Number(cache.get(key) || 0);
   if (n >= 8) return false;
   cache.put(key, String(n + 1), 600);
   return true;
+}
+
+// 學生登入時用班級、座號、姓名算出帳本 key（跟 js/firebase.js studentKey 一樣），交卷時一起送來。
+// 回傳 ''＝在名單上；'bad'＝key 對不上或名單上沒有這個人；'nokey'＝沒附 key（更新前的舊版網頁），照收但標記。
+// 查 Firestore 失敗時放行（不能因為 Firestore 暫時出錯就擋掉學生的成績）。
+function rosterCheck_(d) {
+  var key = String(d.key || '');
+  if (!key) return 'nokey';
+  if (!/^[0-9a-f]{64}$/.test(key) || key !== studentKeyServer_(d.cls, d.seat, d.name)) return 'bad';
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get('vk:' + key);
+  if (hit) return hit === '1' ? '' : 'bad';
+  try {
+    var found = !!firestoreRequest_('get', FIRESTORE_ROOT + '/vault/' + key + '?mask.fieldPaths=cls');
+    cache.put('vk:' + key, found ? '1' : '0', found ? 21600 : 300);
+    return found ? '' : 'bad';
+  } catch (err) {
+    console.warn('名單確認失敗，先放行', err);
+    return '';
+  }
 }
 
 // 舊的成績分頁沒有「驗證」欄標題：補上
@@ -524,6 +684,7 @@ function setup() {
   sheet_(SHEET_SCORES, SCORES_HEADER);
   sheet_(SHEET_CONTENT, CONTENT_HEADER);
   sheet_(SHEET_DETAILS, DETAILS_HEADER);
+  sheet_(SHEET_INBOX, INBOX_HEADER);
   sheet_(SHEET_CUSTOM_UNITS, CUSTOM_UNITS_HEADER);
   sheet_(SHEET_EXTENSIONS, EXTENSIONS_HEADER);
   CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
@@ -536,8 +697,11 @@ function onOpen() {
     .createMenu('B5 Practice')
     .addItem('初始化（建立分頁）', 'setup')
     .addItem('建立班級成績單', 'createGradebookSheet')
+    .addItem('整理排隊中的成績（inbox）', 'drainInbox')
     .addItem('開啟老師後台', 'openAdmin')
     .addToUi();
+  // 打開試算表時，把還在 inbox 的成績先整理進各分頁
+  try { drainInbox_(0); } catch (err) { /* 沒有權限或忙碌時略過，不影響選單 */ }
 }
 
 function openAdmin() {
@@ -764,6 +928,7 @@ function saveCustomUnits(units, skipPublish, nowIso) {
 // 老師後台「錯題分析」：從 details 統計全班最常答錯的單字／題目，以及錯誤類型分布
 function getWrongStats(filter) {
   assertTeacher_();
+  drainInbox_(20000); // 先把排隊中的成績寫進來，老師看到的才是最新的
   filter = filter || {};
   var sh = sheet_(SHEET_DETAILS, DETAILS_HEADER);
   var last = sh.getLastRow();
@@ -806,6 +971,7 @@ function getWrongStats(filter) {
 
 function getScores(filter) {
   assertTeacher_();
+  drainInbox_(20000);
   filter = filter || {};
   var sh = sheet_(SHEET_SCORES, SCORES_HEADER);
   var last = sh.getLastRow();
@@ -851,7 +1017,7 @@ function saveContent(unitId, data, reset, fast) {
   var now = pickNow_(fast);
   var count = countOf_(type, data), topic = String(data.topic || '');
   var lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  lock.waitLock(30000); // 學生交卷整理成績時也用這把鎖（一次最多十幾秒）
   try {
     var sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
     var row = findContentMeta_(unitId);
@@ -918,17 +1084,24 @@ function semesterReset(opts) {
   opts = opts || {};
   var out = { done: true, sheets: 0, docs: 0 };
   if (opts.sheets && !opts.skipSheets) {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    ss.getSheets().forEach(function (sh) {
-      var n = sh.getName();
-      if (n === SHEET_SCORES || n === SHEET_DETAILS || n === SHEET_EXTENSIONS) {
-        if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
-        out.sheets++;
-      } else if (n.indexOf(CLASS_SHEET_PREFIX) === 0 || n.indexOf(GRADEBOOK_PREFIX) === 0) {
-        ss.deleteSheet(sh);
-        out.sheets++;
-      }
-    });
+    // 跟整理成績用同一把鎖：清除期間不會有成績寫到一半
+    var lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+    try {
+      var ss = SpreadsheetApp.getActiveSpreadsheet();
+      ss.getSheets().forEach(function (sh) {
+        var n = sh.getName();
+        if (n === SHEET_SCORES || n === SHEET_DETAILS || n === SHEET_EXTENSIONS || n === SHEET_INBOX) {
+          if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+          out.sheets++;
+        } else if (n.indexOf(CLASS_SHEET_PREFIX) === 0 || n.indexOf(GRADEBOOK_PREFIX) === 0) {
+          ss.deleteSheet(sh);
+          out.sheets++;
+        }
+      });
+    } finally {
+      lock.releaseLock();
+    }
   }
   if (opts.sheets && !opts.skipSheets) publishConfig_();
   var groups = [];
@@ -958,26 +1131,34 @@ function purgeUnitScores(unitId, passphrase) {
   if (!/^[a-z0-9-]+$/i.test(unitId)) throw new Error('單元代號格式錯誤。');
   var out = { rows: 0, docs: 0, done: true };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.getSheets().forEach(function (sh) {
-    var n = sh.getName();
-    var col = (n === SHEET_SCORES || n.indexOf(CLASS_SHEET_PREFIX) === 0) ? SCORES_FIELDS.indexOf('unit') + 1
-      : n === SHEET_DETAILS ? DETAILS_FIELDS.indexOf('unit') + 1 : 0;
-    if (col) {
-      var last = sh.getLastRow();
-      if (last < 2) return;
-      var vals = sh.getRange(2, col, last - 1, 1).getValues();
-      for (var i = vals.length - 1; i >= 0; i--) {
-        if (String(vals[i][0]).trim() !== unitId) continue;
-        var j = i; while (j > 0 && String(vals[j - 1][0]).trim() === unitId) j--;
-        sh.deleteRows(j + 2, i - j + 1); out.rows += i - j + 1; i = j;
+  // 先把排隊中的成績整理進來再刪（不然刪完之後又會被寫回來）；刪除期間拿著鎖，成績不會寫到一半
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    drainLoop_();
+    ss.getSheets().forEach(function (sh) {
+      var n = sh.getName();
+      var col = (n === SHEET_SCORES || n.indexOf(CLASS_SHEET_PREFIX) === 0) ? SCORES_FIELDS.indexOf('unit') + 1
+        : n === SHEET_DETAILS ? DETAILS_FIELDS.indexOf('unit') + 1 : 0;
+      if (col) {
+        var last = sh.getLastRow();
+        if (last < 2) return;
+        var vals = sh.getRange(2, col, last - 1, 1).getValues();
+        for (var i = vals.length - 1; i >= 0; i--) {
+          if (String(vals[i][0]).trim() !== unitId) continue;
+          var j = i; while (j > 0 && String(vals[j - 1][0]).trim() === unitId) j--;
+          sh.deleteRows(j + 2, i - j + 1); out.rows += i - j + 1; i = j;
+        }
+      } else if (n.indexOf(GRADEBOOK_PREFIX) === 0 && sh.getLastColumn() > GRADEBOOK_BASE_HEADER.length) {
+        var head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+        for (var c = head.length - 1; c >= GRADEBOOK_BASE_HEADER.length; c--) {
+          if (String(head[c]).trim() === unitId) sh.deleteColumn(c + 1);
+        }
       }
-    } else if (n.indexOf(GRADEBOOK_PREFIX) === 0 && sh.getLastColumn() > GRADEBOOK_BASE_HEADER.length) {
-      var head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
-      for (var c = head.length - 1; c >= GRADEBOOK_BASE_HEADER.length; c--) {
-        if (String(head[c]).trim() === unitId) sh.deleteColumn(c + 1);
-      }
-    }
-  });
+    });
+  } finally {
+    lock.releaseLock();
+  }
   // Firestore：這個單元的作答紀錄與檢討狀態
   var deadline = Date.now() + 240000;
   var after = null;

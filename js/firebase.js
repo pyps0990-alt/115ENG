@@ -94,9 +94,9 @@ export async function saveScoreToFirestore(payload, key) {
   const seat = clean(payload.seat, 4);
   const unit = clean(payload.unit, 60);
   const attemptId = clean(payload.attemptId, 64);
-  if (!cls || !seat || !unit || !attemptId) return;
+  if (!cls || !seat || !unit || !attemptId || !key) return; // 沒登入（沒有帳本 key）的成績規則不收，只送老師試算表
   const record = {
-    cls, seat, unit, attemptId,
+    cls, seat, unit, attemptId, key,
     name: clean(payload.name, 40),
     unitTitle: clean(payload.unitTitle, 80),
     level: clean(payload.level, 40),
@@ -104,7 +104,7 @@ export async function saveScoreToFirestore(payload, key) {
     review: !!payload.review,
     score: Number(payload.score) || 0,
     total: Number(payload.total) || 0,
-    pct: Number(payload.pct) || 0,
+    pct: Math.min(100, Math.max(0, Number(payload.pct) || 0)),
     basic: clean(payload.basic, 12),
     advanced: clean(payload.advanced, 12),
     mastery: clean(payload.mastery, 12),
@@ -114,9 +114,10 @@ export async function saveScoreToFirestore(payload, key) {
     details: cleanDetails(payload.details),
     createdAt: serverTimestamp(),
   };
-  const writes = [setDoc(doc(db, 'classes', cls, 'seats', seat, 'units', unit, 'attempts', attemptId), record)];
-  if (key) writes.push(setDoc(doc(db, 'vault', key, 'attempts', attemptId), record));
-  const results = await Promise.allSettled(writes);
+  const results = await Promise.allSettled([
+    setDoc(doc(db, 'classes', cls, 'seats', seat, 'units', unit, 'attempts', attemptId), record),
+    setDoc(doc(db, 'vault', key, 'attempts', attemptId), record),
+  ]);
   results.forEach((r) => { if (r.status === 'rejected') console.warn('Firestore 成績寫入失敗（不影響送到老師試算表）', r.reason); });
 }
 

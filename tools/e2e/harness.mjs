@@ -4,7 +4,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { createGas } from './gas-mock.mjs';
+import { createGas, keyOf } from './gas-mock.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
 const require = createRequire(import.meta.url);
@@ -62,11 +62,11 @@ export async function startWorld({ scriptLatency = 1200, teachers = ['teacher@ex
     page.on('requestfailed', (r) => errors.push(`requestfailed: ${r.url()} ${r.failure() && r.failure().errorText}`));
     page.errors = errors;
     page.setDefaultTimeout(8000);
-    await page.addInitScript(([st, sf]) => {
+    await page.addInitScript(([st, sf, key]) => {
       window.__fb = window.__fb || {};
       if (sf) { window.__fb.staff = [sf]; window.__fb.popupEmail = sf; window.__fb.loggedInAs = sf; }
-      if (st) localStorage.setItem('b5p:student', JSON.stringify({ cls: '306', seat: '20', name: '陳奕嘉', key: 'k' }));
-    }, [student, staff]);
+      if (st) localStorage.setItem('b5p:student', JSON.stringify({ cls: '306', seat: '20', name: '陳奕嘉', key }));
+    }, [student, staff, keyOf('306', '20', '陳奕嘉')]);
     world.pages.add(page);
     page.on('close', () => world.pages.delete(page));
     return page;

@@ -6,7 +6,10 @@ import crypto from 'node:crypto';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
 
-export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommit = () => {}, codePath = path.join(ROOT, 'apps-script', 'Code.gs') } = {}) {
+// 學生帳本 key（跟 js/firebase.js studentKey 一樣）
+export const keyOf = (cls, seat, name) => crypto.createHash('sha256').update(`${String(cls).trim()}|${String(seat).trim()}|${String(name).trim().replace(/\s+/g, '')}`).digest('hex');
+
+export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommit = () => {}, codePath = path.join(ROOT, 'apps-script', 'Code.gs'), rosterKeys = null } = {}) {
   const sheets = new Map();
   const calls = { commit: [], sheetReads: 0, urlFetch: 0 };
 
@@ -82,12 +85,13 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
   };
 
   const cacheMap = new Map();
+  const lock = { busy: false };
   const propMap = new Map();
   const resp = (code, text) => ({ getResponseCode: () => code, getContentText: () => text });
   const sandbox = {
     console, Date, JSON, Math, String, Number, Array, Object, RegExp, Error, isNaN, parseInt, parseFloat, encodeURIComponent, decodeURIComponent,
     Logger: { log: () => {} },
-    SpreadsheetApp: { getActiveSpreadsheet: () => ss, getUi: () => ({}) },
+    SpreadsheetApp: { getActiveSpreadsheet: () => ss, getUi: () => ({}), flush() {} },
     CacheService: { getScriptCache: () => ({
       get: (k) => (cacheMap.has(k) ? cacheMap.get(k) : null),
       put: (k, v) => { cacheMap.set(k, v); },
@@ -98,7 +102,12 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
       setProperty: (k, v) => { propMap.set(k, String(v)); },
       deleteProperty: (k) => { propMap.delete(k); },
     }) },
-    LockService: { getScriptLock: () => ({ waitLock() {}, tryLock: () => true, releaseLock() {} }) },
+    // lock.busy = true：模擬別的執行正在整理成績（拿不到鎖）
+    LockService: { getScriptLock: () => ({
+      waitLock() { if (lock.busy) throw new Error('Lock timeout'); },
+      tryLock: () => !lock.busy,
+      releaseLock() {},
+    }) },
     ScriptApp: { getOAuthToken: () => 'oauth-token' },
     Session: {
       getScriptTimeZone: () => 'Asia/Taipei',
@@ -140,6 +149,12 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
         return resp(200, JSON.stringify(list));
       }
       if (url.includes('/documents/admins/')) return resp(404, '{}');
+      if (url.includes('/documents/vault/') && (opts.method || 'get') === 'get') {
+        // 學生帳本：rosterKeys 沒給＝每個人都在名單上；rosterKeys === 'down'＝Firestore 暫時出錯
+        const k = url.split('/documents/vault/')[1].split(/[?/]/)[0];
+        if (rosterKeys === 'down') return resp(503, '{}');
+        return !rosterKeys || rosterKeys.has(k) ? resp(200, JSON.stringify({ name: 'x', fields: { cls: { stringValue: '306' } } })) : resp(404, '{}');
+      }
       if (opts.method === 'patch' && url.includes('/documents/public/')) { calls.patch = (calls.patch || 0) + 1; return resp(200, '{}'); }
       if (opts.method === 'delete') { calls.deleted = (calls.deleted || []).concat(url); return resp(200, '{}'); }
       return resp(500, '{"error":{"message":"unmocked ' + url + '"}}');
@@ -153,9 +168,17 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
   teachers.forEach((e) => t.appendRow([e, '']));
 
   return {
-    ctx, ss, sheets, calls, propMap, cacheMap,
+    ctx, ss, sheets, calls, propMap, cacheMap, lock,
+    setRoster(v) { rosterKeys = v; },
     post(body) { return JSON.parse(ctx.doPost({ postData: { contents: typeof body === 'string' ? body : JSON.stringify(body) } }).getContent()); },
     get(parameter) { return JSON.parse(ctx.doGet({ parameter }).getContent()); },
+    // 學生交卷：自動附上帳本 key（跟網站一樣）；key: null 模擬舊版網頁沒附 key
+    postScore(o) {
+      const b = { ...o };
+      if (b.key === undefined) b.key = keyOf(b.cls, b.seat, b.name);
+      if (b.key === null) delete b.key;
+      return this.post(b);
+    },
     api(name, args, email = teachers[0]) { return this.post({ api: name, args, idToken: 'tok-' + email }); },
   };
 }

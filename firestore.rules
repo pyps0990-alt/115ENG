@@ -8,6 +8,31 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/admins/$(request.auth.token.email.lower()));
     }
 
+    // 一筆測驗紀錄（js/firebase.js saveScoreToFirestore）：只能有這些欄位，型別與長度都要對。
+    // key 是學生帳本的 key，寫進班級路徑時用來確認這個學生真的在名單上。
+    function validAttempt(d, attemptId) {
+      return d.keys().hasOnly(['cls', 'seat', 'unit', 'attemptId', 'key', 'name', 'unitTitle', 'level', 'mode', 'review',
+          'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTs', 'details', 'createdAt'])
+        && d.keys().hasAll(['cls', 'seat', 'unit', 'attemptId', 'key', 'score', 'total', 'pct', 'details', 'createdAt'])
+        && d.attemptId == attemptId
+        && d.key is string && d.key.size() == 64
+        && d.cls is string && d.cls.size() <= 8
+        && d.seat is string && d.seat.size() <= 4
+        && d.unit is string && d.unit.size() <= 60
+        && d.get('name', '') is string && d.get('name', '').size() <= 40
+        && d.get('unitTitle', '') is string && d.get('unitTitle', '').size() <= 80
+        && d.get('level', '') is string && d.get('level', '').size() <= 40
+        && d.get('mode', '') is string && d.get('mode', '').size() <= 30
+        && d.get('review', false) is bool
+        && d.score is number && d.total is number
+        && d.pct is number && d.pct >= 0 && d.pct <= 100
+        && d.get('wrong', []) is list && d.get('wrong', []).size() <= 60
+        && d.get('durationSec', 0) is number
+        && d.get('clientTs', '') is string && d.get('clientTs', '').size() <= 30
+        && d.details is list && d.details.size() <= 150
+        && d.createdAt == request.time;
+    }
+
     // 老師後台儲存時寫入的公開設定與題目（學生網站只讀）。
     // 寫入者有兩個：老師的瀏覽器（登入後直接寫，學生幾乎立刻收到）與 Apps Script（專案擁有者權限，
     // 存進試算表後再寫一次做最後確認）。
@@ -40,8 +65,8 @@ service cloud.firestore {
       match /attempts/{attemptId} {
         allow read: if true;
         allow create: if exists(/databases/$(database)/documents/vault/$(key))
-          && request.resource.data.attemptId == attemptId
-          && request.resource.data.details is list && request.resource.data.details.size() <= 150;
+          && validAttempt(request.resource.data, attemptId)
+          && request.resource.data.key == key;
         allow update, delete: if false;
       }
 
@@ -50,7 +75,8 @@ service cloud.firestore {
         allow read: if true;
         allow create, update: if exists(/databases/$(database)/documents/vault/$(key))
           && request.resource.data.keys().hasOnly(['unit', 'at'])
-          && request.resource.data.unit == unitId;
+          && request.resource.data.unit == unitId
+          && request.resource.data.at == request.time;
         allow delete: if false;
       }
     }
@@ -62,11 +88,13 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['cls', 'seat', 'name', 'updatedAt']);
       allow delete: if isStaff();
 
+      // 只有名單上的學生能寫，而且只能寫到自己的班級、座號、單元底下
       match /units/{unitId}/attempts/{attemptId} {
         allow read: if isStaff();
-        allow create: if request.resource.data.attemptId == attemptId
-          && request.resource.data.keys().hasAll(['cls', 'seat', 'unit', 'score', 'total', 'pct', 'details'])
-          && request.resource.data.details is list && request.resource.data.details.size() <= 150;
+        allow create: if validAttempt(request.resource.data, attemptId)
+          && request.resource.data.cls == cls && request.resource.data.seat == seat && request.resource.data.unit == unitId
+          && get(/databases/$(database)/documents/vault/$(request.resource.data.key)).data.cls == cls
+          && get(/databases/$(database)/documents/vault/$(request.resource.data.key)).data.seat == seat;
         allow update, delete: if false;
       }
     }

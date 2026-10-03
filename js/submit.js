@@ -62,17 +62,25 @@ async function post(payload) {
   return 'retry';
 }
 
-// 排隊中的成績：每隔一段時間自動重送（20 秒起，最多 2 分鐘），恢復連線、重新開站時也會重送
+// 排隊中的成績：每隔一段時間自動重送（約 8 秒起、每次加倍，最多 2 分鐘），恢復連線、重新開站時也會重送
 let flushing = null;
 let retryTimer = null;
-let retryDelay = 20000;
+const FIRST_RETRY_MS = 8000; // 伺服器收件很快（不到 1 秒），第一次重送不用等太久
+let retryDelay = FIRST_RETRY_MS;
 function scheduleRetry() {
   clearTimeout(retryTimer);
-  if (!readBox().length) { retryDelay = 20000; return; }
+  if (!readBox().length) { retryDelay = FIRST_RETRY_MS; return; }
   // 加上隨機的偏移：全班同時交卷、伺服器忙的時候，大家不會在同一秒一起重送而再次塞車
   const wait = retryDelay * (0.6 + Math.random() * 0.8);
   retryTimer = setTimeout(() => { flushOutbox(); }, wait);
   retryDelay = Math.min(retryDelay * 2, 120000);
+}
+
+// 附上登入時算出的帳本 key，伺服器用它確認是名單上的學生（更新前排隊的舊成績也補上）
+function withKey(item) {
+  if (item.key) return item;
+  const s = store.student() || {};
+  return s.key && s.cls === item.cls && s.seat === item.seat ? { ...item, key: s.key } : item;
 }
 
 export function flushOutbox() {
@@ -81,7 +89,7 @@ export function flushOutbox() {
   flushing = (async () => {
     let sent = 0;
     for (const item of readBox()) {
-      const res = await post(item);
+      const res = await post(withKey(item));
       if (res === 'retry') break; // 伺服器忙或網路不穩：這筆跟後面的都留著，稍後再送
       // 送出期間可能被標記為排隊中（交卷畫面等太久先放行），以最新的狀態為準
       const cur = readBox().find((x) => x.attemptId === item.attemptId) || item;
@@ -91,7 +99,7 @@ export function flushOutbox() {
       // 之前排過隊的成績送出後，通知畫面右下角
       if (cur.queuedAt) window.dispatchEvent(new CustomEvent('score-sent', { detail: cur }));
     }
-    if (sent) retryDelay = 20000;
+    if (sent) retryDelay = FIRST_RETRY_MS;
     return sent;
   })().finally(() => { flushing = null; scheduleRetry(); });
   return flushing;
@@ -101,9 +109,9 @@ export function flushOutbox() {
 const SCREEN_WAIT_MS = 5000;
 
 export async function submitScore(payload) {
-  const item = { ...payload, attemptId: payload.attemptId || newAttemptId() };
+  const item = withKey({ ...payload, attemptId: payload.attemptId || newAttemptId() });
   // 另外存一份到 Firestore，跟送去老師試算表互不影響
-  import('./firebase.js').then((fb) => fb.saveScoreToFirestore(item, (store.student() || {}).key)).catch((e) => console.warn(e));
+  import('./firebase.js').then((fb) => fb.saveScoreToFirestore(item, item.key)).catch((e) => console.warn(e));
   // 通過（或複習）才算完成；沒通過要補考
   if (item.unit) { if (item.review || Number(item.pct) >= PASS) store.setDone(item.unit); else store.setTried(item.unit); }
   if (!SCRIPT_URL) return { status: 'disabled' };

@@ -1,6 +1,6 @@
 // 直接測試 Code.gs 的儲存邏輯（不需要瀏覽器）：node tools/e2e/gas-selftest.mjs
 import assert from 'node:assert'; // 非 strict：Code.gs 在另一個 vm 環境，陣列的原型不同
-import { createGas } from './gas-mock.mjs';
+import { createGas, keyOf } from './gas-mock.mjs';
 
 const published = {};
 const g = createGas({ onFirestoreCommit: (body) => body.writes.forEach((w) => { published[w.update.name.split('/public/')[1]] = JSON.parse(w.update.fields.json.stringValue); }) });
@@ -116,7 +116,7 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   okc(g2.api('saveContent', ['v1', { topic: 't', words }, true]));
   okc(g2.api('saveContent', ['r1', { title: 'T', topic: 't', passage: ['Tea is good.'], questions: [
     { ref: '1-1', skill: '細節', q: 'Q1?', options: ['Leaves', 'Rocks'], answer: 0, explain: 'x' }, { ref: '1-1', skill: '細節', q: 'Q2?', options: ['a', 'b'], answer: 1, explain: 'x' }] }, true]));
-  const send = (o) => g2.post(Object.assign({ cls: '306', seat: '1', name: '王小明', clientTs: '2026-10-01 10:00:00' }, o));
+  const send = (o) => g2.postScore(Object.assign({ cls: '306', seat: '1', name: '王小明', clientTs: '2026-10-01 10:00:00' }, o));
   const lastCheck = () => { const sh = g2.sheets.get('scores'); return String(sh.rows[sh.getLastRow() - 1][18] || ''); };
   // 課文：正確的成績
   send({ attemptId: 'a1', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 1, total: 2, pct: 50, durationSec: 30,
@@ -167,6 +167,83 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   console.log('成績核對與去重測試通過');
 }
 
+/* ---------- 交卷先進 inbox，再整批整理（全班同時交卷） ---------- */
+{
+  const g4 = createGas();
+  const ok4 = (r) => { assert.equal(r.ok, true, JSON.stringify(r)); return r.data; };
+  ok4(g4.api('saveAllSettings', [[], [{ id: 'e1', title: 'E', type: 'exam', lesson: 1, topic: '', visible: true, disabled: [], questionCount: 5, custom: true }]]));
+  const send = (o) => g4.postScore(Object.assign({ unit: 'e1', unitTitle: 'E', mode: 'exam', score: 1, total: 1, durationSec: 60, clientTs: '2026-10-01 10:00:00', details: [] }, o));
+  const scoreIds = () => (g4.sheets.get('scores')?.rows || []).slice(1).map((r) => r[17]).filter(Boolean);
+  // 別人正在整理（拿不到鎖）：收件照樣成功，先放在 inbox
+  g4.lock.busy = true;
+  const long = 'x'.repeat(2990);
+  const openItems = Array.from({ length: 30 }, (_, i) => ({ stage: '作文', kind: '作文', n: i + 1, q: 'Q' + i, correct: '', yours: (i === 7 ? '=SUM(1)' : '') + long, open: true, points: 0, word: 'w' + i }));
+  assert.equal(send({ cls: '306', seat: '5', name: '=HYPERLINK("http://x","點我")', attemptId: 'q1', pct: 40, details: openItems }).ok, true);
+  assert.equal(send({ cls: '306', seat: '5', name: '五號', attemptId: 'q2', pct: 90 }).ok, true);
+  assert.equal(send({ cls: '307', seat: '1', name: '一號', attemptId: 'q3', pct: 70 }).ok, true);
+  const ib = g4.sheets.get('inbox');
+  assert.equal(ib.getLastRow() - 1, 3, '三筆都先進 inbox');
+  assert.deepEqual(scoreIds(), [], '整理前 scores 還沒有');
+  assert.ok(ib.rows[1].length > 4, '很長的作答明細要分成好幾格');
+  assert.ok(ib.rows[1].slice(2).every((c) => String(c).startsWith('~')), '每一格開頭都要是 ~，不會被當成公式');
+  assert.equal(g4.get({ action: 'check', id: 'q2' }).seen, true, '收件後馬上查得到');
+  g4.cacheMap.clear();
+  assert.equal(g4.get({ action: 'check', id: 'q3' }).seen, true, '快取過期也查得到 inbox 裡的');
+  assert.equal(send({ cls: '307', seat: '1', name: '一號', attemptId: 'q3', pct: 70 }).duplicate, true, 'inbox 裡的重送不再收');
+  // 有人手動改壞一列：搬到 inbox_error，不擋住其他成績
+  ib.rows.push([new Date(), 'bad', '~{not json']);
+  // 試算表暫時出錯：回忙碌（學生端會重送），不能回拒收
+  const append = ib.appendRow;
+  ib.appendRow = () => { throw new Error('Service Spreadsheets failed'); };
+  const warn = console.warn; console.warn = () => {};
+  const failed = send({ cls: '306', seat: '6', name: '六號', attemptId: 'q4', pct: 50 });
+  console.warn = warn;
+  assert.equal(failed.ok, false); assert.equal(failed.busy, true, '寫入失敗要回忙碌讓學生端重送');
+  ib.appendRow = append;
+  // 老師打開成績：先整理
+  g4.lock.busy = false;
+  const list = ok4(g4.api('getScores', [{}]));
+  assert.equal(list.length, 3);
+  assert.deepEqual(scoreIds().sort(), ['q1', 'q2', 'q3']);
+  assert.equal(ib.getLastRow(), 1, 'inbox 整理完要清空');
+  assert.equal(g4.sheets.get('inbox_error').getLastRow(), 2, '壞掉的那列保留在 inbox_error');
+  const sc = g4.sheets.get('scores').rows.find((r) => r[17] === 'q1');
+  assert.ok(sc[0] instanceof Date, '時間欄是收件時間');
+  assert.ok(String(sc[3]).startsWith("'="), '姓名開頭的 = 要被擋掉，不能變成公式');
+  assert.equal(g4.sheets.get('班級 306').getLastRow() - 1, 2);
+  assert.equal(g4.sheets.get('班級 307').getLastRow() - 1, 1);
+  const det = g4.sheets.get('details').rows.slice(1);
+  assert.equal(det.length, 30, '作答明細一筆不少');
+  assert.equal(det[7][11], "'=SUM(1)" + long, '分格後接回來要完全一樣（開頭的 = 也要擋掉）');
+  const gb = g4.sheets.get('成績單 306');
+  const col = gb.rows[0].indexOf('e1');
+  const r5 = gb.rows.find((r) => r[1] === '05');
+  assert.equal(r5[col], 90, '同一批兩次作答：成績單取高分');
+  assert.ok(gb.rows.every((r) => r.every((c) => !String(c).startsWith('='))), '成績單裡不能有公式');
+  // 整理到一半出錯（scores 已寫、inbox 還沒刪）：重來不會多一筆
+  ib.appendRow([new Date(), 'q2', '~' + JSON.stringify({ t: Date.now(), row: g4.sheets.get('scores').rows.find((r) => r[17] === 'q2').map((v, i) => (i ? v : '')), det: [] })]);
+  ok4(g4.api('getScores', [{}]));
+  assert.equal(scoreIds().filter((x) => x === 'q2').length, 1, '重新整理不能重複寫入');
+  // 一般情況（沒人在整理）：收件後馬上整理，老師不用等
+  send({ cls: '307', seat: '2', name: '二號', attemptId: 'q5', pct: 100 });
+  assert.ok(scoreIds().includes('q5')); assert.equal(ib.getLastRow(), 1);
+  // 超大的請求直接拒絕
+  assert.equal(g4.post('{"cls":"306","pad":"' + 'x'.repeat(1100000) + '"}').error, 'too large');
+  // 名單確認：key 對不上、名單上沒有的人不收；舊版網頁沒附 key 照收但標記；Firestore 暫時出錯時放行
+  assert.equal(send({ cls: '306', seat: '11', name: '假冒', key: 'f'.repeat(64), attemptId: 'k1', pct: 100 }).error, 'not on roster', 'key 跟班級座號姓名對不上');
+  g4.setRoster(new Set([keyOf('306', '12', '名單上')]));
+  assert.equal(send({ cls: '306', seat: '13', name: '不在名單', attemptId: 'k2', pct: 100 }).error, 'not on roster', '名單上沒有的人');
+  assert.equal(send({ cls: '306', seat: '12', name: '名單上', attemptId: 'k3', pct: 80 }).ok, true);
+  assert.equal(send({ cls: '306', seat: '14', name: '舊版', key: null, attemptId: 'k4', pct: 80 }).ok, true);
+  assert.match(String(g4.sheets.get('scores').rows.find((r) => r[17] === 'k4')[18]), /未附名單憑證/);
+  g4.setRoster('down');
+  console.warn = () => {};
+  assert.equal(send({ cls: '306', seat: '15', name: '十五', attemptId: 'k5', pct: 80 }).ok, true, 'Firestore 出錯時不能擋掉學生');
+  console.warn = warn;
+  assert.ok(!scoreIds().includes('k1') && !scoreIds().includes('k2'));
+  console.log('交卷 inbox 與整批整理測試通過');
+}
+
 /* ---------- 成績單：自動建立、新單元欄位、名單同步 ---------- */
 {
   const g3 = createGas();
@@ -180,7 +257,7 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   assert.deepEqual(gb.rows.slice(0, 4).map((x) => x.slice(0, 3).join('|')), ['班級|座號|姓名', '306|01|甲', '306|02|乙', '306|03|丙']);
   assert.equal(gb.rows[0][3], 'u1');
   // 學生交卷：分數填進正確的格子
-  g3.post({ cls: '306', seat: '2', name: '乙', unit: 'u1', unitTitle: 'U', mode: 'vocab', score: 3, total: 4, pct: 75, durationSec: 90, attemptId: 'g1', details: [] });
+  g3.postScore({ cls: '306', seat: '2', name: '乙', unit: 'u1', unitTitle: 'U', mode: 'vocab', score: 3, total: 4, pct: 75, durationSec: 90, attemptId: 'g1', details: [] });
   assert.equal(gb.rows[2][3], 75);
   // 老師新增單元：所有成績單馬上多一欄，不用等有人交卷
   ok3(g3.api('saveAllSettings', [[], [unit('u1', 1), unit('u2', 2)]]));
@@ -198,7 +275,7 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   assert.ok(gb.rows.slice(1).every((x) => /^\d\d$/.test(x[1])));
   assert.equal(gb.rows[2][3], 75, '排序後分數仍在乙的那一列');
   // 沒有建立過的班級，第一筆成績進來時自動建立成績單並補上學生
-  g3.post({ cls: '312', seat: '5', name: '戊', unit: 'u2', unitTitle: 'U', mode: 'vocab', score: 4, total: 4, pct: 100, durationSec: 90, attemptId: 'g2', details: [] });
+  g3.postScore({ cls: '312', seat: '5', name: '戊', unit: 'u2', unitTitle: 'U', mode: 'vocab', score: 4, total: 4, pct: 100, durationSec: 90, attemptId: 'g2', details: [] });
   const gb2 = g3.sheets.get('成績單 312');
   assert.ok(gb2, '第一筆成績進來要自動建立成績單');
   assert.equal(gb2.rows[1][2], '戊'); assert.equal(gb2.rows[1][1], '05'); assert.equal(gb2.rows[1][4], 100);
