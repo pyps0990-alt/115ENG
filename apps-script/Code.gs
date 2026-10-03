@@ -420,9 +420,18 @@ function ensureGradebook_(cls) {
 
 // 目前所有單元（依課次排序），成績單的欄位標題用單元代號、儲存格備註寫單元名稱
 function gradebookUnits_() {
-  return readSettingsRows_().map(function (u) { return { id: u.id, title: u.title, lesson: 0 }; })
+  // 課次 0 是 R-X（放段考複習），排在最後面；內建單元（沒有課次）排在最前面
+  var key = function (l) { return l === 0 ? 1e6 : l; };
+  return readSettingsRows_().map(function (u) { return { id: u.id, title: u.title, lesson: -1 }; })
     .concat(readCustomUnitsRows_().map(function (u) { return { id: u.id, title: u.title, lesson: u.lesson }; }))
-    .sort(function (a, b) { return a.lesson - b.lesson || (a.id < b.id ? -1 : 1); });
+    .sort(function (a, b) { return key(a.lesson) - key(b.lesson) || (a.id < b.id ? -1 : 1); });
+}
+
+// 課次欄位：1、2、3…；0 = R-X（放段考複習）；空白或不是數字當第 1 課
+function lessonCell_(v) {
+  if (v === '' || v == null) return 1;
+  var n = Math.floor(Number(v));
+  return isFinite(n) && n >= 0 ? Math.min(99, n) : 1;
 }
 
 // 成績單缺哪個單元的欄位就補上（不動已經有的欄位與分數）
@@ -858,7 +867,7 @@ function readCustomUnitsRows_() {
         id: String(r[0]).trim(),
         title: String(r[1] || r[0]),
         type: normType_(r[2]),
-        lesson: Math.max(1, Number(r[3]) || 1),
+        lesson: lessonCell_(r[3]),
         topic: String(r[4] || ''),
         visible: bool_(r[5], true),
         disabled: String(r[6] || '').split(',').map(function (s) { return s.trim(); }).filter(String),
@@ -903,7 +912,7 @@ function saveCustomUnits(units, skipPublish, nowIso) {
     .map(function (u) {
       return [
         String(u.id).trim(), String(u.title || u.id), normType_(u.type),
-        Math.max(1, Number(u.lesson) || 1), String(u.topic || ''),
+        lessonCell_(u.lesson), String(u.topic || ''),
         u.visible !== false, (u.disabled || []).join(','),
         Math.min(100, Math.max(1, Number(u.questionCount) || 10)),
         (String(u.id).trim() in created) ? created[String(u.id).trim()] : nowIso,

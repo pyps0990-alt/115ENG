@@ -1,7 +1,7 @@
 // 導覽列的「選擇單元」下拉選單：任何頁面都能直接跳到各課的單字片語或課文理解
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
-import { typeLabel, typeIcon } from './types.js';
+import { typeLabel, typeIcon, lessonLabel, lessonOrder } from './types.js';
 import { leaveBody } from './resume.js';
 
 const root = document.getElementById('nav-menu');
@@ -33,11 +33,11 @@ function close(focusBtn = false) {
 // visibleUnits：老師設定後仍開放的單元（依課次排序）
 export function initNav(visibleUnits) {
   units = visibleUnits;
-  const lessons = [...new Set(units.map((u) => u.lesson))].sort((a, b) => a - b);
+  const lessons = [...new Set(units.map((u) => u.lesson))].sort((a, b) => lessonOrder(a) - lessonOrder(b));
   panel.innerHTML = `
     <a class="menu-item home" role="menuitem" href="#/">${icon.home}<span>所有單元</span></a>
-    ${lessons.map((n) => `<div class="menu-group" role="group" aria-label="L${n}">
-      <div class="menu-head">${icon.chapter}<span>L${n}</span></div>
+    ${lessons.map((n) => `<div class="menu-group" role="group" aria-label="${lessonLabel(n)}">
+      <div class="menu-head">${icon.chapter}<span>${lessonLabel(n)}</span></div>
       ${units.filter((u) => u.lesson === n).map((u) => `<a class="menu-item" role="menuitem" href="#/u/${esc(u.id)}" data-id="${esc(u.id)}">
         <span class="menu-ic">${typeIcon(u.type)}</span>
         <span class="menu-txt"><b>${kindLabel(u)}</b><span class="en">${esc(u.title || '')}</span></span></a>`).join('')}
@@ -51,7 +51,7 @@ export function updateNav(currentId) {
   // 一個按鈕三種樣子（見 style.css 的 .menu-btn）：平常是「B5 ☰」；往下捲動只留「B5 ⌄」；點開時 B5 淡出，變成「選擇單元 ⌃」並展開選單
   const slot = (cls, inner) => `<span class="mb-slot ${cls}" aria-hidden="true"><span class="mb-in">${inner}</span></span>`;
   btn.innerHTML = slot('mb-b5', '<span class="brand-mark">B5</span>') + slot('mb-burger', icon.menu) + slot('mb-label', '<span class="menu-label">選擇單元</span>') + slot('mb-chev', icon.chevDown);
-  btn.setAttribute('aria-label', u ? `B5 選單，目前在 L${u.lesson} ${kindLabel(u)}` : 'B5 選單');
+  btn.setAttribute('aria-label', u ? `B5 選單，目前在 ${lessonLabel(u.lesson)} ${kindLabel(u)}` : 'B5 選單');
   items().forEach((a) => {
     const on = a.dataset.id ? a.dataset.id === currentId : !currentId;
     a.classList.toggle('current', on);

@@ -10,7 +10,7 @@ import { flushOutbox, pendingItems, clearOutbox, pendingCount } from './submit.j
 import { submitStateHTML } from './components/gate.js';
 import { leaveBody } from './resume.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
-import { TYPES, typeOf, typeLabel, typeIcon, bestKey } from './types.js';
+import { TYPES, typeOf, typeLabel, typeIcon, bestKey, lessonLabel, lessonOrder } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
 
@@ -113,7 +113,7 @@ const openLevels = (u) => LEVELS.filter((l) => modeOn(config, u.id, l.id));
 const hasContent = (id) => !!(config && config.content && config.content[id]);
 const visibleUnits = () => index.units.filter((u) => unitVisible(config, u.id) && hasContent(u.id)
   && (u.type === 'vocab' ? openLevels(u).length : modeOn(config, u.id, u.type)))
-  .sort((a, b) => a.lesson - b.lesson);
+  .sort((a, b) => lessonOrder(a.lesson) - lessonOrder(b.lesson));
 
 /* ---------------- 錯誤頁 ---------------- */
 // 依類型顯示學生看得懂的說明，不直接把程式的錯誤訊息丟給學生；完整訊息寫在 console，並給一個錯誤編號方便回報給老師
@@ -180,7 +180,7 @@ function renderHome() {
   }
 
   const visible = visibleUnits();
-  const lessons = [...new Set(visible.map((u) => u.lesson))].sort((a, b) => a - b);
+  const lessons = [...new Set(visible.map((u) => u.lesson))].sort((a, b) => lessonOrder(a) - lessonOrder(b));
   const host = app.querySelector('#lessons');
   if (!visible.length) {
     host.innerHTML = `<div class="empty"><div class="big">${icon.inbox}</div><h2>還沒有開放的單元</h2><p>老師開放後會出現在這裡，不用做任何設定。</p><button class="btn" type="button" data-refresh>${icon.redo} 重新整理</button></div>`;
@@ -197,12 +197,12 @@ function renderHome() {
   if (legendEl) legendEl.open = visible.every((u) => store.best(u.id)[bestKey(u.type)] == null);
   const order = { retake: 0, todo: 1, open: 2 };
   const nextRow = visible.map((u) => ({ u, ...unitStatus(u) })).filter((r) => r.k in order)
-    .sort((a, b) => order[a.k] - order[b.k] || a.u.lesson - b.u.lesson)[0];
+    .sort((a, b) => order[a.k] - order[b.k] || lessonOrder(a.u.lesson) - lessonOrder(b.u.lesson))[0];
   if (nextRow) {
     const lead = { retake: '需要補考', todo: '待檢討', open: '下一個單元' }[nextRow.k];
     app.querySelector('#next-slot').innerHTML = `<a class="next-card ${nextRow.k}" href="#/u/${esc(nextRow.u.id)}">
         <span class="nc-ic">${nextRow.ic}</span>
-        <span class="nc-txt"><span class="nc-lead">${lead}</span><b class="en">${esc(nextRow.u.title)}</b><span class="nc-note">L${nextRow.u.lesson} · ${esc(nextRow.note)}</span></span>
+        <span class="nc-txt"><span class="nc-lead">${lead}</span><b class="en">${esc(nextRow.u.title)}</b><span class="nc-note">${lessonLabel(nextRow.u.lesson)} · ${esc(nextRow.note)}</span></span>
         <span class="nc-go">${icon.arrowR}</span>
       </a>`;
   }
@@ -211,7 +211,7 @@ function renderHome() {
   host.innerHTML = filterHTML + lessons.map((n) => {
     const units = visible.filter((u) => u.lesson === n);
     return `<section class="lesson">
-      <h2 class="lesson-head">${icon.chapter}<span>L${n}</span></h2>
+      <h2 class="lesson-head">${icon.chapter}<span>${lessonLabel(n)}</span></h2>
       <div class="unit-grid">${units.map((u) => tileHTML(u)).join('')}</div>
     </section>`;
   }).join('');
@@ -276,7 +276,7 @@ function tileHTML(u) {
 function unitShellHTML(meta) {
   return `<div class="unit-head shell">
       <a class="back" href="#/">${icon.back} 所有單元</a>
-      <div class="eyebrow">${typeIcon(meta.type)}L${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
+      <div class="eyebrow">${typeIcon(meta.type)}${lessonLabel(meta.lesson)} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
     </div><div class="loading"><span class="spinner"></span>載入中…</div>`;
 }
@@ -291,7 +291,7 @@ function headHTML(meta, data) {
     : `${(data.questions || []).length} 題閱讀測驗`;
   return `<div class="unit-head">
       <a class="back" href="#/">${icon.back} 所有單元</a>
-      <div class="eyebrow">${typeIcon(meta.type)}L${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
+      <div class="eyebrow">${typeIcon(meta.type)}${lessonLabel(meta.lesson)} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
       <div class="sub"><span>${sub}</span></div>
     </div>`;
@@ -357,7 +357,7 @@ async function renderMe() {
   document.title = '我的成績 — B5 Practice';
   app.innerHTML = '<div class="loading"><span class="spinner"></span>載入你的紀錄…</div>';
   await historyReady();
-  const rows = visibleUnits().map((u) => ({ u, ...unitStatus(u) })).sort((a, b) => a.rank - b.rank || a.u.lesson - b.u.lesson);
+  const rows = visibleUnits().map((u) => ({ u, ...unitStatus(u) })).sort((a, b) => a.rank - b.rank || lessonOrder(a.u.lesson) - lessonOrder(b.u.lesson));
   const count = (k) => rows.filter((r) => r.k === k).length;
   const masked = s.name.length >= 2 ? `${s.name[0]}〇${s.name.slice(2)}` : s.name;
   app.innerHTML = `
@@ -375,7 +375,7 @@ async function renderMe() {
     </div>
     ${rows.length ? `<div class="me-list">${rows.map((r) => `<a class="me-row ${r.k}" href="#/u/${esc(r.u.id)}">
         <span class="ic-box">${r.ic}</span>
-        <span class="txt"><b>L${r.u.lesson} ${esc(r.u.title)}</b><span>${typeLabel(r.u.type)}・${esc(r.note)}</span></span>
+        <span class="txt"><b>${lessonLabel(r.u.lesson)} ${esc(r.u.title)}</b><span>${typeLabel(r.u.type)}・${esc(r.note)}</span></span>
         <span class="st">${esc(r.st)}</span></a>`).join('')}</div>`
       : `<div class="empty"><div class="big">${icon.inbox}</div><p>老師目前沒有開放任何單元。</p></div>`}
     <p class="me-note">缺交是指：單元有截止時間、已經過了，而且沒有正式測驗紀錄。缺交的單元如果需要補作，請找老師。總分未達 ${PASS}% 的單元顯示「需補考」，重新做一次正式測驗，達標就通過。</p>`;
@@ -688,7 +688,7 @@ async function boot() {
     if (on) {
       flip(false); // 考試中導覽列維持完整狀態
       const u = findUnit(decodeURIComponent(location.hash.split('/')[2] || ''));
-      examUnit.textContent = u ? `L${u.lesson} ${typeLabel(u.type)}` : '';
+      examUnit.textContent = u ? `${lessonLabel(u.lesson)} ${typeLabel(u.type)}` : '';
       examT0 = Date.now();
       paintTimer();
       examTick = setInterval(paintTimer, 1000);

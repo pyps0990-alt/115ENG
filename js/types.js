@@ -14,4 +14,8 @@ export const typeOf = (t) => (TYPES[t] ? t : 'vocab');
 export const typeLabel = (t) => TYPES[typeOf(t)].label;
 export const bestKey = (t) => TYPES[typeOf(t)].best;
 
+// 課次：1、2、3… 顯示成 L1、L2、L3…；課次 0 是 R-X（放段考複習），顯示成 R-X、排在所有課次的最後面
+export const lessonLabel = (n) => (Number(n) === 0 ? 'R-X' : `L${n}`);
+export const lessonOrder = (n) => (Number(n) === 0 ? 1e6 : Number(n));
+
 export const typeIcon = (t) => icon[TYPES[typeOf(t)].icon];
