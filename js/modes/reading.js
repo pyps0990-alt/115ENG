@@ -185,6 +185,7 @@ export function mount(stage, ctx) {
     const actions = [{ label: firstTest ? '開始檢討' : '逐題檢討', icon: icon.bulb, primary: true, onClick: () => startReview(answers) }];
     if (!firstTest) actions.push({ label: '再複習一次', icon: icon.redo, onClick: () => run(student, true) });
     if (official && !passed) { actions.forEach((a) => { a.primary = false; }); actions.unshift({ label: '馬上補考', icon: icon.redo, primary: true, onClick: () => run(student, false) }); }
+    else if (official && firstTest) actions.push({ label: '馬上補考', icon: icon.redo, onClick: () => run(student, false) });
     const box = renderResult(stage, {
       title: review ? '複習完成' : passed ? '通過！' : '未通過',
       pct,
