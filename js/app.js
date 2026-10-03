@@ -163,7 +163,7 @@ function renderHome() {
       <div id="lessons"></div>`
     : `<section class="hero">
         <h1>B5 Practice</h1>
-        <p>${esc(gradeOf(index.book || 'Book 5'))}英文 ${esc(index.book || 'Book 5')}：單字片語、課文理解、基本句型、段考複習。總分達 ${PASS}% 就通過，沒通過可以一直補考。</p>
+        <p>${esc(gradeOf(index.book || 'Book 5'))}英文 ${esc(index.book || 'Book 5')}：單字片語、課文理解、句型練習、段考複習。總分達 ${PASS}% 就通過，沒通過可以一直補考。</p>
       </section>
       <div id="welcome-slot"></div>
       <div id="lessons"></div>`;
@@ -202,7 +202,7 @@ function renderHome() {
     const lead = { retake: '需要補考', todo: '待檢討', open: '下一個單元' }[nextRow.k];
     app.querySelector('#next-slot').innerHTML = `<a class="next-card ${nextRow.k}" href="#/u/${esc(nextRow.u.id)}">
         <span class="nc-ic">${nextRow.ic}</span>
-        <span class="nc-txt"><span class="nc-lead">${lead}</span><b class="en">${esc(nextRow.u.topic || nextRow.u.title)}</b><span class="nc-note">L${nextRow.u.lesson} · ${esc(nextRow.note)}</span></span>
+        <span class="nc-txt"><span class="nc-lead">${lead}</span><b class="en">${esc(nextRow.u.title)}</b><span class="nc-note">L${nextRow.u.lesson} · ${esc(nextRow.note)}</span></span>
         <span class="nc-go">${icon.arrowR}</span>
       </a>`;
   }
@@ -255,8 +255,8 @@ function tileHTML(u) {
   const b = store.best(u.id)[bestKey(u.type)];
   const stages = openLevels(u).map((l) => l.name).join(' → ');
   const st = unitStatus(u);
-  // 大標題跟分類名稱一樣（例如標題就叫「基本句型」）時，不再重複寫一次分類名稱
-  const heading = String(u.topic || u.title || '').trim();
+  // 大標題是後台設定的標題；小標是後台設定的類型。標題剛好跟類型名稱一樣時，不重複寫類型
+  const heading = String(u.title || '').trim();
   const kind = TYPES[typeOf(u.type)].tile;
   const catLine = [heading === kind || heading === typeLabel(u.type) ? '' : kind, tileMeta(u, stages)].filter(Boolean).join(' · ');
   const chip = st.k === 'retake' && b != null && b < PASS ? `需補考 · 還差 ${PASS - b}%` : TILE_STATE[st.k];
@@ -265,7 +265,7 @@ function tileHTML(u) {
   const meter = b != null ? `<span class="meter${b >= PASS ? ' ok' : ''}" role="img" aria-label="最佳 ${b}%，及格線 ${PASS}%"><i style="width:${Math.min(100, b)}%"></i><b style="left:${PASS}%"></b></span>` : '';
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
       <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span></div>
-      <h3 class="en">${esc(u.topic || u.title)}</h3>
+      <h3 class="en">${esc(u.title)}</h3>
       <div class="tile-meta"><span class="tile-cat">${typeIcon(u.type)}</span>${catLine}</div>
       ${sub ? `<div class="tile-sub">${meter}<span>${esc(sub)}</span></div>` : ''}
     </a>`;
@@ -276,7 +276,7 @@ function tileHTML(u) {
 function unitShellHTML(meta) {
   return `<div class="unit-head shell">
       <a class="back" href="#/">${icon.back} 所有單元</a>
-      <div class="eyebrow">L${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
+      <div class="eyebrow">${typeIcon(meta.type)}L${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
     </div><div class="loading"><span class="spinner"></span>載入中…</div>`;
 }
@@ -286,14 +286,14 @@ function headHTML(meta, data) {
   const words = data.words || [];
   const phrases = words.filter((w) => w.type === 'phrase').length;
   const sub = vocab ? `單字 ${words.length - phrases} 個 · 片語 ${phrases} 個`
-    : meta.type === 'pattern' ? `${(data.items || []).length} 題基本句型`
+    : meta.type === 'pattern' ? `${(data.items || []).length} 題句型練習`
     : meta.type === 'exam' ? `${meta.count || ''} 題段考複習`.trim()
     : `${(data.questions || []).length} 題閱讀測驗`;
   return `<div class="unit-head">
       <a class="back" href="#/">${icon.back} 所有單元</a>
-      <div class="eyebrow">L${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
+      <div class="eyebrow">${typeIcon(meta.type)}L${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
-      <div class="sub"><span class="en">${esc(meta.topic || '')}</span><span>${sub}</span></div>
+      <div class="sub"><span>${sub}</span></div>
     </div>`;
 }
 
@@ -375,7 +375,7 @@ async function renderMe() {
     </div>
     ${rows.length ? `<div class="me-list">${rows.map((r) => `<a class="me-row ${r.k}" href="#/u/${esc(r.u.id)}">
         <span class="ic-box">${r.ic}</span>
-        <span class="txt"><b>L${r.u.lesson} ${esc(r.u.topic || r.u.title)}</b><span>${typeLabel(r.u.type)}・${esc(r.note)}</span></span>
+        <span class="txt"><b>L${r.u.lesson} ${esc(r.u.title)}</b><span>${typeLabel(r.u.type)}・${esc(r.note)}</span></span>
         <span class="st">${esc(r.st)}</span></a>`).join('')}</div>`
       : `<div class="empty"><div class="big">${icon.inbox}</div><p>老師目前沒有開放任何單元。</p></div>`}
     <p class="me-note">缺交是指：單元有截止時間、已經過了，而且沒有正式測驗紀錄。缺交的單元如果需要補作，請找老師。總分未達 ${PASS}% 的單元顯示「需補考」，重新做一次正式測驗，達標就通過。</p>`;

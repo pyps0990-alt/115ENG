@@ -8,7 +8,7 @@ import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore } from '../submit.js';
 import { progress } from '../resume.js';
-import { PASS } from '../types.js';
+import { PASS, typeLabel } from '../types.js';
 
 const KEYS = ['A', 'B', 'C', 'D', 'E'];
 
@@ -35,7 +35,7 @@ export function mount(stage, ctx) {
     total: qs.length,
     integer: true,
     eyebrow: 'Reading Comprehension',
-    title: data.title || '課文內容',
+    title: typeLabel(ctx.unit.type),
     rules: [
       `文章約 <b>${nWords}</b> 字，建議閱讀 ${minutes} 分鐘`,
       `共 <b>${qs.length}</b> 題，題目經過改寫，要理解文意才答得出來`,

@@ -1052,3 +1052,6 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 .explain-full { display: grid; gap: 6px; }
 .explain-full p { margin: 0; line-height: 1.75; color: var(--text); }
 .review-seg { margin-top: 0; justify-self: start; }
+
+.unit-head .eyebrow { display: flex; align-items: center; gap: 6px; }
+.unit-head .eyebrow .ic { width: 16px; height: 16px; }

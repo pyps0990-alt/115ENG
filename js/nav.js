@@ -40,7 +40,7 @@ export function initNav(visibleUnits) {
       <div class="menu-head">${icon.chapter}<span>L${n}</span></div>
       ${units.filter((u) => u.lesson === n).map((u) => `<a class="menu-item" role="menuitem" href="#/u/${esc(u.id)}" data-id="${esc(u.id)}">
         <span class="menu-ic">${typeIcon(u.type)}</span>
-        <span class="menu-txt"><b>${kindLabel(u)}</b><span class="en">${esc(u.topic || '')}</span></span></a>`).join('')}
+        <span class="menu-txt"><b>${kindLabel(u)}</b><span class="en">${esc(u.title || '')}</span></span></a>`).join('')}
     </div>`).join('')}`;
   root.hidden = !units.length;
 }

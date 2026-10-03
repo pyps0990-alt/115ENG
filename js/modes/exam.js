@@ -1,4 +1,5 @@
 // 段考複習：像真的考卷，一頁看完所有題目（選擇、拼寫、閱讀、綜合），一次交卷；交卷後看各題型成績，再逐題檢討答錯的題目
+import { typeLabel } from '../types.js';
 import { store } from '../storage.js';
 import { esc, nowStamp, confirmDialog, centerInView, splitSentences } from '../util.js';
 import { icon } from '../icons.js';
@@ -133,7 +134,7 @@ export function mount(stage, ctx) {
     total: scored.length,
     integer: true,
     eyebrow: 'Exam Review',
-    title: data.topic || '考卷內容',
+    title: typeLabel(ctx.unit.type),
     rules: [
       `共 <b>${scored.length}</b> 題計分：${esc(kindCount)}${openQs.length ? `；另有 <b>${openQs.length}</b> 題寫作（翻譯／作文）不計分，交卷後對照參考答案自己檢查` : ''}`,
       '像真的考卷一樣，一頁看完全部題目，最後一次交卷',

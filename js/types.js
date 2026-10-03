@@ -7,7 +7,7 @@ export const PASS = 65;
 export const TYPES = {
   vocab: { label: '單字片語', tile: '單字片語測驗', best: 'vocab', icon: 'catVocab' },
   reading: { label: '課文理解', tile: '課文理解', best: 'reading', icon: 'catReading' },
-  pattern: { label: '基本句型', tile: '基本句型', best: 'pattern', icon: 'catPattern' },
+  pattern: { label: '句型練習', tile: '句型練習', best: 'pattern', icon: 'catPattern' },
   exam: { label: '段考複習', tile: '段考複習', best: 'exam', icon: 'catExam' },
 };
 export const typeOf = (t) => (TYPES[t] ? t : 'vocab');

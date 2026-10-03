@@ -1,4 +1,5 @@
 // 單字片語測驗：同一組單字，依序連續完成基礎 → 進階 → 精熟三段，最後一張總成績單
+import { typeLabel } from '../types.js';
 import { store } from '../storage.js';
 import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog } from '../util.js';
 import { icon } from '../icons.js';
@@ -67,7 +68,7 @@ export function mount(stage, ctx) {
     timeWindow: () => unitWindow(ctx.config, unitId),
     total: all.length,
     eyebrow: levels.map((l) => l.en).join(' → '),
-    title: '連續測驗',
+    title: typeLabel(ctx.unit.type),
     rules: [
       `共 <b>${all.length}</b> 個（單字 ${all.length - nPhrase}、片語 ${nPhrase}），分成 <b>${levels.length}</b> 段（${sizes.join('、')} 題），每個字這次只考一次，全部都會考到`,
       '複習時單字會重新分配到不同的階段，題型和例句也會換',
