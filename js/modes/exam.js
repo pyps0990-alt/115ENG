@@ -1,4 +1,5 @@
 // 段考複習：像真的考卷，一頁看完所有題目（選擇、拼寫、閱讀、綜合），一次交卷；交卷後看各題型成績，再逐題檢討答錯的題目
+import { unitName } from '../types.js';
 import { store } from '../storage.js';
 import { esc, nowStamp, confirmDialog, centerInView, splitSentences } from '../util.js';
 import { icon } from '../icons.js';
@@ -63,6 +64,13 @@ export function mount(stage, ctx) {
     });
     return { found, html: paras.map((p) => `<p><span class="ptext">${p}</span></p>`).join('') };
   };
+  // 文意選填、篇章結構、綜合測驗：文章裡把「這一格」填回正確答案（綠底標出），其他格維持編號
+  const filledPassage = (b, q) => {
+    const n = q.sub + 1;
+    const text = q.options[q.answer];
+    const paras = (b.passage || []).map((p) => `<p><span class="ptext">${esc(p).replace(/\((\d+)\)\s*(?:_+)?/g, (m, k) => (Number(k) === n ? `<mark class="fill-ok">${esc(text)}</mark>` : `<span class="cloze-no">${k}</span>`))}</span></p>`).join('');
+    return `<details class="rv-passage" open><summary>${icon.book} 文章中的第 ${n} 格填入正確答案</summary><article class="passage-card">${b.title ? `<h2 class="passage-title en">${esc(b.title)}</h2>` : ''}${bankHTML(b)}${paras}</article></details>`;
+  };
   const passageText = (b, q) => {
     if (b.type === 'reading' && q && (q.key || q.ref)) {
       const ev = evidencePassage(b, q);
@@ -71,6 +79,12 @@ export function mount(stage, ctx) {
     return passageText0(b);
   };
   const passageText0 = (b) => `<details class="rv-passage"><summary>${icon.book} 看文章</summary>${passageCard(b)}</details>`;
+  const reviewExtra = (q) => {
+    if (!q.group) return '';
+    const b = blocks[q.block];
+    if (q.group === 'reading') return passageText(b, (b.questions || [])[q.sub]);
+    return q.sub != null && q.options && q.options[q.answer] != null ? filledPassage(b, q) : passageText0(b);
+  };
 
   // 翻譯、作文：沒有標準答案，並排你的答案、參考答案與評分重點，讓學生自己對照
   const openReviewHTML = (q, yours) => `<div class="pq rv-pq open-rv">
@@ -89,16 +103,26 @@ export function mount(stage, ctx) {
   function startReview(details) {
     document.getElementById('fx').replaceChildren();
     const firstTime = !store.reviewed(unitId);
-    const wrong = (details || []).filter((d) => !d.ok && !(byId[d.word] && byId[d.word].kind === 'open'));
+    const scoredD = (details || []).filter((d) => !(byId[d.word] && byId[d.word].kind === 'open'));
     const writing = (details || []).filter((d) => byId[d.word] && byId[d.word].kind === 'open');
+    const card = (d, no) => {
+      const q = byId[d.word];
+      if (!q) return { html: `<div class="rv-card"><div class="rv-prompt">${esc(d.q || d.question || '')}</div><div class="rv-row ok"><span>正確答案</span><b class="en">${esc(d.correct || '')}</b></div></div>` };
+      return { html: reviewCardHTML(q, d.yours, reviewExtra(q), no) };
+    };
+    // 每題都有完整解析：「答錯」只看錯的、「全部」連答對的也一起看（確認自己是真的懂，不是猜對）
+    const numbered = scoredD.map((d, k) => ({ d, no: k + 1 }));
+    const wrongCards = numbered.filter((x) => !x.d.ok).map((x) => card(x.d, x.no));
+    const allCards = numbered.map((x) => card(x.d, x.no));
+    const writingCards = writing.map((d) => ({ html: openReviewHTML(byId[d.word], d.yours) }));
     mountReview(stage, {
-      title: `${ctx.unit.title}｜${firstTime ? '檢討' : '再看一次檢討'}`,
-      items: wrong.map((d) => {
-        const q = byId[d.word];
-        if (!q) return { html: `<div class="rv-card"><div class="rv-prompt">${esc(d.q || d.question || '')}</div><div class="rv-row ok"><span>正確答案</span><b class="en">${esc(d.correct || '')}</b></div></div>` };
-        const b = blocks[q.block];
-        return { html: reviewCardHTML(q, d.yours, q.group ? passageText(b, q.group === 'reading' ? (b.questions || [])[q.sub] : null) : '') };
-      }).concat(writing.map((d) => ({ html: openReviewHTML(byId[d.word], d.yours) }))),
+      title: `${unitName(ctx.unit)}｜${firstTime ? '檢討' : '再看一次檢討'}`,
+      modes: [
+        { label: `答錯 ${wrongCards.length}`, items: wrongCards.concat(writingCards) },
+        { label: `全部 ${allCards.length + writingCards.length}`, items: allCards.concat(writingCards) },
+      ],
+      start: wrongCards.length || !writingCards.length ? 0 : 1,
+      emptyText: '這次全部答對，沒有需要檢討的題目。想確認自己是真的懂，可以切到「全部」看每題的解析。',
       onDone: () => { if (firstTime) completeReview(unitId); gate.redraw(); window.scrollTo(0, 0); },
       onExit: () => { gate.redraw(); window.scrollTo(0, 0); },
     });
@@ -110,7 +134,7 @@ export function mount(stage, ctx) {
     total: scored.length,
     integer: true,
     eyebrow: 'Exam Review',
-    title: `${ctx.unit.title}｜${data.topic || '段考複習'}`,
+    title: data.topic || '考卷內容',
     rules: [
       `共 <b>${scored.length}</b> 題計分：${esc(kindCount)}${openQs.length ? `；另有 <b>${openQs.length}</b> 題寫作（翻譯／作文）不計分，交卷後對照參考答案自己檢查` : ''}`,
       '像真的考卷一樣，一頁看完全部題目，最後一次交卷',
@@ -332,7 +356,7 @@ export function mount(stage, ctx) {
       scoreText: `${points} / ${sd.length}`,
       pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, redo ? '這是練習，不計入成績' : official && !passed ? '' : firstTest ? '接著逐題檢討，完成後才能複習' : '可以再看一次檢討'].filter(Boolean),
       passLine: official,
-      extraHTML: `${bars}${writingSummaryHTML(details)}${redo ? '' : `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`}`,
+      extraHTML: `${bars}${writingSummaryHTML(details)}${redo ? '' : `${stampHTML(student, unitName(ctx.unit), stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`}`,
       actions,
     });
     if (redo) return;

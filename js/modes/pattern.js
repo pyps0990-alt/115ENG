@@ -1,4 +1,5 @@
 // 句型練習：一次一題，選擇、填空、應用（重組句子）混合出現，作答後立刻看到解析；做完逐題檢討錯題
+import { unitName } from '../types.js';
 import { store } from '../storage.js';
 import { esc, nowStamp, wait, shuffle, centerInView } from '../util.js';
 import { icon } from '../icons.js';
@@ -32,7 +33,7 @@ export function mount(stage, ctx) {
     const firstTime = !store.reviewed(unitId);
     const wrong = (details || []).filter((d) => !d.ok);
     mountReview(stage, {
-      title: `${ctx.unit.title}｜${firstTime ? '檢討' : '再看一次檢討'}`,
+      title: `${unitName(ctx.unit)}｜${firstTime ? '檢討' : '再看一次檢討'}`,
       items: wrong.map((d) => {
         const q = all.find((x) => x.id === d.word);
         return { html: q ? reviewCardHTML(q, d.yours) : `<div class="rv-card"><div class="rv-prompt">${esc(d.q || d.question || '')}</div><div class="rv-row ok"><span>正確答案</span><b class="en">${esc(d.correct || '')}</b></div></div>` };
@@ -47,7 +48,7 @@ export function mount(stage, ctx) {
     timeWindow: () => unitWindow(ctx.config, unitId),
     total: n,
     eyebrow: 'Sentence Patterns',
-    title: `${ctx.unit.title}｜${(ctx.data || {}).topic || '句型練習'}`,
+    title: (ctx.data || {}).topic || '題目內容',
     rules: [
       `共 <b>${n}</b> 題，${esc(kindsIn)}混合出現，每次會從題庫（${all.length} 題）重新抽題`,
       '每題作答後馬上看到解析',
@@ -180,12 +181,12 @@ export function mount(stage, ctx) {
       if (official && !passed) { actions.forEach((a) => { a.primary = false; }); actions.unshift({ label: '馬上補考', icon: icon.redo, primary: true, onClick: () => play(student, false) }); }
       if (!redo && wrongN && firstTest) actions.push({ label: `重練錯的 ${wrongN} 題（不計成績）`, icon: icon.shuffle, onClick: () => play(student, false, details.filter((d) => !d.ok).map((d) => d.word)) });
       const box = renderResult(stage, {
-        title: redo ? '錯題重練完成' : `${review ? '複習' : '句型練習'}${passed ? '通過！' : official ? '未通過' : '完成'}`,
+        title: redo ? '錯題重練完成' : `${review ? '複習' : '基本句型'}${passed ? '通過！' : official ? '未通過' : '完成'}`,
         pct,
         scoreText: `${fmt(points)} / ${qs.length}`,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
         passLine: official && !review && !redo,
-        extraHTML: `${bars}${redo ? "" : stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`,
+        extraHTML: `${bars}${redo ? "" : stampHTML(student, unitName(ctx.unit), stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`,
         actions,
       });
       if (redo) {

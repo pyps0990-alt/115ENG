@@ -270,28 +270,49 @@ export function explainHTML(q) {
 }
 
 /* ---------------- 檢討卡片 ---------------- */
-// q：扁平題目；yours：學生當時的答案（選擇題是「A. 文字」）；extra：例如閱讀題的文章
-export function reviewCardHTML(q, yours, extra = '') {
+// 題幹裡的空格填入正確答案，整句讀一遍：「完整句子」（沒有空格的題目回傳空字串）
+export function filledStemHTML(q) {
+  if (!q.stem || !/_{2,}/.test(q.stem)) return '';
+  const ans = isChoice(q) ? q.options[q.answer] : altsOf(q)[0];
+  if (!ans) return '';
+  return esc(q.stem).replace(/_{2,}/g, `<mark class="fill-ok">${esc(ans)}</mark>`);
+}
+
+// 解析區塊：多行解析會分段顯示；老師沒寫解析時明講，並且至少告訴學生正確答案
+export function explainBlockHTML(q, ok) {
+  const text = String(q.explain || '').trim();
+  const body = text
+    ? text.split(/\n+/).map((l) => `<p>${esc(l)}</p>`).join('')
+    : `<p class="muted">這題沒有附解析。正確答案是 <b class="en">${esc(isChoice(q) ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : altsOf(q)[0] || '')}</b>。</p>`;
+  return `<div class="explain explain-full">${body}</div>`;
+}
+
+// q：扁平題目；yours：學生當時的答案（選擇題是「A. 文字」）；extra：例如閱讀題的文章；no：第幾題（完整檢討時顯示題號與答對／答錯）
+export function reviewCardHTML(q, yours, extra = '', no = null) {
   const ok = judge(q, yours);
-  const meta = `${esc(q.label)}${q.tag ? `・${esc(q.tag)}` : ''}`;
+  const chip = no != null ? `<span class="rv-chip ${ok ? 'ok' : 'no'}">${ok ? `${icon.check} 答對` : `${icon.x} ${String(yours || '').trim() ? '答錯' : '未作答'}`}</span>` : '';
+  const meta = `${esc(q.label)}${q.tag ? `・${esc(q.tag)}` : ''}${chip}`;
+  const filled = filledStemHTML(q);
   if (isChoice(q)) {
     const a = choiceIndex(yours);
     return `<div class="pq rv-pq ${ok ? 'is-ok' : 'is-no'}">${extra}
-      <div class="pq-head"><span class="pq-num">${icon.bulb}</span><div><span class="skill">${meta}</span><div class="pq-q en">${blankHTML(q.stem)}</div></div></div>
+      <div class="pq-head"><span class="pq-num">${no != null ? no : icon.bulb}</span><div><span class="skill">${meta}</span><div class="pq-q en">${blankHTML(q.stem)}</div></div></div>
+      ${filled ? `<div class="rv-filled"><span>完整句子</span><p class="en">${filled}</p></div>` : ''}
       <div class="options">${q.options.map((o, j) => {
     const cls = j === q.answer ? `correct${ok ? '' : ' reveal'}` : j === a ? 'wrong' : 'dim';
     const mark = j === q.answer ? icon.check : j === a ? icon.x : '';
     return `<div class="opt ${cls}"><span class="opt-key">${KEYS[j]}</span><span class="opt-text en">${esc(o)}</span><span class="opt-mark" aria-hidden="true">${mark}</span></div>`;
   }).join('')}</div>
-      ${q.explain ? `<div class="explain"><b class="ex-head ${ok ? 'ok' : 'no'}">${ok ? `${icon.check} 答對` : a == null ? `${icon.x} 未作答・正解 ${KEYS[q.answer]}` : `${icon.x} 你選 ${KEYS[a]}・正解 ${KEYS[q.answer]}`}</b><p>${esc(q.explain)}</p></div>` : ''}
+      <div class="explain-wrap"><b class="ex-head ${ok ? 'ok' : 'no'}">${ok ? `${icon.check} 答對・正解 ${KEYS[q.answer]}` : a == null ? `${icon.x} 未作答・正解 ${KEYS[q.answer]}` : `${icon.x} 你選 ${KEYS[a]}・正解 ${KEYS[q.answer]}`}</b>${explainBlockHTML(q, ok)}</div>
     </div>`;
   }
   const prompt = q.kind === 'apply' ? esc(q.zh) : blankHTML(q.stem);
   return `<div class="rv-card">
-    <div class="rv-meta">${meta}</div>
+    <div class="rv-meta">${no != null ? `第 ${no} 題・` : ''}${meta}</div>
     <div class="rv-prompt en">${prompt}</div>
     <div class="rv-row ${ok ? 'ok' : 'no'}"><span>你的答案</span><b class="en">${String(yours || '').trim() ? (ok ? esc(yours) : diffAnswer(yours, altsOf(q)).yoursHTML) : '（未作答）'}</b></div>
     ${ok ? '' : `<div class="rv-row ok"><span>正確答案</span><b class="en">${diffAnswer(yours, altsOf(q)).correctHTML}</b></div>`}
-    ${q.explain ? `<p class="xp-tip">${esc(q.explain)}</p>` : ''}
+    ${filled ? `<div class="rv-filled"><span>完整句子</span><p class="en">${filled}</p></div>` : ''}
+    <div class="explain-wrap"><b class="ex-head ${ok ? 'ok' : 'no'}">${icon.bulb} 解析</b>${explainBlockHTML(q, ok)}</div>
   </div>`;
 }

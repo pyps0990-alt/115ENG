@@ -1,4 +1,5 @@
 // 單字片語測驗：同一組單字，依序連續完成基礎 → 進階 → 精熟三段，最後一張總成績單
+import { unitName } from '../types.js';
 import { store } from '../storage.js';
 import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog } from '../util.js';
 import { icon } from '../icons.js';
@@ -55,7 +56,7 @@ export function mount(stage, ctx) {
     document.getElementById('fx').replaceChildren();
     const firstTime = !store.reviewed(unitId);
     mountReview(stage, {
-      title: `${ctx.unit.title}｜${firstTime ? '檢討' : '再看一次檢討'}`,
+      title: `${unitName(ctx.unit)}｜${firstTime ? '檢討' : '再看一次檢討'}`,
       items: (details || []).filter((d) => !d.ok).map((d) => ({ html: reviewItemHTML(d) })),
       onDone: () => { if (firstTime) completeReview(unitId); gate.redraw(); window.scrollTo(0, 0); },
       onExit: () => { gate.redraw(); window.scrollTo(0, 0); },
@@ -67,7 +68,7 @@ export function mount(stage, ctx) {
     timeWindow: () => unitWindow(ctx.config, unitId),
     total: all.length,
     eyebrow: levels.map((l) => l.en).join(' → '),
-    title: `${ctx.unit.title}連續測驗`,
+    title: '連續測驗',
     rules: [
       `共 <b>${all.length}</b> 個（單字 ${all.length - nPhrase}、片語 ${nPhrase}），分成 <b>${levels.length}</b> 段（${sizes.join('、')} 題），每個字這次只考一次，全部都會考到`,
       '複習時單字會重新分配到不同的階段，題型和例句也會換',
@@ -331,7 +332,7 @@ export function mount(stage, ctx) {
         passLine: firstTest,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
         extraHTML: bars + (official
-          ? `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`
+          ? `${stampHTML(student, unitName(ctx.unit), stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`
           : '<p class="muted">錯題練習不會送出成績</p>'),
         // 正式測驗的錯題改用逐題檢討，這裡只在錯題練習時列出
         wrong: official ? [] : wrong.map((w) => ({ p: `〔${w.level.name}〕${promptText(w.q)}`, a: answerText(w.q), y: w.yours, x: w.xp })),

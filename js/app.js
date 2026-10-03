@@ -10,7 +10,7 @@ import { flushOutbox, pendingItems, clearOutbox, pendingCount } from './submit.j
 import { submitStateHTML } from './components/gate.js';
 import { leaveBody } from './resume.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
-import { TYPES, typeOf, typeLabel, typeIcon, bestKey } from './types.js';
+import { TYPES, typeOf, typeLabel, typeIcon, bestKey, unitName } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
 
@@ -163,7 +163,7 @@ function renderHome() {
       <div id="lessons"></div>`
     : `<section class="hero">
         <h1>B5 Practice</h1>
-        <p>${esc(gradeOf(index.book || 'Book 5'))}英文 ${esc(index.book || 'Book 5')}：單字片語、課文理解、句型練習、段考複習。總分達 ${PASS}% 就通過，沒通過可以一直補考。</p>
+        <p>${esc(gradeOf(index.book || 'Book 5'))}英文 ${esc(index.book || 'Book 5')}：單字片語、課文理解、基本句型、段考複習。總分達 ${PASS}% 就通過，沒通過可以一直補考。</p>
       </section>
       <div id="welcome-slot"></div>
       <div id="lessons"></div>`;
@@ -272,8 +272,7 @@ function tileHTML(u) {
 function unitShellHTML(meta) {
   return `<div class="unit-head shell">
       <a class="back" href="#/">${icon.back} 所有單元</a>
-      <div class="eyebrow">L${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
-      <h1>${esc(meta.title)}</h1>
+      <h1>${esc(unitName(meta))}</h1>
     </div><div class="loading"><span class="spinner"></span>載入中…</div>`;
 }
 
@@ -282,13 +281,12 @@ function headHTML(meta, data) {
   const words = data.words || [];
   const phrases = words.filter((w) => w.type === 'phrase').length;
   const sub = vocab ? `單字 ${words.length - phrases} 個 · 片語 ${phrases} 個`
-    : meta.type === 'pattern' ? `${(data.items || []).length} 題句型練習`
+    : meta.type === 'pattern' ? `${(data.items || []).length} 題基本句型`
     : meta.type === 'exam' ? `${meta.count || ''} 題段考複習`.trim()
     : `${(data.questions || []).length} 題閱讀測驗`;
   return `<div class="unit-head">
       <a class="back" href="#/">${icon.back} 所有單元</a>
-      <div class="eyebrow">L${meta.lesson} · ${TYPES[typeOf(meta.type)].tile}</div>
-      <h1>${esc(meta.title)}</h1>
+      <h1>${esc(unitName(meta))}</h1>
       <div class="sub"><span class="en">${esc(meta.topic || '')}</span><span>${sub}</span></div>
     </div>`;
 }
@@ -314,7 +312,7 @@ async function renderUnit(id, sub) {
 
   if (meta.type !== 'vocab') {
     if (!modeOn(config, meta.id, meta.type)) { locked(meta); return; }
-    document.title = `${meta.title} — B5 Practice`;
+    document.title = `${unitName(meta)} — B5 Practice`;
     app.innerHTML = `<div class="focus">${headHTML(meta, data)}<section id="stage"></section></div>`;
     cleanup = mod.mount(app.querySelector('#stage'), { unit: meta, data, config, questionCount: questionCount(config, meta.id) }) || null;
     return;
@@ -324,7 +322,7 @@ async function renderUnit(id, sub) {
   if (!levels.length) { locked(meta); return; }
   // 舊網址（#/u/l1-voc/basic 等）一律導回單元頁
   if (sub) { location.replace(`#/u/${meta.id}`); return; }
-  document.title = `${meta.title} — B5 Practice`;
+  document.title = `${unitName(meta)} — B5 Practice`;
   app.innerHTML = `<div class="focus">${headHTML(meta, data)}<section id="stage"></section></div>`;
   cleanup = mod.mount(app.querySelector('#stage'), {
     unit: meta, data, allWords: data.words || [], config, levels,
@@ -684,7 +682,7 @@ async function boot() {
     if (on) {
       flip(false); // 考試中導覽列維持完整狀態
       const u = findUnit(decodeURIComponent(location.hash.split('/')[2] || ''));
-      examUnit.textContent = u ? `L${u.lesson} ${typeLabel(u.type)}` : '';
+      examUnit.textContent = u ? unitName(u) : '';
       examT0 = Date.now();
       paintTimer();
       examTick = setInterval(paintTimer, 1000);

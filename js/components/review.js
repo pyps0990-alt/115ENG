@@ -4,8 +4,11 @@ import { icon } from '../icons.js';
 import { store } from '../storage.js';
 
 // items: [{ html, mount?(el) }]；emptyText：沒有題目要檢討時顯示的文字
-export function mountReview(host, { title, items, emptyText = '這次全部答對，沒有需要檢討的題目。', onDone, onExit }) {
+// modes：[{ label, items }]，有的話在標題下面顯示切換鈕（例如「答錯 3｜全部 25」），一開始用第 start 個
+export function mountReview(host, { title, items: itemsIn, modes = null, start = 0, emptyText = '這次全部答對，沒有需要檢討的題目。', onDone, onExit }) {
   let i = 0;
+  let m = start;
+  let items = modes ? modes[m].items : itemsIn;
   const box = document.createElement('div');
   box.className = 'review';
   host.replaceChildren(box);
@@ -19,6 +22,7 @@ export function mountReview(host, { title, items, emptyText = '這次全部答�
         <div><div class="eyebrow">Review</div><h2>${esc(title)}</h2></div>
         ${n ? `<span class="review-count">${i + 1} / ${n}</span>` : ''}
       </div>
+      ${modes ? `<div class="seg review-seg" role="group" aria-label="檢討範圍">${modes.map((x, k) => `<button type="button" data-mode="${k}" aria-pressed="${k === m}">${esc(x.label)}</button>`).join('')}</div>` : ''}
       ${n ? `<div class="review-bar"><span style="width:${((i + 1) / n) * 100}%"></span></div>` : ''}
       <div class="review-body" data-body>${n ? items[i].html : `<div class="empty"><div class="big">${icon.check}</div><p>${esc(emptyText)}</p></div>`}</div>
       <div class="review-nav">
@@ -27,6 +31,7 @@ export function mountReview(host, { title, items, emptyText = '這次全部答�
       </div>`;
     if (n && items[i].mount) items[i].mount(box.querySelector('[data-body]'));
     box.querySelector('[data-exit]').onclick = () => onExit?.();
+    box.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => { m = Number(b.dataset.mode); items = modes[m].items; i = 0; draw(); }));
     box.querySelector('[data-prev]')?.addEventListener('click', () => { i--; draw(); box.scrollIntoView({ block: 'nearest' }); });
     box.querySelector('[data-next]').onclick = () => {
       if (last) { onDone?.(); return; }

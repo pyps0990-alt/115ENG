@@ -132,7 +132,6 @@ main.container { padding-block: 24px 56px; outline: none; flex: 1 0 auto; }
   .topbar-inner { position: relative; }
 }
 @media (max-width: 360px) {
-  .menu-btn .menu-label { max-width: 6.5em; overflow: hidden; text-overflow: ellipsis; }
   .chip-btn .ic { display: none; }
 }
 
@@ -644,26 +643,35 @@ body.scrolled .topbar::after { opacity: 1; }
    平常「B5 ☰」；往下捲動只留「B5 ⌄」（小的向下箭頭）；點開時 B5 淡出，變成「選擇單元 ⌃」並展開選單。
    有選單時（登入、有開放的單元）左上角只剩這一個按鈕；沒有選單的畫面（登入前）與考試中仍顯示 B5 連結。 */
 body:not(.exam) .topbar:has(#nav-menu:not([hidden])) .brand { display: none; }
+/* 每個零件各自一個「格線欄」：欄寬在 0fr 與 1fr 之間過渡，零件依自己實際的寬度展開／收起，不寫死任何寬度，也不會把文字切到一半。
+   同時用透明度與位移淡入淡出；整個按鈕的寬度跟著零件連續變化，沒有跳動。 */
 .menu-btn { gap: 0; padding: 0 12px 0 8px; }
-.menu-btn .brand-mark { width: 28px; height: 28px; border-radius: 8px; font-size: .78rem; font-family: var(--font-en); font-weight: 900; flex: none; overflow: hidden; }
-.menu-btn .brand-mark, .menu-btn .mb-burger, .menu-btn .mb-chev, .menu-btn .menu-label { transition: opacity .22s ease, max-width .28s var(--nav-ease), margin .28s var(--nav-ease), transform .28s var(--nav-ease); }
-.menu-btn .mb-burger, .menu-btn .mb-chev { display: inline-flex; align-items: center; overflow: hidden; }
-.menu-btn .mb-burger { max-width: 24px; margin-left: 8px; opacity: 1; }
-.menu-btn .mb-chev { max-width: 0; margin-left: 0; opacity: 0; }
-.menu-btn .mb-chev .ic { width: 14px; height: 14px; }
-.menu-btn .menu-label { max-width: 0; margin-left: 0; opacity: 0; }
-/* 往下捲動（沒開選單時）：☰ 收起，換成小的向下箭頭 */
-body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-burger { max-width: 0; margin-left: 0; opacity: 0; }
-body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev { max-width: 16px; margin-left: 6px; opacity: 1; }
-/* 點開：B5 與 ☰ 淡出，顯示「選擇單元 ⌃」 */
-.menu-btn[aria-expanded="true"] .brand-mark { max-width: 0; width: 0; opacity: 0; transform: scale(.6); }
-.menu-btn[aria-expanded="true"] .mb-burger { max-width: 0; margin-left: 0; opacity: 0; }
-.menu-btn[aria-expanded="true"] .menu-label { max-width: 8em; margin-left: 4px; opacity: 1; }
-.menu-btn[aria-expanded="true"] .mb-chev { max-width: 16px; margin-left: 6px; opacity: 1; transform: rotate(180deg); }
+.mb-slot { display: grid; grid-template-columns: 1fr; transition: grid-template-columns .34s var(--nav-ease); }
+.mb-in { min-width: 0; overflow: hidden; display: flex; align-items: center; white-space: nowrap; opacity: 1; transition: opacity .26s ease, transform .34s var(--nav-ease); }
+.mb-in > * { flex: none; }
+.mb-b5 .brand-mark { width: 28px; height: 28px; border-radius: 8px; font-size: .78rem; font-family: var(--font-en); font-weight: 900; }
+.mb-burger .mb-in { padding-left: 0; }
+.mb-burger .ic { margin-left: 8px; }
+.mb-chev .ic { width: 14px; height: 14px; margin-left: 6px; transition: transform .34s var(--nav-ease); }
+.mb-label .menu-label { margin-left: 4px; }
+/* 平常「B5 ☰」：隱藏 選擇單元 與 小箭頭 */
+.mb-label, .mb-chev { grid-template-columns: 0fr; }
+.mb-label .mb-in, .mb-chev .mb-in { opacity: 0; transform: translateX(-6px); }
+/* 往下捲動（沒開選單時）「B5 ⌄」：☰ 收起，小箭頭出現 */
+body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-burger { grid-template-columns: 0fr; }
+body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-burger .mb-in { opacity: 0; transform: translateX(6px); }
+body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev { grid-template-columns: 1fr; }
+body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1; transform: none; }
+/* 點開「選擇單元 ⌃」：B5 與 ☰ 淡出收起，文字與向上箭頭展開 */
+.menu-btn[aria-expanded="true"] .mb-b5, .menu-btn[aria-expanded="true"] .mb-burger { grid-template-columns: 0fr; }
+.menu-btn[aria-expanded="true"] .mb-b5 .mb-in { opacity: 0; transform: scale(.6); }
+.menu-btn[aria-expanded="true"] .mb-burger .mb-in { opacity: 0; transform: translateX(6px); }
+.menu-btn[aria-expanded="true"] .mb-label, .menu-btn[aria-expanded="true"] .mb-chev { grid-template-columns: 1fr; }
+.menu-btn[aria-expanded="true"] .mb-label .mb-in, .menu-btn[aria-expanded="true"] .mb-chev .mb-in { opacity: 1; transform: none; }
+.menu-btn[aria-expanded="true"] .mb-chev .ic { transform: rotate(180deg); }
 .menu-btn { max-width: 100%; min-width: 0; padding-left: 8px; transform: scale(var(--sc, 1));
   transition: transform .2s var(--nav-ease), background .2s ease; }
 .menu-btn:active { --sc: .96; transition-duration: .1s, .2s; }
-.menu-btn .menu-label { display: inline-block; overflow: hidden; text-overflow: ellipsis; min-width: 0; white-space: nowrap; }
 .top-actions { flex: 0 0 auto; }
 .chip-btn { overflow: visible; transition: background .2s ease, transform .12s ease; }
 .chip-btn:active { transform: scale(.97); }
@@ -682,7 +690,7 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev { max-width: 16px; 
 .menu-panel.open { visibility: visible; opacity: 1; pointer-events: auto; transform: translate3d(var(--mx, 0), 0, 0);
   transition: opacity .2s ease, transform .3s var(--nav-ease), visibility 0s; }
 @media (prefers-reduced-motion: reduce) {
-  .brand, .menu-btn, .menu-btn .brand-mark, .menu-btn .menu-label, .menu-btn .ic:last-child, .topbar::after, .menu-panel { transition: none !important; }
+  .brand, .menu-btn, .mb-slot, .mb-in, .mb-chev .ic, .topbar::after, .menu-panel { transition: none !important; }
   .menu-panel.open .menu-item, .menu-panel.open .menu-head, #student-chip:not([hidden]) { animation: none; }
 }
 
@@ -1030,3 +1038,17 @@ mark.bit-miss { background: var(--good-soft); color: var(--good-ink); text-decor
 
 .lesson-head .ic { width: 22px; height: 22px; color: var(--navy); }
 .menu-head .ic { width: 16px; height: 16px; }
+
+/* 完整解析：完整句子、填回答案的文章、答對／答錯標記、多段解析 */
+mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft); color: var(--good-ink); font-weight: 800; }
+.rv-filled { display: grid; gap: 4px; padding: 10px 14px; border-radius: 12px; background: var(--white); border: 1.5px solid var(--line); }
+.rv-filled > span { font-size: .8rem; font-weight: 800; color: var(--steel); }
+.rv-filled p { margin: 0; font-size: 1.05rem; line-height: 1.7; color: var(--navy); }
+.rv-chip { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 0 8px; border-radius: 999px; font-size: .78rem; font-weight: 800; vertical-align: 1px; }
+.rv-chip .ic { width: 12px; height: 12px; stroke-width: 3; }
+.rv-chip.ok { background: var(--good-soft); color: var(--good-ink); }
+.rv-chip.no { background: var(--bad-soft); color: var(--bad-ink); }
+.explain-wrap { display: grid; gap: 6px; }
+.explain-full { display: grid; gap: 6px; }
+.explain-full p { margin: 0; line-height: 1.75; color: var(--text); }
+.review-seg { margin-top: 0; justify-self: start; }
