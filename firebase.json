@@ -9,7 +9,8 @@
       "tools/**",
       "README.md",
       "firestore.rules",
-      "*.zip"
+      "*.zip",
+      "*.log"
     ],
     "headers": [
       {
