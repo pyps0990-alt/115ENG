@@ -265,7 +265,7 @@ export function mount(stage, ctx) {
       const host = stage.querySelector('[data-q]');
       host.innerHTML = `<div class="stage-card slide-in">
           <div class="stage-done"><span class="stage-badge">${icon.check}</span><div><div class="eyebrow">第 ${si + 1} 段完成</div><h2>${s.level.name}</h2></div>
-            <div class="stage-score"><b>${fmt(s.points)}</b> / ${s.qs.length}<span>${pct}%</span></div></div>
+            <div class="stage-score"><div class="ss-frac"><b>${fmt(s.points)}</b><i>/ ${s.qs.length}</i></div><span>${pct}%</span></div></div>
           <div class="stage-next">
             <div class="eyebrow">下一段 · 第 ${si + 2} 段</div>
             <h3>${nx.level.name}<span class="en">${nx.level.en}</span></h3>

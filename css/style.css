@@ -400,6 +400,8 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 .stage-badge .ic { width: 26px; height: 26px; }
 .stage-score { margin-left: auto; font-family: var(--font-en); font-size: 1.1rem; color: var(--navy); display: grid; justify-items: end; line-height: 1.2; }
 .stage-score b { font-size: 2rem; font-weight: 900; }
+.ss-frac { display: flex; align-items: baseline; gap: .3em; white-space: nowrap; }
+.ss-frac i { font-style: normal; }
 .stage-score span { font-size: .85rem; color: var(--good-ink); font-weight: 800; }
 .stage-next { background: var(--white); border-radius: 16px; padding: 16px 18px; display: grid; gap: 6px; }
 .stage-next h3 { font-size: 1.35rem; font-weight: 900; display: flex; align-items: baseline; gap: 10px; }
