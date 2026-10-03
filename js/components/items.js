@@ -25,6 +25,29 @@ export function expandAlts(str) {
 export const altsOf = (q) => expandAlts(q.answer);
 export const fillOk = (q, typed) => altsOf(q).map(normAns).includes(normAns(typed));
 
+// 應用題（重組句子）部分給分：拿排出來的句子跟每一種可接受的寫法比，算「順序一致的單字數」（最長共同子序列）除以較長那句的單字數，
+// 取最接近的那一種。全對＝1 分；單字有排進去、相對順序對就有分；整個倒過來或亂排就接近 0。四捨五入到兩位小數。
+function lcsLen(a, b) {
+  const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+  }
+  return dp[a.length][b.length];
+}
+export function applyScore(q, built) {
+  if (fillOk(q, built)) return 1;
+  const mine = normAns(built).split(' ').filter(Boolean);
+  if (!mine.length) return 0;
+  let best = 0;
+  for (const alt of altsOf(q)) {
+    const want = normAns(alt).split(' ').filter(Boolean);
+    if (!want.length) continue;
+    best = Math.max(best, lcsLen(want, mine) / Math.max(want.length, mine.length));
+  }
+  // 沒有完全一樣就不給滿分（即使算出來接近 1）
+  return Math.min(0.99, Math.round(best * 100) / 100);
+}
+
 // 題目文字裡的空格（____）畫成底線
 export const blankHTML = (s) => esc(s).replace(/_{2,}/g, '<span class="blank"></span>');
 
@@ -223,12 +246,13 @@ export function renderApplyCard(host, q, { meta = '應用：把單字排成正�
     if (done || !picked.length) return;
     done = true;
     const built = picked.map((i) => q.words[i]).join(' ');
-    const ok = fillOk(q, built);
+    const score = applyScore(q, built);
+    const ok = score === 1;
     line.classList.add(ok ? 'ok' : 'no');
     card.querySelectorAll('.fill-area .btn').forEach((b) => { b.disabled = true; });
     paint();
     if (!ok) { const a = card.querySelector('.answer-line'); a.hidden = false; a.innerHTML = `正確答案：<b class="en">${esc(altsOf(q).slice(0, 4).join(' / '))}</b>`; }
-    onAnswer?.(ok, built);
+    onAnswer?.(ok, built, score);
   });
   paint();
   return { el: card };

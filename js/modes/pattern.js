@@ -11,6 +11,8 @@ import { progress } from '../resume.js';
 import { PASS } from '../levels.js';
 import { flattenPattern, renderChoiceCard, renderFillCard, renderApplyCard, explainHTML, reviewCardHTML, correctText, KIND_LABEL } from '../components/items.js';
 
+const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ''));
+
 export function mount(stage, ctx) {
   const all = flattenPattern((ctx.data || {}).items);
   const unitId = ctx.unit.id;
@@ -48,6 +50,7 @@ export function mount(stage, ctx) {
     rules: [
       `共 <b>${n}</b> 題，${esc(kindsIn)}混合出現，每次會從題庫（${all.length} 題）重新抽題`,
       '每題作答後馬上看到解析',
+      ...(all.some((q) => q.kind === 'apply') ? ['應用題（排句子）部分給分：排進去的單字越多、順序越接近，分數越高'] : []),
       `總分達 <b>${PASS}%</b> 就算通過，做完可以逐題檢討錯題`,
     ],
     best: () => store.best(unitId).pattern,
@@ -99,18 +102,19 @@ export function mount(stage, ctx) {
       nextBtn.hidden = true;
       const host = stage.querySelector('[data-q]');
       host.innerHTML = '';
-      const done = (ok, yours) => answered(q, ok, yours);
+      const done = (ok, yours, score) => answered(q, ok, yours, score);
       if (q.kind === 'mc') current = renderChoiceCard(host, q, { meta: `第 ${qi + 1} 題・選擇`, onAnswer: done });
       else if (q.kind === 'fill') current = renderFillCard(host, q, { meta: `第 ${qi + 1} 題・填空`, onAnswer: done });
       else current = renderApplyCard(host, q, { meta: `第 ${qi + 1} 題・應用`, onAnswer: done });
       centerInView(host.querySelector('.q-card'));
     }
 
-    function answered(q, ok, yours) {
-      if (ok) points++;
+    // got：這題得幾分。選擇、填空不是 1 就是 0；應用題（重組句子）可以拿到部分分數
+    function answered(q, ok, yours, got = ok ? 1 : 0) {
+      points = Math.round((points + got) * 100) / 100;
       details.push({
         stage: '句型練習', n: qi + 1, kind: q.label, q: q.kind === 'apply' ? q.zh : q.stem, correct: correctText(q), yours: String(yours || ''),
-        ok, points: ok ? 1 : 0, hints: 0, word: q.id, err: '',
+        ok, points: got, hints: 0, word: q.id, err: '',
       });
       const fb = stage.querySelector('[data-fb]');
       const st = stage.querySelector('[data-streak]');
@@ -122,7 +126,7 @@ export function mount(stage, ctx) {
       } else {
         streak = 0;
         fb.className = 'feedback no';
-        fb.innerHTML = `${icon.x} 看一下解析`;
+        fb.innerHTML = got > 0 ? `${icon.x} 差一點，得 ${fmt(got)} 分，看一下解析` : `${icon.x} 看一下解析`;
       }
       st.querySelector('b').textContent = streak;
       stage.querySelector('[data-q]').insertAdjacentHTML('beforeend', explainHTML(q));
@@ -152,14 +156,14 @@ export function mount(stage, ctx) {
       const passed = pct >= PASS;
       if (official) { if (passed) store.setDone(unitId); else store.setTried(unitId); }
       const byKind = {};
-      details.forEach((d) => { const k = (byKind[d.kind] = byKind[d.kind] || { ok: 0, n: 0 }); k.n++; if (d.ok) k.ok++; });
-      const per = Object.entries(byKind).map(([k, v]) => `${k} ${v.ok}/${v.n}`).join('・');
+      details.forEach((d) => { const k = (byKind[d.kind] = byKind[d.kind] || { ok: 0, n: 0 }); k.n++; k.ok = Math.round((k.ok + (Number(d.points) || 0)) * 100) / 100; });
+      const per = Object.entries(byKind).map(([k, v]) => `${k} ${fmt(v.ok)}/${v.n}`).join('・');
       const firstTest = !review && !redo;
       if (firstTest) store.setFirst(unitId, { mode: 'pattern', details });
       stage.innerHTML = '';
       const bars = `<div class="stage-bars">${Object.entries(byKind).map(([k, v]) => {
         const p = Math.round((v.ok / v.n) * 100);
-        return `<div class="stage-bar"><span class="sb-name">${esc(k)}</span><span class="bar"><span style="width:${p}%"></span></span><span class="sb-score">${v.ok}/${v.n}</span></div>`;
+        return `<div class="stage-bar"><span class="sb-name">${esc(k)}</span><span class="bar"><span style="width:${p}%"></span></span><span class="sb-score">${fmt(v.ok)}/${v.n}</span></div>`;
       }).join('')}</div>`;
       const wrongN = details.filter((d) => !d.ok).length;
       const actions = [];
@@ -177,7 +181,7 @@ export function mount(stage, ctx) {
       const box = renderResult(stage, {
         title: redo ? '錯題重練完成' : `${review ? '複習' : '句型練習'}${passed ? '通過！' : official ? '未通過' : '完成'}`,
         pct,
-        scoreText: `${points} / ${qs.length}`,
+        scoreText: `${fmt(points)} / ${qs.length}`,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
         passLine: official && !review && !redo,
         extraHTML: `${bars}${redo ? "" : stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`,
