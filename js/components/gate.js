@@ -8,7 +8,7 @@ import { SCRIPT_URL } from '../config.js';
 import { PASS } from '../types.js';
 
 // review()：做過正式測驗了嗎；reviewed()：檢討完了嗎。
-// 做過但還沒檢討：只顯示「開始檢討」；檢討完才會出現「開始複習」。
+// 做過但還沒檢討：只能先檢討，「開始複習」鎖住；檢討完才能複習。
 // resume()：回傳 { label, onResume(student), discard() } 代表有做到一半的測驗，沒有就回傳 null
 // total：計分的總分（題數）；integer：每題只有 1 分或 0 分（課文理解），過關分數用整數題數表示
 export function testGate(stage, { eyebrow = '', rules = [], best, review = false, reviewed = true, retake = false, timeWindow, onStart, onReview, resume }) {
@@ -39,7 +39,8 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
       ? `<button class="btn primary" type="button" data-start>${icon.play} 開始補考</button>${onReview ? `<button class="btn ghost" type="button" data-review>${icon.bulb} 看上次的檢討</button>` : ''}`
       : `<button class="btn primary" type="button" data-start>${icon.play} 開始測驗</button>`;
     if (isReview && needReview) {
-      buttons = `<button class="btn primary" type="button" data-review>${icon.bulb} 開始檢討</button>`;
+      buttons = `<button class="btn primary" type="button" data-review>${icon.bulb} 開始檢討</button>
+        <button class="btn" type="button" data-start disabled title="完成檢討後才能複習">${icon.lock} 開始複習</button>`;
     } else if (isReview) {
       buttons = `<button class="btn primary" type="button" data-start>${icon.play} 開始複習</button>
         ${onReview ? `<button class="btn ghost" type="button" data-review>${icon.bulb} 再看一次檢討</button>` : ''}`;
@@ -56,7 +57,7 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
     // 及格線是老師設定的（PASS 在 js/types.js）：只講百分比；部分給分的題型換算成題數會出現小數，反而看不懂
     const passText = `老師設定的及格線是 <b>${PASS}%</b>`;
     const lead = rs ? `你有一份做到一半的測驗（${rs.label}），可以接著做，也可以重新開始。`
-      : needReview ? '先逐題檢討第一次測驗的作答。'
+      : needReview ? '先逐題檢討完第一次測驗，才能開始複習。'
       : isReview ? '你已經通過這個單元，這次是複習，成績會標記為複習送給老師。'
       : needRetake ? `上次${bestNow != null ? ` <b>${bestNow}%</b>，還差 <b>${Math.max(0, PASS - bestNow)}%</b>` : ' 還沒通過'}。這次重新做一次：${passText}，達到就通過，沒有次數限制。`
       : `${passText}，達到就通過；沒通過可以一直補考。`;
@@ -67,7 +68,7 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
     const box = document.createElement('div');
     box.className = 'gate';
     box.innerHTML = `<div class="card gate-card">
-        ${(() => { const tag = [eyebrow, isReview && !needReview ? '複習' : needRetake ? '補考' : ''].filter(Boolean).join(' · '); return tag ? `<div class="eyebrow">${esc(tag)}</div>` : ''; })()}
+        ${(() => { const tag = [eyebrow, isReview ? '複習' : needRetake ? '補考' : ''].filter(Boolean).join(' · '); return tag ? `<div class="eyebrow">${esc(tag)}</div>` : ''; })()}
         <p class="gate-lead">${lead}</p>
         ${bestNow != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${bestNow}%</b></div>` : ''}
         ${timeNote ? `<p class="gate-note">${timeNote}</p>` : ''}
@@ -79,7 +80,7 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
       </div>`;
     box.querySelector('.edit').onclick = () => openStudentDialog(draw);
     const start = box.querySelector('[data-start]');
-    if (start && !start.disabled) {
+    if (!start.disabled) {
       start.onclick = async () => {
         // 有做到一半的進度時，重新開始會捨棄它：先確認
         if (rs && !(await confirmDialog({ title: '重新開始？', body: '做到一半的進度會被捨棄，這次要重新做一份新的。', ok: '重新開始', cancel: '繼續上次', danger: true }))) return;
