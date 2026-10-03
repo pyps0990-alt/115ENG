@@ -33,8 +33,6 @@ export function renderResult(host, { title, pct, scoreText, pills = [], wrong = 
   box.innerHTML = `
     <div class="ring" role="img" aria-label="得分 ${pct}%${passLine ? (pct >= PASS ? `，已達及格線 ${PASS}%` : `，未達及格線 ${PASS}%，還差 ${PASS - pct}%`) : ''}">
       <svg viewBox="0 0 120 120">
-        <defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" style="stop-color:var(--primary)"/><stop offset="1" style="stop-color:var(--accent)"/></linearGradient></defs>
         <circle class="track" cx="60" cy="60" r="52"/>
         <circle class="val" cx="60" cy="60" r="52" style="stroke-dasharray:${CIRC};stroke-dashoffset:${CIRC}"/>
         ${passLine && pct < PASS ? `<circle class="gap" cx="60" cy="60" r="52" style="stroke-dasharray:${(CIRC * (PASS - pct)) / 100} ${CIRC};stroke-dashoffset:${-(CIRC * pct) / 100}"/>` : ''}
@@ -43,7 +41,7 @@ export function renderResult(host, { title, pct, scoreText, pills = [], wrong = 
       ${passLine && pct >= PASS ? `<span class="pass-badge" aria-hidden="true">✓</span>` : ''}
       <div class="ring-label"><div class="pct"><span data-num>${pct}</span><small style="font-size:.5em">%</small></div><div class="sub">${esc(scoreText || '')}</div></div>
     </div>
-    <div><h2>${esc(title || cheer(pct))}</h2>${passLine ? `<p class="pass-gap ${pct >= PASS ? 'ok' : 'no'}">${pct >= PASS ? `已達及格線 ${PASS}%` : `及格線 ${PASS}%，還差 ${PASS - pct}%。沒有次數限制，現在就可以再試一次`}</p>` : title ? `<p class="muted" style="margin:4px 0 0">${esc(cheer(pct))}</p>` : ''}</div>
+    <div><h2>${esc(passLine && pct < PASS ? `還差 ${PASS - pct}%，再試一次` : title || cheer(pct))}</h2>${passLine ? `<p class="pass-gap ${pct >= PASS ? 'ok' : 'no'}">${pct >= PASS ? `已達及格線 ${PASS}%` : `${esc(title || '未通過')} · 及格線 ${PASS}%。沒有次數限制，現在就可以再試一次`}</p>` : title ? `<p class="muted" style="margin:4px 0 0">${esc(cheer(pct))}</p>` : ''}</div>
     ${pills.length ? `<div class="result-lines">${pills.map((p) => `<span class="hud-pill">${p}</span>`).join('')}</div>` : ''}
     ${extraHTML}
     <div class="btn-row center" data-actions></div>

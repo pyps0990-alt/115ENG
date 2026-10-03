@@ -150,15 +150,11 @@ function renderHome() {
     ? `<section class="hero compact">
         <h1>${esc(s.name)}，今天從哪一課開始？</h1>
         <p id="progress-slot"></p>
-        <p>總分達 ${PASS}% 就通過；沒通過可以一直補考。</p>
         <details class="legend"><summary>狀態是什麼意思？</summary>
           <dl>
-            <dt>需補考</dt><dd>測驗還沒到 ${PASS}%，可以隨時重做，沒有次數限制。</dd>
+            <dt>需補考</dt><dd>總分還沒到 ${PASS}%。可以隨時重做，沒有次數限制。</dd>
             <dt>待檢討</dt><dd>已經通過，先逐題檢討，才能開始複習。</dd>
-            <dt>已完成</dt><dd>通過而且檢討完了，可以隨時複習。</dd>
             <dt>缺交</dt><dd>單元已截止，還沒有正式測驗紀錄，請找老師。</dd>
-            <dt>尚未開始</dt><dd>還沒做過，隨時可以開始。</dd>
-            <dt>未開放</dt><dd>老師設定了開放時間，到時候才能做。</dd>
           </dl>
         </details>
       </section>
@@ -195,6 +191,9 @@ function renderHome() {
   const nOk = st.filter((k) => k === 'ok').length;
   const nTodo = st.filter((k) => k === 'todo').length;
   const nMiss = st.filter((k) => k === 'miss').length;
+  // 第一次來（還沒有任何成績）：狀態說明預設展開，之後收起
+  const legendEl = app.querySelector('.legend');
+  if (legendEl) legendEl.open = visible.every((u) => store.best(u.id)[bestKey(u.type)] == null);
   const order = { retake: 0, todo: 1, open: 2 };
   const nextRow = visible.map((u) => ({ u, ...unitStatus(u) })).filter((r) => r.k in order)
     .sort((a, b) => order[a.k] - order[b.k] || a.u.lesson - b.u.lesson)[0];
@@ -207,7 +206,7 @@ function renderHome() {
       </a>`;
   }
   app.querySelector('#progress-slot').innerHTML = `<a class="hp-link" href="#/me">已完成 ${nOk} / ${visible.length}${nTodo ? ` · 待檢討 ${nTodo}` : ''}${nMiss ? ` · 缺交 ${nMiss}` : ''} · 詳細 ${icon.arrowR}</a>`;
-  const filterHTML = `<div class="seg" role="group" aria-label="顯示哪些單元"><button type="button" data-filter="all">全部</button><button type="button" data-filter="todo">還沒完成的</button></div>`;
+  const filterHTML = `<div class="seg" role="group" aria-label="顯示哪些單元"><button type="button" data-filter="all">全部</button><button type="button" data-filter="todo">現在要做的</button></div>`;
   host.innerHTML = filterHTML + lessons.map((n) => {
     const units = visible.filter((u) => u.lesson === n);
     return `<section class="lesson">
@@ -222,7 +221,7 @@ function renderHome() {
     host.querySelectorAll('.unit-tile').forEach((t) => { t.hidden = mode === 'todo' && (t.classList.contains('st-ok') || t.classList.contains('st-wait')); });
     host.querySelectorAll('.lesson').forEach((l) => { l.hidden = ![...l.querySelectorAll('.unit-tile')].some((t) => !t.hidden); });
     if (mode === 'todo' && ![...host.querySelectorAll('.unit-tile')].some((t) => !t.hidden)) {
-      if (!host.querySelector('.filter-empty')) host.insertAdjacentHTML('beforeend', '<p class="filter-empty">全部都完成了，沒有要做的單元。</p>');
+      if (!host.querySelector('.filter-empty')) host.insertAdjacentHTML('beforeend', '<p class="filter-empty" role="status">全部都完成了，沒有要做的單元。</p>');
     } else host.querySelector('.filter-empty')?.remove();
   };
   host.querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => {
@@ -366,7 +365,7 @@ async function renderMe() {
     <div class="me-sum">
       <div class="sum"><b>${count('ok')} / ${rows.length}</b><span>已完成</span></div>
       <div class="sum todo"><b>${count('todo')}</b><span>待檢討</span></div>
-      <div class="sum miss"><b>${count('retake')}</b><span>需補考</span></div>
+      <div class="sum retake"><b>${count('retake')}</b><span>需補考</span></div>
       <div class="sum miss"><b>${count('miss')}</b><span>缺交</span></div>
     </div>
     ${rows.length ? `<div class="me-list">${rows.map((r) => `<a class="me-row ${r.k}" href="#/u/${esc(r.u.id)}">

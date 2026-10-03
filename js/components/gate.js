@@ -81,7 +81,7 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
 
 export function submitStateHTML(status) {
   const map = {
-    sending: ['sending', '成績傳送中…'],
+    sending: ['sending', '<span class="spinner sm"></span>成績傳送中…'],
     sent: ['sent', `${icon.check} 成績已送出給老師`],
     pending: ['queued', `${icon.clock} 成績已存在這台裝置，正在送給老師。可以先離開，送出後右下角會通知`],
     queued: ['queued', `${icon.clock} 成績已存在這台裝置，網路恢復後自動送出。可以先離開`],
