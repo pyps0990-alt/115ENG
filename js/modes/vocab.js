@@ -8,7 +8,7 @@ import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { exampleHTML } from '../util.js';
-import { progress } from '../resume.js';
+import { progress, leaveBody } from '../resume.js';
 import { submitScore } from '../submit.js';
 import { PASS, stageSizes, partitionWords } from '../levels.js';
 
@@ -147,8 +147,9 @@ export function mount(stage, ctx) {
     });
     // 離開測驗：先確認，這次作答不會送出
     stage.querySelector('[data-leave]').addEventListener('click', async () => {
-      const ok = await confirmDialog({ title: '要離開這次測驗嗎？', body: '測驗還沒完成。離開後作答會先存在這台裝置，回到這個單元按「繼續上次」就能接著做；成績要做完交卷才會送出。', ok: '離開', cancel: '繼續作答', danger: true });
-      if (ok) { window.removeEventListener('beforeunload', unload); location.hash = '#/'; }
+      const ok = await confirmDialog({ title: '要離開這次測驗嗎？', body: leaveBody(unitId), ok: '離開', cancel: '繼續作答', danger: true });
+      // 先解除「作答中」鎖定再換頁，不然全站的離開確認會再問第二次
+      if (ok) { window.removeEventListener('beforeunload', unload); delete document.body.dataset.busy; location.hash = '#/'; }
     });
     const foot = stage.querySelector('.q-foot');
     nextBtn.addEventListener('click', next);

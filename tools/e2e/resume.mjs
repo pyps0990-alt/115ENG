@@ -65,4 +65,16 @@ levels.forEach((level, i) => {
 });
 assert(checked > 0);
 
+// has() 與離開確認的說明：有存才說「可以接著做」，沒存（例如段考）老實說不會保存
+const { leaveBody } = await import('../../js/resume.js');
+progress.clear('u9');
+assert.equal(progress.has('u9'), false);
+assert(leaveBody('u9').includes('不會保存'), '沒有存進度時要說不會保存');
+progress.save('u9', 'pattern', { qi: 1 });
+assert.equal(progress.has('u9'), true);
+assert(leaveBody('u9').includes('繼續上次'), '有存進度時說可以接著做');
+store.setStudent(bob);
+assert.equal(progress.has('u9'), false, '換人後沒有');
+store.setStudent(alice);
+
 console.log('測驗中途存檔測試通過');

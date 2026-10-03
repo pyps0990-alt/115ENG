@@ -11,6 +11,11 @@ const who = () => {
   return s ? `${s.cls}|${s.seat}|${s.name}` : '';
 };
 
+// 離開確認框的說明：有存進度才說「可以接著做」，段考或還沒作答時老實說不會保存
+export const leaveBody = (unit) => (progress.has(unit)
+  ? '測驗還沒完成。離開後作答會先存在這台裝置，回到這個單元按「繼續上次」就能接著做；成績要做完交卷才會送出。'
+  : '測驗還沒完成，離開後這次的作答不會保存，也不會送出成績。');
+
 export const progress = {
   save(unit, mode, state) {
     const sid = who();
@@ -24,6 +29,14 @@ export const progress = {
       if (!r || !sid || r.mode !== mode || r.sid !== sid || Date.now() - r.at > MAX_AGE) return null;
       return r.state;
     } catch { return null; }
+  },
+  // 這位學生在這個單元有沒有存著的進度（不分測驗種類）
+  has(unit) {
+    try {
+      const r = JSON.parse(localStorage.getItem(P + unit) || 'null');
+      const sid = who();
+      return !!(r && sid && r.sid === sid && Date.now() - r.at <= MAX_AGE);
+    } catch { return false; }
   },
   clear(unit) {
     try { localStorage.removeItem(P + unit); } catch { /* ignore */ }

@@ -1,6 +1,6 @@
 // 測驗前關卡：確認學生基本資料，顯示規則與開始按鈕
 import { store } from '../storage.js';
-import { esc } from '../util.js';
+import { esc, confirmDialog } from '../util.js';
 import { icon } from '../icons.js';
 import { fmtWhen } from '../remote-config.js';
 import { mountInlineForm, openStudentDialog, studentLabel } from '../student.js';
@@ -77,7 +77,14 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
       </div>`;
     box.querySelector('.edit').onclick = () => openStudentDialog(draw);
     const start = box.querySelector('[data-start]');
-    if (!start.disabled) start.onclick = () => { if (rs) rs.discard(); onStart(s, isReview); };
+    if (!start.disabled) {
+      start.onclick = async () => {
+        // 有做到一半的進度時，重新開始會捨棄它：先確認
+        if (rs && !(await confirmDialog({ title: '重新開始？', body: '做到一半的進度會被捨棄，這次要重新做一份新的。', ok: '重新開始', cancel: '繼續上次', danger: true }))) return;
+        if (rs) rs.discard();
+        onStart(s, isReview);
+      };
+    }
     box.querySelector('[data-resume]')?.addEventListener('click', () => rs.onResume(s));
     box.querySelector('[data-review]')?.addEventListener('click', () => onReview(s));
     stage.append(box);

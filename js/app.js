@@ -8,6 +8,7 @@ import { LEVELS, PASS } from './levels.js';
 import { initNav, updateNav } from './nav.js';
 import { flushOutbox, pendingItems, clearOutbox, pendingCount } from './submit.js';
 import { submitStateHTML } from './components/gate.js';
+import { leaveBody } from './resume.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
 import { TYPES, typeOf, typeLabel, bestKey } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
@@ -698,7 +699,7 @@ async function boot() {
   let reverting = false;
   const leaveOk = () => confirmDialog({
     title: '要離開這次測驗嗎？',
-    body: '測驗還沒完成。離開後作答會先存在這台裝置，回到這個單元按「繼續上次」就能接著做；成績要做完交卷才會送出。',
+    body: leaveBody((/^#\/u\/([^/]+)/.exec(location.hash) || [])[1] || ''),
     ok: '離開', cancel: '繼續作答', danger: true,
   });
   document.addEventListener('click', async (e) => {
