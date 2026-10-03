@@ -7,6 +7,7 @@ import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore } from '../submit.js';
+import { progress } from '../resume.js';
 import { PASS } from '../levels.js';
 import { flattenPattern, renderChoiceCard, renderFillCard, renderApplyCard, explainHTML, reviewCardHTML, correctText, KIND_LABEL } from '../components/items.js';
 
@@ -55,15 +56,22 @@ export function mount(stage, ctx) {
     retake: () => store.tried(unitId) && !store.done(unitId),
     onStart: (s, review) => play(s, review),
     onReview: () => startReview((store.first(unitId) || {}).details),
+    resume: () => {
+      const r = progress.load(unitId, 'pattern');
+      if (!r || !Array.isArray(r.qs) || !r.qs.length) return null;
+      return { label: `第 ${Math.min(r.qi + 1, r.qs.length)} / ${r.qs.length} 題`, onResume: (s) => play(s, !!r.review, null, r), discard: () => progress.clear(unitId) };
+    },
   });
 
   // redo：只重練指定的題目（錯題重練），不計成績、不送出
-  function play(student, review = false, redo = null) {
-    const qs = redo ? shuffle(all.filter((q) => redo.includes(q.id))) : shuffle(all).slice(0, n);
-    let qi = 0; let streak = 0; let bestStreak = 0; let points = 0;
-    const details = [];
+  function play(student, review = false, redo = null, saved = null) {
+    const qs = saved ? saved.qs : redo ? shuffle(all.filter((q) => redo.includes(q.id))) : shuffle(all).slice(0, n);
+    let qi = saved ? saved.qi : 0; let streak = saved ? saved.streak : 0; let bestStreak = saved ? saved.bestStreak : 0; let points = saved ? saved.points : 0;
+    const details = saved ? saved.details : [];
     let current = null;
-    const t0 = Date.now();
+    const t0 = Date.now() - (saved ? saved.elapsed : 0);
+    // 正式測驗與複習每換一題就存一次進度（錯題重練不存）
+    const persist = () => { if (!redo) progress.save(unitId, 'pattern', { review, qs, qi, streak, bestStreak, points, details, elapsed: Date.now() - t0 }); };
     document.body.dataset.busy = '1';
     document.getElementById('fx').replaceChildren();
     window.addEventListener('beforeunload', unload);
@@ -83,6 +91,7 @@ export function mount(stage, ctx) {
     nextBtn.addEventListener('click', () => next());
 
     function show() {
+      persist();
       const q = qs[qi];
       stage.querySelector('.bar > span').style.width = `${(qi / qs.length) * 100}%`;
       stage.querySelector('[data-n]').textContent = `第 ${qi + 1} / ${qs.length} 題`;
@@ -131,6 +140,7 @@ export function mount(stage, ctx) {
 
     async function finish() {
       current = null;
+      if (!redo) progress.clear(unitId);
       delete document.body.dataset.busy;
       window.removeEventListener('beforeunload', unload);
       const pct = Math.round((points / qs.length) * 100);

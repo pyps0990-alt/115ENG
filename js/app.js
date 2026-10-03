@@ -698,7 +698,7 @@ async function boot() {
   let reverting = false;
   const leaveOk = () => confirmDialog({
     title: '要離開這次測驗嗎？',
-    body: '測驗還沒完成，離開後這次的作答不會保存，也不會送出成績。',
+    body: '測驗還沒完成。離開後作答會先存在這台裝置，回到這個單元按「繼續上次」就能接著做；成績要做完交卷才會送出。',
     ok: '離開', cancel: '繼續作答', danger: true,
   });
   document.addEventListener('click', async (e) => {

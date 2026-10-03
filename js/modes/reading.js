@@ -7,6 +7,7 @@ import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore } from '../submit.js';
+import { progress } from '../resume.js';
 import { PASS } from '../types.js';
 
 const KEYS = ['A', 'B', 'C', 'D', 'E'];
@@ -44,6 +45,11 @@ export function mount(stage, ctx) {
     retake: () => store.tried(unitId) && !store.done(unitId),
     onStart: (s, review) => run(s, review),
     onReview: () => startReview(answersFromDetails((store.first(unitId) || {}).details)),
+    resume: () => {
+      const r = progress.load(unitId, 'reading');
+      if (!r || !Array.isArray(r.answers) || r.answers.length !== qs.length) return null;
+      return { label: `已作答 ${r.answers.filter((a) => a != null).length} / ${qs.length}`, onResume: (s) => run(s, !!r.review, r), discard: () => progress.clear(unitId) };
+    },
   });
 
   /* ---------------- 文章與原文依據 ---------------- */
@@ -97,9 +103,10 @@ export function mount(stage, ctx) {
   }
 
   /* ---------------- 作答 ---------------- */
-  function run(student, review = false) {
-    const answers = new Array(qs.length).fill(null);
-    const t0 = Date.now();
+  function run(student, review = false, saved = null) {
+    const answers = saved ? saved.answers.slice() : new Array(qs.length).fill(null);
+    const t0 = Date.now() - (saved ? saved.elapsed : 0);
+    const persist = () => progress.save(unitId, 'reading', { review, answers, elapsed: Date.now() - t0 });
     document.body.dataset.busy = '1';
     window.addEventListener('beforeunload', unload);
 
@@ -127,11 +134,16 @@ export function mount(stage, ctx) {
 
     stage.querySelectorAll('.pq').forEach((card) => {
       const i = Number(card.dataset.q);
+      if (answers[i] != null) { // 接回上次的作答
+        card.querySelectorAll('.opt').forEach((x, k) => x.classList.toggle('selected', k === answers[i]));
+        card.classList.add('done');
+      }
       card.querySelectorAll('.opt').forEach((o) => o.addEventListener('click', () => {
         answers[i] = Number(o.dataset.i);
         card.querySelectorAll('.opt').forEach((x, k) => x.classList.toggle('selected', k === answers[i]));
         card.classList.add('done');
         updateFoot();
+        persist();
       }));
     });
 
@@ -148,6 +160,7 @@ export function mount(stage, ctx) {
   }
 
   async function finish(student, review, answers, t0) {
+    progress.clear(unitId);
     window.removeEventListener('beforeunload', unload);
     delete document.body.dataset.busy;
     const score = answers.filter((a, i) => a === qs[i].answer).length;

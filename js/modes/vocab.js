@@ -8,6 +8,7 @@ import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { exampleHTML } from '../util.js';
+import { progress } from '../resume.js';
 import { submitScore } from '../submit.js';
 import { PASS, stageSizes, partitionWords } from '../levels.js';
 
@@ -74,6 +75,12 @@ export function mount(stage, ctx) {
     retake: () => store.tried(unitId) && !store.done(unitId),
     onStart: (s, review) => play(s, stagesNow(), true, review),
     onReview: () => startReview((store.first(unitId) || {}).details),
+    resume: () => {
+      const r = progress.load(unitId, 'vocab');
+      if (!r || !r.stages || !r.stages.every((s) => levels.some((l) => l.id === s.levelId))) return null;
+      const total = r.stages.reduce((n, s) => n + s.qs.length, 0);
+      return { label: `第 ${Math.min(r.done + 1, total)} / ${total} 題`, onResume: (s) => play(s, null, true, !!r.review, r), discard: () => progress.clear(unitId) };
+    },
   });
 
   // 每次開始（含複習）重新分配：全部單字分到各階段，每個字只考一次
@@ -83,14 +90,24 @@ export function mount(stage, ctx) {
   };
 
   // stagesIn: [{ level, words }]；official=false 為錯題練習，不送出成績；review=true 為做過正式測驗後的複習
-  function play(student, stagesIn, official, review = false) {
-    const stages = stagesIn.map(({ level, words }) => ({ level, qs: level.build(shuffle(words), all), points: 0, wrong: [] }));
+  // saved：從「繼續上次」接回來的進度（題目、順序、得分都照原樣）
+  function play(student, stagesIn, official, review = false, saved = null) {
+    const stages = saved
+      ? saved.stages.map(({ levelId, ...r }) => ({ ...r, level: levels.find((l) => l.id === levelId) }))
+      : stagesIn.map(({ level, words }) => ({ level, qs: level.build(shuffle(words), all), points: 0, wrong: [] }));
     const total = stages.reduce((s, x) => s + x.qs.length, 0);
-    let si = 0; let qi = 0; let done = 0; let streak = 0; let bestStreak = 0;
-    const details = [];
+    let si = saved ? saved.si : 0; let qi = saved ? saved.qi : 0; let done = saved ? saved.done : 0;
+    let streak = saved ? saved.streak : 0; let bestStreak = saved ? saved.bestStreak : 0;
+    const details = saved ? saved.details : [];
+    // 正式測驗與複習每換一題就存一次進度（錯題練習不存）
+    const persist = () => {
+      if (!official) return;
+      progress.save(unitId, 'vocab', { review, si, qi, done, streak, bestStreak, details, inCard, elapsed: Date.now() - t0,
+        stages: stages.map(({ level, ...r }) => ({ ...r, levelId: level.id })) });
+    };
     let current = null;
     let inCard = false;
-    const t0 = Date.now();
+    const t0 = Date.now() - (saved ? saved.elapsed : 0);
     document.body.dataset.busy = '1';
     document.getElementById('fx').replaceChildren();
     if (official) window.addEventListener('beforeunload', unload);
@@ -130,7 +147,7 @@ export function mount(stage, ctx) {
     });
     // 離開測驗：先確認，這次作答不會送出
     stage.querySelector('[data-leave]').addEventListener('click', async () => {
-      const ok = await confirmDialog({ title: '要離開這次測驗嗎？', body: '測驗還沒完成，離開後這次的作答不會保存，也不會送出成績。', ok: '離開', cancel: '繼續作答', danger: true });
+      const ok = await confirmDialog({ title: '要離開這次測驗嗎？', body: '測驗還沒完成。離開後作答會先存在這台裝置，回到這個單元按「繼續上次」就能接著做；成績要做完交卷才會送出。', ok: '離開', cancel: '繼續作答', danger: true });
       if (ok) { window.removeEventListener('beforeunload', unload); location.hash = '#/'; }
     });
     const foot = stage.querySelector('.q-foot');
@@ -154,6 +171,7 @@ export function mount(stage, ctx) {
 
     function show() {
       inCard = false;
+      persist();
       paintStepper();
       foot.hidden = false;
       stage.querySelector('[data-fb]').innerHTML = '';
@@ -236,6 +254,7 @@ export function mount(stage, ctx) {
     // 段落之間的過場卡：顯示這段成績與下一段說明，不回到選單
     function stageCard() {
       inCard = true;
+      persist();
       current = null;
       const s = stages[si];
       const nx = stages[si + 1];
@@ -261,6 +280,7 @@ export function mount(stage, ctx) {
 
     async function finish() {
       current = null;
+      if (official) progress.clear(unitId);
       delete document.body.dataset.busy;
       window.removeEventListener('beforeunload', unload);
       const points = stages.reduce((s, x) => s + x.points, 0);
@@ -335,7 +355,7 @@ export function mount(stage, ctx) {
       else if (k === 'enter' && !e.target.closest('button') && !nextBtn.hidden) { e.preventDefault(); next(); }
     };
     document.addEventListener('keydown', onKey);
-    show();
+    if (saved && saved.inCard) stageCard(); else show();
   }
 
   return () => {

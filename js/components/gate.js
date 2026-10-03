@@ -9,7 +9,8 @@ import { PASS } from '../types.js';
 
 // review()：做過正式測驗了嗎；reviewed()：檢討完了嗎。
 // 做過但還沒檢討：只能先檢討，「開始複習」鎖住；檢討完才能複習。
-export function testGate(stage, { eyebrow, title, rules = [], best, review = false, reviewed = true, retake = false, timeWindow, onStart, onReview }) {
+// resume()：回傳 { label, onResume(student), discard() } 代表有做到一半的測驗，沒有就回傳 null
+export function testGate(stage, { eyebrow, title, rules = [], best, review = false, reviewed = true, retake = false, timeWindow, onStart, onReview, resume }) {
   let wake = null;
   const draw = () => {
     stage.innerHTML = '';
@@ -50,12 +51,17 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
       buttons = `<button class="btn" type="button" data-start disabled>${icon.lock} 已截止</button>`;
       timeNote = `${icon.clock} 已於 ${fmtWhen(win.closeAt)} 截止，不能再做正式測驗`;
     }
+    const rs = typeof resume === 'function' && win.state === 'open' && !needReview ? resume() : null;
     // 一句話說明這次要做什麼；詳細規則收在下面，第一次進來的人預設展開
-    const lead = needReview ? '先逐題檢討完第一次測驗，才能開始複習。'
+    const lead = rs ? `你有一份做到一半的測驗（${rs.label}），可以接著做，也可以重新開始。`
+      : needReview ? '先逐題檢討完第一次測驗，才能開始複習。'
       : isReview ? '你已經通過這個單元，這次是複習，成績會標記為複習送給老師。'
       : needRetake ? `上次${bestNow != null ? ` ${bestNow}%` : ''}還沒通過。這次重新做一次，總分達 ${PASS}% 就通過，沒有次數限制。`
       : `做完整份測驗，總分達 ${PASS}% 就通過；沒通過可以一直補考。`;
     const firstTime = bestNow == null && !isReview && !needRetake;
+    if (rs) {
+      buttons = `<button class="btn primary" type="button" data-resume>${icon.play} 繼續上次 · ${esc(rs.label)}</button><button class="btn" type="button" data-start>重新開始</button>`;
+    }
     const box = document.createElement('div');
     box.className = 'gate';
     box.innerHTML = `<div class="card gate-card">
@@ -71,7 +77,8 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
       </div>`;
     box.querySelector('.edit').onclick = () => openStudentDialog(draw);
     const start = box.querySelector('[data-start]');
-    if (!start.disabled) start.onclick = () => onStart(s, isReview);
+    if (!start.disabled) start.onclick = () => { if (rs) rs.discard(); onStart(s, isReview); };
+    box.querySelector('[data-resume]')?.addEventListener('click', () => rs.onResume(s));
     box.querySelector('[data-review]')?.addEventListener('click', () => onReview(s));
     stage.append(box);
   };
