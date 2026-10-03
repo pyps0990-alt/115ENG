@@ -540,13 +540,12 @@
       $('msg').textContent = '尚未儲存'; $('msg').className = 'msg';
     });
 
-    // 課次：填數字（顯示 L1、L2…）或英文（例如 R-X，照原樣顯示），不能用中文；空白當第 1 課。選「段考複習」類型時，課次還是數字就自動改成 R-X
+    // 課次：填數字（顯示 L1、L2…）或英文（例如 R-X，照原樣顯示），不能用中文；空白當第 1 課。課次完全照輸入的內容儲存（例如 R-1、R-2）
     function lessonNum(v) { var t = String(v == null ? '' : v).replace(/[^A-Za-z0-9 _-]/g, '').trim(); if (!t) return 1; return /^\d+$/.test(t) ? Math.min(99, Number(t)) : t.slice(0, 20); }
     // 課次輸入框：中文與其他符號當場擋掉（輸入法選字中不動，選完字才清）
     function cleanLesson(e) { var t = e.target; if (!t || !(t.id === 'nu-lesson' || (t.dataset && t.dataset.k === 'lesson')) || e.isComposing) return; var c = t.value.replace(/[^A-Za-z0-9 _-]/g, ''); if (c !== t.value) t.value = c; }
     document.addEventListener('input', cleanLesson);
     document.addEventListener('compositionend', cleanLesson);
-    $('nu-type').addEventListener('change', function () { if (this.value === 'exam' && /^\d*$/.test($('nu-lesson').value.trim())) $('nu-lesson').value = 'R-X'; });
     $('nu-add').onclick = function () {
       var id = $('nu-id').value.trim();
       var title = $('nu-title').value.trim();

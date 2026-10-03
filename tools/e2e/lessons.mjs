@@ -11,6 +11,9 @@ assert.equal(lessonLabel(1), 'L1');
 assert.equal(lessonLabel(12), 'L12');
 assert.equal(lessonLabel('R-X'), 'R-X');
 assert.deepEqual([3, 'R-X', 1, 'A-Z', 2, 10].sort(lessonCmp), [1, 2, 3, 10, 'A-Z', 'R-X'], '數字由小到大、英文排後面');
+// R-1、R-2 這類課次：照輸入的內容原樣保留（大小寫不改），英文課次依自然順序排（R-2 在 R-10 前面）
+assert.deepEqual(['R-10', 'R-2', 'R-1', 'r-3'].map(normLesson), ['R-10', 'R-2', 'R-1', 'r-3']);
+assert.deepEqual(['R-10', 'R-2', 'R-1', 'R-X', 2].map(normLesson).sort(lessonCmp).map(lessonLabel), ['L2', 'R-1', 'R-2', 'R-10', 'R-X']);
 
 // 學生端：數字、英文照留，中文與符號清掉，什麼都不剩當第 1 課
 const cases = [[5, 5], ['5', 5], ['  7 ', 7], ['R-X', 'R-X'], ['r x', 'r x'], ['期中', 1], ['R-X期中', 'R-X'], ['', 1], [null, 1], [undefined, 1], [150, 99], ['！！', 1], ['Mid_1', 'Mid_1']];
