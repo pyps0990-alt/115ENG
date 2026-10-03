@@ -107,8 +107,6 @@ main.container { padding-block: 24px 56px; outline: none; flex: 1 0 auto; }
   border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .1); color: var(--white); font-weight: 700; font-size: .92rem; white-space: nowrap;
 }
 .menu-btn:hover, .menu-btn[aria-expanded="true"] { background: rgba(255, 255, 255, .2); }
-.menu-btn .ic:last-child { width: 1em; height: 1em; transition: transform .2s var(--ease); }
-.menu-btn[aria-expanded="true"] .ic:last-child { transform: rotate(180deg); }
 .menu-panel {
   position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; width: min(360px, calc(100vw - 32px));
   max-height: calc(100vh - 90px); max-height: calc(100dvh - 90px); overflow: auto; overscroll-behavior: contain;
@@ -116,8 +114,7 @@ main.container { padding-block: 24px 56px; outline: none; flex: 1 0 auto; }
   border: 1px solid var(--line);
 }
 .menu-group { padding-top: 6px; margin-top: 6px; border-top: 1px solid var(--line); }
-.menu-head { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-family: var(--font-en); font-weight: 900; font-size: .85rem; color: var(--navy); }
-.menu-lnum { display: grid; place-items: center; min-width: 26px; height: 22px; padding: 0 4px; border-radius: 6px; background: var(--navy); color: var(--white); font-size: .78rem; }
+.menu-head { display: flex; align-items: center; gap: 6px; padding: 4px 10px; font-family: var(--font-en); font-weight: 900; font-size: .85rem; color: var(--navy); }
 .menu-item { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 10px; border-radius: 10px; color: var(--navy); text-decoration: none; }
 .menu-item:hover, .menu-item:focus-visible { background: var(--wash); outline: none; }
 .menu-item.home { font-weight: 700; }
@@ -223,7 +220,7 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 /* 課次：寬螢幕兩課並排，窄螢幕一課一列 */
 #lessons { display: block; }
 .lesson { margin-top: 32px; min-width: 0; }
-.lesson-head { margin-bottom: 14px; letter-spacing: .02em; padding-bottom: 8px; border-bottom: 3px double var(--line-strong); font-family: var(--font-en); font-weight: 900; font-size: 1.3rem; }
+.lesson-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; letter-spacing: .02em; padding-bottom: 8px; border-bottom: 3px double var(--line-strong); font-family: var(--font-en); font-weight: 900; font-size: 1.3rem; }
 .unit-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); grid-auto-rows: 1fr; } /* auto-fill：只有一個單元的課次，卡片也維持同樣寬度；auto-rows：同一排卡片一樣高 */
 
 .unit-tile {
@@ -257,7 +254,7 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 .meter.ok i { background: var(--good-ink); }
 .meter b { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); }
 
-.site-foot { align-items: center; padding-block: 24px 40px; font-size: .85rem; display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: center; border-top: 1px solid var(--line); }
+.site-foot { align-items: center; padding-block: 24px 40px; font-size: .85rem; display: flex; flex-direction: column; gap: 0; justify-content: center; text-align: center; border-top: 1px solid var(--line); }
 .site-foot a { color: var(--steel); display: inline-flex; align-items: center; min-height: 44px; padding-inline: 4px; }
 
 /* ===========================================================
@@ -277,7 +274,8 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 .gate { max-width: 580px; margin: 0 auto; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
 .gate-card { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
 .gate-card h2 { padding-bottom: 10px; border-bottom: 3px double var(--line-strong); }
-.gate-lead { font-size: 1.05rem; font-weight: 700; color: var(--ink); line-height: 1.6; }
+.gate-lead { font-size: 1.02rem; font-weight: 500; color: var(--text); line-height: 1.7; }
+.gate-lead b { color: var(--navy); font-weight: 800; font-variant-numeric: tabular-nums; }
 .gate-rules > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 700; color: var(--navy); }
 .gate-rules[open] > summary { margin-bottom: 4px; }
 .gate h2 { font-size: 1.35rem; }
@@ -642,18 +640,30 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
   background: linear-gradient(rgba(15, 23, 42, .24), rgba(15, 23, 42, 0)); opacity: 0; transition: opacity var(--dur-2) ease; }
 body.scrolled .topbar::after { opacity: 1; }
 .brand { flex: none; transform-origin: left center; transition: transform .38s var(--nav-ease), opacity .24s ease, visibility 0s linear 0s; }
-/* B5 與「選單」合成同一個按鈕：有選單時（登入、有開放的單元）左上角只剩這一個按鈕；沒有選單的畫面（登入前）與考試中仍顯示 B5 連結 */
+/* B5 與選單合成同一個按鈕，三種樣子：
+   平常「B5 ☰」；往下捲動只留「B5 ⌄」（小的向下箭頭）；點開時 B5 淡出，變成「選擇單元 ⌃」並展開選單。
+   有選單時（登入、有開放的單元）左上角只剩這一個按鈕；沒有選單的畫面（登入前）與考試中仍顯示 B5 連結。 */
 body:not(.exam) .topbar:has(#nav-menu:not([hidden])) .brand { display: none; }
-.menu-btn .brand-mark { width: 28px; height: 28px; border-radius: 8px; font-size: .78rem; font-family: var(--font-en); font-weight: 900; flex: none; overflow: hidden;
-  transition: opacity .22s ease, width .28s var(--nav-ease), margin .28s var(--nav-ease), transform .28s var(--nav-ease); }
-/* 點開選單：B5 淡出並收起，按鈕變成「選單 ▴」，選單內容在下方展開 */
-.menu-btn[aria-expanded="true"] .brand-mark { opacity: 0; width: 0; margin-right: -6px; transform: scale(.6); }
-.nav-menu { flex: 0 1 auto; min-width: 0; }
+.menu-btn { gap: 0; padding: 0 12px 0 8px; }
+.menu-btn .brand-mark { width: 28px; height: 28px; border-radius: 8px; font-size: .78rem; font-family: var(--font-en); font-weight: 900; flex: none; overflow: hidden; }
+.menu-btn .brand-mark, .menu-btn .mb-burger, .menu-btn .mb-chev, .menu-btn .menu-label { transition: opacity .22s ease, max-width .28s var(--nav-ease), margin .28s var(--nav-ease), transform .28s var(--nav-ease); }
+.menu-btn .mb-burger, .menu-btn .mb-chev { display: inline-flex; align-items: center; overflow: hidden; }
+.menu-btn .mb-burger { max-width: 24px; margin-left: 8px; opacity: 1; }
+.menu-btn .mb-chev { max-width: 0; margin-left: 0; opacity: 0; }
+.menu-btn .mb-chev .ic { width: 14px; height: 14px; }
+.menu-btn .menu-label { max-width: 0; margin-left: 0; opacity: 0; }
+/* 往下捲動（沒開選單時）：☰ 收起，換成小的向下箭頭 */
+body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-burger { max-width: 0; margin-left: 0; opacity: 0; }
+body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev { max-width: 16px; margin-left: 6px; opacity: 1; }
+/* 點開：B5 與 ☰ 淡出，顯示「選擇單元 ⌃」 */
+.menu-btn[aria-expanded="true"] .brand-mark { max-width: 0; width: 0; opacity: 0; transform: scale(.6); }
+.menu-btn[aria-expanded="true"] .mb-burger { max-width: 0; margin-left: 0; opacity: 0; }
+.menu-btn[aria-expanded="true"] .menu-label { max-width: 8em; margin-left: 4px; opacity: 1; }
+.menu-btn[aria-expanded="true"] .mb-chev { max-width: 16px; margin-left: 6px; opacity: 1; transform: rotate(180deg); }
 .menu-btn { max-width: 100%; min-width: 0; padding-left: 8px; transform: scale(var(--sc, 1));
   transition: transform .2s var(--nav-ease), background .2s ease; }
 .menu-btn:active { --sc: .96; transition-duration: .1s, .2s; }
-.menu-btn .menu-label { display: inline-block; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 12em; white-space: nowrap; }
-.menu-btn .ic:last-child { transition: transform .25s var(--nav-ease), opacity .2s ease, width .3s var(--nav-ease); }
+.menu-btn .menu-label { display: inline-block; overflow: hidden; text-overflow: ellipsis; min-width: 0; white-space: nowrap; }
 .top-actions { flex: 0 0 auto; }
 .chip-btn { overflow: visible; transition: background .2s ease, transform .12s ease; }
 .chip-btn:active { transform: scale(.97); }
@@ -1017,6 +1027,6 @@ mark.bit-miss { background: var(--good-soft); color: var(--good-ink); text-decor
 .tile-cat { display: inline-flex; vertical-align: -0.4em; margin-right: 6px; color: var(--navy); } /* 與文字第一行的垂直中心對齊（實測差不到 0.3px） */
 .tile-cat .ic { width: 20px; height: 20px; }
 
-/* 卡片的時間與進度註記（藍字下面一行）：精確到幾月幾日幾點；24 小時內截止標成琥珀色 */
-.tile-time { font-size: .86rem; color: var(--steel); font-variant-numeric: tabular-nums; }
-.tile-time.urgent { color: var(--amber-ink); font-weight: 800; }
+
+.lesson-head .ic { width: 22px; height: 22px; color: var(--navy); }
+.menu-head .ic { width: 16px; height: 16px; }

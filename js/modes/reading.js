@@ -32,6 +32,8 @@ export function mount(stage, ctx) {
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
+    total: qs.length,
+    integer: true,
     eyebrow: 'Reading Comprehension',
     title: `${ctx.unit.title}｜${data.title || ''}`,
     rules: [

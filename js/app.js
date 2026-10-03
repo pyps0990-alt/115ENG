@@ -8,7 +8,7 @@ import { LEVELS, PASS } from './levels.js';
 import { initNav, updateNav } from './nav.js';
 import { flushOutbox, pendingItems, clearOutbox, pendingCount } from './submit.js';
 import { submitStateHTML } from './components/gate.js';
-import { leaveBody, progress } from './resume.js';
+import { leaveBody } from './resume.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
 import { TYPES, typeOf, typeLabel, typeIcon, bestKey } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
@@ -211,7 +211,7 @@ function renderHome() {
   host.innerHTML = filterHTML + lessons.map((n) => {
     const units = visible.filter((u) => u.lesson === n);
     return `<section class="lesson">
-      <h2 class="lesson-head">L${n}</h2>
+      <h2 class="lesson-head">${icon.chapter}<span>L${n}</span></h2>
       <div class="unit-grid">${units.map((u) => tileHTML(u)).join('')}</div>
     </section>`;
   }).join('');
@@ -232,20 +232,12 @@ function renderHome() {
   applyFilter();
 }
 
-// 開放時段：精確到「幾月幾日幾點」加上還剩多久；24 小時內截止會標成緊急（urgent）
-function remainText(ms) {
-  const m = Math.max(0, Math.round(ms / 60000));
-  if (m >= 2880) return `${Math.floor(m / 1440)} 天`;
-  if (m >= 60) return `${Math.floor(m / 60)} 小時`;
-  return '不到 1 小時';
-}
-function windowInfo(id, done) {
+// 開放時段：放在卡片說明列的純文字（還沒開放、快截止、已截止）
+function windowText(id, done) {
   const w = unitWindow(config, id);
-  const now = Date.now();
-  if (w.state === 'before') return { text: `${fmtWhen(w.openAt)} 開放（${remainText(w.openAt - now)}後）`, urgent: false };
-  if (w.state === 'after') return done ? null : { text: `已於 ${fmtWhen(w.closeAt)} 截止`, urgent: false };
-  if (!w.closeAt) return null;
-  return { text: `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}（還有 ${remainText(w.closeAt - now)}）`, urgent: w.closeAt - now < 86400000 };
+  if (w.state === 'before') return `${fmtWhen(w.openAt)} 開放`;
+  if (w.state === 'after') return done ? '' : '已截止';
+  return w.closeAt ? `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}` : '';
 }
 
 function tileMeta(u, stages) {
@@ -264,19 +256,14 @@ function tileHTML(u) {
   const stages = openLevels(u).map((l) => l.name).join(' → ');
   const st = unitStatus(u);
   const chip = st.k === 'retake' && b != null && b < PASS ? `需補考 · 還差 ${PASS - b}%` : TILE_STATE[st.k];
-  // 藍字註記：最佳成績與及格線並排；下一行是精確的時間（幾月幾日幾點、還有多久）與有沒有做到一半的測驗
-  const score = b != null ? `最佳 ${b}% / 及格 ${PASS}%` : '';
-  const win = st.k === 'miss' ? null : windowInfo(u.id, store.done(u.id));
-  const resumable = progress.has(u.id);
-  const timeLine = [resumable ? '有做到一半的測驗，可以繼續' : '', win ? win.text : ''].filter(Boolean).join(' · ');
+  const sub = [b != null ? `最佳 ${b}%` : '', st.k === 'miss' ? '' : windowText(u.id, store.done(u.id))].filter(Boolean).join(' · ');
   // 最佳成績旁的小量尺：刻度就是及格線，每張卡片都看得到離通過還有多遠
   const meter = b != null ? `<span class="meter${b >= PASS ? ' ok' : ''}" role="img" aria-label="最佳 ${b}%，及格線 ${PASS}%"><i style="width:${Math.min(100, b)}%"></i><b style="left:${PASS}%"></b></span>` : '';
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
       <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span></div>
       <h3 class="en">${esc(u.topic || u.title)}</h3>
       <div class="tile-meta"><span class="tile-cat">${typeIcon(u.type)}</span>${TYPES[typeOf(u.type)].tile} · ${tileMeta(u, stages)}</div>
-      ${score ? `<div class="tile-sub">${meter}<span>${esc(score)}</span></div>` : ''}
-      ${timeLine ? `<div class="tile-time${win && win.urgent ? ' urgent' : ''}">${esc(timeLine)}</div>` : ''}
+      ${sub ? `<div class="tile-sub">${meter}<span>${esc(sub)}</span></div>` : ''}
     </a>`;
 }
 

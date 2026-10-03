@@ -37,7 +37,7 @@ export function initNav(visibleUnits) {
   panel.innerHTML = `
     <a class="menu-item home" role="menuitem" href="#/">${icon.home}<span>所有單元</span></a>
     ${lessons.map((n) => `<div class="menu-group" role="group" aria-label="L${n}">
-      <div class="menu-head"><span class="menu-lnum">L${n}</span></div>
+      <div class="menu-head">${icon.chapter}<span>L${n}</span></div>
       ${units.filter((u) => u.lesson === n).map((u) => `<a class="menu-item" role="menuitem" href="#/u/${esc(u.id)}" data-id="${esc(u.id)}">
         <span class="menu-ic">${typeIcon(u.type)}</span>
         <span class="menu-txt"><b>${kindLabel(u)}</b><span class="en">${esc(u.topic || '')}</span></span></a>`).join('')}
@@ -48,8 +48,8 @@ export function initNav(visibleUnits) {
 // 每次換頁時更新按鈕文字與目前所在單元
 export function updateNav(currentId) {
   const u = units.find((x) => x.id === currentId);
-  // B5 標誌與「選單」合成同一個按鈕：點開時 B5 淡出、顯示選單內容（見 style.css 的 .menu-btn .brand-mark）
-  btn.innerHTML = `<span class="brand-mark" aria-hidden="true">B5</span><span class="menu-label">選單</span>${icon.chevDown}`;
+  // 一個按鈕三種樣子（見 style.css 的 .menu-btn）：平常是「B5 ☰」；往下捲動只留「B5 ⌄」；點開時 B5 淡出，變成「選擇單元 ⌃」並展開選單
+  btn.innerHTML = `<span class="brand-mark" aria-hidden="true">B5</span><span class="mb-burger" aria-hidden="true">${icon.menu}</span><span class="menu-label">選擇單元</span><span class="mb-chev" aria-hidden="true">${icon.chevDown}</span>`;
   btn.setAttribute('aria-label', u ? `B5 選單，目前在 L${u.lesson} ${kindLabel(u)}` : 'B5 選單');
   items().forEach((a) => {
     const on = a.dataset.id ? a.dataset.id === currentId : !currentId;

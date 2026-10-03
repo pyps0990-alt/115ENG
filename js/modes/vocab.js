@@ -65,13 +65,13 @@ export function mount(stage, ctx) {
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
+    total: all.length,
     eyebrow: levels.map((l) => l.en).join(' → '),
     title: `${ctx.unit.title}連續測驗`,
     rules: [
       `共 <b>${all.length}</b> 個（單字 ${all.length - nPhrase}、片語 ${nPhrase}），分成 <b>${levels.length}</b> 段（${sizes.join('、')} 題），每個字這次只考一次，全部都會考到`,
       '複習時單字會重新分配到不同的階段，題型和例句也會換',
       ...levels.map((l, i) => `第 ${i + 1} 段 <b>${l.name}</b>：${esc(l.desc)}`),
-      `三段總分達 <b>${PASS}%</b> 就算通過`,
     ],
     best: () => store.best(unitId).vocab,
     review: () => store.done(unitId),

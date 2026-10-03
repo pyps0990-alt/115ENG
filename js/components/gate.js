@@ -10,7 +10,8 @@ import { PASS } from '../types.js';
 // review()：做過正式測驗了嗎；reviewed()：檢討完了嗎。
 // 做過但還沒檢討：只能先檢討，「開始複習」鎖住；檢討完才能複習。
 // resume()：回傳 { label, onResume(student), discard() } 代表有做到一半的測驗，沒有就回傳 null
-export function testGate(stage, { eyebrow, title, rules = [], best, review = false, reviewed = true, retake = false, timeWindow, onStart, onReview, resume }) {
+// total：計分的總分（題數）；integer：每題只有 1 分或 0 分（課文理解、段考），過關分數用整數題數表示
+export function testGate(stage, { eyebrow, title, rules = [], best, review = false, reviewed = true, retake = false, timeWindow, onStart, onReview, resume, total = 0, integer = false }) {
   let wake = null;
   const draw = () => {
     stage.innerHTML = '';
@@ -53,11 +54,15 @@ export function testGate(stage, { eyebrow, title, rules = [], best, review = fal
     }
     const rs = typeof resume === 'function' && win.state === 'open' && !needReview ? resume() : null;
     // 一句話說明這次要做什麼；詳細規則收在下面，第一次進來的人預設展開
+    // 過關分數：四捨五入後要達到 PASS%，所以至少是 總分 × (PASS − 0.5)%；只有 1 分或 0 分的題型用「答對幾題」表示
+    const need = total ? (integer ? Math.ceil(total * (PASS - 0.5) / 100 - 1e-9) : Math.ceil(total * (PASS - 0.5)) / 100) : 0;
+    const needText = !need ? '' : integer ? `至少答對 <b>${need}</b> 題` : `至少 <b>${Number(need.toFixed(2))}</b> 分`;
+    const passText = total ? `共 <b>${Number(total.toFixed(2))}</b> 題，總分達 <b>${PASS}%</b>（${needText}）就通過` : `總分達 <b>${PASS}%</b> 就通過`;
     const lead = rs ? `你有一份做到一半的測驗（${rs.label}），可以接著做，也可以重新開始。`
       : needReview ? '先逐題檢討完第一次測驗，才能開始複習。'
       : isReview ? '你已經通過這個單元，這次是複習，成績會標記為複習送給老師。'
-      : needRetake ? `上次${bestNow != null ? ` ${bestNow}%` : ''}還沒通過。這次重新做一次，總分達 ${PASS}% 就通過，沒有次數限制。`
-      : `做完整份測驗，總分達 ${PASS}% 就通過；沒通過可以一直補考。`;
+      : needRetake ? `上次${bestNow != null ? ` <b>${bestNow}%</b>，還差 <b>${Math.max(0, PASS - bestNow)}%</b>` : ' 還沒通過'}。這次重新做一次，${passText}，沒有次數限制。`
+      : `${passText}；沒通過可以一直補考。`;
     const firstTime = bestNow == null && !isReview && !needRetake;
     if (rs) {
       buttons = `<button class="btn primary" type="button" data-resume>${icon.play} 繼續上次 · ${esc(rs.label)}</button><button class="btn" type="button" data-start>重新開始</button>`;

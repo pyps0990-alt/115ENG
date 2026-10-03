@@ -45,13 +45,14 @@ export function mount(stage, ctx) {
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
+    total: n,
     eyebrow: 'Sentence Patterns',
     title: `${ctx.unit.title}｜${(ctx.data || {}).topic || '句型練習'}`,
     rules: [
       `共 <b>${n}</b> 題，${esc(kindsIn)}混合出現，每次會從題庫（${all.length} 題）重新抽題`,
       '每題作答後馬上看到解析',
       ...(all.some((q) => q.kind === 'apply') ? ['應用題（排句子）部分給分：排進去的單字越多、順序越接近，分數越高'] : []),
-      `總分達 <b>${PASS}%</b> 就算通過，做完可以逐題檢討錯題`,
+      '做完可以逐題檢討錯題',
     ],
     best: () => store.best(unitId).pattern,
     review: () => store.done(unitId),
