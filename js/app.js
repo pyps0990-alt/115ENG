@@ -10,7 +10,7 @@ import { flushOutbox, pendingItems, clearOutbox, pendingCount } from './submit.j
 import { submitStateHTML } from './components/gate.js';
 import { leaveBody } from './resume.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
-import { TYPES, typeOf, typeLabel, bestKey } from './types.js';
+import { TYPES, typeOf, typeLabel, typeIcon, bestKey } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
 
@@ -262,7 +262,7 @@ function tileHTML(u) {
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
       <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span></div>
       <h3 class="en">${esc(u.topic || u.title)}</h3>
-      <div class="tile-meta">${TYPES[typeOf(u.type)].tile} · ${tileMeta(u, stages)}</div>
+      <div class="tile-meta"><span class="tile-cat">${typeIcon(u.type)}</span>${TYPES[typeOf(u.type)].tile} · ${tileMeta(u, stages)}</div>
       ${sub ? `<div class="tile-sub">${meter}<span>${esc(sub)}</span></div>` : ''}
     </a>`;
 }

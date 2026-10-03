@@ -631,7 +631,7 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 
 /* ===== 導覽列動畫 =====
    原則：導覽列高度固定不變（捲動時內容不會跳）；動畫只用 transform 與 opacity，交給顯示卡，不觸發版面重算。
-   捲動時導覽列維持不變（不再收起 B5）。
+   往下捲動時 B5 收起（見下面 body.scrolled 的規則）。
    選單面板：從按鈕位置彈出，收合時反向收回；項目依序浮現。 */
 :root {
   --nav-ease: cubic-bezier(.22, 1, .36, 1);
@@ -643,6 +643,12 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
   background: linear-gradient(rgba(15, 23, 42, .24), rgba(15, 23, 42, 0)); opacity: 0; transition: opacity var(--dur-2) ease; }
 body.scrolled .topbar::after { opacity: 1; }
 .brand { flex: none; transform-origin: left center; transition: transform .38s var(--nav-ease), opacity .24s ease, visibility 0s linear 0s; }
+/* 往下捲動：B5 縮小、淡出並往左收，選單按鈕平移過去補位（位移量 --brand-shift 由 app.js 依 B5 實際寬度量出） */
+body.scrolled .brand { transform: translate3d(-8px, 0, 0) scale(.55); opacity: 0; visibility: hidden; pointer-events: none;
+  transition: transform .38s var(--nav-ease), opacity .2s ease, visibility 0s linear .38s; }
+body.scrolled .menu-btn { --tx: calc(-1 * var(--brand-shift)); }
+body.scrolled #unit-menu { --mx: calc(-1 * var(--brand-shift)); }
+@media (max-width: 480px) { body.scrolled #unit-menu { --mx: 0px; } }
 .nav-menu { flex: 0 1 auto; min-width: 0; }
 .menu-btn { max-width: 100%; min-width: 0; transform: translate3d(var(--tx, 0), 0, 0) scale(var(--sc, 1));
   transition: transform .38s var(--nav-ease), background .2s ease, padding .3s var(--nav-ease), gap .3s var(--nav-ease); }
@@ -1016,3 +1022,6 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 mark.bit-wrong, mark.bit-miss { padding: 0 3px; border-radius: 4px; background: var(--bad-soft); color: var(--bad-ink); text-decoration: line-through; text-decoration-thickness: 2px; font-weight: 800; }
 mark.bit-miss { background: var(--good-soft); color: var(--good-ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .answer-line > div + div { margin-top: 4px; }
+
+.tile-cat { display: inline-flex; vertical-align: -4px; margin-right: 6px; color: var(--navy); }
+.tile-cat .ic { width: 20px; height: 20px; }

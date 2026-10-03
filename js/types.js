@@ -5,10 +5,10 @@ import { icon } from './icons.js';
 export const PASS = 65;
 
 export const TYPES = {
-  vocab: { label: '單字片語', tile: '單字片語測驗', best: 'vocab', icon: 'cards' },
-  reading: { label: '課文理解', tile: '課文理解', best: 'reading', icon: 'book' },
-  pattern: { label: '句型練習', tile: '句型練習', best: 'pattern', icon: 'pencil' },
-  exam: { label: '段考複習', tile: '段考複習', best: 'exam', icon: 'target' },
+  vocab: { label: '單字片語', tile: '單字片語測驗', best: 'vocab', icon: 'catVocab' },
+  reading: { label: '課文理解', tile: '課文理解', best: 'reading', icon: 'catReading' },
+  pattern: { label: '句型練習', tile: '句型練習', best: 'pattern', icon: 'catPattern' },
+  exam: { label: '段考複習', tile: '段考複習', best: 'exam', icon: 'catExam' },
 };
 export const typeOf = (t) => (TYPES[t] ? t : 'vocab');
 export const typeLabel = (t) => TYPES[typeOf(t)].label;
