@@ -41,7 +41,7 @@ export function renderResult(host, { title, pct, scoreText, pills = [], wrong = 
       ${passLine && pct >= PASS ? `<span class="pass-badge" aria-hidden="true">✓</span>` : ''}
       <div class="ring-label"><div class="pct"><span data-num>${pct}</span><small style="font-size:.5em">%</small></div><div class="sub">${esc(scoreText || '')}</div></div>
     </div>
-    <div><h2>${esc(passLine && pct < PASS ? `還差 ${PASS - pct}%，再試一次` : title || cheer(pct))}</h2>${passLine ? `<p class="pass-gap ${pct >= PASS ? 'ok' : 'no'}">${pct >= PASS ? `已達及格線 ${PASS}%` : `${esc(title || '未通過')} · 及格線 ${PASS}%。沒有次數限制，現在就可以再試一次`}</p>` : title ? `<p class="muted" style="margin:4px 0 0">${esc(cheer(pct))}</p>` : ''}</div>
+    <div><h2>${esc(passLine && pct < PASS ? `還差 ${PASS - pct}%，再試一次` : title || cheer(pct))}</h2>${passLine ? `<p class="pass-gap ${pct >= PASS ? 'ok' : 'no'}">${pct >= PASS ? `已達及格線 ${PASS}%` : `${esc(title || '未通過')} · 及格線 ${PASS}%，沒有次數限制`}</p>` : title ? `<p class="muted" style="margin:4px 0 0">${esc(cheer(pct))}</p>` : ''}</div>
     ${pills.length ? `<div class="result-lines">${pills.map((p) => `<span class="hud-pill">${p}</span>`).join('')}</div>` : ''}
     ${extraHTML}
     <div class="btn-row center" data-actions></div>

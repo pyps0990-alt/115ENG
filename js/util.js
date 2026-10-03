@@ -70,13 +70,14 @@ export function pickExample(w) {
 // 老師後台（Admin.html）與 Apps Script（Code.gs）有同一套規則，改這裡要一起改。
 export const splitSentences = (p) => (String(p).match(/[^.!?]+(?:[.!?]+["'”’)\]]*|$)/g) || []).map((s) => s.trim()).filter(Boolean);
 
-export function confirmDialog({ title, body, ok = '確定', cancel = '取消' }) {
+// danger：確認的是破壞性動作（例如離開測驗）。預設停在「取消」，確認鈕改成安靜的外框鈕，避免按 Enter 就誤中斷
+export function confirmDialog({ title, body, ok = '確定', cancel = '取消', danger = false }) {
   return new Promise((resolve) => {
     const d = el(`<dialog class="modal"><form method="dialog" class="modal-body">
       <h2>${esc(title)}</h2><div class="muted">${body}</div>
       <div class="btn-row" style="justify-content:flex-end">
-        <button class="btn ghost" value="cancel">${esc(cancel)}</button>
-        <button class="btn primary" value="ok" autofocus>${esc(ok)}</button>
+        <button class="btn ${danger ? 'primary' : 'ghost'}" value="cancel"${danger ? ' autofocus' : ''}>${esc(cancel)}</button>
+        <button class="btn ${danger ? 'outline' : 'primary'}" value="ok"${danger ? '' : ' autofocus'}>${esc(ok)}</button>
       </div></form></dialog>`);
     document.body.append(d);
     d.addEventListener('close', () => { resolve(d.returnValue === 'ok'); d.remove(); });

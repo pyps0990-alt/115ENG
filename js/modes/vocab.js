@@ -130,7 +130,7 @@ export function mount(stage, ctx) {
     });
     // 離開測驗：先確認，這次作答不會送出
     stage.querySelector('[data-leave]').addEventListener('click', async () => {
-      const ok = await confirmDialog({ title: '離開這次測驗？', body: official ? '離開後這次作答不會送出成績，要重新開始。' : '離開後這次練習不會保留。', ok: '離開', cancel: '繼續作答' });
+      const ok = await confirmDialog({ title: '要離開這次測驗嗎？', body: '測驗還沒完成，離開後這次的作答不會保存，也不會送出成績。', ok: '離開', cancel: '繼續作答', danger: true });
       if (ok) { window.removeEventListener('beforeunload', unload); location.hash = '#/'; }
     });
     const foot = stage.querySelector('.q-foot');
@@ -306,7 +306,7 @@ export function mount(stage, ctx) {
         passLine: firstTest,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
         extraHTML: bars + (official
-          ? `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`
+          ? `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`
           : '<p class="muted">錯題練習不會送出成績</p>'),
         // 正式測驗的錯題改用逐題檢討，這裡只在錯題練習時列出
         wrong: official ? [] : wrong.map((w) => ({ p: `〔${w.level.name}〕${promptText(w.q)}`, a: answerText(w.q), y: w.yours, x: w.xp })),

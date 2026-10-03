@@ -330,7 +330,7 @@ export function mount(stage, ctx) {
       scoreText: `${points} / ${sd.length}`,
       pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, redo ? '這是練習，不計入成績' : official && !passed ? '' : firstTest ? '接著逐題檢討，完成後才能複習' : '可以再看一次檢討'].filter(Boolean),
       passLine: official,
-      extraHTML: `${bars}${writingSummaryHTML(details)}${redo ? '' : `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`}`,
+      extraHTML: `${bars}${writingSummaryHTML(details)}${redo ? '' : `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`}`,
       actions,
     });
     if (redo) return;

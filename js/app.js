@@ -699,7 +699,7 @@ async function boot() {
   const leaveOk = () => confirmDialog({
     title: '要離開這次測驗嗎？',
     body: '測驗還沒完成，離開後這次的作答不會保存，也不會送出成績。',
-    ok: '離開', cancel: '繼續作答',
+    ok: '離開', cancel: '繼續作答', danger: true,
   });
   document.addEventListener('click', async (e) => {
     const a = e.target.closest && e.target.closest('a[href^="#"]');

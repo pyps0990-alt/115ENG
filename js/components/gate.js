@@ -89,8 +89,8 @@ export function submitStateHTML(status) {
     disabled: ['disabled', `${icon.camera} 請截圖這個畫面繳交給老師`],
   };
   const [cls, text] = map[status] || map.disabled;
-  const resend = cls === 'queued' || cls === 'error' ? '<button class="btn small" type="button" data-resend>立即重送</button>' : '';
-  return `<div class="submit-state ${cls}" role="status"><span>${text}</span>${resend}</div>`;
+  const resend = cls === 'queued' || cls === 'error' ? `<button class="btn small${cls === 'error' ? ' primary' : ''}" type="button" data-resend>立即重送</button>` : '';
+  return `<div class="submit-state ${cls}"><span>${text}</span>${resend}</div>`;
 }
 
 export function stampHTML(s, title, stamp) {

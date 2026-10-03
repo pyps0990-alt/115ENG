@@ -170,7 +170,7 @@ export function mount(stage, ctx) {
         scoreText: `${points} / ${qs.length}`,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
         passLine: official && !review && !redo,
-        extraHTML: `${bars}${redo ? "" : stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`,
+        extraHTML: `${bars}${redo ? "" : stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`,
         actions,
       });
       if (redo) {
