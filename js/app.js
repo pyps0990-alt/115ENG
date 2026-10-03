@@ -255,6 +255,10 @@ function tileHTML(u) {
   const b = store.best(u.id)[bestKey(u.type)];
   const stages = openLevels(u).map((l) => l.name).join(' → ');
   const st = unitStatus(u);
+  // 大標題跟分類名稱一樣（例如標題就叫「基本句型」）時，不再重複寫一次分類名稱
+  const heading = String(u.topic || u.title || '').trim();
+  const kind = TYPES[typeOf(u.type)].tile;
+  const catLine = [heading === kind || heading === typeLabel(u.type) ? '' : kind, tileMeta(u, stages)].filter(Boolean).join(' · ');
   const chip = st.k === 'retake' && b != null && b < PASS ? `需補考 · 還差 ${PASS - b}%` : TILE_STATE[st.k];
   const sub = [b != null ? `最佳 ${b}%` : '', st.k === 'miss' ? '' : windowText(u.id, store.done(u.id))].filter(Boolean).join(' · ');
   // 最佳成績旁的小量尺：刻度就是及格線，每張卡片都看得到離通過還有多遠
@@ -262,7 +266,7 @@ function tileHTML(u) {
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
       <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span></div>
       <h3 class="en">${esc(u.topic || u.title)}</h3>
-      <div class="tile-meta"><span class="tile-cat">${typeIcon(u.type)}</span>${TYPES[typeOf(u.type)].tile} · ${tileMeta(u, stages)}</div>
+      <div class="tile-meta"><span class="tile-cat">${typeIcon(u.type)}</span>${catLine}</div>
       ${sub ? `<div class="tile-sub">${meter}<span>${esc(sub)}</span></div>` : ''}
     </a>`;
 }
