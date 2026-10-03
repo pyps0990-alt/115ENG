@@ -1011,3 +1011,8 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .filter-empty { margin: 24px 0; color: var(--steel); font-weight: 700; }
 
 .submit-state .spinner.sm { border-color: rgba(30, 58, 138, .25); border-top-color: var(--navy); }
+
+/* 解析裡標出錯誤：答案裡多餘或排錯位置的字（紅底＋刪除線）、正確答案裡漏掉的字（綠底＋底線）；不只靠顏色 */
+mark.bit-wrong, mark.bit-miss { padding: 0 3px; border-radius: 4px; background: var(--bad-soft); color: var(--bad-ink); text-decoration: line-through; text-decoration-thickness: 2px; font-weight: 800; }
+mark.bit-miss { background: var(--good-soft); color: var(--good-ink); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.answer-line > div + div { margin-top: 4px; }

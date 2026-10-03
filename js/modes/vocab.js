@@ -9,6 +9,7 @@ import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { exampleHTML } from '../util.js';
 import { progress, leaveBody } from '../resume.js';
+import { diffAnswer } from '../components/diff.js';
 import { submitScore } from '../submit.js';
 import { PASS, stageSizes, partitionWords } from '../levels.js';
 
@@ -35,11 +36,14 @@ export function mount(stage, ctx) {
     // 例句題顯示當時考的那句（同一個字可能存了不只一句例句），不是字典裡的第一句
     const exEn = d.exampleEn || w.example;
     const exZh = d.exampleZh || w.exampleZh;
+    // 拼寫題（拼字、例句拼寫）把拼錯的字母標出來；選擇題的答案是整個選項，不標
+    const spellKind = /拼/.test(String(d.kind || ''));
+    const mark = spellKind && yours ? diffAnswer(yours, [d.correct || '']) : null;
     return `<div class="rv-card">
         <div class="rv-meta">${esc(d.stage || '')}・${esc(d.kind || '')}</div>
         <div class="rv-prompt ${/[a-z]/i.test(d.q || d.question || '') ? 'en' : ''}">${esc(d.q || d.question || '')}</div>
-        <div class="rv-row no"><span>你的答案</span><b class="en">${yours ? esc(yours) : '（未作答）'}</b></div>
-        <div class="rv-row ok"><span>正確答案</span><b class="en">${esc(d.correct || '')}</b></div>
+        <div class="rv-row no"><span>你的答案</span><b class="en">${yours ? (spellKind ? mark.yoursHTML : esc(yours)) : '（未作答）'}</b></div>
+        <div class="rv-row ok"><span>正確答案</span><b class="en">${spellKind && yours ? mark.correctHTML : esc(d.correct || '')}</b></div>
         ${d.err ? `<p class="xp-tip"><span class="xp-tag">${esc(d.err)}</span>${esc(ERR_TIPS[d.err] || '')}</p>` : ''}
         <div class="xp-main"><span class="xp-word en">${esc(w.word)}</span>${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>
         ${exEn ? `<p class="xp-ex en">${exampleHTML(exEn)}</p>` : ''}

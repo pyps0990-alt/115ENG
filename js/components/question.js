@@ -2,6 +2,7 @@
 // feedback=true：練習模式，作答後立即顯示對錯；false：正式測驗，只記錄作答。
 import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample, pickExample } from '../util.js';
 import { icon } from '../icons.js';
+import { diffAnswer } from './diff.js';
 
 // 拼字題每題最多提示 2 次（每次扣 0.25 分），用完按鈕變暗
 export const MAX_HINTS = 2;
@@ -308,7 +309,8 @@ export function explainWrong(q, chosen, pool = []) {
   } else {
     const d = spellDiff(chosen, q.answer);
     const typed = lettersOf(chosen || '');
-    lines.push(`<p class="xp-yours">${typed ? `你拼成 <b class="en">${esc(typed)}</b>` : '沒有作答'}${typed && d ? `・${esc(d)}` : ''}</p>`);
+    const mark = typed ? diffAnswer(typed, [lettersOf(q.answer) || q.answer]) : null;
+    lines.push(`<p class="xp-yours">${typed ? `你拼成 <b class="en">${mark.yoursHTML}</b>，正確是 <b class="en">${mark.correctHTML}</b>` : '沒有作答'}${typed && d ? `・${esc(d)}` : ''}</p>`);
     if (d) text.push(d);
   }
   // 這題是例句題的話，顯示的例句要跟剛才考的那句一致（同一個字可能存了不只一句）

@@ -3,6 +3,7 @@
 //   段考複習 blocks：mc（選擇）、spell（拼寫）、reading（閱讀：一篇文章多題）、cloze（綜合：文章挖空，每格四選一）
 import { esc, shuffle } from '../util.js';
 import { icon } from '../icons.js';
+import { diffAnswer } from './diff.js';
 
 export const KEYS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 export const KIND_LABEL = { mc: '選擇', fill: '填空', apply: '應用', spell: '拼寫', phrase: '片語', reading: '閱讀', cloze: '綜合', bank: '文意選填', struct: '篇章結構', translate: '翻譯', essay: '作文' };
@@ -75,6 +76,12 @@ export function flattenExam(blocks) {
   return out;
 }
 
+// 答錯後顯示：你的答案（錯的地方標出來）＋正確答案（你漏掉的字標出來）
+export function wrongLineHTML(yours, alts) {
+  const d = diffAnswer(yours, alts);
+  return `${d.yoursHTML ? `<div>你的答案：<b class="en">${d.yoursHTML}</b></div>` : ''}<div>正確答案：<b class="en">${d.correctHTML}</b></div>`;
+}
+
 export const correctText = (q) => (q.kind === 'mc' ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : q.kind === 'open' ? String(q.answer || '') : altsOf(q).slice(0, 4).join(' / '));
 export const isChoice = (q) => q.kind === 'mc';
 
@@ -141,7 +148,7 @@ export function renderFillCard(host, q, { meta = '填入空格中的單字或片
     input.disabled = true; btn.disabled = true;
     input.classList.add(ok ? 'ok' : 'no');
     const line = card.querySelector('.answer-line');
-    if (!ok) { line.hidden = false; line.innerHTML = `正確答案：<b class="en">${esc(altsOf(q).slice(0, 4).join(' / '))}</b>`; }
+    if (!ok) { line.hidden = false; line.innerHTML = wrongLineHTML(typed, altsOf(q)); }
     onAnswer?.(ok, typed);
   };
   btn.addEventListener('click', check);
@@ -251,7 +258,7 @@ export function renderApplyCard(host, q, { meta = '應用：把單字排成正�
     line.classList.add(ok ? 'ok' : 'no');
     card.querySelectorAll('.fill-area .btn').forEach((b) => { b.disabled = true; });
     paint();
-    if (!ok) { const a = card.querySelector('.answer-line'); a.hidden = false; a.innerHTML = `正確答案：<b class="en">${esc(altsOf(q).slice(0, 4).join(' / '))}</b>`; }
+    if (!ok) { const a = card.querySelector('.answer-line'); a.hidden = false; a.innerHTML = wrongLineHTML(built, altsOf(q)); }
     onAnswer?.(ok, built, score);
   });
   paint();
@@ -283,8 +290,8 @@ export function reviewCardHTML(q, yours, extra = '') {
   return `<div class="rv-card">
     <div class="rv-meta">${meta}</div>
     <div class="rv-prompt en">${prompt}</div>
-    <div class="rv-row ${ok ? 'ok' : 'no'}"><span>你的答案</span><b class="en">${String(yours || '').trim() ? esc(yours) : '（未作答）'}</b></div>
-    ${ok ? '' : `<div class="rv-row ok"><span>正確答案</span><b class="en">${esc(altsOf(q).slice(0, 4).join(' / '))}</b></div>`}
+    <div class="rv-row ${ok ? 'ok' : 'no'}"><span>你的答案</span><b class="en">${String(yours || '').trim() ? (ok ? esc(yours) : diffAnswer(yours, altsOf(q)).yoursHTML) : '（未作答）'}</b></div>
+    ${ok ? '' : `<div class="rv-row ok"><span>正確答案</span><b class="en">${diffAnswer(yours, altsOf(q)).correctHTML}</b></div>`}
     ${q.explain ? `<p class="xp-tip">${esc(q.explain)}</p>` : ''}
   </div>`;
 }
