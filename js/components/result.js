@@ -6,9 +6,9 @@ const CIRC = 2 * Math.PI * 52;
 function cheer(pct) {
   if (pct === 100) return '滿分！太強了';
   if (pct >= 85) return '表現超棒！';
-  if (pct >= 70) return '不錯喔，再接再厲';
-  if (pct >= 50) return '還差一點，再練一次';
-  return '多練幾次就會了';
+  if (pct >= PASS) return '不錯喔，再接再厲';
+  if (pct >= 50) return '再練一次，會更穩';
+  return '先看錯的題目，再試一次';
 }
 
 // 分數數字從 0 數到最終分數（跟圓環同步，只改一個文字節點，很輕）
@@ -26,20 +26,24 @@ function countUp(el, to, ms = 1000) {
 
 // wrong: [{ p: 題目, a: 正確答案, y: 你的答案 }]
 // actions: [{ label, icon, primary, onClick }]
-export function renderResult(host, { title, pct, scoreText, pills = [], wrong = [], actions = [], extraHTML = '' }) {
+// passLine：正式測驗才顯示及格線與「還差多少」（練習與複習不計及格）
+export function renderResult(host, { title, pct, scoreText, pills = [], wrong = [], actions = [], extraHTML = '', passLine = false }) {
   const box = document.createElement('div');
   box.className = pct >= PASS ? 'result pass' : 'result';
   box.innerHTML = `
-    <div class="ring" role="img" aria-label="得分 ${pct}%">
+    <div class="ring" role="img" aria-label="得分 ${pct}%${passLine ? (pct >= PASS ? `，已達及格線 ${PASS}%` : `，未達及格線 ${PASS}%，還差 ${PASS - pct}%`) : ''}">
       <svg viewBox="0 0 120 120">
         <defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" style="stop-color:var(--primary)"/><stop offset="1" style="stop-color:var(--accent)"/></linearGradient></defs>
         <circle class="track" cx="60" cy="60" r="52"/>
         <circle class="val" cx="60" cy="60" r="52" style="stroke-dasharray:${CIRC};stroke-dashoffset:${CIRC}"/>
+        ${passLine && pct < PASS ? `<circle class="gap" cx="60" cy="60" r="52" style="stroke-dasharray:${(CIRC * (PASS - pct)) / 100} ${CIRC};stroke-dashoffset:${-(CIRC * pct) / 100}"/>` : ''}
+        ${passLine ? `<line class="pass-tick" x1="103" y1="60" x2="117" y2="60" transform="rotate(${PASS * 3.6} 60 60)"/>` : ''}
       </svg>
+      ${passLine && pct >= PASS ? `<span class="pass-badge" aria-hidden="true">✓</span>` : ''}
       <div class="ring-label"><div class="pct"><span data-num>${pct}</span><small style="font-size:.5em">%</small></div><div class="sub">${esc(scoreText || '')}</div></div>
     </div>
-    <div><h2>${esc(title || cheer(pct))}</h2>${title ? `<p class="muted" style="margin:4px 0 0">${esc(cheer(pct))}</p>` : ''}</div>
+    <div><h2>${esc(title || cheer(pct))}</h2>${passLine ? `<p class="pass-gap ${pct >= PASS ? 'ok' : 'no'}">${pct >= PASS ? `已達及格線 ${PASS}%` : `及格線 ${PASS}%，還差 ${PASS - pct}%。沒有次數限制，現在就可以再試一次`}</p>` : title ? `<p class="muted" style="margin:4px 0 0">${esc(cheer(pct))}</p>` : ''}</div>
     ${pills.length ? `<div class="result-lines">${pills.map((p) => `<span class="hud-pill">${p}</span>`).join('')}</div>` : ''}
     ${extraHTML}
     <div class="btn-row center" data-actions></div>
@@ -61,6 +65,6 @@ export function renderResult(host, { title, pct, scoreText, pills = [], wrong = 
     box.querySelector('.val').style.strokeDashoffset = String(CIRC * (1 - pct / 100));
   }));
   countUp(box.querySelector('[data-num]'), pct);
-  if (pct === 100) setTimeout(confetti, 350);
+  if (pct === 100 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) setTimeout(confetti, 350);
   return box;
 }

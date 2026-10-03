@@ -6,9 +6,10 @@ import { icon } from './icons.js';
 import { renderStudentChip, mountInlineForm, historyReady, closeChipPanel } from './student.js';
 import { LEVELS, PASS } from './levels.js';
 import { initNav, updateNav } from './nav.js';
-import { flushOutbox, pendingItems, clearOutbox } from './submit.js';
+import { flushOutbox, pendingItems, clearOutbox, pendingCount } from './submit.js';
+import { submitStateHTML } from './components/gate.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
-import { TYPES, typeOf, typeLabel, bestKey, typeIcon } from './types.js';
+import { TYPES, typeOf, typeLabel, bestKey } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
 
@@ -145,23 +146,27 @@ function gradeOf(book) {
 function renderHome() {
   document.title = 'B5 Practice';
   const s = store.student();
-  app.innerHTML = `
-    <section class="hero">
-      <div class="eyebrow">${esc(gradeOf(index.book || 'Book 5'))}英文 · ${esc(index.book || 'Book 5')}</div>
-      <h1>B5 Practice</h1>
-      <p>單字片語連續挑戰基礎、進階、精熟三段，讀完課文再做閱讀測驗。</p>
-      ${s ? `<p class="hello">${esc(s.name)}，今天從哪一課開始？</p>` : ''}
-    </section>
-    <div id="welcome-slot"></div>
-    <div id="progress-slot"></div>
-    <div id="lessons"></div>`;
+  app.innerHTML = s
+    ? `<section class="hero compact">
+        <h1>${esc(s.name)}，今天從哪一課開始？</h1>
+        <p id="progress-slot"></p>
+        <p>總分達 ${PASS}% 就通過；沒通過可以一直補考。</p>
+      </section>
+      <div id="next-slot"></div>
+      <div id="lessons"></div>`
+    : `<section class="hero">
+        <h1>B5 Practice</h1>
+        <p>${esc(gradeOf(index.book || 'Book 5'))}英文 ${esc(index.book || 'Book 5')}：單字片語、課文理解、句型練習、段考複習。總分達 ${PASS}% 就通過，沒通過可以一直補考。</p>
+      </section>
+      <div id="welcome-slot"></div>
+      <div id="lessons"></div>`;
 
   // 還沒確認身分：只顯示基本資料表單，確認後才載入單元與這位學生的紀錄
   if (!s) {
     mountInlineForm(app.querySelector('#welcome-slot'), {
       title: '輸入你的基本資料',
       desc: '填寫班級、座號和姓名，要跟老師的名單一致。確認後會載入你之前的測驗紀錄。',
-      button: '確認',
+      button: '開始練習',
       onSave: () => { syncNav(); renderHome(); },
     });
     return;
@@ -171,7 +176,8 @@ function renderHome() {
   const lessons = [...new Set(visible.map((u) => u.lesson))].sort((a, b) => a - b);
   const host = app.querySelector('#lessons');
   if (!visible.length) {
-    host.innerHTML = `<div class="empty"><div class="big">${icon.inbox}</div><p>老師目前沒有開放任何單元。</p></div>`;
+    host.innerHTML = `<div class="empty"><div class="big">${icon.inbox}</div><h2>還沒有開放的單元</h2><p>老師開放後會出現在這裡，不用做任何設定。</p><button class="btn" type="button" data-refresh>${icon.redo} 重新整理</button></div>`;
+    host.querySelector('[data-refresh]').onclick = () => location.reload();
     return;
   }
   // 進度摘要：一眼看到目前完成幾個單元、有沒有待檢討或缺交（點進去看詳細）
@@ -179,66 +185,57 @@ function renderHome() {
   const nOk = st.filter((k) => k === 'ok').length;
   const nTodo = st.filter((k) => k === 'todo').length;
   const nMiss = st.filter((k) => k === 'miss').length;
-  app.querySelector('#progress-slot').innerHTML = `<a class="home-prog" href="#/me">
-      <span class="hp-top"><b>我的進度</b><span>已完成 ${nOk} / ${visible.length}</span></span>
-      <span class="bar"><span style="width:${Math.round((nOk / visible.length) * 100)}%"></span></span>
-      <span class="hp-sub">${nMiss ? `<em class="miss">缺交 ${nMiss}</em>` : ''}${nTodo ? `<em class="todo">待檢討 ${nTodo}</em>` : ''}${!nMiss && !nTodo ? '<em>目前沒有缺交或待檢討</em>' : ''}<span class="go">查看詳細 ${icon.arrowR}</span></span>
-    </a>`;
+  const order = { retake: 0, todo: 1, open: 2 };
+  const nextRow = visible.map((u) => ({ u, ...unitStatus(u) })).filter((r) => r.k in order)
+    .sort((a, b) => order[a.k] - order[b.k] || a.u.lesson - b.u.lesson)[0];
+  if (nextRow) {
+    const lead = { retake: '需要補考', todo: '待檢討', open: '下一個單元' }[nextRow.k];
+    app.querySelector('#next-slot').innerHTML = `<a class="next-card ${nextRow.k}" href="#/u/${esc(nextRow.u.id)}">
+        <span class="nc-ic">${nextRow.ic}</span>
+        <span class="nc-txt"><span class="nc-lead">${lead}</span><b class="en">${esc(nextRow.u.topic || nextRow.u.title)}</b><span class="nc-note">Lesson ${nextRow.u.lesson} · ${esc(nextRow.note)}</span></span>
+        <span class="nc-go">${icon.arrowR}</span>
+      </a>`;
+  }
+  app.querySelector('#progress-slot').innerHTML = `<a class="hp-link" href="#/me">已完成 ${nOk} / ${visible.length}${nTodo ? ` · 待檢討 ${nTodo}` : ''}${nMiss ? ` · 缺交 ${nMiss}` : ''} · 詳細 ${icon.arrowR}</a>`;
   host.innerHTML = lessons.map((n) => {
     const units = visible.filter((u) => u.lesson === n);
     return `<section class="lesson">
-      <h2 class="lesson-head"><span class="lnum">L${n}</span><span>Lesson ${n}</span></h2>
-      <div class="unit-grid">${units.map(tileHTML).join('')}</div>
+      <h2 class="lesson-head">Lesson ${n}</h2>
+      <div class="unit-grid">${units.map((u) => tileHTML(u)).join('')}</div>
     </section>`;
   }).join('');
 }
 
-function pillHTML(label, b) {
-  const cls = b == null ? '' : b >= PASS ? 'pass' : 'tried';
-  return `<span class="lv-pill ${cls}">${b != null && b >= PASS ? icon.check : ''}${label}${b != null ? ` ${b}%` : ''}</span>`;
-}
-
-// 開放時段標籤：還沒開放、快截止、已截止
-function windowBadge(id, done) {
+// 開放時段：放在卡片說明列的純文字（還沒開放、快截止、已截止）
+function windowText(id, done) {
   const w = unitWindow(config, id);
-  if (w.state === 'before') return `<span class="badge time">${icon.lock} ${fmtWhen(w.openAt)} 開放</span>`;
-  if (w.state === 'after') return done ? '' : `<span class="badge time off">已截止</span>`;
-  return w.closeAt ? `<span class="badge time">${icon.clock} ${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}</span>` : '';
+  if (w.state === 'before') return `${fmtWhen(w.openAt)} 開放`;
+  if (w.state === 'after') return done ? '' : '已截止';
+  return w.closeAt ? `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}` : '';
 }
 
 function tileMeta(u, stages) {
   if (u.type === 'vocab') return `${u.count} 個單字與片語 · ${stages}`;
   if (u.type === 'pattern') return `${u.count} 題 · 選擇、填空、應用`;
-  if (u.type === 'exam') return `${u.count} 題 · 詞彙、拼寫、克漏字、文意選填、篇章結構、閱讀`;
+  if (u.type === 'exam') return `${u.count} 題 · 學測題型`;
   return `一篇文章 · ${u.count} 題閱讀測驗`;
 }
 
+// 卡片狀態：狀態標籤放最前面（文字＋圖示＋左側色條），主題第二；題型、最佳成績、時段收成兩行純文字。
+// 「下一步」只由首頁上方的大卡片表達，格子裡不再重複標記。
+const TILE_STATE = { ok: '已完成', retake: '需補考', todo: '待檢討', miss: '缺交', wait: '未開放', open: '尚未開始' };
 function tileHTML(u) {
-  const best = store.best(u.id);
   const vocab = u.type === 'vocab';
-  let status;
-  if (vocab) {
-    const last = store.last(u.id);
-    status = best.vocab == null ? '<span class="lv-pill">尚未測驗</span>'
-      : `${pillHTML('最佳', best.vocab)}${last ? openLevels(u).filter((l) => last[l.id] != null).map((l) => `<span class="lv-pill mini">${l.name} ${last[l.id]}%</span>`).join('') : ''}`;
-  } else {
-    const b = best[bestKey(u.type)];
-    status = b == null ? '<span class="lv-pill">尚未作答</span>' : pillHTML('最佳', b);
-  }
+  const b = store.best(u.id)[bestKey(u.type)];
   const stages = openLevels(u).map((l) => l.name).join(' → ');
-  const done = store.done(u.id);
-  return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)}" href="#/u/${esc(u.id)}">
-      <div class="tile-top">
-        <span class="tile-icon">${typeIcon(u.type)}</span>
-        <span class="tile-kind">${TYPES[typeOf(u.type)].tile}</span>
-        ${!done && store.tried(u.id) ? `<span class="badge todo">${icon.alert} 需補考</span>` : ''}
-        ${done && !store.reviewed(u.id) ? `<span class="badge todo">${icon.bulb} 待檢討</span>` : ''}
-        ${done && store.reviewed(u.id) ? `<span class="badge done">${icon.check} 已完成 · 可複習</span>` : ''}
-        ${windowBadge(u.id, done)}
-      </div>
+  const st = unitStatus(u);
+  const chip = st.k === 'retake' && b != null && b < PASS ? `需補考 · 還差 ${PASS - b}%` : TILE_STATE[st.k];
+  const sub = [b != null ? `最佳 ${b}%` : '', st.k === 'miss' ? '' : windowText(u.id, store.done(u.id))].filter(Boolean).join(' · ');
+  return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
+      <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span></div>
       <h3 class="en">${esc(u.topic || u.title)}</h3>
-      <div class="tile-meta">${tileMeta(u, stages)}</div>
-      <div class="lv-row">${status}</div>
+      <div class="tile-meta">${TYPES[typeOf(u.type)].tile} · ${tileMeta(u, stages)}</div>
+      ${sub ? `<div class="tile-sub">${esc(sub)}</div>` : ''}
     </a>`;
 }
 
@@ -268,16 +265,19 @@ function headHTML(meta, data) {
     </div>`;
 }
 
-function locked() {
-  app.innerHTML = `<div class="empty"><div class="big">${icon.lock}</div><p>老師目前沒有開放這個單元。</p><a class="btn" href="#/">回首頁</a></div>`;
+function locked(meta) {
+  const w = meta ? unitWindow(config, meta.id) : { state: 'open' };
+  const when = w.state === 'before' ? `預計 ${fmtWhen(w.openAt)} 開放，到時候重新整理這一頁就能開始。` : '老師開放後會出現在首頁，不用做任何設定。';
+  app.innerHTML = `<div class="empty"><div class="big">${icon.lock}</div><h2>這個單元還沒開放</h2><p>${when}</p><div class="btn-row center"><a class="btn primary" href="#/">回首頁</a></div></div>`;
 }
 
 async function renderUnit(id, sub) {
   const meta = findUnit(id);
-  if (!meta || !unitVisible(config, meta.id)) {
-    app.innerHTML = `<div class="empty"><div class="big">${icon.lock}</div><p>找不到這個單元，或老師目前沒有開放。</p><a class="btn" href="#/">回首頁</a></div>`;
+  if (!meta) {
+    app.innerHTML = `<div class="empty"><div class="big bad">${icon.alertCircle}</div><h2>找不到這個單元</h2><p>網址可能不完整，或這個單元已經被移除。</p><div class="btn-row center"><a class="btn primary" href="#/">回首頁</a></div></div>`;
     return;
   }
+  if (!unitVisible(config, meta.id)) { locked(meta); return; }
   if (meta.id !== id) { location.replace(`#/u/${meta.id}${sub ? `/${sub}` : ''}`); return; }
 
   app.innerHTML = unitShellHTML(meta); // 先顯示標題外框（版面和正式標題一致），資料到了再換成完整頁面
@@ -285,7 +285,7 @@ async function renderUnit(id, sub) {
   const [data, mod] = await Promise.all([loadUnit(meta.id, config), modes[typeOf(meta.type)](), historyReady()]);
 
   if (meta.type !== 'vocab') {
-    if (!modeOn(config, meta.id, meta.type)) { locked(); return; }
+    if (!modeOn(config, meta.id, meta.type)) { locked(meta); return; }
     document.title = `${meta.title} — B5 Practice`;
     app.innerHTML = `<div class="focus">${headHTML(meta, data)}<section id="stage"></section></div>`;
     cleanup = mod.mount(app.querySelector('#stage'), { unit: meta, data, config, questionCount: questionCount(config, meta.id) }) || null;
@@ -293,7 +293,7 @@ async function renderUnit(id, sub) {
   }
 
   const levels = openLevels(meta);
-  if (!levels.length) { locked(); return; }
+  if (!levels.length) { locked(meta); return; }
   // 舊網址（#/u/l1-voc/basic 等）一律導回單元頁
   if (sub) { location.replace(`#/u/${meta.id}`); return; }
   document.title = `${meta.title} — B5 Practice`;
@@ -316,7 +316,7 @@ function unitStatus(u) {
   if (done) return { k: 'todo', rank: 1, st: '待檢討', note: `${best != null ? `最佳 ${best}%・` : ''}做完檢討才能複習`, ic: icon.bulb };
   if (w.state === 'after') return { k: 'miss', rank: 0, st: '缺交', note: `已於 ${fmtWhen(w.closeAt)} 截止，還沒有正式測驗紀錄`, ic: icon.alert };
   if (w.state === 'before') return { k: 'wait', rank: 5, st: '未開放', note: `${fmtWhen(w.openAt)} 開放`, ic: icon.lock };
-  return { k: 'open', rank: 2, st: '待完成', note: w.closeAt ? `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}` : '尚未測驗', ic: icon.play };
+  return { k: 'open', rank: 2, st: '尚未開始', note: w.closeAt ? `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}` : '尚未測驗', ic: icon.play };
 }
 
 async function renderMe() {
@@ -588,6 +588,25 @@ async function boot() {
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();
   window.addEventListener('online', () => flushOutbox());
+  // 交卷畫面「立即重送」：手動觸發一次補送，結果直接更新同一個狀態框
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-resend]');
+    if (!btn) return;
+    const box = btn.closest('.submit-state');
+    btn.disabled = true;
+    btn.textContent = '重送中…';
+    await flushOutbox().catch(() => {});
+    if (box && box.isConnected) box.outerHTML = submitStateHTML(pendingCount() ? 'queued' : 'sent');
+  });
+  // 離線提示：學生不用猜成績有沒有送出
+  const offBar = document.createElement('div');
+  offBar.className = 'offline-bar';
+  offBar.setAttribute('role', 'status');
+  offBar.hidden = navigator.onLine;
+  offBar.innerHTML = `${icon.alert}<span>目前沒有網路。成績會先存在這台裝置，連上網路後自動送出給老師。</span>`;
+  document.querySelector('.topbar').after(offBar);
+  window.addEventListener('offline', () => { offBar.hidden = false; });
+  window.addEventListener('online', () => { offBar.hidden = true; });
   // 往下捲動時收起左上角 B5（選單按鈕平移補位）。導覽列高度不變，所以切換狀態不會改變頁面高度、不會互相觸發。
   // 用 requestAnimationFrame 節流、加上緩衝區（>64px 收起、<24px 展開）與最短間隔，iPhone 快速滑動時不會來回閃動。
   const brandEl = document.querySelector('.brand');

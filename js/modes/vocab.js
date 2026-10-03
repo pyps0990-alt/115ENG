@@ -22,6 +22,8 @@ export function mount(stage, ctx) {
   const nPhrase = all.filter((w) => w.type === 'phrase').length;
   let alive = true;
   let advanceTimer = null;
+  let hold = null; // 自動下一題時，碰一下畫面就停的監聽
+  const dropHold = () => { if (!hold) return; document.removeEventListener('pointerdown', hold, true); document.removeEventListener('keydown', hold, true); hold = null; };
   let onKey = null;
   const unload = (e) => { e.preventDefault(); e.returnValue = ''; };
 
@@ -106,8 +108,24 @@ export function mount(stage, ctx) {
         </div>
         <div data-q></div>
         <div class="q-foot"><div class="feedback" data-fb aria-live="polite"></div><button class="btn primary" type="button" data-next hidden></button></div>
+        <div class="auto-opt"><button class="link-btn" type="button" data-auto-toggle></button></div>
       </div>`;
     const nextBtn = stage.querySelector('[data-next]');
+    // 自動下一題：答對選擇題後約 1.6 秒自動跳，可以關掉（記在這台裝置）
+    const getFlag = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v === '1'; } catch { return d; } };
+    const setFlag = (k, v) => { try { localStorage.setItem(k, v ? '1' : '0'); } catch { /* ignore */ } };
+    const autoToggle = stage.querySelector('[data-auto-toggle]');
+    const paintAuto = () => {
+      const on = getFlag('b5p:auto', true);
+      autoToggle.textContent = `自動下一題：${on ? '開' : '關'}`;
+      autoToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+    };
+    paintAuto();
+    autoToggle.addEventListener('click', () => {
+      setFlag('b5p:auto', !getFlag('b5p:auto', true));
+      if (!getFlag('b5p:auto', true)) { clearTimeout(advanceTimer); dropHold(); nextBtn.classList.remove('auto'); }
+      paintAuto();
+    });
     const foot = stage.querySelector('.q-foot');
     nextBtn.addEventListener('click', next);
 
@@ -116,6 +134,7 @@ export function mount(stage, ctx) {
         const s = stages[i];
         li.classList.toggle('now', i === si && !s.finished);
         li.classList.toggle('done', !!s.finished);
+        li.setAttribute('aria-current', i === si && !s.finished ? 'step' : 'false');
         li.querySelector('.step-dot').innerHTML = s.finished ? icon.check : String(i + 1);
         li.querySelector('.step-score').textContent = s.finished ? `${fmt(s.points)}/${s.qs.length}` : '';
       });
@@ -176,11 +195,29 @@ export function mount(stage, ctx) {
       nextBtn.hidden = false;
       nextBtn.innerHTML = !lastInStage ? `下一題 ${icon.arrowR}` : si === stages.length - 1 ? `看總成績 ${icon.arrowR}` : `完成${s.level.name} ${icon.arrowR}`;
       setTimeout(() => nextBtn.focus({ preventScroll: true }), 30);
-      if (ok && q.type === 'mc') { clearTimeout(advanceTimer); advanceTimer = setTimeout(() => alive && next(), 1100); }
+      // 答對選擇題會自動下一題；碰一下畫面（或按任何鍵）就停住，自己按「下一題」。開啟減少動態效果的人不自動跳
+      if (ok && q.type === 'mc' && getFlag('b5p:auto', true) && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        if (!getFlag('b5p:autohint', false)) { // 第一次說明一下怎麼暫停
+          fb.insertAdjacentHTML('beforeend', ' <span class="muted">· 輕點畫面可暫停</span>');
+          setFlag('b5p:autohint', true);
+        }
+        clearTimeout(advanceTimer);
+        nextBtn.classList.add('auto');
+        advanceTimer = setTimeout(() => alive && next(), 1600);
+        dropHold();
+        hold = (ev) => {
+          if (ev.target === nextBtn || (ev.type === 'keydown' && ev.key === 'Enter')) return;
+          clearTimeout(advanceTimer); nextBtn.classList.remove('auto');
+        };
+        document.addEventListener('pointerdown', hold, { once: true, capture: true });
+        document.addEventListener('keydown', hold, { once: true, capture: true });
+      }
     }
 
     async function next() {
       clearTimeout(advanceTimer);
+      dropHold();
+      nextBtn.classList.remove('auto');
       if (!alive || nextBtn.hidden || inCard) return;
       done++;
       qi++;
@@ -244,8 +281,8 @@ export function mount(stage, ctx) {
       const actions = [];
       if (firstTest) {
         // 第一次正式測驗：先檢討，檢討完才能複習
-        actions.push({ label: '開始檢討', icon: icon.bulb, primary: true, onClick: () => startReview(details) });
-        if (!passed) actions.push({ label: '馬上補考', icon: icon.redo, onClick: () => play(student, stagesNow(), true, false) });
+        if (!passed) actions.push({ label: '馬上補考', icon: icon.redo, primary: true, onClick: () => play(student, stagesNow(), true, false) });
+        actions.push({ label: '開始檢討', icon: icon.bulb, primary: passed, onClick: () => startReview(details) });
       } else {
         if (wrong.length) {
           actions.push({
@@ -260,7 +297,8 @@ export function mount(stage, ctx) {
         title: !official ? '錯題練習完成' : `${review ? '複習' : '三段測驗'}${passed ? '通過！' : firstTest ? '未通過' : '完成'}`,
         pct,
         scoreText: `${fmt(points)} / ${total}`,
-        pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`, ...(firstTest && !passed ? [`${icon.alert} 未達 ${PASS}%，需要補考`] : [])],
+        passLine: firstTest,
+        pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
         extraHTML: bars + (official
           ? `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`
           : '<p class="muted">錯題練習不會送出成績</p>'),
@@ -297,6 +335,7 @@ export function mount(stage, ctx) {
   return () => {
     alive = false;
     clearTimeout(advanceTimer);
+    dropHold();
     window.removeEventListener('beforeunload', unload);
     if (onKey) document.removeEventListener('keydown', onKey);
   };

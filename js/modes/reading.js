@@ -172,12 +172,13 @@ export function mount(stage, ctx) {
     window.scrollTo(0, 0);
     const actions = [{ label: firstTest ? '開始檢討' : '逐題檢討', icon: icon.bulb, primary: true, onClick: () => startReview(answers) }];
     if (!firstTest) actions.push({ label: '再複習一次', icon: icon.redo, onClick: () => run(student, true) });
-    if (official && !passed) actions.push({ label: '馬上補考', icon: icon.redo, onClick: () => run(student, false) });
+    if (official && !passed) { actions.forEach((a) => { a.primary = false; }); actions.unshift({ label: '馬上補考', icon: icon.redo, primary: true, onClick: () => run(student, false) }); }
     const box = renderResult(stage, {
       title: review ? '複習完成' : passed ? '通過！' : '未通過',
       pct,
       scoreText: `${score} / ${qs.length}`,
-      pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, official && !passed ? `需要補考：先檢討，再重新做一次，總分達 ${PASS}% 才通過` : firstTest ? '接著逐題檢討，完成後才能複習' : '可以逐題檢討這次的作答'],
+      pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, official && !passed ? '' : firstTest ? '接著逐題檢討，完成後才能複習' : '可以逐題檢討這次的作答'].filter(Boolean),
+      passLine: official,
       extraHTML: `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit>${submitStateHTML('sending')}</div>`,
       actions,
     });
