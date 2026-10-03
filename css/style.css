@@ -1064,3 +1064,23 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
   .exam-body { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; align-items: start; }
   .exam-body > .pq-intro, .exam-body > .exam-sec, .exam-body > .exam-group, .exam-body > .open-pq { grid-column: 1 / -1; }
 }
+
+/* 文章要看得到全部：黏住的文章卡高度要扣掉上方導覽列與下方固定的作答列（約 81px），否則最後幾行被作答列蓋住，捲到底也看不到。
+   文章比卡片高時可以在卡片內捲動：上下加漸層陰影提示「還有內容」（iPad 的捲軸平常是隱藏的） */
+@media (min-width: 900px) and (min-height: 521px) {
+  .passage-card {
+    top: 88px;
+    max-height: calc(100vh - 88px - 104px); max-height: calc(100dvh - 88px - 104px);
+    overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    background-color: var(--surface);
+    background-image:
+      linear-gradient(var(--surface) 30%, rgba(0, 0, 0, 0)),
+      linear-gradient(rgba(0, 0, 0, 0), var(--surface) 70%),
+      radial-gradient(farthest-side at 50% 0, rgba(15, 23, 42, .2), rgba(15, 23, 42, 0)),
+      radial-gradient(farthest-side at 50% 100%, rgba(15, 23, 42, .2), rgba(15, 23, 42, 0));
+    background-position: 0 0, 0 100%, 0 0, 0 100%;
+    background-size: 100% 32px, 100% 32px, 100% 12px, 100% 12px;
+    background-repeat: no-repeat;
+    background-attachment: local, local, scroll, scroll;
+  }
+}
