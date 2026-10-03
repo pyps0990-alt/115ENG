@@ -420,6 +420,7 @@
           <button class="btn" id="pu-all" type="button">全選</button>
           <button class="btn" id="pu-none" type="button">全部取消</button>
           <span class="muted" id="pu-count">已選 0 個單元</span>
+          <span class="muted" id="pu-state"></span>
         </div>
         <div id="pu-list" class="pu-list" role="group" aria-label="選擇要刪除的單元"></div>
         <div class="bar" style="margin-top:12px">
@@ -510,6 +511,7 @@
       b.onclick = function () {
         document.querySelectorAll('nav button').forEach(function (x) { x.classList.toggle('on', x === b); });
         TABS.forEach(function (t) { var el = $('tab-' + t); if (el) el.hidden = b.dataset.tab !== t; });
+        if (b.dataset.tab === 'semester') puLoad(); // 每次打開學期結算分頁，重新從試算表讀單元清單
       };
     });
 
@@ -1797,15 +1799,25 @@
     };
 
     // 勾選要刪除的單元（可多選）＋ 其他代號（單元已刪、成績還在的情況）；一個一個依序刪除
+    // 清單從試算表讀（settings、custom_units、content 與 scores 分頁）：單元已刪除但成績還在的也會列出來。
+    // 還沒讀回來（或讀取失敗）時先用網頁已經載入的單元清單
+    var puSheet = null;
+    function puLoad() {
+      $('pu-state').textContent = '從試算表讀取單元清單…';
+      google.script.run.withSuccessHandler(function (list) {
+        puSheet = list || []; $('pu-state').textContent = ''; puRender();
+      }).withFailureHandler(function (err) {
+        $('pu-state').textContent = '讀取試算表失敗（' + err.message + '），先顯示網頁上的單元；也可以在下方填代號'; puRender();
+      }).listPurgeUnits();
+    }
     function puRender() {
       var keep = {};
       Array.prototype.forEach.call(document.querySelectorAll('#pu-list input:checked'), function (c) { keep[c.value] = true; });
-      var sorted = units.slice().sort(function (x, y) {
-        var lx = typeof x.lesson === 'number' ? x.lesson : 999, ly = typeof y.lesson === 'number' ? y.lesson : 999;
-        return lx - ly || String(x.id).localeCompare(String(y.id));
-      });
-      $('pu-list').innerHTML = sorted.length ? sorted.map(function (u) {
-        return '<label><input type="checkbox" value="' + esc(u.id) + '"' + (keep[u.id] ? ' checked' : '') + '><span>' + esc(u.title || u.id) + ' <span class="muted">' + esc(u.id) + '</span></span></label>';
+      var list = puSheet ? puSheet.slice() : units.map(function (u) { return { id: u.id, title: u.title, rows: null, exists: true }; });
+      $('pu-list').innerHTML = list.length ? list.map(function (u) {
+        var note = !u.exists ? ' <span class="pill" title="單元已經刪除，但試算表還留著它的成績">單元已刪除</span>' : '';
+        var rows = u.rows ? ' <span class="muted">' + u.rows + ' 筆成績</span>' : '';
+        return '<label><input type="checkbox" value="' + esc(u.id) + '"' + (keep[u.id] ? ' checked' : '') + '><span>' + esc(u.title || u.id) + ' <span class="muted">' + esc(u.id) + '</span>' + rows + note + '</span></label>';
       }).join('') : '<span class="muted">目前沒有單元</span>';
       puCheck();
     }
@@ -1841,7 +1853,7 @@
         var sum = '已刪除 ' + doneIds.length + ' 個單元：' + rows + ' 列試算表成績、' + docs + ' 筆 Firestore 紀錄';
         if (errMsg) { $('pu-msg').textContent = sum + '；' + ids[k] + ' 失敗：' + errMsg + '（其餘沒有刪除，可以修正後再按一次）'; $('pu-msg').className = 'msg err'; }
         else { $('pu-msg').textContent = '✓ ' + sum; $('pu-msg').className = 'msg ok'; }
-        puRender(); render(); impInit();
+        puRender(); render(); impInit(); puLoad();
       }
       function run() {
         $('pu-msg').textContent = '清除中…（' + (k + 1) + ' / ' + ids.length + '）' + ids[k]; $('pu-msg').className = 'msg';

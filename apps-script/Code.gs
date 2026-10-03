@@ -120,7 +120,7 @@ function handleApi_(d) {
     getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey, testLocalAi: testLocalAi,
     aiGenerateReading: aiGenerateReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
     lookupStudent: lookupStudent, deleteStudent: deleteStudent,
-    backupSpreadsheet: backupSpreadsheet, semesterReset: semesterReset, purgeUnitScores: purgeUnitScores,
+    backupSpreadsheet: backupSpreadsheet, semesterReset: semesterReset, purgeUnitScores: purgeUnitScores, listPurgeUnits: listPurgeUnits,
   };
   try {
     API_EMAIL = verifyIdToken_(d.idToken);
@@ -1131,6 +1131,35 @@ function semesterReset(opts) {
     }
   }
   return out;
+}
+
+// 給「刪除單元的所有紀錄」的勾選清單用：從試算表讀出所有單元代號與標題。
+// 來源：settings、custom_units、content 三個分頁（目前存在的單元），加上 scores 分頁裡有成績的單元
+// （單元已經刪掉、成績還留著也會列出來）。回傳 [{ id, title, rows, exists }]，rows＝scores 分頁的成績列數
+function listPurgeUnits() {
+  assertTeacher_();
+  var map = {};
+  function add(id, title, exists) {
+    id = String(id || '').trim();
+    if (!id) return null;
+    if (!map[id]) map[id] = { id: id, title: '', rows: 0, exists: false };
+    if (title && !map[id].title) map[id].title = String(title).trim();
+    if (exists) map[id].exists = true;
+    return map[id];
+  }
+  readSettingsRows_().forEach(function (u) { add(u.id, u.title, true); });
+  readCustomUnitsRows_().forEach(function (u) { add(u.id, u.title, true); });
+  readContentMeta_().forEach(function (r) { add(r.id, '', true); });
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_SCORES);
+  if (sh && sh.getLastRow() >= 2) {
+    var cu = SCORES_FIELDS.indexOf('unit') + 1, ct = SCORES_FIELDS.indexOf('unitTitle') + 1;
+    var first = Math.min(cu, ct), width = Math.abs(ct - cu) + 1;
+    sh.getRange(2, first, sh.getLastRow() - 1, width).getValues().forEach(function (r) {
+      var u = add(r[cu - first], r[ct - first], false);
+      if (u) u.rows++;
+    });
+  }
+  return Object.keys(map).map(function (k) { return map[k]; }).sort(function (x, y) { return x.id < y.id ? -1 : x.id > y.id ? 1 : 0; });
 }
 
 // 危險功能：刪除某個單元的所有紀錄（成績、作答明細、檢討狀態、單元設定、匯入題目；試算表＋Firestore）。預設關閉：

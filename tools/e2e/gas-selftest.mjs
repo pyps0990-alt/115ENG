@@ -284,5 +284,13 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   const all = ok3(g3.api('syncAllGradebooks', []));
   assert.equal(all.classes, 2); assert.ok(g3.sheets.get('成績單 302'));
   assert.equal(g3.sheets.get('成績單 302').rows.length, 3);
+  // 刪除單元的勾選清單：從試算表讀單元，單元已經不存在但 scores 還有成績的也要列出來
+  g3.postScore({ cls: '312', seat: '5', name: '戊', unit: 'gone-1', unitTitle: 'Gone Title', mode: 'vocab', score: 3, total: 4, pct: 75, durationSec: 60, attemptId: 'g3', details: [] });
+  const pl = ok3(g3.api('listPurgeUnits', []));
+  const gone = pl.find((x) => x.id === 'gone-1');
+  assert.ok(gone, '單元已不存在、成績還在，也要列出來');
+  assert.equal(gone.exists, false); assert.equal(gone.title, 'Gone Title'); assert.equal(gone.rows, 1);
+  assert.ok(pl.every((x) => x.id), '每一項都要有代號');
+  assert.deepEqual(pl.map((x) => x.id), pl.map((x) => x.id).slice().sort(), '依代號排序');
   console.log('成績單自動化測試通過');
 }
