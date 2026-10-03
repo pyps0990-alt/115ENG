@@ -3,7 +3,8 @@
 //       node tools/module-graph.mjs --check  → 清單和 index.html 不一致時結束碼為 1
 import fs from 'node:fs';
 import path from 'node:path';
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+import { fileURLToPath } from 'node:url';
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const seen = [];
 function walk(rel) {
   if (seen.includes(rel)) return;

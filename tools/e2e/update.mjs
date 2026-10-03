@@ -2,7 +2,8 @@
 import fs from 'node:fs';
 import assert from 'node:assert';
 import { startWorld, sleep } from './harness.mjs';
-const ROOT = new URL('../../', import.meta.url).pathname;
+import { fileURLToPath } from 'node:url';
+const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const vf = ROOT + 'version.json';
 const orig = fs.readFileSync(vf, 'utf8');
 const setV = (v) => fs.writeFileSync(vf, JSON.stringify({ v }) + '\n');

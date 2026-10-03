@@ -3,8 +3,9 @@ import vm from 'node:vm';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 // 學生帳本 key（跟 js/firebase.js studentKey 一樣）
 export const keyOf = (cls, seat, name) => crypto.createHash('sha256').update(`${String(cls).trim()}|${String(seat).trim()}|${String(name).trim().replace(/\s+/g, '')}`).digest('hex');
