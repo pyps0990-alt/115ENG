@@ -639,7 +639,7 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 body.scrolled .topbar::after { opacity: 1; }
 .brand { flex: none; transform-origin: left center; transition: transform .38s var(--nav-ease), opacity .24s ease, visibility 0s linear 0s; }
 /* B5 與選單合成同一個按鈕，三種樣子：
-   平常「B5 ☰」；往下捲動只留「B5 ⌄」（小的向下箭頭）；點開時 B5 淡出，變成「選擇單元 ⌃」並展開選單。
+   平常「B5 ☰」；往下捲動只留「B5 ⌄」（小的向下箭頭）；點開時 B5 留著，變成「B5 選擇單元 ⌃」並展開選單。
    有選單時（登入、有開放的單元）左上角只剩這一個按鈕；沒有選單的畫面（登入前）與考試中仍顯示 B5 連結。 */
 body:not(.exam) .topbar:has(#nav-menu:not([hidden])) .brand { display: none; }
 /* 每個零件各自一個「格線欄」：欄寬在 0fr 與 1fr 之間過渡，零件依自己實際的寬度展開／收起，不寫死任何寬度，也不會把文字切到一半。
@@ -661,9 +661,9 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-burger { grid-template-c
 body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-burger .mb-in { opacity: 0; transform: translateX(6px); }
 body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev { grid-template-columns: 1fr; }
 body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1; transform: none; }
-/* 點開「選擇單元 ⌃」：B5 與 ☰ 淡出收起，文字與向上箭頭展開 */
-.menu-btn[aria-expanded="true"] .mb-b5, .menu-btn[aria-expanded="true"] .mb-burger { grid-template-columns: 0fr; }
-.menu-btn[aria-expanded="true"] .mb-b5 .mb-in { opacity: 0; transform: scale(.6); }
+/* 點開「B5 選擇單元 ⌃」：B5 留著，☰ 收起，文字與向上箭頭接在 B5 後面展開 */
+.menu-btn[aria-expanded="true"] .mb-burger { grid-template-columns: 0fr; }
+.menu-btn .mb-label .menu-label { margin-left: 8px; }
 .menu-btn[aria-expanded="true"] .mb-burger .mb-in { opacity: 0; transform: translateX(6px); }
 .menu-btn[aria-expanded="true"] .mb-label, .menu-btn[aria-expanded="true"] .mb-chev { grid-template-columns: 1fr; }
 .menu-btn[aria-expanded="true"] .mb-label .mb-in, .menu-btn[aria-expanded="true"] .mb-chev .mb-in { opacity: 1; transform: none; }

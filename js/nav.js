@@ -71,7 +71,7 @@ export function initNav(visibleUnits) {
 // 每次換頁時更新按鈕文字與目前所在單元
 export function updateNav(currentId) {
   const u = units.find((x) => x.id === currentId);
-  // 一個按鈕三種樣子（見 style.css 的 .menu-btn）：平常是「B5 ☰」；往下捲動只留「B5 ⌄」；點開時 B5 淡出，變成「選擇單元 ⌃」並展開選單
+  // 一個按鈕三種樣子（見 style.css 的 .menu-btn）：平常是「B5 ☰」；往下捲動只留「B5 ⌄」；點開時 B5 留著，變成「B5 選擇單元 ⌃」並展開選單
   const slot = (cls, inner) => `<span class="mb-slot ${cls}" aria-hidden="true"><span class="mb-in">${inner}</span></span>`;
   btn.innerHTML = slot('mb-b5', '<span class="brand-mark">B5</span>') + slot('mb-burger', icon.menu) + slot('mb-label', '<span class="menu-label">選擇單元</span>') + slot('mb-chev', icon.chevDown);
   btn.setAttribute('aria-label', u ? `B5 選單，目前在 ${lessonLabel(u.lesson)} ${kindLabel(u)}` : 'B5 選單');
