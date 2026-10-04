@@ -8,6 +8,23 @@ const root = document.getElementById('nav-menu');
 const btn = document.getElementById('unit-menu-btn');
 const panel = document.getElementById('unit-menu');
 let units = [];
+// 選單打開時蓋在頁面上的暗幕（見 style.css 的 .menu-scrim）；點它會由下面的 document click 關閉選單
+const scrim = document.createElement('div');
+scrim.className = 'menu-scrim';
+scrim.setAttribute('aria-hidden', 'true');
+document.body.append(scrim);
+const hl = () => panel.querySelector('.menu-hl');
+// 滑過項目時，淡色底滑到那個項目；第一次出現時直接定位（不從頂端滑下來）
+function moveHl(el) {
+  const h = hl();
+  if (!h) return;
+  const first = !h.classList.contains('on');
+  if (first) h.classList.add('snap');
+  h.style.setProperty('--hl-y', `${el.offsetTop}px`);
+  h.style.setProperty('--hl-h', `${el.offsetHeight}px`);
+  h.classList.add('on');
+  if (first) { h.getBoundingClientRect(); h.classList.remove('snap'); }
+}
 
 const kindLabel = (u) => typeLabel(u.type);
 const isOpen = () => panel.classList.contains('open');
@@ -19,6 +36,7 @@ export function refreshNavStatus() {}
 function open() {
   refreshNavStatus();
   panel.classList.add('open'); // 展開／收合都由 CSS 的 transform 與 opacity 動畫處理（見 style.css「導覽列動畫」）
+  scrim.classList.add('on');
   btn.setAttribute('aria-expanded', 'true');
   (panel.querySelector('.current') || items()[0])?.focus({ preventScroll: true });
 }
@@ -26,6 +44,8 @@ function open() {
 function close(focusBtn = false) {
   if (!isOpen()) return;
   panel.classList.remove('open');
+  scrim.classList.remove('on');
+  hl()?.classList.remove('on');
   btn.setAttribute('aria-expanded', 'false');
   if (focusBtn) btn.focus({ preventScroll: true });
 }
@@ -44,6 +64,7 @@ export function initNav(visibleUnits) {
     </div>`).join('')}`;
   // 項目依序淡入的順序（style.css 的 menu-in 動畫用 --i 當延遲）
   panel.querySelectorAll('.menu-item, .menu-head').forEach((el, i) => el.style.setProperty('--i', Math.min(i, 10)));
+  panel.insertAdjacentHTML('afterbegin', '<span class="menu-hl" aria-hidden="true"></span>');
   root.hidden = !units.length;
 }
 
@@ -64,6 +85,17 @@ export function updateNav(currentId) {
 }
 
 btn.addEventListener('click', () => (isOpen() ? close() : open()));
+
+panel.addEventListener('pointerover', (e) => {
+  if (e.pointerType !== 'mouse') return;
+  const a = e.target.closest('.menu-item');
+  if (a) moveHl(a);
+});
+panel.addEventListener('pointerleave', () => hl()?.classList.remove('on'));
+panel.addEventListener('focusin', (e) => {
+  const a = e.target.closest('.menu-item');
+  if (a && a.matches(':focus-visible')) moveHl(a);
+});
 
 document.addEventListener('click', (e) => {
   if (isOpen() && !root.contains(e.target)) close();

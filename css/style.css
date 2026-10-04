@@ -692,8 +692,21 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1
   clip-path: inset(-8px -56px -72px -56px round 18px);
   transform: translate3d(var(--mx, 0), 0, 0);
   transition: opacity .2s ease, transform .46s var(--spring), clip-path .46s var(--nav-ease), visibility 0s; }
-@keyframes menu-in { from { opacity: 0; transform: translate3d(0, -8px, 0); } }
-.menu-panel.open .menu-item, .menu-panel.open .menu-head { animation: menu-in .4s var(--nav-ease) both; animation-delay: calc(60ms + var(--i, 0) * 24ms); }
+@keyframes menu-in { from { opacity: 0; transform: translate3d(0, -6px, 0); filter: blur(3px); } }
+.menu-panel.open .menu-item, .menu-panel.open .menu-head { animation: menu-in .44s var(--nav-ease) both; animation-delay: calc(70ms + var(--i, 0) * 26ms); }
+/* 滑過項目時，一塊淡色底跟著游標滑到該項目（只在有滑鼠的裝置；觸控仍用按下時的底色） */
+.menu-hl { position: absolute; top: 0; left: 8px; right: 8px; height: var(--hl-h, 48px); border-radius: 10px; background: var(--wash);
+  transform: translate3d(0, var(--hl-y, 0), 0); opacity: 0; pointer-events: none; z-index: 0;
+  transition: transform .32s var(--nav-ease), height .32s var(--nav-ease), opacity .18s ease; }
+.menu-hl.on { opacity: 1; }
+.menu-hl.snap { transition: opacity .18s ease; }
+.menu-panel .menu-item, .menu-panel .menu-head { position: relative; z-index: 1; }
+@media (hover: hover) { .menu-panel .menu-item:hover { background: transparent; } .menu-panel .menu-item.current:hover { background: var(--navy-soft); } }
+/* 選單打開時，頁面內容稍微變暗、變模糊，視線集中在選單（導覽列維持清楚）；點暗處就關閉 */
+.menu-scrim { position: fixed; inset: 0; z-index: 19; background: rgba(15, 23, 42, .16); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  opacity: 0; visibility: hidden; transition: opacity .18s ease, visibility 0s linear .18s; }
+.menu-scrim.on { opacity: 1; visibility: visible; transition: opacity .34s ease, visibility 0s; }
+.menu-btn .mb-chev .ic { transition: transform .5s cubic-bezier(.22, 1.3, .36, 1); }
 .menu-item { transition: background .15s ease, transform .15s var(--nav-ease); }
 .menu-item:active { transform: scale(.985); }
 .menu-ic { transition: transform .25s var(--nav-ease), background .15s ease, border-color .15s ease; }
@@ -701,7 +714,8 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1
 .menu-btn { transition: transform .2s var(--nav-ease), background .2s ease, box-shadow .3s var(--nav-ease); }
 .menu-btn[aria-expanded="true"] { box-shadow: 0 0 0 3px rgba(255, 255, 255, .16); }
 @media (prefers-reduced-motion: reduce) {
-  .brand, .menu-btn, .mb-slot, .mb-in, .mb-chev .ic, .topbar::after, .menu-panel, .menu-item, .menu-ic { transition: none !important; }
+  .brand, .menu-btn, .mb-slot, .mb-in, .mb-chev .ic, .topbar::after, .menu-panel, .menu-item, .menu-ic, .menu-hl, .menu-scrim { transition: none !important; }
+  .menu-scrim { -webkit-backdrop-filter: none; backdrop-filter: none; }
   .menu-panel, .menu-panel.open { clip-path: none; }
   .menu-panel.open .menu-item, .menu-panel.open .menu-head, #student-chip:not([hidden]) { animation: none; }
 }
