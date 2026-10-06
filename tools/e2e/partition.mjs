@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 const mem = new Map();
 globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k), key: (i) => [...mem.keys()][i], get length() { return mem.size; } };
 globalThis.window = globalThis;
-const { partitionWords, stageSizes } = await import('../../js/levels.js');
+const { partitionWords, stageSizes, pickWords, PER_TEST } = await import('../../js/levels.js');
 
 assert.deepEqual(stageSizes(27, 3), [9, 9, 9]);
 assert.deepEqual(stageSizes(28, 3), [10, 9, 9]);
@@ -37,4 +37,27 @@ const changed = base.slice(3).concat(mk(6, 0).map((w) => ({ ...w, word: 'new' + 
 const g2 = partitionWords(changed, 3, 'u2');
 assert.equal(g2.flat().length, 27);
 assert.equal(partitionWords(base, 1, 'u3')[0].length, 24);
+// 超過 30 個字：每次抽 30 個，上次沒考到的優先、片語照比例，兩次輪完全部；30 個以內全部考
+{
+  mem.clear();
+  assert.equal(PER_TEST, 30);
+  const small = mk(30, 4);
+  assert.equal(pickWords(small, 's1'), small, '30 個以內不抽題');
+  const big = mk(50, 5);
+  const p1 = pickWords(big, 'b1');
+  assert.equal(p1.length, 30); assert.equal(new Set(p1).size, 30);
+  assert.equal(p1.filter((w) => w.type === 'phrase').length, 3, '片語照比例（5/50 × 30 = 3）');
+  const p2 = pickWords(big, 'b1');
+  assert.equal(p2.length, 30);
+  const rest = big.filter((w) => !p1.includes(w));
+  assert.ok(rest.every((w) => p2.includes(w)), '第二次一定包含上次沒考到的 20 個');
+  assert.equal(new Set([...p1, ...p2]).size, 50, '兩次就輪完全部');
+  // 新的一輪：第三次優先考第二次沒抽到的字
+  const p3 = pickWords(big, 'b1');
+  const notIn2 = big.filter((w) => !p2.includes(w));
+  assert.ok(notIn2.every((w) => p3.includes(w)), '新一輪從上次沒抽到的開始');
+  // 抽出來的字照樣能分成三段
+  const g = partitionWords(p3, 3, 'b1');
+  assert.deepEqual(g.map((x) => x.length), [10, 10, 10]);
+}
 console.log('單字分配測試通過');

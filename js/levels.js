@@ -31,6 +31,25 @@ export const LEVELS = [
 // 各段題數 = 總數平均分配（多出來的給前面的階段），片語平均分散在各段，不會集中在同一段。
 // 之後每次複習都會換一批：上一次在第 k 段的字，這次一定改到別段（整組輪替），
 // 所以每次複習每個字的題型都不同。分配紀錄存在這台裝置上（每位學生、每個單元各一份）。
+// 一次測驗最多考幾個字。單元超過這個數量時每次抽題：上次（這一輪）還沒考到的字優先，單字與片語照比例抽；
+// 全部字都輪過一次後，從頭開始新的一輪。抽題紀錄存在這台裝置（每位學生、每個單元一份），老師重製單元時一併清掉。
+export const PER_TEST = 30;
+export function pickWords(all, unitId, n = PER_TEST) {
+  if (all.length <= n) return all;
+  const key = `${unitId}:seen`;
+  const seen = new Set(store.bag(key));
+  const take = (pool, k) => [...shuffle(pool.filter((w) => !seen.has(w.word))), ...shuffle(pool.filter((w) => seen.has(w.word)))].slice(0, k);
+  const phrases = all.filter((w) => w.type === 'phrase');
+  const singles = all.filter((w) => w.type !== 'phrase');
+  const nPh = Math.min(phrases.length, Math.round((n * phrases.length) / all.length));
+  let pick = [...take(phrases, nPh), ...take(singles, n - nPh)];
+  if (pick.length < n) pick = [...pick, ...take(all.filter((w) => !pick.includes(w)), n - pick.length)];
+  const after = new Set([...seen, ...pick.map((w) => w.word)]);
+  // 這一輪全部考到了：下一輪從這次沒抽到的字開始
+  store.setBag(key, all.every((w) => after.has(w.word)) ? pick.map((w) => w.word) : [...after]);
+  return pick;
+}
+
 export function stageSizes(total, stages) {
   const base = Math.floor(total / stages);
   const extra = total % stages;

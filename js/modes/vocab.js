@@ -12,7 +12,7 @@ import { exampleHTML } from '../util.js';
 import { progress, leaveBody } from '../resume.js';
 import { diffAnswer } from '../components/diff.js';
 import { submitScore } from '../submit.js';
-import { PASS, stageSizes, partitionWords } from '../levels.js';
+import { PASS, stageSizes, partitionWords, pickWords, PER_TEST } from '../levels.js';
 
 const HINT_COST = 0.25;
 const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ''));
@@ -21,7 +21,8 @@ export function mount(stage, ctx) {
   const levels = ctx.levels;
   const all = ctx.allWords;
   const unitId = ctx.unit.id;
-  const sizes = stageSizes(all.length, levels.length);
+  const perTest = Math.min(all.length, PER_TEST); // 一次考幾個字（超過 PER_TEST 個就抽題）
+  const sizes = stageSizes(perTest, levels.length);
   const nPhrase = all.filter((w) => w.type === 'phrase').length;
   let alive = true;
   let advanceTimer = null;
@@ -68,7 +69,9 @@ export function mount(stage, ctx) {
     timeWindow: () => unitWindow(ctx.config, unitId),
     eyebrow: levels.map((l) => l.en).join(' → '),
     rules: [
-      `共 <b>${all.length}</b> 個（單字 ${all.length - nPhrase}、片語 ${nPhrase}），分成 <b>${levels.length}</b> 段（${sizes.join('、')} 題），每個字這次只考一次，全部都會考到`,
+      all.length > perTest
+        ? `共 <b>${all.length}</b> 個（單字 ${all.length - nPhrase}、片語 ${nPhrase}），每次測驗抽 <b>${perTest}</b> 個，分成 <b>${levels.length}</b> 段（${sizes.join('、')} 題）；上次沒考到的字優先，做兩次就輪完全部`
+        : `共 <b>${all.length}</b> 個（單字 ${all.length - nPhrase}、片語 ${nPhrase}），分成 <b>${levels.length}</b> 段（${sizes.join('、')} 題），每個字這次只考一次，全部都會考到`,
       '複習時單字會重新分配到不同的階段，題型和例句也會換',
       ...levels.map((l, i) => `第 ${i + 1} 段 <b>${l.name}</b>：${esc(l.desc)}`),
     ],
@@ -86,9 +89,9 @@ export function mount(stage, ctx) {
     },
   });
 
-  // 每次開始（含複習）重新分配：全部單字分到各階段，每個字只考一次
+  // 每次開始（含複習）重新分配：這次要考的字（超過 PER_TEST 個就抽題）分到各階段，每個字只考一次
   const stagesNow = () => {
-    const groups = partitionWords(all, levels.length, unitId);
+    const groups = partitionWords(pickWords(all, unitId), levels.length, unitId);
     return levels.map((l, i) => ({ level: l, words: groups[i] })).filter((x) => x.words.length);
   };
 

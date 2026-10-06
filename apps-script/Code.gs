@@ -90,7 +90,8 @@ var FIREBASE_WEB_KEY = 'AIzaSyC0HFF3YjrsONdvYwTrofihkqNGiQjjdyc';
 var API_EMAIL = null;
 var API_VERSION = 'admin-api-4';
 
-// 用 Google 的 Identity Toolkit 驗證 Firebase 登入憑證，回傳登入的 email（有快取，5 分鐘內不重查）
+// 用 Google 的 Identity Toolkit 驗證 Firebase 登入憑證，回傳登入的 email。
+// 快取到憑證過期前 1 分鐘（Firebase 憑證 1 小時過期），同一個憑證不重查；過期的憑證本來就會被換新。
 function verifyIdToken_(token) {
   token = String(token || '');
   if (!token) throw new Error('請先登入');
@@ -105,7 +106,14 @@ function verifyIdToken_(token) {
   var u = (JSON.parse(res.getContentText()).users || [])[0];
   var email = u && u.email ? String(u.email).toLowerCase() : '';
   if (!email || u.emailVerified === false) throw new Error('無法確認登入帳號');
-  cache.put(ck, email, 300);
+  var ttl = 300;
+  try {
+    var seg = token.split('.')[1] || '';
+    seg += '===='.slice((seg.length % 4) || 4);
+    var payload = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(seg)).getDataAsString());
+    if (payload.exp) ttl = Math.max(60, Math.min(3300, Math.floor(payload.exp - Date.now() / 1000) - 60));
+  } catch (err) { /* 讀不到過期時間就用 5 分鐘 */ }
+  cache.put(ck, email, ttl);
   return email;
 }
 
@@ -1476,7 +1484,7 @@ function validateContent_(type, d) {
   if (!d || typeof d !== 'object') return '資料格式錯誤';
   if (type === 'vocab') {
     if (!Array.isArray(d.words) || d.words.length < 4) return '單字片語至少要 4 個';
-    if (d.words.length > 30) return '一個單元最多 30 個單字片語，請拆成兩個單元';
+    if (d.words.length > 50) return '一個單元最多 50 個單字片語，請拆成兩個單元';
     for (var i = 0; i < d.words.length; i++) {
       var w = d.words[i];
       if (!w.word || !w.zh) return '第 ' + (i + 1) + ' 個缺少英文或中文';
@@ -2194,7 +2202,7 @@ function isTeacher_(email) {
   var hit = cache.get(ck);
   if (hit) return hit === '1';
   var ok = isTeacherUncached_(email);
-  cache.put(ck, ok ? '1' : '0', 300);
+  cache.put(ck, ok ? '1' : '0', 600); // 10 分鐘：從老師名單移除帳號後，最多 10 分鐘生效
   return ok;
 }
 function isTeacherUncached_(email) {

@@ -68,6 +68,8 @@ out = sub1('  <script>\n', '  <script type="text/plain" id="admin-main">\n', out
 bootstrap = r'''
   <script type="module">
     import { SCRIPT_URL } from './js/config.js';
+    // Apps Script 閒置後第一次呼叫要先「開機」幾秒：頁面一打開就先敲一下，讓它在確認登入的同時開機
+    fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ api: 'ping' }), credentials: 'omit', cache: 'no-store' }).catch(() => {});
     const $ = (id) => document.getElementById(id);
     const gate = (text, showLink) => { $('gate-msg').textContent = text; $('gate-link').hidden = !showLink; };
     let fb;
