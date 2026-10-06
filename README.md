@@ -154,6 +154,7 @@ node tools/e2e/resume.mjs         # 測驗中途存檔：綁定學生與測驗�
 node tools/e2e/diff.mjs           # 解析裡標出錯誤的地方：句子逐字、拼字逐字母、多種正確寫法、HTML 跳脫（不需要瀏覽器）
 node tools/e2e/reset.mjs          # 老師重製單元：本機紀錄只清那個單元、需補考標記一併清掉（不需要瀏覽器）
 node tools/e2e/lessons.mjs        # 課次：數字顯示 L1、英文（例如 R-X）照原樣、不能用中文（不需要瀏覽器）
+node tools/e2e/submit.mjs         # 成績送出：伺服器拒收的成績留紀錄、裝置存不了時改用記憶體照樣送出並提醒別離開（不需要瀏覽器）
 ```
 
 Firestore 規則測試要用模擬器（需要 Java）：

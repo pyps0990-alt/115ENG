@@ -77,7 +77,7 @@ export const store = {
   // 登出並清除這台裝置上的學生資料（姓名、座號、成績、檢討、錯題、排隊中的成績）；老師的設定暫存保留
   clearAll() {
     try {
-      Object.keys(localStorage).filter((k) => /^b5p:(student|best|last|done|tried|first|reviewed|wrong|bag|outbox|histAt)/.test(k)).forEach((k) => localStorage.removeItem(k));
+      Object.keys(localStorage).filter((k) => /^b5p:(student|best|last|done|tried|first|reviewed|wrong|bag|outbox|rejected|histAt)/.test(k)).forEach((k) => localStorage.removeItem(k));
     } catch { /* ignore */ }
   },
 

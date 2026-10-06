@@ -104,9 +104,11 @@ export function submitStateHTML(status) {
     queued: ['queued', `${icon.clock} 成績已存在這台裝置，網路恢復後自動送出。可以先離開`],
     error: ['error', `${icon.alert} 還沒送出：成績已存在這台裝置，可以按「立即重送」，或截圖這個畫面給老師`],
     disabled: ['disabled', `${icon.camera} 請截圖這個畫面繳交給老師`],
+    volatile: ['error', `${icon.alert} 成績還沒送出，而且這台裝置不能暫存成績：請先不要關掉或離開這一頁，等顯示「成績已送出給老師」再離開`],
+    rejected: ['error', `${icon.alert} 老師的伺服器拒收了這份成績：請截圖這個畫面給老師（「我的成績」頁也會列出來）`],
   };
   const [cls, text] = map[status] || map.disabled;
-  const resend = cls === 'queued' || cls === 'error' ? `<button class="btn small${cls === 'error' ? ' primary' : ''}" type="button" data-resend>立即重送</button>` : '';
+  const resend = status !== 'rejected' && (cls === 'queued' || cls === 'error') ? `<button class="btn small${cls === 'error' ? ' primary' : ''}" type="button" data-resend>立即重送</button>` : '';
   return `<div class="submit-state ${cls}"><span>${text}</span>${resend}</div>`;
 }
 

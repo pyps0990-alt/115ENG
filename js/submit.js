@@ -5,13 +5,39 @@ import { store } from './storage.js';
 // 成績先放進這台裝置的等待清單，再送到 Apps Script；網路失敗時留在清單裡，
 // 之後開站、恢復連線或下次送成績時自動補送。每筆有 attemptId，伺服器會去除重複。
 const OUTBOX = 'b5p:outbox';
+const REJECTED = 'b5p:rejected';
 const MAX_QUEUE = 50;
 
+// 這台裝置存不了東西（儲存空間滿了、瀏覽器封鎖網站資料）：等待清單改放在記憶體，
+// 這一頁開著的時候照樣會送、會重送；交卷畫面會請學生等到「已送出」再離開，離開前也會跳出提醒。
+let mem = null;
 function readBox() {
+  if (mem) return mem.slice();
   try { return JSON.parse(localStorage.getItem(OUTBOX) || '[]'); } catch { return []; }
 }
 function writeBox(list) {
-  try { localStorage.setItem(OUTBOX, JSON.stringify(list.slice(-MAX_QUEUE))); } catch { /* ignore */ }
+  const l = list.slice(-MAX_QUEUE);
+  if (!mem) {
+    try { localStorage.setItem(OUTBOX, JSON.stringify(l)); return; } catch { /* 存不進去：改用記憶體 */ }
+  }
+  mem = l;
+}
+export const storageBroken = () => !!mem;
+window.addEventListener('beforeunload', (e) => {
+  if (mem && mem.length) { e.preventDefault(); e.returnValue = ''; }
+});
+
+// 被伺服器拒收的成績（重送也不會成功）：不再靜默丟掉，留在這台裝置，「我的成績」頁列出來請學生截圖給老師
+let memRejected = [];
+export function rejectedItems() {
+  try { return JSON.parse(localStorage.getItem(REJECTED) || '[]').concat(memRejected); } catch { return memRejected.slice(); }
+}
+function saveRejected(item, reason) {
+  const rec = { ...item, reason: String(reason || '伺服器拒收').slice(0, 200), rejectedAt: new Date().toISOString() };
+  try {
+    const list = JSON.parse(localStorage.getItem(REJECTED) || '[]').filter((x) => x.attemptId !== item.attemptId);
+    localStorage.setItem(REJECTED, JSON.stringify([...list, rec].slice(-20)));
+  } catch { memRejected = [...memRejected.filter((x) => x.attemptId !== item.attemptId), rec]; }
 }
 
 export function newAttemptId() {
@@ -50,9 +76,9 @@ async function post(payload) {
   if (j && (j.ok || j.duplicate)) return 'ok';
   if (j && j.busy) return 'retry';
   if (j && j.ok === false) {
-    // 伺服器明確拒絕（例如資料不完整）：重送也不會成功，丟掉，免得卡住後面的成績
+    // 伺服器明確拒絕（例如資料不完整）：重送也不會成功，移出等待清單（免得卡住後面的成績），改記到「被拒收」清單
     console.warn('成績被伺服器拒絕，不再重送', j, payload);
-    return 'drop';
+    return `drop:${j.error || ''}`;
   }
   // 回應異常或讀不到：確認伺服器是否其實已經寫入
   for (let i = 0; i < (readable ? 1 : 3); i++) {
@@ -94,7 +120,11 @@ export function flushOutbox() {
       // 送出期間可能被標記為排隊中（交卷畫面等太久先放行），以最新的狀態為準
       const cur = readBox().find((x) => x.attemptId === item.attemptId) || item;
       writeBox(readBox().filter((x) => x.attemptId !== item.attemptId));
-      if (res === 'drop') continue;
+      if (res.startsWith('drop')) {
+        saveRejected(cur, res.slice(5));
+        window.dispatchEvent(new CustomEvent('score-rejected', { detail: cur }));
+        continue;
+      }
       sent++;
       // 之前排過隊的成績送出後，通知畫面右下角
       if (cur.queuedAt) window.dispatchEvent(new CustomEvent('score-sent', { detail: cur }));
@@ -129,11 +159,16 @@ export async function submitScore(payload) {
     // 還沒確認：標記為排隊中，之後送出時右下角會通知
     writeBox(readBox().map((x) => (x.attemptId === item.attemptId ? { ...x, queuedAt: Date.now() } : x)));
     if (!timedOut) window.dispatchEvent(new CustomEvent('score-queued', { detail: item }));
+    // 這台裝置存不了：關掉頁面就沒了，請學生先留在這一頁
+    if (storageBroken()) return { status: 'volatile', attemptId: item.attemptId };
     return { status: timedOut ? 'pending' : 'queued', attemptId: item.attemptId };
   }
+  if (rejectedItems().some((x) => x.attemptId === item.attemptId)) return { status: 'rejected', attemptId: item.attemptId };
   return { status: 'sent', attemptId: item.attemptId };
 }
 
 export const pendingCount = () => readBox().length;
+// 交卷畫面「立即重送」之後要顯示的狀態
+export const outboxStatus = () => (pendingCount() ? (storageBroken() ? 'volatile' : 'queued') : 'sent');
 export const pendingItems = () => readBox();
 export const clearOutbox = () => writeBox([]);

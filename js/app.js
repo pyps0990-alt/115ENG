@@ -6,7 +6,7 @@ import { icon } from './icons.js';
 import { renderStudentChip, mountInlineForm, historyReady, closeChipPanel } from './student.js';
 import { LEVELS, PASS } from './levels.js';
 import { initNav, updateNav } from './nav.js';
-import { flushOutbox, pendingItems, clearOutbox, pendingCount } from './submit.js';
+import { flushOutbox, pendingItems, clearOutbox, outboxStatus, rejectedItems } from './submit.js';
 import { submitStateHTML } from './components/gate.js';
 import { leaveBody } from './resume.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
@@ -386,6 +386,19 @@ function unitStatus(u) {
   return { k: 'open', rank: 2, st: '尚未開始', note: w.closeAt ? `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}` : '尚未測驗', ic: icon.play };
 }
 
+// 被伺服器拒收、沒有進到老師試算表的成績：列出來請學生截圖給老師（只列這位學生的）
+function rejectedHTML(s) {
+  const list = rejectedItems().filter((x) => String(x.cls) === String(s.cls) && String(x.seat) === String(s.seat));
+  if (!list.length) return '';
+  return `<section class="me-alert" role="alert">
+      <h2>${icon.alert} 有 ${list.length} 筆成績沒有送到老師那裡</h2>
+      <p>伺服器拒收了下面這幾次作答，重送也不會成功。請截圖這個畫面給老師，老師可以手動登記。</p>
+      <ul>${list.map((x) => `<li><b>${esc(x.unitTitle || x.unit || '')}</b>
+        <span>${esc(String(x.clientTs || x.rejectedAt || '').replace('T', ' ').slice(0, 16))}・${esc(String(x.score ?? ''))} / ${esc(String(x.total ?? ''))}（${esc(String(x.pct ?? ''))}%）${x.review ? '・複習' : ''}</span>
+        <span class="muted">原因：${esc(x.reason || '伺服器拒收')}・編號 ${esc(String(x.attemptId || '').slice(0, 8))}</span></li>`).join('')}</ul>
+    </section>`;
+}
+
 async function renderMe() {
   const s = store.student();
   if (!s) { location.replace('#/'); return; }
@@ -402,6 +415,7 @@ async function renderMe() {
       <h1>${esc(masked)} 的成績</h1>
       <p class="muted" style="margin:0">${esc(s.cls)} 班 ${esc(s.seat)} 號</p>
     </section>
+    ${rejectedHTML(s)}
     <div class="me-sum">
       <div class="sum"><b>${count('ok')} / ${rows.length}</b><span>已完成</span></div>
       <div class="sum todo"><b>${count('todo')}</b><span>待檢討</span></div>
@@ -673,7 +687,7 @@ async function boot() {
     btn.disabled = true;
     btn.textContent = '重送中…';
     await flushOutbox().catch(() => {});
-    if (box && box.isConnected) box.outerHTML = submitStateHTML(pendingCount() ? 'queued' : 'sent');
+    if (box && box.isConnected) box.outerHTML = submitStateHTML(outboxStatus());
   });
   // 離線提示：學生不用猜成績有沒有送出
   const offBar = document.createElement('div');
@@ -722,6 +736,7 @@ async function boot() {
   new MutationObserver(() => setExam(!!document.body.dataset.busy)).observe(document.body, { attributes: true, attributeFilter: ['data-busy'] });
   // 成績排隊／排到送出時，在畫面右下角通知
   window.addEventListener('score-queued', (e) => notify(`${e.detail.unitTitle || e.detail.unit} 成績已加入排隊，稍後自動送出`, 'wait'));
+  window.addEventListener('score-rejected', (e) => notify(`${e.detail.unitTitle || e.detail.unit} 成績被伺服器拒收，請到「我的成績」截圖給老師`, 'wait'));
   window.addEventListener('score-sent', (e) => notify(`${e.detail.unitTitle || e.detail.unit} ${String(e.detail.clientTs || '').slice(11, 16)} 已送出成績`, 'ok'));
   // 考試鎖定：作答中點任何站內連結（左上 B5、所有單元…）或按上一頁，都先確認，避免不小心中斷
   let curHash = location.hash;
