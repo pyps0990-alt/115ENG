@@ -70,7 +70,16 @@ assert(vd && vd.words.length === 4, '範例（兩行）加兩行共 4 個字：'
 assert.equal(vd.words[0].examples.length, 3);
 assert.equal(vd.words[1].type, 'phrase');
 assert.equal(vd.words[1].examples[2].zh, '市場很快反彈。');
-assert.match(els['imp-report'].innerHTML, /建議每個單元：?單字|建議每個單元 20/);
+assert.doesNotMatch(els['imp-report'].innerHTML, /建議每個單元 20/, '單字數量只限 4～50 個，不再建議 20–25 個');
+assert.match(els['imp-report'].innerHTML, /2–5 個片語/);
+// 超過 30 個：預覽要說明每次抽 30 個出題
+{
+  const many = Array.from({ length: 34 }, (_, i) => `word${(String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26)))}x | n. | 字${i} | The [word${(String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26)))}x] is here. | 這個字在這裡。`).join(String.fromCharCode(10));
+  els['v-text'] = { value: many };
+  parseVocab();
+  assert.match(els['imp-report'].innerHTML, /每次測驗抽 30 個/, '超過 30 個要提示抽題');
+  els['v-text'] = { value: ph };
+}
 // AI 回覆常見的裝飾：程式碼框、粗體、項目符號、編號、全形符號、標題別名、欄位別名、一行 A. B. C. D.
 const messy = [
   '好的，以下是 3 題句型練習：',
