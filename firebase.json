@@ -14,6 +14,7 @@
       "apps-script/**",
       "tools/**",
       "README.md",
+      "docs/**",
       "firestore.rules",
       "*.zip",
       "*.log"
