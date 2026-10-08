@@ -21,6 +21,16 @@ export function normLesson(v) {
   return /^\d+$/.test(t) ? Math.min(99, Number(t)) : t.slice(0, 20);
 }
 export const lessonLabel = (l) => (typeof l === 'number' ? `L${l}` : String(l));
+// 單元全名「課次 標題」；標題本來就以課次開頭（例如課次 L3、標題「L3單字片語」或課次 1-2、標題「L1-2…」）就不再重複課次
+export const unitName = (u) => {
+  const label = lessonLabel(u.lesson);
+  const title = String(u.title || '').trim();
+  const norm = (x) => x.replace(/\s+/g, '').toLowerCase();
+  const t = norm(title), l = norm(label);
+  // 課次後面接數字就不算（課次 1、標題「L10…」是不同課）
+  const has = (p) => t.startsWith(p) && !/^[0-9]/.test(t.slice(p.length));
+  return !title ? label : has(l) || has('l' + l) ? title : `${label} ${title}`;
+};
 export const lessonCmp = (a, b) => (typeof a === 'number' && typeof b === 'number' ? a - b
   : typeof a === 'number' ? -1 : typeof b === 'number' ? 1
     : String(a).localeCompare(String(b), 'zh-Hant', { numeric: true }));

@@ -10,7 +10,7 @@ import { flushOutbox, pendingItems, clearOutbox, outboxStatus, rejectedItems } f
 import { submitStateHTML } from './components/gate.js';
 import { leaveBody } from './resume.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
-import { TYPES, typeOf, typeLabel, typeIcon, bestKey, lessonLabel, lessonCmp } from './types.js';
+import { TYPES, typeOf, typeLabel, typeIcon, bestKey, lessonLabel, lessonCmp, unitName } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
 
@@ -425,7 +425,7 @@ async function renderMe() {
     </div>
     ${rows.length ? `<div class="me-list">${rows.map((r) => `<a class="me-row ${r.k}" href="#/u/${esc(r.u.id)}">
         <span class="ic-box">${r.ic}</span>
-        <span class="txt"><b>${lessonLabel(r.u.lesson)} ${esc(r.u.title)}</b><span>${typeLabel(r.u.type)}・${esc(r.note)}</span></span>
+        <span class="txt"><b>${esc(unitName(r.u))}</b><span>${typeLabel(r.u.type)}・${esc(r.note)}</span></span>
         <span class="st">${esc(r.st)}</span></a>`).join('')}</div>`
       : `<div class="empty"><div class="big">${icon.inbox}</div><p>老師目前沒有開放任何單元。</p></div>`}
     <p class="me-note">缺交是指：單元有截止時間、已經過了，而且沒有正式測驗紀錄。缺交的單元如果需要補作，請找老師。總分未達 ${PASS}% 的單元顯示「需補考」，重新做一次正式測驗，達標就通過。</p>`;
