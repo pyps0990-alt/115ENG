@@ -162,6 +162,8 @@ bootstrap = r'''
       window.google = { script: { run: runner(null, null) } };
       // 快速同步：儲存時瀏覽器直接把設定寫進 Firestore，學生不用等 Apps Script（見 Admin.html 的 syncSave）
       window.fastPublish = (docs) => fb.publishPublic(docs);
+      // 成績分頁「即時（Firebase）」：直接讀 Firestore（老師帳號才讀得到）
+      window.fbAttempts = (opts) => fb.listAttempts(opts);
       // Apps Script 閒置一陣子會「睡著」，下一次儲存要多等 1～3 秒開機：頁面開著時每 4 分鐘敲一下，保持清醒
       const keepWarm = () => { if (document.visibilityState === 'visible') fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ api: 'ping' }), credentials: 'omit', cache: 'no-store' }).catch(() => {}); };
       setInterval(keepWarm, 240000);

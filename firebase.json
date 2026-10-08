@@ -19,6 +19,7 @@
       "README.md",
       "docs/**",
       "database.rules.json",
+      "firestore.indexes.json",
       "firestore.rules",
       "*.zip",
       "*.log"
@@ -97,6 +98,7 @@
     ]
   },
   "firestore": {
-    "rules": "firestore.rules"
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }

@@ -1,4 +1,4 @@
-import { SCRIPT_URL } from './config.js';
+import { SCRIPT_URL, SCORE_TRANSPORT } from './config.js';
 import { PASS } from './types.js';
 import { store } from './storage.js';
 
@@ -144,11 +144,27 @@ const track = (field) => { import('./presence.js').then((p) => p.track(field)).c
 
 export async function submitScore(payload) {
   const item = withKey({ ...payload, attemptId: payload.attemptId || newAttemptId() });
-  // 另外存一份到 Firestore，跟送去老師試算表互不影響
-  import('./firebase.js').then((fb) => fb.saveScoreToFirestore(item, item.key)).catch((e) => console.warn(e));
+  // Firestore 是成績正本：伺服器確認後回 'ok'；離線時先存在裝置上，連上網自動補送（Promise 晚一點才完成）
+  const fs = import('./firebase.js').then((fb) => fb.saveScoreToFirestore(item, item.key)).catch((e) => { console.warn(e); return 'error'; });
   // 通過（或複習）才算完成；沒通過要補考
   if (item.unit) { if (item.review || Number(item.pct) >= PASS) store.setDone(item.unit); else store.setTried(item.unit); }
   if (!SCRIPT_URL) return { status: 'disabled' };
+  // Firestore 確認寫入：試算表由 Apps Script 定時同步，不必再走 Apps Script；這筆若還在待送清單就拿掉（兩邊都到也只會記一次）
+  let fsOk = false;
+  const dropFromBox = () => writeBox(readBox().filter((x) => x.attemptId !== item.attemptId));
+  if (SCORE_TRANSPORT === 'firestore') {
+    const first = await Promise.race([fs, sleep(SCREEN_WAIT_MS).then(() => 'pending')]);
+    if (first === 'ok') { track('sent'); return { status: 'sent', attemptId: item.attemptId }; }
+    // 5 秒內沒確認（離線、學校網路擋掉）或被拒：改走 Apps Script 待送清單當備援；Firestore 之後送到了就從清單拿掉
+    fs.then((r) => {
+      if (r !== 'ok') return;
+      const was = readBox().find((x) => x.attemptId === item.attemptId);
+      dropFromBox();
+      if (was && was.queuedAt) { window.dispatchEvent(new CustomEvent('score-sent', { detail: was })); track('late'); }
+    });
+  } else {
+    fs.then((r) => { if (r === 'ok') fsOk = true; });
+  }
   writeBox([...readBox().filter((x) => x.attemptId !== item.attemptId), item]);
   const inBox = () => readBox().some((x) => x.attemptId === item.attemptId);
   const done = (async () => {
@@ -159,6 +175,9 @@ export async function submitScore(payload) {
     done.then(() => false),
     new Promise((r) => setTimeout(() => r(true), SCREEN_WAIT_MS)),
   ]);
+  // 兩邊都送（both）：Apps Script 還沒確認，但 Firestore 已經確認了，也算送出。
+  // 這筆仍留在待送清單繼續送 Apps Script（試算表馬上有），不另外跳通知；兩邊都到也只會記一次
+  if (inBox() && fsOk) { track('sent'); return { status: 'sent', attemptId: item.attemptId }; }
   if (inBox()) {
     // 還沒確認：標記為排隊中，之後送出時右下角會通知
     writeBox(readBox().map((x) => (x.attemptId === item.attemptId ? { ...x, queuedAt: Date.now() } : x)));

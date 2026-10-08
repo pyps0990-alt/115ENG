@@ -145,6 +145,17 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
       }
       if (url.endsWith(':runQuery')) {
         const q = JSON.parse(opts.payload).structuredQuery;
+        // 成績同步：global.__attempts = [{ path, fields(一般物件), createdAt }]，依 createdAt、文件路徑排序後分頁
+        if (q.from[0].collectionId === 'attempts' && q.where) {
+          const since = q.where.fieldFilter.value.timestampValue;
+          const enc = (v) => (typeof v === 'number' ? (Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v }) : typeof v === 'boolean' ? { booleanValue: v }
+            : Array.isArray(v) ? { arrayValue: { values: v.map(enc) } } : v && typeof v === 'object' ? { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, enc(x)])) } } : { stringValue: String(v ?? '') });
+          let list = (global.__attempts || []).map((a) => ({ name: `projects/x/databases/(default)/documents/${a.path}`, t: a.createdAt, a }))
+            .filter((x) => x.t >= since).sort((x, y) => (x.t < y.t ? -1 : x.t > y.t ? 1 : x.name < y.name ? -1 : 1));
+          if (q.startAt) { const [tv, nv] = q.startAt.values; list = list.filter((x) => x.t > tv.timestampValue || (x.t === tv.timestampValue && x.name > nv.referenceValue)); }
+          list = list.slice(0, q.limit);
+          return resp(200, JSON.stringify(list.map((x) => ({ document: { name: x.name, fields: { ...Object.fromEntries(Object.entries(x.a.fields).map(([k, v]) => [k, enc(v)])), createdAt: { timestampValue: x.t } } } }))));
+        }
         if (q.startAt) return resp(200, '[]');
         const list = (global.__vault || []).map((r, i) => ({ document: { name: `projects/x/databases/(default)/documents/vault/k${i}`, fields: { cls: { stringValue: r.cls }, seat: { stringValue: r.seat }, name: { stringValue: r.name } } } }));
         return resp(200, JSON.stringify(list));

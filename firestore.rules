@@ -25,12 +25,18 @@ service cloud.firestore {
         && d.get('mode', '') is string && d.get('mode', '').size() <= 30
         && d.get('review', false) is bool
         && d.score is number && d.total is number
+        && d.total > 0 && d.total <= 200 && d.score >= 0 && d.score <= d.total
         && d.pct is number && d.pct >= 0 && d.pct <= 100
         && d.get('wrong', []) is list && d.get('wrong', []).size() <= 60
         && d.get('durationSec', 0) is number
         && d.get('clientTs', '') is string && d.get('clientTs', '').size() <= 30
         && d.details is list && d.details.size() <= 150
         && d.createdAt == request.time;
+    }
+
+    // 老師後台「成績」直接讀 Firestore：用 collection group 查詢所有 attempts（寫入規則仍在各自的路徑底下）
+    match /{path=**}/attempts/{attemptId} {
+      allow read: if isStaff();
     }
 
     // 老師後台儲存時寫入的公開設定與題目（學生網站只讀）。

@@ -129,6 +129,7 @@ function handleApi_(d) {
     aiGenerateReading: aiGenerateReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
     lookupStudent: lookupStudent, deleteStudent: deleteStudent,
     backupSpreadsheet: backupSpreadsheet, semesterReset: semesterReset, purgeUnitScores: purgeUnitScores, listPurgeUnits: listPurgeUnits,
+    syncNow: syncNow, getSyncStatus: getSyncStatus, syncReport: syncReport,
   };
   try {
     API_EMAIL = verifyIdToken_(d.idToken);
@@ -180,52 +181,58 @@ function receiveScore_(d) {
     if (roster === 'bad') return { ok: false, error: 'not on roster' };
     var check = checkAttempt_(d); // 伺服器用題庫核對這筆成績：空白＝核對通過；否則寫下哪裡對不起來（不拒收，只標記，避免誤傷學生的成績）
     if (roster === 'nokey') check = (check ? check + '；' : '') + '未附名單憑證（舊版網頁送出）';
-    var details = Array.isArray(d.details) ? d.details.slice(0, 120) : [];
-    var row = [
-      '', // 時間：整理時填入收件時間
-      cell_(d.cls, 8),
-      cell_(d.seat, 4),
-      cell_(d.name, 40),
-      cell_(d.unit, 60),
-      cell_(d.unitTitle, 80),
-      cell_(d.level, 60),
-      cell_(d.mode, 30),
-      num_(d.score),
-      num_(d.total),
-      num_(d.pct),
-      text_(d.basic, 12),
-      text_(d.advanced, 12),
-      text_(d.mastery, 12),
-      cell_((Array.isArray(d.wrong) ? d.wrong : []).join(', '), 1000),
-      num_(d.durationSec),
-      cell_(d.clientTs, 30),
-      cell_(attemptId, 64),
-      check,
-    ];
-    var det = details.map(function (x) {
-      x = x || {};
-      return [
-        cell_(x.stage, 20), cell_(x.kind, 20), num_(x.n), cell_(x.q, 300), cell_(x.correct, x.open ? 800 : 200), cell_(x.yours, x.open ? 3000 : 200),
-        x.open ? '—' : (x.ok ? '✓' : '✗'), num_(x.points), num_(x.hints), cell_(x.word, 80), cell_(x.err, 20),
-      ];
-    });
-    var t = Date.now();
-    var json = JSON.stringify({ t: t, row: row, det: det });
-    if (json.length > INBOX_CHUNK * INBOX_MAX_CHUNKS) {
-      row[18] = (check ? check + '；' : '') + '作答明細太長，未記錄';
-      json = JSON.stringify({ t: t, row: row, det: [] });
-    }
-    // 每一格前面加 ~：資料被切開時，下一格開頭可能是 = 或 +，避免被試算表當成公式
-    var cells = [new Date(t), cell_(attemptId, 64)];
-    for (var i = 0; i < json.length; i += INBOX_CHUNK) cells.push('~' + json.slice(i, i + INBOX_CHUNK));
-    sheet_(SHEET_INBOX, INBOX_HEADER).appendRow(cells);
-    if (attemptId) CacheService.getScriptCache().put('att:' + attemptId, '1', 21600);
+    toInboxRow_(d, check);
     return { ok: true };
   } catch (err) {
     // 試算表暫時出錯：回「忙碌」，學生端留在排隊清單稍後重送（不能回 ok:false，學生端會當成被拒收而丟掉）
     console.warn('收件失敗', err);
     return { ok: false, busy: true, error: 'busy' };
   }
+}
+
+// 把一筆成績組成 inbox 的一列（學生直接送來的 receiveScore_ 與從 Firestore 同步的 syncFromFirestore_ 共用，格式只有一套）
+function toInboxRow_(d, check) {
+  var attemptId = String(d.attemptId || '').slice(0, 64);
+  var details = Array.isArray(d.details) ? d.details.slice(0, 120) : [];
+  var row = [
+    '', // 時間：整理時填入收件時間
+    cell_(d.cls, 8),
+    cell_(d.seat, 4),
+    cell_(d.name, 40),
+    cell_(d.unit, 60),
+    cell_(d.unitTitle, 80),
+    cell_(d.level, 60),
+    cell_(d.mode, 30),
+    num_(d.score),
+    num_(d.total),
+    num_(d.pct),
+    text_(d.basic, 12),
+    text_(d.advanced, 12),
+    text_(d.mastery, 12),
+    cell_((Array.isArray(d.wrong) ? d.wrong : []).join(', '), 1000),
+    num_(d.durationSec),
+    cell_(d.clientTs, 30),
+    cell_(attemptId, 64),
+    check,
+  ];
+  var det = details.map(function (x) {
+    x = x || {};
+    return [
+      cell_(x.stage, 20), cell_(x.kind, 20), num_(x.n), cell_(x.q, 300), cell_(x.correct, x.open ? 800 : 200), cell_(x.yours, x.open ? 3000 : 200),
+      x.open ? '—' : (x.ok ? '✓' : '✗'), num_(x.points), num_(x.hints), cell_(x.word, 80), cell_(x.err, 20),
+    ];
+  });
+  var t = Date.now();
+  var json = JSON.stringify({ t: t, row: row, det: det });
+  if (json.length > INBOX_CHUNK * INBOX_MAX_CHUNKS) {
+    row[18] = (check ? check + '；' : '') + '作答明細太長，未記錄';
+    json = JSON.stringify({ t: t, row: row, det: [] });
+  }
+  // 每一格前面加 ~：資料被切開時，下一格開頭可能是 = 或 +，避免被試算表當成公式
+  var cells = [new Date(t), cell_(attemptId, 64)];
+  for (var i = 0; i < json.length; i += INBOX_CHUNK) cells.push('~' + json.slice(i, i + INBOX_CHUNK));
+  sheet_(SHEET_INBOX, INBOX_HEADER).appendRow(cells);
+  if (attemptId) CacheService.getScriptCache().put('att:' + attemptId, '1', 21600);
 }
 
 // 整理 inbox：拿得到鎖才整理（waitMs 毫秒內），回傳是否有整理
@@ -1275,6 +1282,155 @@ function firestoreRequest_(method, url, body) {
 }
 
 var FIRESTORE_ROOT = 'https://firestore.googleapis.com/v1/projects/eng-3385e/databases/(default)/documents';
+
+/* ------------------------------------------------------------------ */
+/* 成績從 Firestore 同步到試算表（Firestore 是正本，試算表是副本）          */
+/* ------------------------------------------------------------------ */
+// 學生交卷寫進 Firestore 的 classes/{班級}/seats/{座號}/units/{單元}/attempts/{attemptId}；
+// 這裡依 createdAt 接續抓新的紀錄，轉成跟學生直接送來一樣的格式寫進 inbox，後面由 drainInbox_ 整理成績單（attemptId 去重複）。
+// 每 10 分鐘由觸發器執行（晚上 10 點到早上 7 點不跑），老師也可以在後台按「立即同步」。
+var FS_SYNC_CURSOR = 'FS_SYNC_CURSOR';
+var FS_SYNC_LAST = 'FS_SYNC_LAST';
+
+// Firestore REST 的值轉成一般的 JavaScript 值
+function fsVal_(v) {
+  if (!v) return null;
+  if ('stringValue' in v) return v.stringValue;
+  if ('integerValue' in v) return Number(v.integerValue);
+  if ('doubleValue' in v) return Number(v.doubleValue);
+  if ('booleanValue' in v) return !!v.booleanValue;
+  if ('timestampValue' in v) return v.timestampValue;
+  if ('nullValue' in v) return null;
+  if ('arrayValue' in v) return (v.arrayValue.values || []).map(fsVal_);
+  if ('mapValue' in v) { var o = {}; var f = v.mapValue.fields || {}; Object.keys(f).forEach(function (k) { o[k] = fsVal_(f[k]); }); return o; }
+  return null;
+}
+function fsDoc_(doc) { var o = {}; var f = doc.fields || {}; Object.keys(f).forEach(function (k) { o[k] = fsVal_(f[k]); }); return o; }
+
+// 依 createdAt 由舊到新讀 attempts（含 vault 底下那一份，呼叫端只留 classes 底下的）；after：上一頁最後一筆 { t, name }
+function fsAttemptsSince_(sinceIso, after, limit) {
+  var q = {
+    from: [{ collectionId: 'attempts', allDescendants: true }],
+    where: { fieldFilter: { field: { fieldPath: 'createdAt' }, op: 'GREATER_THAN_OR_EQUAL', value: { timestampValue: sinceIso } } },
+    orderBy: [{ field: { fieldPath: 'createdAt' }, direction: 'ASCENDING' }, { field: { fieldPath: '__name__' }, direction: 'ASCENDING' }],
+    limit: limit,
+  };
+  if (after) q.startAt = { values: [{ timestampValue: after.t }, { referenceValue: after.name }], before: false };
+  var res = firestoreRequest_('post', FIRESTORE_ROOT + ':runQuery', { structuredQuery: q }) || [];
+  return res.filter(function (r) { return r.document; }).map(function (r) { return r.document; });
+}
+
+function syncFromFirestore_(budgetMs) {
+  var cache = CacheService.getScriptCache();
+  if (cache.get('fs-syncing')) return { busy: true };
+  cache.put('fs-syncing', '1', 360);
+  var props = PropertiesService.getScriptProperties();
+  var start = Date.now();
+  var out = { read: 0, queued: 0, done: true };
+  try {
+    var cursor = props.getProperty(FS_SYNC_CURSOR) || new Date(Date.now() - 7 * 86400000).toISOString();
+    // 往回多抓 2 分鐘：避免時間差漏掉；已經收過的（快取 6 小時）不再寫進 inbox
+    var since = new Date(Date.parse(cursor) - 120000).toISOString();
+    var after = null;
+    var last = cursor;
+    while (true) {
+      if (Date.now() - start > budgetMs) { out.done = false; break; }
+      var docs = fsAttemptsSince_(since, after, 300);
+      if (!docs.length) break;
+      docs.forEach(function (doc) {
+        var d = fsDoc_(doc);
+        if (d.createdAt && d.createdAt > last) last = d.createdAt;
+        if (doc.name.indexOf('/documents/classes/') < 0) return; // vault 底下的那一份是同一筆
+        out.read++;
+        var id = String(d.attemptId || '');
+        if (!id || seenAttempt_(id)) return;
+        var check = checkAttempt_(d);
+        toInboxRow_(d, check);
+        out.queued++;
+      });
+      var tail = docs[docs.length - 1];
+      after = { t: fsVal_((tail.fields || {}).createdAt), name: tail.name };
+      if (docs.length < 300) break;
+    }
+    props.setProperty(FS_SYNC_CURSOR, last);
+    props.setProperty(FS_SYNC_LAST, new Date().toISOString());
+  } finally {
+    cache.remove('fs-syncing');
+  }
+  if (out.queued) drainInbox_(30000);
+  return out;
+}
+
+// 定時觸發器呼叫的函式（臺灣時間晚上 10 點到早上 7 點不跑，省額度）
+function syncTrigger() {
+  var h = Number(Utilities.formatDate(new Date(), 'Asia/Taipei', 'H'));
+  if (h >= 22 || h < 7) return;
+  syncFromFirestore_(240000);
+}
+
+// 建立（或重建）每 10 分鐘的同步觸發器。第一次請在 Apps Script 編輯器手動執行一次，授權「管理觸發器」權限。
+function installSyncTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'syncTrigger') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('syncTrigger').timeBased().everyMinutes(10).create();
+  return '已建立每 10 分鐘的成績同步';
+}
+
+// 後台：立即同步
+function syncNow() {
+  assertTeacher_();
+  return syncFromFirestore_(240000);
+}
+
+// 後台：同步狀態（上次同步時間、觸發器有沒有建立）
+function getSyncStatus() {
+  assertTeacher_();
+  var props = PropertiesService.getScriptProperties();
+  var trigger = false;
+  try { trigger = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'syncTrigger'; }); } catch (err) { trigger = null; }
+  return { last: props.getProperty(FS_SYNC_LAST) || '', cursor: props.getProperty(FS_SYNC_CURSOR) || '', trigger: trigger };
+}
+
+// 後台：比對最近 N 天 Firestore 與試算表 scores 分頁的成績（attemptId），列出只有一邊有的
+function syncReport(days) {
+  assertTeacher_();
+  days = Math.max(1, Math.min(60, Number(days) || 7));
+  var since = new Date(Date.now() - days * 86400000).toISOString();
+  var fs = {};
+  var after = null;
+  for (var page = 0; page < 40; page++) {
+    var docs = fsAttemptsSince_(since, after, 300);
+    if (!docs.length) break;
+    docs.forEach(function (doc) {
+      if (doc.name.indexOf('/documents/classes/') < 0) return;
+      var d = fsDoc_(doc);
+      if (d.attemptId) fs[d.attemptId] = { cls: d.cls, seat: d.seat, name: d.name, unit: d.unitTitle || d.unit, at: d.createdAt, pct: d.pct };
+    });
+    var tail = docs[docs.length - 1];
+    after = { t: fsVal_((tail.fields || {}).createdAt), name: tail.name };
+    if (docs.length < 300) break;
+  }
+  var sh = sheet_(SHEET_SCORES, SCORES_HEADER);
+  var last = sh.getLastRow();
+  var sheetIds = {};
+  if (last >= 2) {
+    var idCol = SCORES_FIELDS.indexOf('attemptId') + 1;
+    var tCol = SCORES_FIELDS.indexOf('serverTime') + 1;
+    var ids = sh.getRange(2, idCol, last - 1, 1).getValues();
+    var ts = sh.getRange(2, tCol, last - 1, 1).getValues();
+    var cut = Date.parse(since);
+    for (var i = 0; i < ids.length; i++) {
+      var t = ts[i][0] instanceof Date ? ts[i][0].getTime() : Date.parse(ts[i][0]);
+      if (ids[i][0] && (!t || t >= cut)) sheetIds[String(ids[i][0])] = true;
+    }
+  }
+  var fsOnly = Object.keys(fs).filter(function (id) { return !sheetIds[id]; });
+  var sheetOnly = Object.keys(sheetIds).filter(function (id) { return !fs[id]; });
+  return {
+    days: days, firestore: Object.keys(fs).length, sheet: Object.keys(sheetIds).length,
+    fsOnly: fsOnly.slice(0, 50).map(function (id) { var x = fs[id]; return { id: id, cls: x.cls, seat: x.seat, name: x.name, unit: x.unit, at: x.at, pct: x.pct }; }),
+    fsOnlyCount: fsOnly.length, sheetOnlyCount: sheetOnly.length, sheetOnly: sheetOnly.slice(0, 50),
+  };
+}
 
 // 學生的 Firestore key = SHA-256(班級|座號|姓名)，算法要跟網站 js/firebase.js 的 studentKey() 完全一致
 function trimText_(s, max) { return String(s == null ? '' : s).trim().slice(0, max); }

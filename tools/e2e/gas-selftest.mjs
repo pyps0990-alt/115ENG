@@ -292,5 +292,37 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   assert.equal(gone.exists, false); assert.equal(gone.title, 'Gone Title'); assert.equal(gone.rows, 1);
   assert.ok(pl.every((x) => x.id), '每一項都要有代號');
   assert.deepEqual(pl.map((x) => x.id), pl.map((x) => x.id).slice().sort(), '依代號排序');
+  // 成績從 Firestore 同步到試算表：只收 classes 底下的那一份、同一筆只記一次、cursor 往前推進、比對報表
+  {
+    const mkA = (id, t, extra = {}) => ({ cls: '312', seat: '5', name: '戊', unit: 'u2', unitTitle: 'U', mode: 'vocab', score: 3, total: 4, pct: 75, durationSec: 60, attemptId: id, clientTs: t, details: [], ...extra });
+    const t1 = new Date(Date.now() - 3600000).toISOString();
+    const t2 = new Date(Date.now() - 1800000).toISOString();
+    global.__attempts = [
+      { path: 'classes/312/seats/5/units/u2/attempts/fs-1', createdAt: t1, fields: mkA('fs-1', t1) },
+      { path: 'vault/k5/attempts/fs-1', createdAt: t1, fields: mkA('fs-1', t1) },
+      { path: 'classes/312/seats/5/units/u2/attempts/fs-2', createdAt: t2, fields: mkA('fs-2', t2, { pct: 100, score: 4 }) },
+      { path: 'vault/k5/attempts/fs-2', createdAt: t2, fields: mkA('fs-2', t2, { pct: 100, score: 4 }) },
+    ];
+    const ids = () => (g3.sheets.get('scores')?.rows || []).slice(1).map((r) => r[17]);
+    const before = ids().length;
+    const r1 = ok3(g3.api('syncNow', []));
+    assert.equal(r1.read, 2, '只讀 classes 底下的兩筆');
+    assert.equal(r1.queued, 2);
+    assert.equal(ids().filter((x) => x === 'fs-1' || x === 'fs-2').length, 2, '兩筆都進到 scores');
+    const r2 = ok3(g3.api('syncNow', []));
+    assert.equal(r2.queued, 0, '再同步一次不會重複');
+    assert.equal(ids().length, before + 2);
+    const st = ok3(g3.api('getSyncStatus', []));
+    assert.equal(st.cursor, t2, 'cursor 推進到最後一筆');
+    const rep = ok3(g3.api('syncReport', [7]));
+    assert.equal(rep.fsOnlyCount, 0, 'Firestore 有的試算表都有');
+    // 只在 Firestore、還沒同步的會被列出來
+    const t3 = new Date().toISOString();
+    global.__attempts.push({ path: 'classes/312/seats/5/units/u2/attempts/fs-3', createdAt: t3, fields: mkA('fs-3', t3) });
+    const rep2 = ok3(g3.api('syncReport', [7]));
+    assert.equal(rep2.fsOnlyCount, 1); assert.equal(rep2.fsOnly[0].id, 'fs-3');
+    // 同步時一樣用題庫核對，對不起來只標記不擋
+    global.__attempts = [];
+  }
   console.log('成績單自動化測試通過');
 }

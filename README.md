@@ -155,6 +155,7 @@ node tools/e2e/diff.mjs           # 解析裡標出錯誤的地方：句子逐�
 node tools/e2e/reset.mjs          # 老師重製單元：本機紀錄只清那個單元、需補考標記一併清掉（不需要瀏覽器）
 node tools/e2e/lessons.mjs        # 課次：數字顯示 L1、英文（例如 R-X）照原樣、不能用中文（不需要瀏覽器）
 node tools/e2e/submit.mjs         # 成績送出：伺服器拒收的成績留紀錄、裝置存不了時改用記憶體照樣送出並提醒別離開（不需要瀏覽器）
+node tools/e2e/submit-fs.mjs      # 成績先送 Firestore：兩種傳送方式、備援改走 Apps Script、之後送到會從待送清單拿掉（不需要瀏覽器，約 6 秒）
 ```
 
 Firestore 規則測試要用模擬器（需要 Java）：
@@ -329,4 +330,16 @@ Apps Script 每次往返至少 1～2 秒，後台因此做了三件事：
 2. 確認「資料」頁上方的網址和 `js/config.js` 的 `RTDB_URL` 相同（不同就改成主控台上的網址）。
 3. 在「資料」頁新增 `staff` → `你的email（全部小寫，「.」換成「,」）` → `true`（布林值）；每位要看監控的老師都加一筆。
 4. 部署規則與網站：`firebase deploy --only database,hosting`。
+
+## 成績先送 Firebase（同步到試算表）
+
+設計與步驟見 `docs/firestore-scores-plan.md`。重點：
+- 學生交卷寫進 Firestore（正本；離線時先存在裝置的 IndexedDB，連上網自動補送）。`js/config.js` 的 `SCORE_TRANSPORT`：`'both'`（目前）同時送 Apps Script；`'firestore'` 只在 Firestore 5 秒內沒確認或被拒時才改送 Apps Script。
+- Apps Script 每 10 分鐘（`syncTrigger`，晚上 10 點到早上 7 點不跑）把新成績從 Firestore 同步到試算表，與學生直接送來的成績走同一套整理程式，同一筆只記一次。
+- 老師後台「成績」可切換「即時（Firebase）」與「試算表」；上方有同步狀態、「立即同步」與「比對最近 7 天」。
+
+第一次啟用：
+1. `firebase deploy --only firestore:rules,firestore:indexes`（索引建立需要幾分鐘）。
+2. `npx @google/clasp push`，到 Apps Script 編輯器選擇 `installSyncTrigger` 執行一次，依指示授權新增的「管理觸發器」權限（不授權的話後台 API 會失敗），再 `clasp deploy` 更新網頁應用程式。
+3. `firebase deploy --only hosting`。
 

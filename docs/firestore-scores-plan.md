@@ -1,6 +1,6 @@
 # 成績改為「先送 Firebase」計畫
 
-狀態：計畫（尚未實作）。寫於 2026-10-06，預計寒假實作。
+狀態：**已實作（2026-10-08）**，目前 `SCORE_TRANSPORT = 'both'`。寫於 2026-10-06。
 目標：學生交卷只依賴 Firestore，不再經過 Apps Script；Google 試算表改成從 Firestore 同步過去的副本。
 不在範圍內：後台設定與題目的讀寫（另案）、AI 出題（維持 Apps Script）。
 
@@ -121,8 +121,22 @@
 | 老師看試算表晚 5 分鐘 | 後台「成績」即時讀 Firestore；需要時按「立即同步」 |
 | Firestore 免費額度 | 每次交卷寫 2 份文件；同步只讀新紀錄；後台分頁讀取。一所學校的用量遠低於每天 5 萬讀、2 萬寫 |
 
-## 7. 待決定
+## 7. 決定（2026-10-08）
 
-1. 同步間隔：5 分鐘是否可以接受（或 10 分鐘）。
-2. 步驟 4 之後，Apps Script 收件要保留多久（建議至少一學期，當作備援）。
-3. 老師後台「成績」要哪些篩選與匯出（班級、單元、日期、只看需補考、匯出 CSV）。
+1. 同步間隔：每 10 分鐘（晚上 10 點到早上 7 點不跑），後台另有「立即同步」。
+2. Apps Script 收件：永久保留當備援（學校網路擋 Firestore、舊版網頁時仍送得到）。
+3. 後台成績篩選第一版：班級、單元、期間（預設 14 天）、只看未通過、姓名或座號搜尋、逐題明細仍看試算表；缺交名單與 CSV 匯出之後再做。
+
+## 8. 已實作的內容
+
+- 學生端：Firestore 改成存在裝置上（IndexedDB），兩份紀錄用 `writeBatch` 一起寫，回傳是否已確認；`js/config.js` 的 `SCORE_TRANSPORT` 切換傳送方式（目前 `both`）。
+- `Code.gs`：`toInboxRow_`（收件與同步共用）、`syncFromFirestore_`、`syncTrigger`、`installSyncTrigger`、後台 API `syncNow`、`getSyncStatus`、`syncReport`；`appsscript.json` 加上管理觸發器的權限。
+- 規則：分數範圍檢查；老師可用 collection group 讀所有 attempts。索引：`firestore.indexes.json`。
+- 後台「成績」：資料來源切換（即時 Firebase／試算表）、期間、只看未通過、搜尋；同步卡片（狀態、立即同步、比對最近 7 天）。
+- 測試：`tools/e2e/submit-fs.mjs`（兩種傳送方式）、`tools/e2e/gas-selftest.mjs`（同步只收 classes 那份、不重複、cursor、比對報表）。
+
+## 9. 切換成只送 Firestore 的步驟
+
+1. 部署（見 README「成績先送 Firebase」）並在 Apps Script 編輯器執行一次 `installSyncTrigger`。
+2. 實際交幾次卷，在後台按「比對最近 7 天」確認 Firebase 的成績試算表都有。
+3. 把 `js/config.js` 的 `SCORE_TRANSPORT` 改成 `'firestore'`，部署網站。

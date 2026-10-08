@@ -8,6 +8,7 @@ import { SCRIPT_URL } from './config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
 import {
   initializeFirestore, doc, getDoc, onSnapshot, getDocs, setDoc, collection, writeBatch, serverTimestamp,
+  persistentLocalCache, persistentMultipleTabManager, collectionGroup, query, where, orderBy, limit, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
 
 const app = initializeApp({
@@ -19,7 +20,11 @@ const app = initializeApp({
   appId: '1:396514115433:web:2bbe5d62c272bb69fa87f8',
 });
 // 學校網路（代理伺服器、防火牆）有時會擋掉即時連線：自動偵測，擋掉時改用長輪詢，即時同步才不會斷
-const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+// 寫入先存在裝置上（IndexedDB）：沒網路、重新整理、關掉再開都還在，連上網自動補送；不支援時 SDK 自動改用記憶體
+const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});
 // 即時在線統計（js/presence.js）與監控頁共用同一個 Firebase app
 export const firebaseApp = app;
 
@@ -96,7 +101,7 @@ export async function saveScoreToFirestore(payload, key) {
   const seat = clean(payload.seat, 4);
   const unit = clean(payload.unit, 60);
   const attemptId = clean(payload.attemptId, 64);
-  if (!cls || !seat || !unit || !attemptId || !key) return; // 沒登入（沒有帳本 key）的成績規則不收，只送老師試算表
+  if (!cls || !seat || !unit || !attemptId || !key) return 'nokey'; // 沒登入（沒有帳本 key）的成績規則不收，只送老師試算表
   const record = {
     cls, seat, unit, attemptId, key,
     name: clean(payload.name, 40),
@@ -116,11 +121,35 @@ export async function saveScoreToFirestore(payload, key) {
     details: cleanDetails(payload.details),
     createdAt: serverTimestamp(),
   };
-  const results = await Promise.allSettled([
-    setDoc(doc(db, 'classes', cls, 'seats', seat, 'units', unit, 'attempts', attemptId), record),
-    setDoc(doc(db, 'vault', key, 'attempts', attemptId), record),
-  ]);
-  results.forEach((r) => { if (r.status === 'rejected') console.warn('Firestore 成績寫入失敗（不影響送到老師試算表）', r.reason); });
+  // 兩份一起寫（要嘛都成功、要嘛都失敗）。Promise 在伺服器確認後才完成；離線時先存在裝置上，連上網再送
+  const classRef = doc(db, 'classes', cls, 'seats', seat, 'units', unit, 'attempts', attemptId);
+  const batch = writeBatch(db);
+  batch.set(classRef, record);
+  batch.set(doc(db, 'vault', key, 'attempts', attemptId), record);
+  try {
+    await batch.commit();
+    return 'ok';
+  } catch (err) {
+    // 規則只允許新增：同一筆再寫一次會被拒，確認已經存在就當成功
+    if (err && err.code === 'permission-denied') {
+      try { if ((await getDoc(classRef)).exists()) return 'ok'; } catch { /* 讀不到就當失敗 */ }
+      console.warn('Firestore 拒絕這筆成績', err);
+      return 'denied';
+    }
+    console.warn('Firestore 成績寫入失敗', err);
+    return 'error';
+  }
+}
+
+// 老師後台「成績」：最近 days 天的成績（可指定班級），新的在前。只取 classes 底下那一份（vault 底下是同一筆）
+export async function listAttempts({ cls = '', days = 14, max = 500 } = {}) {
+  const cons = [where('createdAt', '>=', Timestamp.fromMillis(Date.now() - days * 86400000)), orderBy('createdAt', 'desc'), limit(max * 2)];
+  if (cls) cons.unshift(where('cls', '==', String(cls)));
+  const snap = await getDocs(query(collectionGroup(db, 'attempts'), ...cons));
+  return snap.docs.filter((d) => d.ref.path.startsWith('classes/')).slice(0, max).map((d) => {
+    const x = d.data();
+    return { ...x, at: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.parse(x.clientTs) || 0 };
+  });
 }
 
 /* ---------------- 老師 ---------------- */

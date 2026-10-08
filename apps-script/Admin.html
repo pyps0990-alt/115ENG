@@ -384,10 +384,25 @@
     </section>
 
     <section id="tab-scores" hidden>
+      <div class="card" id="sync-card">
+        <h2 style="margin-top:0">成績同步（Firebase → 試算表）</h2>
+        <div class="help">學生交卷時成績先存進 Firebase（正本，離線也會先存在學生裝置、連上網自動補送），Apps Script 每 10 分鐘把新成績同步到試算表的 scores、班級分頁、成績單與 details（晚上 10 點到早上 7 點不同步）。下方「即時（Firebase）」看得到剛交的成績；試算表最多晚 10 分鐘，需要馬上登記可以按「立即同步」。同一筆成績不會重複記錄。</div>
+        <div class="bar" style="margin-top:10px">
+          <button class="btn" id="sync-now" type="button">立即同步到試算表</button>
+          <button class="btn" id="sync-report" type="button">比對最近 7 天</button>
+          <span class="msg" id="sync-msg"></span>
+        </div>
+        <div class="muted" id="sync-status" style="margin-top:8px;font-size:.85rem"></div>
+        <div id="sync-out"></div>
+      </div>
       <div class="card">
         <div class="bar">
+          <label id="src-wrap" hidden>資料來源 <select id="f-src"><option value="fs">即時（Firebase）</option><option value="sheet">試算表</option></select></label>
           <label>班級 <input type="text" id="f-cls" placeholder="全部" size="6"></label>
           <label>單元 <select id="f-unit"><option value="">全部</option></select></label>
+          <label class="fs-only" hidden>期間 <select id="f-days"><option value="1">最近 1 天</option><option value="3">最近 3 天</option><option value="7">最近 7 天</option><option value="14" selected>最近 14 天</option><option value="30">最近 30 天</option><option value="60">最近 60 天</option></select></label>
+          <label style="font-weight:400"><input type="checkbox" id="f-fail"> 只看未通過</label>
+          <label>搜尋 <input type="text" id="f-q" placeholder="姓名或座號" size="8"></label>
           <button class="btn primary" id="load">查詢</button>
           <button class="btn" id="wload" type="button">錯題分析</button>
           <a class="btn" id="sheet" target="_blank" rel="noopener">開啟試算表</a>
@@ -499,7 +514,8 @@
       b.onclick = function () {
         document.querySelectorAll('nav button').forEach(function (x) { x.classList.toggle('on', x === b); });
         TABS.forEach(function (t) { var el = $('tab-' + t); if (el) el.hidden = b.dataset.tab !== t; });
-        if (b.dataset.tab === 'semester') puLoad(); // 每次打開學期結算分頁，重新從試算表讀單元清單
+        if (b.dataset.tab === 'semester') puLoad();
+        if (b.dataset.tab === 'scores') syncStatus(); // 每次打開學期結算分頁，重新從試算表讀單元清單
       };
     });
 
@@ -796,21 +812,91 @@
       });
     };
 
+    // 成績表格（試算表與 Firebase 兩種來源共用）
+    function paintScores(rows) {
+      $('smsg').textContent = '';
+      $('rows').innerHTML = rows.map(function (r) {
+        return '<tr><td>' + esc(r.time) + '</td><td>' + esc(r.cls) + '</td><td>' + esc(r.seat) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.unitTitle || r.unit) +
+          '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td><td style="white-space:normal">' + (r.check === '—' ? '<span class="muted" title="即時資料：同步到試算表時才用題庫核對">—</span>' : r.check ? '<span class="chk-warn">⚠ ' + esc(r.check) + '</span>' : '<span class="muted">✓</span>') + '</td></tr>';
+      }).join('') || '<tr><td colspan="12" class="muted">沒有資料</td></tr>';
+      var n = rows.length;
+      var avg = n ? Math.round(rows.reduce(function (a, r) { return a + Number(r.pct || 0); }, 0) / n) : 0;
+      $('stats').innerHTML = n ? '<span class="stat">筆數 ' + n + '</span><span class="stat">平均 ' + avg + '%</span>' : '';
+    }
+    var PASS_PCT = 65; // 與網站 js/types.js 的 PASS 相同
+    // 姓名、座號搜尋與「只看未通過」：兩種來源都在這裡篩
+    function filterScores(rows) {
+      var q = $('f-q').value.trim().toLowerCase();
+      var fail = $('f-fail').checked;
+      return rows.filter(function (r) {
+        if (fail && (Number(r.pct) >= PASS_PCT || /複習/.test(String(r.level || '')))) return false;
+        if (q && String(r.name || '').toLowerCase().indexOf(q) < 0 && String(r.seat) !== q) return false;
+        return true;
+      });
+    }
+    var two = function (n) { return (n < 10 ? '0' : '') + n; };
+    var fmtTime = function (ms) { var d = new Date(ms); return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' + two(d.getHours()) + ':' + two(d.getMinutes()); };
+    function useFs() { return !!window.fbAttempts && $('f-src').value === 'fs'; }
+    if (window.fbAttempts) { $('src-wrap').hidden = false; }
+    function paintSrc() { [].forEach.call(document.querySelectorAll('.fs-only'), function (el) { el.hidden = !useFs(); }); }
+    $('f-src').onchange = paintSrc; paintSrc();
+
     $('load').onclick = function () {
       $('smsg').textContent = '載入中…'; $('smsg').className = 'msg';
+      var cls = $('f-cls').value.trim(), unit = $('f-unit').value;
+      if (useFs()) {
+        // 即時：直接讀 Firebase（剛交的成績也看得到）；驗證欄由同步到試算表時核對，這裡顯示「—」
+        window.fbAttempts({ cls: cls, days: Number($('f-days').value) || 14 }).then(function (list) {
+          paintScores(filterScores(list.filter(function (x) { return !unit || x.unit === unit; }).map(function (x) {
+            return {
+              time: fmtTime(x.at), cls: x.cls, seat: x.seat, name: x.name, unit: x.unit, unitTitle: x.unitTitle, level: x.level, mode: x.mode,
+              score: x.score, total: x.total, pct: x.pct, basic: x.basic || '', advanced: x.advanced || '', mastery: x.mastery || '',
+              wrong: (x.wrong || []).join(', '), durationSec: x.durationSec, check: '—',
+            };
+          })));
+        }).catch(function (err) {
+          var m = String(err && err.message || err);
+          $('smsg').textContent = '載入失敗：' + (/index/i.test(m) ? 'Firebase 還沒建立查詢用的索引（請執行 firebase deploy --only firestore:indexes，建立需要幾分鐘）' : m);
+          $('smsg').className = 'msg err';
+        });
+        return;
+      }
       google.script.run
-        .withSuccessHandler(function (rows) {
-          $('smsg').textContent = '';
-          $('rows').innerHTML = rows.map(function (r) {
-            return '<tr><td>' + esc(r.time) + '</td><td>' + esc(r.cls) + '</td><td>' + esc(r.seat) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.unitTitle || r.unit) +
-              '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td><td style="white-space:normal">' + (r.check ? '<span class="chk-warn">⚠ ' + esc(r.check) + '</span>' : '<span class="muted">✓</span>') + '</td></tr>';
-          }).join('') || '<tr><td colspan="12" class="muted">沒有資料</td></tr>';
-          var n = rows.length;
-          var avg = n ? Math.round(rows.reduce(function (a, r) { return a + Number(r.pct || 0); }, 0) / n) : 0;
-          $('stats').innerHTML = n ? '<span class="stat">筆數 ' + n + '</span><span class="stat">平均 ' + avg + '%</span>' : '';
-        })
+        .withSuccessHandler(function (rows) { paintScores(filterScores(rows)); })
         .withFailureHandler(function (err) { $('smsg').textContent = '載入失敗：' + err.message; $('smsg').className = 'msg err'; })
-        .getScores({ cls: $('f-cls').value.trim(), unit: $('f-unit').value });
+        .getScores({ cls: cls, unit: unit });
+    };
+
+    // 成績同步：狀態、立即同步、比對
+    function syncStatus() {
+      google.script.run.withSuccessHandler(function (st) {
+        var last = st.last ? fmtTime(Date.parse(st.last)) : '還沒同步過';
+        var trig = st.trigger === true ? '已啟用（每 10 分鐘）' : st.trigger === false ? '尚未啟用：請在 Apps Script 編輯器選擇 installSyncTrigger 執行一次' : '無法確認';
+        $('sync-status').textContent = '上次同步：' + last + '・自動同步：' + trig;
+      }).withFailureHandler(function () { $('sync-status').textContent = '無法讀取同步狀態（Apps Script 可能還沒部署新版）'; }).getSyncStatus();
+    }
+    $('sync-now').onclick = function () {
+      var btn = this; btn.disabled = true;
+      $('sync-msg').textContent = '同步中…'; $('sync-msg').className = 'msg';
+      google.script.run.withSuccessHandler(function (r) {
+        btn.disabled = false;
+        $('sync-msg').textContent = r.busy ? '另一個同步正在進行，請稍後再看' : '✓ 讀取 ' + r.read + ' 筆，新增 ' + r.queued + ' 筆到試算表' + (r.done ? '' : '（還沒做完，下次會接著同步）');
+        $('sync-msg').className = 'msg ok'; syncStatus();
+      }).withFailureHandler(function (err) { btn.disabled = false; $('sync-msg').textContent = '同步失敗：' + err.message; $('sync-msg').className = 'msg err'; }).syncNow();
+    };
+    $('sync-report').onclick = function () {
+      var btn = this; btn.disabled = true;
+      $('sync-msg').textContent = '比對中…'; $('sync-msg').className = 'msg';
+      google.script.run.withSuccessHandler(function (r) {
+        btn.disabled = false;
+        $('sync-msg').textContent = '最近 ' + r.days + ' 天：Firebase ' + r.firestore + ' 筆、試算表 ' + r.sheet + ' 筆';
+        $('sync-msg').className = 'msg ' + (r.fsOnlyCount ? 'err' : 'ok');
+        $('sync-out').innerHTML = (r.fsOnlyCount
+          ? '<p class="msg err">有 ' + r.fsOnlyCount + ' 筆只在 Firebase、還沒到試算表（按「立即同步」補上）：</p><table><thead><tr><th>時間</th><th>班級</th><th>座號</th><th>姓名</th><th>單元</th><th>%</th></tr></thead><tbody>' +
+            r.fsOnly.map(function (x) { return '<tr><td>' + esc(fmtTime(Date.parse(x.at))) + '</td><td>' + esc(x.cls) + '</td><td>' + esc(x.seat) + '</td><td>' + esc(x.name) + '</td><td>' + esc(x.unit) + '</td><td>' + esc(x.pct) + '</td></tr>'; }).join('') + '</tbody></table>'
+          : '<p class="msg ok">✓ Firebase 的成績試算表都有。</p>') +
+          (r.sheetOnlyCount ? '<p class="muted">另有 ' + r.sheetOnlyCount + ' 筆只在試算表（多半是學生端直接送 Apps Script、或更新前的紀錄），不影響成績。</p>' : '');
+      }).withFailureHandler(function (err) { btn.disabled = false; $('sync-msg').textContent = '比對失敗：' + err.message; $('sync-msg').className = 'msg err'; }).syncReport(7);
     };
 
     $('wload').onclick = function () {
