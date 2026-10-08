@@ -20,6 +20,8 @@ const app = initializeApp({
 });
 // 學校網路（代理伺服器、防火牆）有時會擋掉即時連線：自動偵測，擋掉時改用長輪詢，即時同步才不會斷
 const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
+// 即時在線統計（js/presence.js）與監控頁共用同一個 Firebase app
+export const firebaseApp = app;
 
 // 登入元件只有老師需要：學生打開網站時不載入，首頁快很多
 const AUTH_URL = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';

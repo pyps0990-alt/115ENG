@@ -1,0 +1,38 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "staff": {
+      ".read": false,
+      ".write": false
+    },
+
+    "presence": {
+      ".read": "auth != null && auth.token.email_verified == true && root.child('staff').child(auth.token.email.toLowerCase().replace('.', ',')).val() == true",
+      "$sid": {
+        ".write": "$sid.matches(/^[0-9a-f]{24}$/) || (!newData.exists() && auth != null && auth.token.email_verified == true && root.child('staff').child(auth.token.email.toLowerCase().replace('.', ',')).val() == true)",
+        ".validate": "!newData.exists() || newData.hasChildren(['v', 'd', 't'])",
+        "v": { ".validate": "newData.isString() && newData.val().matches(/^(home|login|unit|me|other|quiz-vocab|quiz-reading|quiz-pattern)$/)" },
+        "u": { ".validate": "newData.isString() && newData.val().length <= 60" },
+        "d": { ".validate": "newData.isString() && newData.val().matches(/^(mobile|tablet|desktop)$/)" },
+        "t": { ".validate": "newData.val() == now" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "stats": {
+      ".read": "auth != null && auth.token.email_verified == true && root.child('staff').child(auth.token.email.toLowerCase().replace('.', ',')).val() == true",
+      "$day": {
+        ".validate": "$day.matches(/^20[0-9][0-9]-[01][0-9]-[0-3][0-9]$/)",
+        "$hour": {
+          ".validate": "$hour.matches(/^[0-2][0-9]$/)",
+          "$field": {
+            ".write": "$field.matches(/^(sessions|sent|queued|late|volatile|rejected)$/)",
+            ".validate": "newData.isNumber() && ((!data.exists() && newData.val() == 1) || newData.val() == data.val() + 1)"
+          }
+        }
+      }
+    }
+  }
+}

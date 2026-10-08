@@ -97,6 +97,7 @@ async function route() {
     }
   };
   await render();
+  reportView();
   if (!first) await settleFonts(); // 剛開啟網站不等字型、也不強制排版：開啟速度優先
   pageIn(changed, first);
 }
@@ -495,6 +496,7 @@ function renderPrivacy() {
         <p>登入時填寫的班級、座號、姓名，以及每次測驗的作答內容、分數與時間。不需要密碼，也不會收集電話、Email、地址等其他個人資料。</p>
         <h3>用來做什麼</h3>
         <p>確認身分、記錄學習進度（例如哪些單元已完成、需要複習），以及讓授課老師掌握全班學習狀況、進行成績登記。</p>
+        <p>另外，為了讓老師知道網站同時有多少人在使用，網站會記錄匿名的連線狀態：目前在哪個畫面、哪個單元、用手機還是電腦，以及成績送出是否成功的次數。這部分只用一組隨機編號，不含姓名、班級、座號；關掉網頁就會刪除在線紀錄。</p>
         <h3>誰看得到</h3>
         <p>只有授課老師（用學校核可的 Google 帳號登入後台）看得到全班資料；學生只看得到自己的紀錄。資料存放在 Google Firebase／Google 試算表，由授課老師管理，不會公開或提供給第三方作其他用途。</p>
         <h3>保存多久</h3>
@@ -504,6 +506,17 @@ function renderPrivacy() {
       </div>
       <div class="btn-row"><a class="btn" href="#/">${icon.back} 回首頁</a></div>
     </section>`;
+}
+
+/* ---------------- 即時在線（老師的 monitor.html 看得到人數與所在畫面，匿名） ---------------- */
+const presence = () => import('./presence.js');
+function reportView() {
+  const [, kind, id] = location.hash.split('/').map(decodeURIComponent);
+  const u = kind === 'u' && id ? findUnit(id) : null;
+  const v = !store.student() ? 'login'
+    : kind === 'u' ? (document.body.dataset.busy ? `quiz-${typeOf(u && u.type)}` : 'unit')
+      : kind === 'me' ? 'me' : !kind ? 'home' : 'other';
+  presence().then((p) => p.setPresence(v, u ? u.id : '')).catch(() => {});
 }
 
 /* ---------------- teacher ---------------- */
@@ -544,6 +557,7 @@ function renderTeacher() {
         <p class="muted">單元設定、匯入內容與 AI 出題、學生名單、成績、學期結算都在老師後台。建議用電腦開啟，版面比較寬。</p>
         <div class="btn-row">
           <a class="btn primary" href="admin.html">進入老師後台 ${icon.arrowR}</a>
+          <a class="btn" href="monitor.html">即時監控</a>
           <button class="btn ghost" type="button" data-out>登出</button>
         </div>
       </section>`;
@@ -675,6 +689,8 @@ async function boot() {
   }
   // 偵測網站有沒有部署新版：沒在考試時，換頁的瞬間自動更新成新版
   afterLoad(() => idle(() => import('./update.js').then((m) => m.watchForUpdate({ auto: true, isBusy: () => !!document.body.dataset.busy })).catch(() => {})));
+  // 老師頁不算在線人數；學生端閒置時才載入在線統計，不拖慢開啟
+  afterLoad(() => idle(() => { if (location.hash.split('/')[1] !== 'teacher') presence().then((p) => { p.startPresence(); reportView(); }).catch(() => {}); }));
   afterLoad(() => idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); modes.pattern().catch(() => {}); }));
   // 之前沒送成功的成績：開站時與恢復連線時自動補送
   flushOutbox();
@@ -733,7 +749,7 @@ async function boot() {
       evaluate();
     }
   };
-  new MutationObserver(() => setExam(!!document.body.dataset.busy)).observe(document.body, { attributes: true, attributeFilter: ['data-busy'] });
+  new MutationObserver(() => { setExam(!!document.body.dataset.busy); reportView(); }).observe(document.body, { attributes: true, attributeFilter: ['data-busy'] });
   // 成績排隊／排到送出時，在畫面右下角通知
   window.addEventListener('score-queued', (e) => notify(`${e.detail.unitTitle || e.detail.unit} 成績已加入排隊，稍後自動送出`, 'wait'));
   window.addEventListener('score-rejected', (e) => notify(`${e.detail.unitTitle || e.detail.unit} 成績被伺服器拒收，請到「我的成績」截圖給老師`, 'wait'));

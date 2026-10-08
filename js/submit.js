@@ -122,12 +122,13 @@ export function flushOutbox() {
       writeBox(readBox().filter((x) => x.attemptId !== item.attemptId));
       if (res.startsWith('drop')) {
         saveRejected(cur, res.slice(5));
+        track('rejected');
         window.dispatchEvent(new CustomEvent('score-rejected', { detail: cur }));
         continue;
       }
       sent++;
       // 之前排過隊的成績送出後，通知畫面右下角
-      if (cur.queuedAt) window.dispatchEvent(new CustomEvent('score-sent', { detail: cur }));
+      if (cur.queuedAt) { window.dispatchEvent(new CustomEvent('score-sent', { detail: cur })); track('late'); }
     }
     if (sent) retryDelay = FIRST_RETRY_MS;
     return sent;
@@ -137,6 +138,9 @@ export function flushOutbox() {
 
 // 交卷畫面最多等這麼久；還沒確認就先讓學生離開，背景繼續送，送到時右下角通知
 const SCREEN_WAIT_MS = 5000;
+
+// 交卷健康度統計（給老師的即時監控頁）：動態載入，不拖慢交卷；失敗也不影響送成績
+const track = (field) => { import('./presence.js').then((p) => p.track(field)).catch(() => {}); };
 
 export async function submitScore(payload) {
   const item = withKey({ ...payload, attemptId: payload.attemptId || newAttemptId() });
@@ -160,10 +164,12 @@ export async function submitScore(payload) {
     writeBox(readBox().map((x) => (x.attemptId === item.attemptId ? { ...x, queuedAt: Date.now() } : x)));
     if (!timedOut) window.dispatchEvent(new CustomEvent('score-queued', { detail: item }));
     // 這台裝置存不了：關掉頁面就沒了，請學生先留在這一頁
-    if (storageBroken()) return { status: 'volatile', attemptId: item.attemptId };
+    if (storageBroken()) { track('volatile'); return { status: 'volatile', attemptId: item.attemptId }; }
+    track('queued');
     return { status: timedOut ? 'pending' : 'queued', attemptId: item.attemptId };
   }
   if (rejectedItems().some((x) => x.attemptId === item.attemptId)) return { status: 'rejected', attemptId: item.attemptId };
+  track('sent');
   return { status: 'sent', attemptId: item.attemptId };
 }
 

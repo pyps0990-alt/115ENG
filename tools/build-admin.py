@@ -29,7 +29,7 @@ out = sub1('  <meta charset="utf-8">\n', '''  <meta charset="utf-8">
   <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://script.google.com">
 ''', out)
-out = sub1('<?= email ?>', '<span id="who-email"></span> · <a href="#" id="sign-out" style="color:inherit">登出</a>', out)
+out = sub1('<?= email ?>', '<a href="monitor.html" style="color:inherit">即時監控</a> · <span id="who-email"></span> · <a href="#" id="sign-out" style="color:inherit">登出</a>', out)
 
 # 登入確認畫面；後台本體先藏起來
 out = sub1('<body>\n', '''<body>
