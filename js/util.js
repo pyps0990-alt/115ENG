@@ -57,6 +57,10 @@ export function clozeParts(w) {
   return null;
 }
 
+// 中文意思拆成一個個義項（去掉括號裡的詞性、說明，用「；;、，,/」分開），用來判斷兩個字的意思是否重疊
+export const meaningsOf = (zh) => String(zh ?? '').replace(/[（(][^）)]*[）)]/g, '').replace(/^\s*(?:[a-z]+\.\s*)+/i, '')
+  .split(/[；;、，,／/]+/).map((s) => s.replace(/\s+/g, '').replace(/[的地得]$/, '')).filter(Boolean);
+export const sameMeaning = (a, b) => { const A = new Set(meaningsOf(a)); return meaningsOf(b).some((m) => A.has(m)); };
 export const lettersOf = (s) => String(s).toLowerCase().replace(/[^a-z]/g, '');
 
 // 一個字如果存了不只一句例句（老師手動輸入或 AI 補充），每次出題隨機挑一句，

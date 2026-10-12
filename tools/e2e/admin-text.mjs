@@ -72,6 +72,15 @@ assert.equal(vd.words[1].type, 'phrase');
 assert.equal(vd.words[1].examples[2].zh, '市場很快反彈。');
 assert.doesNotMatch(els['imp-report'].innerHTML, /建議每個單元 20/, '單字數量只限 4～100 個，不再建議 20–25 個');
 assert.match(els['imp-report'].innerHTML, /2–5 個片語/);
+// 中文意思相同或重疊：列出和哪一行重疊（仍可匯入）
+{
+  els['v-text'] = { value: ['big | adj. | 大的 | A [big] dog. | 大狗。', 'large | adj. | (形容) 寬廣的；大的 | A [large] room. | 大房間。', 'cat | n. | 貓 | A [cat] runs. | 貓跑。', 'dog | n. | 狗 | A [dog] runs. | 狗跑。'].join(String.fromCharCode(10)) };
+  const d = parseVocab();
+  assert(d && d.words.length === 4, '意思重疊只是提醒，不擋匯入');
+  assert.match(els['imp-report'].innerHTML, /和第 1 行「big」重疊（大）/);
+  assert.match(els['imp-report'].innerHTML, /1 個字的中文意思和前面的字相同或重疊（第 2 行/);
+  els['v-text'] = { value: ph };
+}
 // 超過 30 個：預覽要說明每次抽 30 個出題
 {
   const many = Array.from({ length: 34 }, (_, i) => `word${(String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26)))}x | n. | 字${i} | The [word${(String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26)))}x] is here. | 這個字在這裡。`).join(String.fromCharCode(10));

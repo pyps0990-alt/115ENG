@@ -1,6 +1,6 @@
 // 可重複使用的題目元件：選擇題 (renderMC) 與字母框拼字 (renderSpell)。
 // feedback=true：練習模式，作答後立即顯示對錯；false：正式測驗，只記錄作答。
-import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample, pickExample } from '../util.js';
+import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample, pickExample, sameMeaning } from '../util.js';
 import { icon } from '../icons.js';
 import { diffAnswer } from './diff.js';
 
@@ -19,6 +19,8 @@ export function buildMC(word, pool, dir) {
   for (const w of [...shuffle(same), ...shuffle(pool)]) {
     if (others.length >= 3) break;
     if (w.word === word.word || seen.has(pick(w))) continue;
+    // 中文意思相同或重疊的字（例如 big／large 都是「大的」）不當干擾選項，不然會有兩個正確答案
+    if (sameMeaning(w.zh, word.zh) || others.some((o) => sameMeaning(o.zh, w.zh))) continue;
     seen.add(pick(w));
     others.push(w);
   }

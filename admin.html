@@ -1085,7 +1085,7 @@
         .filter(function (l) { return l.trim() && !/^\s*\|?[\s:|-]+\|?\s*$/.test(l); })                  // 表格分隔線 |---|---|
         .map(function (l) { return /^\s*\|.*\|\s*$/.test(l) ? l.replace(/^\s*\|/, '').replace(/\|\s*$/, '') : l; }); // Markdown 表格的頭尾 |
       if (lines.length && /^(word|英文|單字|片語)/i.test(lines[0].split(/\t|\|/)[0].trim())) lines.shift();
-      var seen = {}, seenZh = {}, rows = [], words = [];
+      var seen = {}, seenZh = {}, sameZh = [], rows = [], words = [];
       lines.forEach(function (line, i) {
         var c = (line.indexOf('\t') >= 0 ? line.split('\t') : line.split('|')).map(function (x) { return x.trim(); });
         var w = { word: c[0] || '', pos: c[1] || '', zh: c[2] || '' };
@@ -1112,8 +1112,18 @@
         }
         var key = w.word.toLowerCase();
         if (st !== 'err' && seen[key]) { st = 'err'; msg = '和第 ' + seen[key] + ' 行重複'; }
-        if (st === 'ok' && seenZh[w.zh]) { st = 'warn'; msg = '中文意思和第 ' + seenZh[w.zh] + ' 行相同，選擇題可能出現兩個一樣的選項'; }
-        seen[key] = seen[key] || i + 1; seenZh[w.zh] = seenZh[w.zh] || i + 1;
+        // 中文意思相同或重疊（拆成義項比對：「提高；增加」和「增加」算重疊）：學生分不出要選哪一個，列出來請老師確認
+        if (st !== 'err') {
+          var dup = null, ms = meaningsOf(w.zh);
+          for (var m = 0; m < ms.length && !dup; m++) if (seenZh[ms[m]]) dup = { at: seenZh[ms[m]], zh: ms[m] };
+          if (dup) {
+            st = 'warn';
+            msg = (msg ? msg + '；' : '') + '中文意思和第 ' + dup.at.n + ' 行「' + dup.at.word + '」重疊（' + dup.zh + '）：出題時兩個字不會同時出現在選項裡，但學生看中文可能分不出是哪一個，建議改寫得更精確';
+            sameZh.push(i + 1);
+          }
+          ms.forEach(function (x) { if (!seenZh[x]) seenZh[x] = { n: i + 1, word: w.word }; });
+        }
+        seen[key] = seen[key] || i + 1;
         rows.push({ n: i + 1, w: w, st: st, msg: msg });
         if (st !== 'err') words.push(w);
       });
@@ -1126,6 +1136,7 @@
       var few = words.filter(function (w) { return (w.examples ? w.examples.length : 1) < 3; }).length;
       if (few) tips.push(few + ' 個字的例句少於 3 句：例句越多，不同學生拿到相同題目的機會越低（可按「AI 補齊到每個字 3 句例句」）');
       var noZh = words.filter(function (w) { return !(w.exampleZh || (w.examples || []).some(function (e) { return e.zh; })); }).length;
+      if (sameZh.length) tips.push(sameZh.length + ' 個字的中文意思和前面的字相同或重疊（第 ' + sameZh.join('、') + ' 行，狀態欄有寫和哪一個重疊）');
       if (noZh) tips.push(noZh + ' 個字的例句沒有中文翻譯：例句選擇題會少了中文提示');
       var data = { title: impUnit().title, topic: $('v-topic').value.trim(), words: words };
       $('imp-report').innerHTML =
@@ -1140,6 +1151,11 @@
             '</td><td class="st-' + r.st + '">' + (r.st === 'ok' ? '✓' : esc(r.msg)) + '</td></tr>';
         }).join('') + '</tbody></table>';
       return errs || global ? null : data;
+    }
+    // 中文意思拆成義項（與網站 js/util.js 的 meaningsOf 相同）
+    function meaningsOf(zh) {
+      return String(zh == null ? '' : zh).replace(/[（(][^）)]*[）)]/g, '').replace(/^\s*(?:[a-z]+\.\s*)+/i, '')
+        .split(/[；;、，,／/]+/).map(function (s) { return s.replace(/\s+/g, '').replace(/[的地得]$/, ''); }).filter(Boolean);
     }
     function words_(s) { return String(s).toLowerCase().replace(/[“”"]/g, ' ').match(/[a-z0-9']+/g) || []; }
     function longestShared(a, b) {
