@@ -59,5 +59,11 @@ assert.equal(partitionWords(base, 1, 'u3')[0].length, 24);
   // 抽出來的字照樣能分成三段
   const g = partitionWords(p3, 3, 'b1');
   assert.deepEqual(g.map((x) => x.length), [10, 10, 10]);
+  // 100 個字：4 次輪完全部，每次都是 30 個不重複
+  const huge = mk(100, 8);
+  const runs = [1, 2, 3, 4].map(() => pickWords(huge, 'h1'));
+  runs.forEach((r) => { assert.equal(r.length, 30); assert.equal(new Set(r).size, 30); });
+  assert.equal(new Set(runs.slice(0, 3).flat()).size, 90, '前三次不重複');
+  assert.equal(new Set(runs.flat()).size, 100, '100 個字 4 次輪完全部');
 }
 console.log('單字分配測試通過');

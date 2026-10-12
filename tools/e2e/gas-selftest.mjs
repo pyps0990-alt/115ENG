@@ -63,6 +63,22 @@ assert.equal(d.config.content['l1-voc'].updated, t1);
 const got = ok(g.api('getContent', ['l1-voc']));
 assert.deepEqual(got.data, vocab);
 
+// 100 個字、超過試算表一格（45000 字元）：分格存，讀回完全一樣；之後改短，多出來的格子會清掉
+{
+  const long = 'This is a fairly long example sentence about the word that we want to test here';
+  const big = { topic: 'Big', words: Array.from({ length: 100 }, (_, i) => ({ word: 'w' + i, pos: 'n.', zh: '字' + i,
+    examples: [1, 2, 3].map((k) => ({ ex: `${long} [w${i}] number ${k}, with more words to make it longer still.`, zh: '這是一個很長的中文翻譯句子，用來測試內容長度。'.repeat(2) })) })) };
+  assert.ok(JSON.stringify(big).length > 45000, '測試資料要超過一格');
+  ok(g.api('saveContent', ['l1-voc', big, false, null]));
+  assert.ok(String(sh.rows[1][6] || '').length > 0, '第 7 欄接著存');
+  assert.deepEqual(ok(g.api('getContent', ['l1-voc'])).data, big);
+  const tooMany = { topic: 'x', words: big.words.concat([{ word: 'extra', pos: 'n.', zh: '多', example: 'An [extra] one.', exampleZh: '多一個。' }]) };
+  assert.ok(/最多 100 個/.test(String(g.api('saveContent', ['l1-voc', tooMany, false, null]).error || '')), '超過 100 個要擋下');
+  ok(g.api('saveContent', ['l1-voc', vocab, false, null]));
+  assert.equal(String(sh.rows[1][6] || ''), '', '改短後多出來的格子清掉');
+  assert.deepEqual(ok(g.api('getContent', ['l1-voc'])).data, vocab);
+}
+
 // 不重製進度
 const t2 = new Date(Date.now() + 1000).toISOString();
 r = ok(g.api('saveContent', ['l1-voc', vocab, false, { now: t2 }]));

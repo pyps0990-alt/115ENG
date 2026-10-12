@@ -70,7 +70,7 @@ assert(vd && vd.words.length === 4, '範例（兩行）加兩行共 4 個字：'
 assert.equal(vd.words[0].examples.length, 3);
 assert.equal(vd.words[1].type, 'phrase');
 assert.equal(vd.words[1].examples[2].zh, '市場很快反彈。');
-assert.doesNotMatch(els['imp-report'].innerHTML, /建議每個單元 20/, '單字數量只限 4～50 個，不再建議 20–25 個');
+assert.doesNotMatch(els['imp-report'].innerHTML, /建議每個單元 20/, '單字數量只限 4～100 個，不再建議 20–25 個');
 assert.match(els['imp-report'].innerHTML, /2–5 個片語/);
 // 超過 30 個：預覽要說明每次抽 30 個出題
 {

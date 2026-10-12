@@ -16,7 +16,10 @@ var SHEET_TEACHERS = 'teachers';
 var SHEET_CONTENT = 'content';
 var CONFIG_CACHE_KEY = 'config-json';
 var CONTENT_HEADER = ['id', 'json', 'updated', 'updatedBy', 'count', 'topic'];
-var MAX_CONTENT_CHARS = 45000; // 試算表單一儲存格上限 50000 字元
+var CONTENT_CELL = 45000;     // 試算表單一儲存格上限 50000 字元：題目內容太長就接著寫在第 7 欄之後
+var CONTENT_EXTRA = 5;        // 最多再用幾格（第 7～11 欄），總共 6 格
+var MAX_CONTENT_CHARS = CONTENT_CELL * (CONTENT_EXTRA + 1);
+var MAX_WORDS = 100;          // 一個單字片語單元最多幾個字（每次測驗抽 30 個，js/levels.js 的 PER_TEST）
 
 // 學生網站的網址：後台「載入網站目前內容」會從這裡讀取內建的題目
 var SITE_URL = 'https://eng-3385e.web.app/';
@@ -1049,7 +1052,11 @@ function saveContent(unitId, data, reset, fast) {
   try {
     var sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
     var row = findContentMeta_(unitId);
-    var values = [[unitId, json, now, email, count, topic]];
+    var parts = [];
+    for (var p = 0; p < json.length; p += CONTENT_CELL) parts.push(json.slice(p, p + CONTENT_CELL));
+    var extra = parts.slice(1);
+    while (extra.length < CONTENT_EXTRA) extra.push(''); // 舊內容比較長時，多出來的格子要清掉
+    var values = [[unitId, parts[0] || '', now, email, count, topic].concat(extra)];
     if (row) sh.getRange(row.index, 1, 1, values[0].length).setValues(values);
     else sh.appendRow(values[0]);
   } finally {
@@ -1554,7 +1561,7 @@ function readContentMeta_() {
     var types = unitTypes_();
     missing.forEach(function (r) {
       var data = {};
-      try { data = JSON.parse(sh.getRange(r.index, 2).getValue()); } catch (err) { return; }
+      try { data = JSON.parse(readContentJson_(sh, r.index)); } catch (err) { return; }
       var type = types[r.id] || (data.words ? 'vocab' : data.items ? 'pattern' : 'reading');
       r.count = countOf_(type, data);
       r.topic = String(data.topic || '');
@@ -1574,7 +1581,7 @@ function findContentMeta_(unitId) {
 function readContentRows_() {
   var sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
   return readContentMeta_().map(function (m) {
-    var json = String(sh.getRange(m.index, 2).getValue());
+    var json = readContentJson_(sh, m.index);
     return { index: m.index, id: m.id, json: json, updated: m.updated, updatedBy: m.updatedBy, count: m.count, topic: m.topic };
   });
 }
@@ -1582,8 +1589,16 @@ function readContentRows_() {
 function findContentRow_(unitId) {
   var m = findContentMeta_(unitId);
   if (!m) return null;
-  m.json = String(sheet_(SHEET_CONTENT, CONTENT_HEADER).getRange(m.index, 2).getValue());
+  m.json = readContentJson_(sheet_(SHEET_CONTENT, CONTENT_HEADER), m.index);
   return m;
+}
+
+// 一列的題目內容：第 2 欄，太長的接在第 7 欄之後（saveContent 分格寫入）
+function readContentJson_(sh, index) {
+  var head = String(sh.getRange(index, 2).getValue());
+  if (sh.getLastColumn() < 7) return head;
+  var rest = sh.getRange(index, 7, 1, CONTENT_EXTRA).getValues()[0];
+  return head + rest.map(function (v) { return String(v); }).join('');
 }
 
 // 所有單元的類型 { 代號: 'vocab' | 'reading' }，一次讀好
@@ -1640,7 +1655,7 @@ function validateContent_(type, d) {
   if (!d || typeof d !== 'object') return '資料格式錯誤';
   if (type === 'vocab') {
     if (!Array.isArray(d.words) || d.words.length < 4) return '單字片語至少要 4 個';
-    if (d.words.length > 50) return '一個單元最多 50 個單字片語，請拆成兩個單元';
+    if (d.words.length > MAX_WORDS) return '一個單元最多 ' + MAX_WORDS + ' 個單字片語，請拆成兩個單元';
     for (var i = 0; i < d.words.length; i++) {
       var w = d.words[i];
       if (!w.word || !w.zh) return '第 ' + (i + 1) + ' 個缺少英文或中文';

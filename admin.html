@@ -311,10 +311,10 @@
             從 Excel 或 Google 試算表選取這幾欄直接複製貼上即可；也可以自己打字，欄位之間用 <code>|</code> 隔開。<br>
             例句中要考的部分用 <code>[ ]</code> 括起來，例如 <code>The team [bounced back] quickly.</code>（可以是變化後的形態，如 <code>[adapted]</code>）；沒括的話會自動找出來。含空格或詞性寫 <code>phr.</code> 的會當成片語。<br>
             範例（一行）：<code>adapt | v. | 適應 | She [adapted] quickly to her new school. ; We must [adapt] to climate change. ; Animals [adapt] to survive. | 她很快適應了新學校。 ; 我們必須適應氣候變遷。 ; 動物為了生存而適應環境。</code><br>
-            <b>單字數量：每個單元 4～50 個（單字與片語合計），片語建議 2～5 個。</b><br>
+            <b>單字數量：每個單元 4～100 個（單字與片語合計），片語建議 2～5 個。</b><br>
             ・<b>30 個以內</b>：每次測驗全部考到，每個字考一次，平均分到基礎、進階、精熟三段。<br>
-            ・<b>31～50 個</b>：每次測驗抽 30 個出題（每段 10 題），上次沒考到的字優先、片語照比例抽，學生做兩次就輪完全部。<br>
-            ・想讓每次測驗都考到全部的字，請控制在 30 個以內；超過 50 個請拆成兩個單元。<br><div id="v-ex"></div><b>用外部 AI 整理單字</b>：按下方「複製『給 AI 的完整提示詞』」貼到 ChatGPT、Gemini 或 Claude，把最後一行改成你的單字，再把回覆整段貼回下面的欄位（Markdown 表格、程式碼框都會自動整理）。
+            ・<b>31～100 個</b>：每次測驗抽 30 個出題（每段 10 題），上次沒考到的字優先、片語照比例抽，全部輪完才重新開始（例如 50 個做 2 次、100 個做 4 次就輪完）。<br>
+            ・想讓每次測驗都考到全部的字，請控制在 30 個以內；超過 100 個請拆成兩個單元。<br><div id="v-ex"></div><b>用外部 AI 整理單字</b>：按下方「複製『給 AI 的完整提示詞』」貼到 ChatGPT、Gemini 或 Claude，把最後一行改成你的單字，再把回覆整段貼回下面的欄位（Markdown 表格、程式碼框都會自動整理）。
           </div>
           <div class="bar">
             <button class="btn ai" id="ai-vocab" type="button">✦ AI 補齊詞性、中文與 3 句例句</button>
@@ -1118,10 +1118,10 @@
         if (st !== 'err') words.push(w);
       });
       var errs = rows.filter(function (r) { return r.st === 'err'; }).length;
-      var global = words.length < 4 ? '至少需要 4 個單字片語才能出選擇題' : words.length > 50 ? '一個單元最多 50 個單字片語（目前 ' + words.length + ' 個），請拆成兩個單元' : '';
+      var global = words.length < 4 ? '至少需要 4 個單字片語才能出選擇題' : words.length > 100 ? '一個單元最多 100 個單字片語（目前 ' + words.length + ' 個），請拆成兩個單元' : '';
       var nPh = words.filter(function (w) { return w.type === 'phrase'; }).length, nWd = words.length - nPh;
       var tips = [];
-      if (words.length > 30 && words.length <= 50) tips.push('目前 ' + words.length + ' 個，超過 30 個：每次測驗抽 30 個出題，上次沒考到的優先，學生做兩次就輪完全部');
+      if (words.length > 30 && words.length <= 100) tips.push('目前 ' + words.length + ' 個，超過 30 個：每次測驗抽 30 個出題，上次沒考到的優先，學生做 ' + Math.ceil(words.length / 30) + ' 次就輪完全部');
       if (words.length >= 4 && (nPh < 2 || nPh > 5)) tips.push('建議每個單元 2–5 個片語（目前 ' + nPh + ' 個）');
       var few = words.filter(function (w) { return (w.examples ? w.examples.length : 1) < 3; }).length;
       if (few) tips.push(few + ' 個字的例句少於 3 句：例句越多，不同學生拿到相同題目的機會越低（可按「AI 補齊到每個字 3 句例句」）');
@@ -1623,7 +1623,7 @@
           '3. 每個字剛好 3 句例句，三句要用不同情境（學校、家庭、社會）；每句 8–16 個英文字，程度 CEFR B1–B2。',
           '4. 每一句例句裡，要考的字或片語用方括號 [ ] 括起來，且只括一次，例如 She [adapted] quickly to her new school.（括號裡可以是變化後的形態：過去式、複數、-ing）。',
           '5. 例句翻譯要自然通順，並且和例句完全對應（學生會把它當成提示）。',
-          '6. 保留老師提供的每一個字，不要增加或刪減；總數（單字與片語合計）不超過 50 個，不要重複。',
+          '6. 保留老師提供的每一個字，不要增加或刪減；總數（單字與片語合計）不超過 100 個，不要重複。',
           '7. 第一行不要寫欄位標題。', PROMPT_COMMON.split('\n').filter(function (l, i) { return i === 0 || /^(1|2|7)\./.test(l); }).join('\n'), '',
           '【範例（兩行）】', VOCAB_EX, '',
           '【我要的範圍】請在這裡填：單字或主題（例如：Lesson 5 的單字清單如下…）'].join('\n');

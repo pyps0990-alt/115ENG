@@ -70,7 +70,7 @@ export function mount(stage, ctx) {
     eyebrow: levels.map((l) => l.en).join(' → '),
     rules: [
       all.length > perTest
-        ? `共 <b>${all.length}</b> 個（單字 ${all.length - nPhrase}、片語 ${nPhrase}），每次測驗抽 <b>${perTest}</b> 個，分成 <b>${levels.length}</b> 段（${sizes.join('、')} 題）；上次沒考到的字優先，做兩次就輪完全部`
+        ? `共 <b>${all.length}</b> 個（單字 ${all.length - nPhrase}、片語 ${nPhrase}），每次測驗抽 <b>${perTest}</b> 個，分成 <b>${levels.length}</b> 段（${sizes.join('、')} 題）；上次沒考到的字優先，做 ${Math.ceil(all.length / perTest)} 次就輪完全部`
         : `共 <b>${all.length}</b> 個（單字 ${all.length - nPhrase}、片語 ${nPhrase}），分成 <b>${levels.length}</b> 段（${sizes.join('、')} 題），每個字這次只考一次，全部都會考到`,
       '複習時單字會重新分配到不同的階段，題型和例句也會換',
       ...levels.map((l, i) => `第 ${i + 1} 段 <b>${l.name}</b>：${esc(l.desc)}`),
