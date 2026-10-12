@@ -16,9 +16,9 @@ var SHEET_TEACHERS = 'teachers';
 var SHEET_CONTENT = 'content';
 var CONFIG_CACHE_KEY = 'config-json';
 var CONTENT_HEADER = ['id', 'json', 'updated', 'updatedBy', 'count', 'topic'];
-var CONTENT_CELL = 45000;     // 試算表單一儲存格上限 50000 字元：題目內容太長就接著寫在第 7 欄之後
-var CONTENT_EXTRA = 5;        // 最多再用幾格（第 7～11 欄），總共 6 格
-var MAX_CONTENT_CHARS = CONTENT_CELL * (CONTENT_EXTRA + 1);
+// 題目內容只存在 Firestore 的 public/content_<單元>（學生網站本來就讀這裡）；試算表 content 分頁只留單元、更新時間、題數、主題。
+// json 欄是舊資料：還有內容的列以那份為準，執行一次 moveContentToFirestore 就會搬過去並清空。
+var MAX_CONTENT_CHARS = 300000; // Firestore 一份文件上限 1 MB（中文一個字 3 bytes）
 var MAX_WORDS = 100;          // 一個單字片語單元最多幾個字（每次測驗抽 30 個，js/levels.js 的 PER_TEST）
 
 // 學生網站的網址：後台「載入網站目前內容」會從這裡讀取內建的題目
@@ -774,7 +774,11 @@ function migrateBuiltinUnits_() {
           var data = JSON.parse(res.getContentText());
           delete data.sample;
           topic = String(data.topic || '');
-          sheet_(SHEET_CONTENT, CONTENT_HEADER).appendRow([u.id, JSON.stringify(data), new Date().toISOString(), '內建題目轉入', countOf_(normType_(u.type), data), topic]);
+          var at = new Date().toISOString();
+          LAST_SYNC_ERROR = '';
+          publishDocs_(contentDoc_(u.id, at, data));
+          if (LAST_SYNC_ERROR) throw new Error(LAST_SYNC_ERROR);
+          sheet_(SHEET_CONTENT, CONTENT_HEADER).appendRow([u.id, '', at, '內建題目轉入', countOf_(normType_(u.type), data), topic]);
           clearContentCache_(u.id);
         }
       } catch (err) { Logger.log('內建題目轉入失敗 ' + u.id + '：' + err); }
@@ -1047,18 +1051,21 @@ function saveContent(unitId, data, reset, fast) {
   if (json.length > MAX_CONTENT_CHARS) throw new Error('內容太長（' + json.length + ' 字元），請分成兩個單元。');
   var now = pickNow_(fast);
   var count = countOf_(type, data), topic = String(data.topic || '');
+  var props = PropertiesService.getScriptProperties();
+  var oldReset = props.getProperty('RESET_AT');
   var lock = LockService.getScriptLock();
   lock.waitLock(30000); // 學生交卷整理成績時也用這把鎖（一次最多十幾秒）
+  var sh, oldValues = null;
   try {
-    var sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
+    sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
     var row = findContentMeta_(unitId);
-    var parts = [];
-    for (var p = 0; p < json.length; p += CONTENT_CELL) parts.push(json.slice(p, p + CONTENT_CELL));
-    var extra = parts.slice(1);
-    while (extra.length < CONTENT_EXTRA) extra.push(''); // 舊內容比較長時，多出來的格子要清掉
-    var values = [[unitId, parts[0] || '', now, email, count, topic].concat(extra)];
-    if (row) sh.getRange(row.index, 1, 1, values[0].length).setValues(values);
-    else sh.appendRow(values[0]);
+    var values = [[unitId, '', now, email, count, topic]]; // 題目本身只存 Firestore；json 欄清空（舊資料也一起清掉）
+    if (row) {
+      oldValues = sh.getRange(row.index, 1, 1, values[0].length).getValues();
+      sh.getRange(row.index, 1, 1, values[0].length).setValues(values);
+    } else {
+      sh.appendRow(values[0]);
+    }
   } finally {
     lock.releaseLock();
   }
@@ -1066,10 +1073,23 @@ function saveContent(unitId, data, reset, fast) {
   if (reset !== false) markReset_(unitId, now);
   // 題目和設定一次送出（同一個請求、要嘛全成功要嘛全不寫），學生端讀到新設定時題目一定已經在
   LAST_SYNC_ERROR = '';
-  var docs = {};
-  docs['content_' + unitId] = JSON.stringify({ v: now, data: data });
-  var cfg = publishConfig_(docs);
-  return { ok: true, count: count, updated: cfg.updated, config: cfg, syncError: LAST_SYNC_ERROR };
+  var cfg = publishConfig_(contentDoc_(unitId, now, data));
+  if (LAST_SYNC_ERROR) {
+    // Firestore 是題目唯一的存放處：沒寫進去就把試算表改回原樣，請老師再按一次（不能讓試算表說「已更新」但題目其實沒存到）
+    var why = LAST_SYNC_ERROR;
+    lock.waitLock(30000);
+    try {
+      var cur = findContentMeta_(unitId);
+      if (cur && oldValues) sh.getRange(cur.index, 1, 1, oldValues[0].length).setValues(oldValues);
+      else if (cur) sh.deleteRow(cur.index);
+    } finally {
+      lock.releaseLock();
+    }
+    if (oldReset == null) props.deleteProperty('RESET_AT'); else props.setProperty('RESET_AT', oldReset);
+    clearContentCache_(unitId);
+    throw new Error('題目沒有存到 Firebase，請再按一次儲存（' + why + '）');
+  }
+  return { ok: true, count: count, updated: cfg.updated, config: cfg, syncError: '' };
 }
 
 // 刪除匯入的內容，網站改回使用內建題目
@@ -1081,6 +1101,8 @@ function deleteContent(unitId, reset, fast) {
   if (reset !== false) markReset_(unitId, pickNow_(fast));
   LAST_SYNC_ERROR = '';
   var cfg = publishConfig_();
+  // 設定已經不指向這份題目了，才刪掉 Firestore 裡的題目（順序反過來，學生可能讀到設定說有、題目卻不見）
+  if (!LAST_SYNC_ERROR) firestoreRequest_('delete', FIRESTORE_DOCS + encodeURIComponent('content_' + unitId));
   return { ok: true, updated: cfg.updated, config: cfg, syncError: LAST_SYNC_ERROR };
 }
 
@@ -1109,7 +1131,21 @@ function backupSpreadsheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var name = ss.getName() + ' 成績備份 ' + Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyy-MM-dd HHmm');
   var copy = ss.copy(name);
-  return { ok: true, name: name, url: copy.getUrl() };
+  // 題目內容只存在 Firebase：備份裡的 content 分頁補上每個單元的題目（JSON；一格放不下就接在第 7 欄之後）
+  var missing = [];
+  try {
+    var csh = copy.getSheetByName(SHEET_CONTENT);
+    if (csh) readContentMeta_().forEach(function (m) {
+      if (String(csh.getRange(m.index, 2).getValue() || '')) return; // 舊資料本來就在
+      var str = readContentDoc_(m.id);
+      if (!str) { missing.push(m.id); return; }
+      var json = JSON.stringify(JSON.parse(str).data), parts = [];
+      for (var i = 0; i < json.length; i += 45000) parts.push(json.slice(i, i + 45000));
+      csh.getRange(m.index, 2).setValue(parts[0]);
+      if (parts.length > 1) csh.getRange(m.index, 7, 1, parts.length - 1).setValues([parts.slice(1)]);
+    });
+  } catch (err) { missing.push('（題目備份失敗：' + err.message + '）'); }
+  return { ok: true, name: name, url: copy.getUrl(), missing: missing };
 }
 
 // opts: { sheets: 試算表成績, attempts: Firestore 作答與檢討紀錄, roster: 學生名單 }
@@ -1561,7 +1597,7 @@ function readContentMeta_() {
     var types = unitTypes_();
     missing.forEach(function (r) {
       var data = {};
-      try { data = JSON.parse(readContentJson_(sh, r.index)); } catch (err) { return; }
+      try { data = JSON.parse(readContentJson_(sh, r)); } catch (err) { return; }
       var type = types[r.id] || (data.words ? 'vocab' : data.items ? 'pattern' : 'reading');
       r.count = countOf_(type, data);
       r.topic = String(data.topic || '');
@@ -1577,28 +1613,57 @@ function findContentMeta_(unitId) {
   return null;
 }
 
-// 含題目內容的完整資料（只有真的需要內容時才讀）
-function readContentRows_() {
-  var sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
-  return readContentMeta_().map(function (m) {
-    var json = readContentJson_(sh, m.index);
-    return { index: m.index, id: m.id, json: json, updated: m.updated, updatedBy: m.updatedBy, count: m.count, topic: m.topic };
-  });
-}
-
 function findContentRow_(unitId) {
   var m = findContentMeta_(unitId);
   if (!m) return null;
-  m.json = readContentJson_(sheet_(SHEET_CONTENT, CONTENT_HEADER), m.index);
+  m.json = readContentJson_(sheet_(SHEET_CONTENT, CONTENT_HEADER), m);
   return m;
 }
 
-// 一列的題目內容：第 2 欄，太長的接在第 7 欄之後（saveContent 分格寫入）
-function readContentJson_(sh, index) {
-  var head = String(sh.getRange(index, 2).getValue());
-  if (sh.getLastColumn() < 7) return head;
-  var rest = sh.getRange(index, 7, 1, CONTENT_EXTRA).getValues()[0];
-  return head + rest.map(function (v) { return String(v); }).join('');
+// 一個單元的題目內容（JSON 字串）：試算表 json 欄還有舊資料就用那份，否則讀 Firestore 的 public/content_<單元>
+function readContentJson_(sh, m) {
+  var legacy = String(sh.getRange(m.index, 2).getValue() || '');
+  if (legacy) { m.legacy = true; return legacy; }
+  var str = readContentDoc_(m.id);
+  if (!str) throw new Error('Firebase 找不到「' + m.id + '」的題目，請重新匯入一次');
+  return JSON.stringify(JSON.parse(str).data);
+}
+
+function readContentDoc_(unitId) {
+  var doc = firestoreRequest_('get', FIRESTORE_DOCS + encodeURIComponent('content_' + unitId));
+  return (doc && doc.fields && doc.fields.json && doc.fields.json.stringValue) || '';
+}
+
+// 要寫進 Firestore 的題目文件
+function contentDoc_(unitId, v, data) {
+  var docs = {};
+  docs['content_' + unitId] = JSON.stringify({ v: v, data: data });
+  return docs;
+}
+
+// 一次性搬家：把試算表 json 欄還有的舊題目寫進 Firestore（以試算表為準），讀回來確認一樣才清空那一格。
+// 在 Apps Script 編輯器選這個函式按「執行」；可以重複執行，已經搬過的會略過。
+function moveContentToFirestore() {
+  var sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
+  var moved = [], failed = [];
+  readContentMeta_().forEach(function (m) {
+    var legacy = String(sh.getRange(m.index, 2).getValue() || '');
+    if (!legacy) return;
+    var data;
+    try { data = JSON.parse(legacy); } catch (err) { failed.push(m.id + '（內容不是正確的 JSON）'); return; }
+    LAST_SYNC_ERROR = '';
+    publishDocs_(contentDoc_(m.id, m.updated, data));
+    if (LAST_SYNC_ERROR) { failed.push(m.id + '（' + LAST_SYNC_ERROR + '）'); return; }
+    var back = readContentDoc_(m.id);
+    if (!back || JSON.stringify(JSON.parse(back).data) !== JSON.stringify(data)) { failed.push(m.id + '（讀回來不一樣）'); return; }
+    sh.getRange(m.index, 2).setValue('');
+    if (sh.getLastColumn() >= 7) sh.getRange(m.index, 7, 1, sh.getLastColumn() - 6).clearContent(); // 之前分格存的部分
+    clearContentCache_(m.id);
+    moved.push(m.id);
+  });
+  var msg = '已搬到 Firebase：' + (moved.join('、') || '（沒有需要搬的）') + (failed.length ? '；失敗：' + failed.join('、') : '');
+  Logger.log(msg);
+  return msg;
 }
 
 // 所有單元的類型 { 代號: 'vocab' | 'reading' }，一次讀好
@@ -2281,8 +2346,11 @@ function publishConfig_(extraDocs) {
 function syncToFirestore() {
   publishConfig_();
   var docs = {};
-  readContentRows_().forEach(function (r) {
-    docs['content_' + r.id] = JSON.stringify({ v: r.updated, data: JSON.parse(r.json) });
+  // 題目本來就只存在 Firestore；試算表 json 欄還有舊資料的單元才重送（之後執行 moveContentToFirestore 清掉）
+  var sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
+  readContentMeta_().forEach(function (m) {
+    var legacy = String(sh.getRange(m.index, 2).getValue() || '');
+    if (legacy) docs['content_' + m.id] = JSON.stringify({ v: m.updated, data: JSON.parse(legacy) });
   });
   publishDocs_(docs);
 }

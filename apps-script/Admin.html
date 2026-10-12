@@ -1974,7 +1974,7 @@
       $('sem-bmsg').textContent = '備份中…'; $('sem-bmsg').className = 'msg';
       google.script.run.withSuccessHandler(function (r) {
         btn.disabled = false; semBacked = true; semCheck();
-        $('sem-bmsg').innerHTML = '✓ 已備份：<a href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(r.name) + '</a>'; $('sem-bmsg').className = 'msg ok';
+        $('sem-bmsg').innerHTML = '✓ 已備份：<a href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(r.name) + '</a>（含各單元題目）' + (r.missing && r.missing.length ? '<br>但這些單元的題目沒有備份到：' + esc(r.missing.join('、')) : ''); $('sem-bmsg').className = 'msg ' + (r.missing && r.missing.length ? 'err' : 'ok');
       }).withFailureHandler(function (err) {
         btn.disabled = false; $('sem-bmsg').textContent = '備份失敗：' + err.message; $('sem-bmsg').className = 'msg err';
       }).backupSpreadsheet();

@@ -13,6 +13,7 @@ export const keyOf = (cls, seat, name) => crypto.createHash('sha256').update(`${
 export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommit = () => {}, codePath = path.join(ROOT, 'apps-script', 'Code.gs'), rosterKeys = null } = {}) {
   const sheets = new Map();
   const calls = { commit: [], sheetReads: 0, urlFetch: 0 };
+  const publicDocs = new Map(); // Firestore 的 public/ 文件（題目只存在這裡）；global.__commitFail = true 模擬寫入失敗
 
   class Range {
     constructor(sh, r, c, nr, nc) { Object.assign(this, { sh, r, c, nr, nc }); }
@@ -83,6 +84,13 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
     deleteSheet: (s) => sheets.delete(s.name),
     getUrl: () => 'https://docs.google.com/spreadsheets/d/test',
     getName: () => 'test',
+    // 備份：複製出一份獨立的試算表（ss.copies 留著給測試檢查）
+    copy: (name) => {
+      const m = new Map([...sheets].map(([k, v]) => { const c = new Sheet(k); c.rows = v.rows.map((r) => [...r]); return [k, c]; }));
+      const c = { name, getSheetByName: (n) => m.get(n) || null, getUrl: () => 'https://docs.google.com/spreadsheets/d/copy', sheets: m };
+      (ss.copies ||= []).push(c);
+      return c;
+    },
   };
 
   const cacheMap = new Map();
@@ -138,8 +146,10 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
         return resp(200, JSON.stringify({ users: [{ email: idToken.slice(4), emailVerified: true }] }));
       }
       if (url.endsWith(':commit')) {
+        if (global.__commitFail) return resp(503, '{"error":{"message":"unavailable"}}');
         const body = JSON.parse(opts.payload);
         calls.commit.push(body);
+        body.writes.forEach((w) => { if (w.update && w.update.name.includes('/documents/public/')) publicDocs.set(w.update.name.split('/documents/public/')[1], w.update.fields); });
         onFirestoreCommit(body);
         return resp(200, '{}');
       }
@@ -168,6 +178,11 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
         return !rosterKeys || rosterKeys.has(k) ? resp(200, JSON.stringify({ name: 'x', fields: { cls: { stringValue: '306' } } })) : resp(404, '{}');
       }
       if (opts.method === 'patch' && url.includes('/documents/public/')) { calls.patch = (calls.patch || 0) + 1; return resp(200, '{}'); }
+      if (url.includes('/documents/public/') && (opts.method || 'get') === 'get') {
+        const id = decodeURIComponent(url.split('/documents/public/')[1].split('?')[0]);
+        return publicDocs.has(id) ? resp(200, JSON.stringify({ name: id, fields: publicDocs.get(id) })) : resp(404, '{}');
+      }
+      if (opts.method === 'delete' && url.includes('/documents/public/')) publicDocs.delete(decodeURIComponent(url.split('/documents/public/')[1]));
       if (opts.method === 'delete') { calls.deleted = (calls.deleted || []).concat(url); return resp(200, '{}'); }
       return resp(500, '{"error":{"message":"unmocked ' + url + '"}}');
     } },
@@ -180,7 +195,7 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
   teachers.forEach((e) => t.appendRow([e, '']));
 
   return {
-    ctx, ss, sheets, calls, propMap, cacheMap, lock,
+    ctx, ss, sheets, calls, propMap, cacheMap, lock, publicDocs,
     setRoster(v) { rosterKeys = v; },
     post(body) { return JSON.parse(ctx.doPost({ postData: { contents: typeof body === 'string' ? body : JSON.stringify(body) } }).getContent()); },
     get(parameter) { return JSON.parse(ctx.doGet({ parameter }).getContent()); },

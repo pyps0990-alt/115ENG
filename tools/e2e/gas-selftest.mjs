@@ -63,20 +63,48 @@ assert.equal(d.config.content['l1-voc'].updated, t1);
 const got = ok(g.api('getContent', ['l1-voc']));
 assert.deepEqual(got.data, vocab);
 
-// 100 個字、超過試算表一格（45000 字元）：分格存，讀回完全一樣；之後改短，多出來的格子會清掉
+// 題目只存在 Firestore：試算表 json 欄是空的
+assert.equal(sh.rows[1][1], '', '試算表不再存題目內容');
+// 100 個字、超過試算表一格（45000 字元）也能存，讀回完全一樣
 {
   const long = 'This is a fairly long example sentence about the word that we want to test here';
   const big = { topic: 'Big', words: Array.from({ length: 100 }, (_, i) => ({ word: 'w' + i, pos: 'n.', zh: '字' + i,
     examples: [1, 2, 3].map((k) => ({ ex: `${long} [w${i}] number ${k}, with more words to make it longer still.`, zh: '這是一個很長的中文翻譯句子，用來測試內容長度。'.repeat(2) })) })) };
   assert.ok(JSON.stringify(big).length > 45000, '測試資料要超過一格');
   ok(g.api('saveContent', ['l1-voc', big, false, null]));
-  assert.ok(String(sh.rows[1][6] || '').length > 0, '第 7 欄接著存');
+  assert.equal(sh.rows[1][1], '');
+  g.cacheMap.clear();
   assert.deepEqual(ok(g.api('getContent', ['l1-voc'])).data, big);
+  assert.deepEqual(g.get({ action: 'content', unit: 'l1-voc' }).data, big, '學生端備援讀取也拿得到');
   const tooMany = { topic: 'x', words: big.words.concat([{ word: 'extra', pos: 'n.', zh: '多', example: 'An [extra] one.', exampleZh: '多一個。' }]) };
   assert.ok(/最多 100 個/.test(String(g.api('saveContent', ['l1-voc', tooMany, false, null]).error || '')), '超過 100 個要擋下');
   ok(g.api('saveContent', ['l1-voc', vocab, false, null]));
-  assert.equal(String(sh.rows[1][6] || ''), '', '改短後多出來的格子清掉');
   assert.deepEqual(ok(g.api('getContent', ['l1-voc'])).data, vocab);
+  // Firebase 寫入失敗：回報錯誤、試算表與重製時間改回原樣，題目維持舊的
+  const before = sh.rows[1].slice(0, 6).map(String), resetBefore = g.propMap.get('RESET_AT');
+  global.__commitFail = true;
+  const fail = g.api('saveContent', ['l1-voc', big, true, { now: new Date(Date.now() + 5000).toISOString() }]);
+  global.__commitFail = false;
+  assert.match(String(fail.error || ''), /沒有存到 Firebase/);
+  assert.deepEqual(sh.rows[1].slice(0, 6).map(String), before, '試算表改回原樣');
+  assert.equal(g.propMap.get('RESET_AT'), resetBefore, '重製時間改回原樣');
+  assert.deepEqual(ok(g.api('getContent', ['l1-voc'])).data, vocab);
+  // 舊資料：json 欄還有內容就用那份；moveContentToFirestore 搬過去後清空
+  const legacy = { topic: 'Old', words: words.slice(0, 4) };
+  sh.rows[1][1] = JSON.stringify(legacy); g.cacheMap.clear();
+  assert.deepEqual(ok(g.api('getContent', ['l1-voc'])).data, legacy, '舊資料以試算表為準');
+  assert.match(g.ctx.moveContentToFirestore(), /已搬到 Firebase：l1-voc/);
+  assert.equal(sh.rows[1][1], '');
+  assert.deepEqual(ok(g.api('getContent', ['l1-voc'])).data, legacy, '搬完從 Firebase 讀到一樣的內容');
+  assert.match(g.ctx.moveContentToFirestore(), /沒有需要搬的/);
+  // 學期備份：試算表沒有題目，備份檔要從 Firebase 補上（太長的接在第 7 欄之後）
+  ok(g.api('saveContent', ['l1-voc', big, false, null]));
+  const bk = ok(g.api('backupSpreadsheet', []));
+  assert.deepEqual(bk.missing, []);
+  const crow = g.ss.copies.at(-1).sheets.get('content').rows[1];
+  assert.deepEqual(JSON.parse(String(crow[1]) + crow.slice(6).join('')), big, '備份檔裡的題目完整');
+  assert.equal(sh.rows[1][1], '', '原本的試算表不受影響');
+  ok(g.api('saveContent', ['l1-voc', vocab, false, null]));
 }
 
 // 不重製進度
@@ -108,6 +136,7 @@ assert.deepEqual(r.config.ext, { 'l1-voc': { '306-7': '2026-10-05T18:00' } });
 r = ok(g.api('deleteContent', ['l1-reading', true, { now: new Date().toISOString() }]));
 assert.equal(r.config.content['l1-reading'], undefined);
 assert.equal(ok(g.api('getContent', ['l1-reading'])), null);
+assert.equal(g.publicDocs.has('content_l1-reading'), false, 'Firebase 的題目也一起刪掉');
 
 // 學生端讀取（GET）
 assert.equal(g.get({ action: 'config' }).units['l1-voc'].visible, true);
