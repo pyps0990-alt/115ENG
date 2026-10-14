@@ -11,3 +11,5 @@ tools/brain/__pycache__/
 tools/brain/models/
 tools/brain/options.html
 tools/brain/wordbank/
+tools/brain/space_dist/
+tools/brain/review_dump*.txt

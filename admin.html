@@ -370,8 +370,21 @@
       </div>
       <div class="card" id="an-card" hidden>
         <h2 style="margin-top:0">錯誤分析結果上傳</h2>
-        <div class="help">在老師電腦上用 <code>tools/brain</code> 的程式分析過單元之後，把 <code>out</code> 資料夾裡的 <code>單元代號.json</code>（可以一次選多個）上傳到這裡。學生測驗時會用它排除「放進句子也說得通」的干擾選項、加入課外選項，答錯時顯示更完整的解析。上傳不會改單元設定，也不會重製學生的成績與進度。</div>
-        <div class="bar" style="margin-top:10px">
+        <div class="help">錯誤分析結果讓學生測驗時排除「放進句子也說得通」的干擾選項、在例句選字題混入 7000 單字的課外選項，答錯時顯示更完整的解析。不會改單元設定，也不會重製學生的成績與進度。</div>
+        <h3 style="margin:14px 0 6px">雲端分析（Hugging Face）</h3>
+        <div class="bar">
+          <button class="btn primary" id="br-go" type="button">分析上方選的單元</button>
+          <span class="msg" id="br-msg"></span>
+        </div>
+        <details style="margin-top:8px"><summary class="muted">引擎設定（網址與金鑰）</summary>
+          <div class="bar" style="margin-top:8px">
+            <label>網址 <input type="text" id="br-url" placeholder="https://帳號-b5-brain.hf.space" size="32"></label>
+            <label>金鑰 <input type="password" id="br-key" placeholder="（不變更就留空）" size="16"></label>
+            <button class="btn" id="br-save" type="button">儲存</button>
+          </div>
+        </details>
+        <h3 style="margin:14px 0 6px">或上傳在電腦上分析好的檔案</h3>
+        <div class="bar">
           <input type="file" id="an-file" accept=".json,application/json" multiple>
           <button class="btn primary" id="an-go" type="button" disabled>上傳</button>
           <span class="msg" id="an-msg"></span>
@@ -1124,6 +1137,50 @@
         window.fastPublish(docs).then(function () {
           $('an-msg').textContent = '✓ 已上傳 ' + Object.keys(docs).length + ' 個單元；學生重新打開單元就會用到'; $('an-msg').className = 'msg ok';
         }, function (err) { btn.disabled = false; $('an-msg').textContent = '上傳失敗：' + (err && err.message || err); $('an-msg').className = 'msg err'; });
+      };
+    })();
+
+    // ----- 雲端分析：送目前選的單元到 Hugging Face Space，等它分析完（約 3～4 分鐘），結果存到 Firebase -----
+    (function () {
+      if (!window.fastPublish || !window.fbPublic) return;
+      var cfg = null;
+      var msg = function (t, cls) { $('br-msg').textContent = t; $('br-msg').className = 'msg ' + (cls || ''); };
+      google.script.run.withSuccessHandler(function (c) { cfg = c; $('br-url').value = c.url || ''; }).withFailureHandler(function () {}).getBrainConfig();
+      $('br-save').onclick = function () {
+        google.script.run.withSuccessHandler(function (c) { cfg = c; $('br-key').value = ''; msg('✓ 已儲存引擎設定', 'ok'); })
+          .withFailureHandler(function (err) { msg(err.message, 'err'); }).setBrainConfig($('br-url').value, $('br-key').value);
+      };
+      $('br-go').onclick = function () {
+        var u = impUnit();
+        if (!u || u.type !== 'vocab') { msg('請先在上方選一個單字片語單元', 'err'); return; }
+        if (!cfg || !cfg.url || !cfg.key) { msg('請先在「引擎設定」填網址與金鑰', 'err'); return; }
+        var btn = this; btn.disabled = true; msg('讀取題目…');
+        window.fbPublic('content_' + u.id).then(function (c) {
+          if (!c || !c.data || !(c.data.words || []).length) throw new Error('這個單元還沒有題目');
+          msg('送出分析…（Space 剛醒來時要多等 1～2 分鐘）');
+          return fetch(cfg.url + '/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Brain-Key': cfg.key },
+            body: JSON.stringify({ unit: u.id, data: c.data, lm: true }) }).then(function (r) {
+            return r.json().then(function (j) { if (!r.ok) throw new Error(j.detail || ('HTTP ' + r.status)); return j.job; });
+          });
+        }).then(function (job) {
+          var t0 = Date.now();
+          return new Promise(function (resolve, reject) {
+            (function poll() {
+              fetch(cfg.url + '/jobs/' + job).then(function (r) { return r.json(); }).then(function (j) {
+                if (j.status === 'done') { resolve(j.result); return; }
+                if (j.status === 'error' || j.detail) { reject(new Error(j.error || j.detail)); return; }
+                msg('分析中…' + (j.step ? j.step + '・' : '') + Math.round((Date.now() - t0) / 1000) + ' 秒（約 3～4 分鐘，可以先做別的事，不要關掉這一頁）');
+                setTimeout(poll, 5000);
+              }, function () { setTimeout(poll, 8000); });
+            })();
+          });
+        }).then(function (result) {
+          var docs = {}; docs['analysis_' + u.id] = result;
+          return window.fastPublish(docs).then(function () {
+            msg('✓「' + (u.title || u.id) + '」分析完成並已存到 Firebase：' + Object.keys(result.pairs || {}).length + ' 組相關字，學生重新打開單元就會用到', 'ok');
+          });
+        }).catch(function (err) { msg('分析失敗：' + (err && err.message || err), 'err'); })
+          .then(function () { btn.disabled = false; });
       };
     })();
 

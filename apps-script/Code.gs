@@ -133,7 +133,7 @@ function handleApi_(d) {
     syncGradebookRoster: syncGradebookRoster, syncAllGradebooks: syncAllGradebooks,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
     getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey, testLocalAi: testLocalAi,
-    aiGenerateReading: aiGenerateReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
+    aiGenerateReading: aiGenerateReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, getBrainConfig: getBrainConfig, setBrainConfig: setBrainConfig, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
     lookupStudent: lookupStudent, deleteStudent: deleteStudent,
     backupSpreadsheet: backupSpreadsheet, semesterReset: semesterReset, purgeUnitScores: purgeUnitScores, listPurgeUnits: listPurgeUnits,
     syncNow: syncNow, getSyncStatus: getSyncStatus, syncReport: syncReport,
@@ -1926,6 +1926,24 @@ function getAiPrompts() {
 }
 
 // text 留空或和預設一樣 ＝ 還原預設
+// 錯誤分析引擎（Hugging Face Space）的網址與金鑰：存在指令碼屬性，只有老師讀得到（後台直接呼叫 Space）
+function getBrainConfig() {
+  assertTeacher_();
+  var props = PropertiesService.getScriptProperties();
+  return { url: props.getProperty('BRAIN_URL') || '', key: props.getProperty('BRAIN_KEY') || '' };
+}
+
+function setBrainConfig(url, key) {
+  assertTeacher_();
+  var props = PropertiesService.getScriptProperties();
+  url = String(url || '').trim().replace(/\/+$/, '');
+  if (url && !/^https:\/\/[a-z0-9.-]+\.hf\.space$/i.test(url)) throw new Error('網址要像 https://帳號-b5-brain.hf.space（Space 頁面右上角「⋯ → Embed this Space」裡的 Direct URL）');
+  if (url) props.setProperty('BRAIN_URL', url);
+  if (String(key || '').trim()) props.setProperty('BRAIN_KEY', String(key).trim());
+  audit_('修改錯誤分析引擎設定', url || '', key ? '更新金鑰' : '');
+  return getBrainConfig();
+}
+
 function setAiPrompt(type, text) {
   assertTeacher_();
   if (!AI_PROMPT_DEFAULTS[type]) throw new Error('未知的題型');

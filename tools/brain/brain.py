@@ -590,15 +590,22 @@ def option_safety(data, analysis, margin=FIT_MARGIN):
     return out
 
 
+EXTRA_REJECTED = set()  # 網路服務（space/app.py）呼叫時另外帶來的不適合清單
+
+
 def load_rejected():
     """老師在出題選項檢查頁標成「不適合」的課外選項（rejected_extras.json：單元|單字|第幾句|課外字）。
     回傳 (完整鍵集合, {單元|單字: 被標過的課外字}, 全域禁用字)；同一個課外字被兩個以上不同的字標過就全域禁用"""
     import json
     path = os.path.join(HERE, 'rejected_extras.json')
-    if not os.path.exists(path):
+    if not os.path.exists(path) and not EXTRA_REJECTED:
         return set(), {}, set()
-    with open(path, encoding='utf-8') as f:
-        keys = set(json.load(f))
+    if not os.path.exists(path):
+        path = None
+    keys = set(EXTRA_REJECTED)
+    if path:
+        with open(path, encoding='utf-8') as f:
+            keys |= set(json.load(f))
     per_target, targets = {}, {}
     for k in keys:
         uid, w, _i, x = k.split('|')
