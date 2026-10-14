@@ -8,3 +8,6 @@ tools/brain/samples/
 tools/brain/out/
 tools/brain/report.html
 tools/brain/__pycache__/
+tools/brain/models/
+tools/brain/options.html
+tools/brain/wordbank/

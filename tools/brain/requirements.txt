@@ -1,2 +1,5 @@
 nltk==3.10.3
 jieba==0.42.1
+torch
+transformers
+lemminflect

@@ -3,6 +3,8 @@
   .venv\\Scripts\\python analyze.py fetch           從 Firebase 讀目前所有單字單元的題目，存到 samples/（只讀，不寫）
   .venv\\Scripts\\python analyze.py run             分析 samples/ 的每個單元，結果存到 out/<單元>.json
   .venv\\Scripts\\python analyze.py report          產生 report.html：模擬學生答錯的題目，老師逐題判斷分析準不準
+  .venv\\Scripts\\python analyze.py run --lm        另外用語言模型檢查干擾選項、挑課外選項（每單元約 3～4 分鐘）
+  .venv\\Scripts\\python analyze.py options         產生 options.html：每句例句被排除的同單元字、加進來的課外選項，老師檢查
 """
 import json
 import os
@@ -44,10 +46,14 @@ def units():
                 yield name[:-5], json.load(f)
 
 
-def run():
+def run(with_lm=False):
+    """with_lm：另外用語言模型檢查同單元的干擾選項、挑課外選項（每個單元約 3～4 分鐘）"""
     os.makedirs(OUT, exist_ok=True)
     for uid, d in units():
         a = brain.analyze(d)
+        if with_lm:
+            a['unsafe'] = brain.option_safety(d, a)
+            a['extra'] = brain.extra_options(d, a, random.Random(uid))
         with open(os.path.join(OUT, uid + '.json'), 'w', encoding='utf-8') as f:
             json.dump(a, f, ensure_ascii=False)
         print(uid, len(a['words']), '個字', len(a['pairs']), '組有關係：', a['pairs'])
@@ -113,6 +119,33 @@ def report():
     print(len(allc), '題；分類：', dict(Counter(c['cat'] for c in allc)))
 
 
+def options():
+    """出題檢查頁：需要先跑 run --lm"""
+    rows = []
+    for uid, d in units():
+        path = os.path.join(OUT, uid + '.json')
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding='utf-8') as f:
+            a = json.load(f)
+        if 'extra' not in a:
+            continue
+        for w in d['words']:
+            for i, (ex, zh) in enumerate(brain.example_pairs(w)):
+                un = a['unsafe'].get(w['word']) or []
+                ext = a['extra'].get(w['word']) or []
+                rows.append({'id': f"{uid}|{w['word']}|{i}", 'unit': uid, 'word': w['word'], 'zh': w['zh'], 'ex': ex, 'exZh': zh,
+                             'unsafe': un[i] if i < len(un) else [], 'extra': ext[i] if i < len(ext) else []})
+    with open(os.path.join(HERE, 'options.template.html'), encoding='utf-8') as f:
+        html = f.read().replace('/*ROWS*/[]', json.dumps(rows, ensure_ascii=False))
+    with open(os.path.join(HERE, 'options.html'), 'w', encoding='utf-8') as f:
+        f.write(html)
+    print(len(rows), '句例句')
+
+
 if __name__ == '__main__':
     cmd = sys.argv[1] if len(sys.argv) > 1 else 'run'
-    {'fetch': fetch, 'run': run, 'report': report}[cmd]()
+    if cmd == 'run' and '--lm' in sys.argv:
+        run(True)
+    else:
+        {'fetch': fetch, 'run': run, 'report': report, 'options': options}[cmd]()

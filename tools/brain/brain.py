@@ -513,3 +513,105 @@ def walkthrough(analysis, data, target, options, kind, example_index=0, chosen=N
         out['options'].append(item)
     out['answer'] = f"所以答案是 {t['word']}（{t['zh']}）"
     return out
+
+
+# ---------------------------------------------------------------- 選項安全檢查與課外選項（需要語言模型 lm.py 與單字表 wordbank.py）
+# 語言模型分數差距小於 FIT_MARGIN：這個干擾選項放進句子「也說得通」，出題時不拿來當這句的選項
+FIT_MARGIN = 8.0  # calib.py 校正：DistilRoBERTa 在門檻 8 抓到約 83% 也說得通的選項（roberta-base 沒有比較好）
+EXTRA_PER_EXAMPLE = 2
+
+
+def _penn_tag(ex):
+    """空格裡那個字在句子裡的詞性標記（VBD、NNS、VBG…），課外選項照這個做詞形變化"""
+    m = re.search(r'\[([^\]]+)\]', ex)
+    if not m or ' ' in m.group(1).strip():
+        return None
+    plain = ex[:m.start()] + m.group(1) + ex[m.end():]
+    toks = re.findall(r"[A-Za-z']+|[^\sA-Za-z']", plain)
+    i = len(re.findall(r"[A-Za-z']+|[^\sA-Za-z']", ex[:m.start()]))
+    return nltk.pos_tag(toks)[i][1] if i < len(toks) else None
+
+
+# 不可數名詞：沒有複數（equipments 是錯的），空格要複數時不拿來當選項
+UNCOUNTABLE = set("""advice baggage bread chaos clothing courage damage dirt education electricity employment equipment evidence fun furniture
+garbage gold grass happiness harm health help homework honesty housework information intelligence jewelry knowledge laughter
+leisure luck luggage machinery mail money music news nonsense nutrition oxygen patience permission pollution poetry progress
+research rice safety scenery sand silver smoke snow software stuff sunshine traffic transportation trash violence vocabulary
+water weather wealth wisdom""".split())
+
+
+def inflect(word, tag):
+    """課外字變成和答案一樣的形式（過去式、複數、-ing…）；變不了就用原形"""
+    if not tag or tag in ('JJ', 'RB', 'NN', 'VB', 'VBP'):
+        return word
+    from lemminflect import getInflection
+    forms = getInflection(word, tag=tag)
+    return forms[0] if forms else word
+
+
+def _split(ex):
+    m = re.search(r'\[([^\]]+)\]', ex)
+    return (ex[:m.start()], m.group(1), ex[m.end():]) if m else None
+
+
+def option_safety(data, analysis, margin=FIT_MARGIN):
+    """每句例句：同單元其他字放進去也說得通的（語言模型分數和答案差不到 margin）列為「不能當選項」。
+    回傳 {單字: [[這句不能用的字...], ...]}（依例句順序）"""
+    import lm
+    words = [w for w in data['words'] if w.get('word')]
+    out = {}
+    for t in words:
+        same = [w for w in words if w is not t and ('phr' in pos_list(w)) == ('phr' in pos_list(t))]
+        per = []
+        for ex in _examples(t):
+            parts = _split(ex)
+            if not parts:
+                per.append([])
+                continue
+            before, ans, after = parts
+            forms = {chosen_form(w): w['word'] for w in same}
+            fit = lm.fit(before, after, ans, list(forms))
+            per.append(sorted(forms[f] for f, d in fit.items() if d < margin))
+        out[t['word']] = per
+    return out
+
+
+def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, pool_size=14):
+    """每句例句挑 n 個課外選項：詞性和空格一樣、級數接近（3 級以上優先）、不是本單元的字、不是答案的同義字或同字根、
+    做成和答案一樣的形式後，語言模型認為放進去說不通（分數差距 ≥ margin＋1，留一點安全距離）。
+    回傳 {單字: [[{word, form, pos, zh, level}, ...], ...]}"""
+    import lm
+    import wordbank
+    bank = wordbank.load()
+    unit = {w['word'].lower() for w in data['words']}
+    out = {}
+    for t in data['words']:
+        if 'phr' in pos_list(t):
+            out[t['word']] = []
+            continue
+        per = []
+        for ex in _examples(t):
+            parts = _split(ex)
+            sl = slot(t, ex)
+            if not parts or not sl or not sl.get('need'):
+                per.append([])
+                continue
+            before, ans, after = parts
+            need = sl['need']
+            cands = [b for b in bank.values() if need in pos_list(b) and b['word'] not in unit and ' ' not in b['word']
+                     and len(b['word']) >= 4 and not same_family(b['word'], t['word']) and not synonyms(b['word'], t['word'])
+                     and not zh_overlap(b['zh'], t['zh'])]
+            hard = [b for b in cands if b['level'] >= 3] or cands
+            rng.shuffle(hard)
+            pick = hard[:pool_size]
+            tag = _penn_tag(ex)
+            if tag in ('NNS', 'NNPS'):
+                pick = [b for b in pick if b['word'] not in UNCOUNTABLE]
+            forms = {inflect(b['word'], tag): b for b in pick}
+            fit = lm.fit(before, after, ans, list(forms))
+            # 最像答案但仍確定說不通的優先（太離譜的選項一眼就能刪掉，沒有鑑別度）
+            ok = sorted([(d, f) for f, d in fit.items() if d >= margin + 1])
+            per.append([{'word': forms[f]['word'], 'form': f, 'pos': forms[f]['pos'], 'zh': forms[f]['zh'], 'level': forms[f]['level'], 'gap': d}
+                        for d, f in ok[:n]])
+        out[t['word']] = per
+    return out

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>出題選項檢查</title>
+<style>
+  :root { --navy:#1E3A8A; --steel:#586880; --paper:#F6F8FB; --surface:#ECF0F6; --line:#DCE2EB; --good:#15803D; --bad:#B91C1C; --white:#fff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--steel); font: 16px/1.6 "Noto Sans TC", system-ui, -apple-system, "Microsoft JhengHei", sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--navy); color: #fff; padding: 12px 16px; }
+  header h1 { margin: 0; font-size: 1.05rem; } header p { margin: 2px 0 0; font-size: .88rem; }
+  main { max-width: 860px; margin: 0 auto; padding: 16px; }
+  .help { background: var(--white); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; margin-bottom: 14px; font-size: .92rem; }
+  select, button { font: inherit; border-radius: 10px; border: 1px solid #C7CFDB; background: var(--white); padding: 6px 12px; min-height: 40px; color: var(--navy); }
+  button { cursor: pointer; font-weight: 700; }
+  .card { background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin: 12px 0; }
+  .ex { color: var(--navy); font-weight: 700; } .ex mark { background: #BBF7D0; color: inherit; padding: 0 3px; border-radius: 4px; }
+  .zh { font-size: .9rem; }
+  h3 { margin: 10px 0 4px; font-size: .85rem; color: var(--navy); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--surface); font-size: .9rem; }
+  .chip.out { background: #FEE2E2; color: var(--bad); text-decoration: line-through; }
+  .chip button { min-height: 28px; padding: 0 8px; font-size: .8rem; }
+  .chip.bad { background: #FEE2E2; } .chip.bad b { text-decoration: line-through; }
+  .muted { color: #6B7789; font-size: .85rem; }
+</style>
+</head>
+<body>
+<header><h1>出題選項檢查</h1><p id="sum"></p></header>
+<main>
+  <div class="help">每一句是單元裡的例句（綠色是答案）。<b>不當選項</b>：語言模型判斷放進去也說得通的同單元字，這句出題時不會出現。<b>課外選項</b>：從單字表挑的字，已經變成和答案一樣的形式，出題時隨機放 1～2 個。看到不適合的課外選項（其實也說得通、太簡單、形式不對）按「不適合」，做完按「複製結果」貼給 Claude。</div>
+  <p><label>單元 <select id="f-unit"><option value="">全部</option></select></label> <button id="copy" type="button">複製結果</button> <span class="muted" id="msg"></span></p>
+  <div id="list"></div>
+</main>
+<script>
+  var ROWS = /*ROWS*/[];
+  var KEY = 'brain-options-v1', bad = {};
+  try { bad = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var $ = function (id) { return document.getElementById(id); };
+  ROWS.map(function (r) { return r.unit; }).filter(function (v, i, a) { return a.indexOf(v) === i; }).forEach(function (u) { $('f-unit').insertAdjacentHTML('beforeend', '<option>' + esc(u) + '</option>'); });
+  function render() {
+    var u = $('f-unit').value;
+    var list = ROWS.filter(function (r) { return !u || r.unit === u; });
+    var nx = 0, nb = 0;
+    list.forEach(function (r) { nx += r.extra.length; r.extra.forEach(function (o) { if (bad[r.id + '|' + o.word]) nb++; }); });
+    $('sum').textContent = list.length + ' 句例句・課外選項 ' + nx + ' 個・標成不適合 ' + nb + ' 個';
+    $('list').innerHTML = list.map(function (r) {
+      return '<div class="card"><div class="muted">' + esc(r.unit) + '・' + esc(r.word) + '（' + esc(r.zh) + '）</div>' +
+        '<div class="ex">' + esc(r.ex).replace(/\[([^\]]+)\]/g, '<mark>$1</mark>') + '</div><div class="zh">' + esc(r.exZh) + '</div>' +
+        '<h3>不當選項（放進去也說得通）</h3><div class="chips">' + (r.unsafe.length ? r.unsafe.map(function (w) { return '<span class="chip out">' + esc(w) + '</span>'; }).join('') : '<span class="muted">沒有</span>') + '</div>' +
+        '<h3>課外選項</h3><div class="chips">' + (r.extra.length ? r.extra.map(function (o) {
+          var k = r.id + '|' + o.word;
+          return '<span class="chip' + (bad[k] ? ' bad' : '') + '"><b class="en">' + esc(o.form) + '</b> ' + esc(o.pos) + ' ' + esc(o.zh) + '・' + o.level + ' 級 <button type="button" data-k="' + esc(k) + '">' + (bad[k] ? '恢復' : '不適合') + '</button></span>';
+        }).join('') : '<span class="muted">沒有合適的</span>') + '</div></div>';
+    }).join('');
+  }
+  $('list').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-k]'); if (!b) return;
+    if (bad[b.dataset.k]) delete bad[b.dataset.k]; else bad[b.dataset.k] = 1;
+    try { localStorage.setItem(KEY, JSON.stringify(bad)); } catch (er) {}
+    render();
+  });
+  $('f-unit').onchange = render;
+  $('copy').onclick = function () {
+    var text = JSON.stringify(Object.keys(bad), null, 1);
+    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { $('msg').textContent = '已複製 ' + Object.keys(bad).length + ' 個'; }, function () { $('msg').textContent = text; });
+  };
+  render();
+</script>
+</body>
+</html>
