@@ -229,18 +229,13 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 }
 .unit-tile:hover { transform: translateY(-2px); border-color: var(--navy); }
 .unit-tile { position: relative; }
-.unit-tile::before { content: ""; position: absolute; left: 0; top: 16px; bottom: 16px; width: 6px; border-radius: 0 6px 6px 0; background: transparent; }
 .unit-tile:hover { background: var(--white); }
 .tile-state { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px 3px 9px; border-radius: 999px; background: var(--white); border: 1px solid var(--line-strong); color: var(--steel); font-weight: 800; font-size: .88rem; white-space: nowrap; }
 .tile-state .ic { width: 15px; height: 15px; stroke-width: 2.6; }
 /* 狀態：小標籤 + 左側 4px 色條，用內容區分（補考寫出還差多少、待檢討用燈泡），學生端不用實心紅色 */
-.st-retake::before { background: var(--amber-ink); }
 .st-retake .tile-state { background: var(--amber-soft); border-color: var(--amber); color: var(--amber-ink); }
-.st-todo::before { background: var(--navy); }
 .st-todo .tile-state { background: var(--navy-soft); border-color: #C3CFEA; color: var(--navy); }
-.st-miss::before { background: var(--bad-ink); }
 .st-miss .tile-state { background: var(--white); border-color: var(--bad); color: var(--bad-ink); }
-.st-ok::before { background: var(--good-ink); }
 .st-ok .tile-state { background: transparent; border-color: transparent; padding-left: 0; color: var(--good-ink); }
 .st-open .tile-state, .st-wait .tile-state { background: transparent; border-color: transparent; padding-left: 0; }
 .unit-tile.st-wait { background: transparent; border: 1.5px dashed var(--edge); }
