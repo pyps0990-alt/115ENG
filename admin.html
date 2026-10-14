@@ -1142,36 +1142,35 @@
 
     // ----- 雲端分析：送目前選的單元到 Hugging Face Space，等它分析完（約 3～4 分鐘），結果存到 Firebase -----
     (function () {
-      if (!window.fastPublish || !window.fbPublic) return;
+      if (!window.fastPublish) return;
       var cfg = null;
       var msg = function (t, cls) { $('br-msg').textContent = t; $('br-msg').className = 'msg ' + (cls || ''); };
-      google.script.run.withSuccessHandler(function (c) { cfg = c; $('br-url').value = c.url || ''; }).withFailureHandler(function () {}).getBrainConfig();
+      google.script.run.withSuccessHandler(function (c) { cfg = c; $('br-url').value = c.url || ''; $('br-key').placeholder = c.hasKey ? '（已設定，不變更就留空）' : '貼上 BRAIN_KEY'; }).withFailureHandler(function () {}).getBrainConfig();
       $('br-save').onclick = function () {
-        google.script.run.withSuccessHandler(function (c) { cfg = c; $('br-key').value = ''; msg('✓ 已儲存引擎設定', 'ok'); })
+        google.script.run.withSuccessHandler(function (c) { cfg = c; $('br-key').value = ''; $('br-key').placeholder = c.hasKey ? '（已設定，不變更就留空）' : '貼上 BRAIN_KEY'; msg('✓ 已儲存引擎設定', 'ok'); })
           .withFailureHandler(function (err) { msg(err.message, 'err'); }).setBrainConfig($('br-url').value, $('br-key').value);
       };
       $('br-go').onclick = function () {
         var u = impUnit();
         if (!u || u.type !== 'vocab') { msg('請先在上方選一個單字片語單元', 'err'); return; }
-        if (!cfg || !cfg.url || !cfg.key) { msg('請先在「引擎設定」填網址與金鑰', 'err'); return; }
-        var btn = this; btn.disabled = true; msg('讀取題目…');
-        window.fbPublic('content_' + u.id).then(function (c) {
-          if (!c || !c.data || !(c.data.words || []).length) throw new Error('這個單元還沒有題目');
-          msg('送出分析…（Space 剛醒來時要多等 1～2 分鐘）');
-          return fetch(cfg.url + '/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Brain-Key': cfg.key },
-            body: JSON.stringify({ unit: u.id, data: c.data, lm: true }) }).then(function (r) {
-            return r.json().then(function (j) { if (!r.ok) throw new Error(j.detail || ('HTTP ' + r.status)); return j.job; });
+        if (!cfg || !cfg.url || !cfg.hasKey) { msg('請先在「引擎設定」填網址與金鑰', 'err'); return; }
+        var btn = this; btn.disabled = true; msg('送出分析…（Space 剛醒來時要多等 1～2 分鐘）');
+        // 由 Apps Script 代為呼叫 Space（金鑰不經過瀏覽器，也沒有跨網站限制）
+        var call = function (name, arg) {
+          return new Promise(function (resolve, reject) {
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[name](arg);
           });
-        }).then(function (job) {
+        };
+        call('brainStart', u.id).then(function (s) {
           var t0 = Date.now();
           return new Promise(function (resolve, reject) {
             (function poll() {
-              fetch(cfg.url + '/jobs/' + job).then(function (r) { return r.json(); }).then(function (j) {
+              call('brainJob', s.job).then(function (j) {
                 if (j.status === 'done') { resolve(j.result); return; }
-                if (j.status === 'error' || j.detail) { reject(new Error(j.error || j.detail)); return; }
-                msg('分析中…' + (j.step ? j.step + '・' : '') + Math.round((Date.now() - t0) / 1000) + ' 秒（約 3～4 分鐘，可以先做別的事，不要關掉這一頁）');
+                if (j.status === 'error') { reject(new Error(j.error || '分析失敗')); return; }
+                msg('分析中…' + (j.step ? j.step + '・' : j.status === 'queued' ? '排隊中・' : '') + Math.round((Date.now() - t0) / 1000) + ' 秒（約 3～4 分鐘，可以先做別的事，不要關掉這一頁）');
                 setTimeout(poll, 5000);
-              }, function () { setTimeout(poll, 8000); });
+              }, function (err) { reject(err); });
             })();
           });
         }).then(function (result) {

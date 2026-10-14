@@ -15,6 +15,7 @@
   HF_TOKEN         選填（Secret）。讀私人 dataset 用
   ALLOW_ORIGINS    選填。允許呼叫的網站，逗號分隔（預設 eng-3385e 的兩個網址）
 """
+import json
 import os
 import secrets
 import threading
@@ -79,6 +80,38 @@ def _worker():
             traceback.print_exc()
         finally:
             job['finished'] = time.time()
+
+
+# ---- 給 Gradio API 用的函式（回傳 JSON 字串）：老師後台透過 Apps Script 呼叫 /gradio_api/call/start 與 /job ----
+def api_start(key, unit, data_json, lm):
+    expect = os.environ.get('BRAIN_KEY', '')
+    if not expect or not secrets.compare_digest(str(key or ''), expect):
+        return json.dumps({'error': '金鑰不正確'}, ensure_ascii=False)
+    try:
+        data = json.loads(data_json)
+        words = data.get('words', [])
+    except Exception:  # noqa: BLE001
+        return json.dumps({'error': '內容格式不正確（需要 data.words）'}, ensure_ascii=False)
+    if not words:
+        return json.dumps({'error': '沒有單字'}, ensure_ascii=False)
+    if len(words) > 150:
+        return json.dumps({'error': '一個單元最多 150 個字'}, ensure_ascii=False)
+    job_id = secrets.token_hex(16)
+    JOBS[job_id] = {'status': 'queued', 'unit': str(unit), 'created': time.time(), 'req': {'unit': str(unit), 'data': data, 'lm': bool(lm), 'rejected': []}}
+    while len(JOBS) > MAX_JOBS:
+        JOBS.popitem(last=False)
+    QUEUE.put(job_id)
+    return json.dumps({'job': job_id, 'ahead': QUEUE.qsize() - 1}, ensure_ascii=False)
+
+
+def api_job(job_id):
+    j = JOBS.get(str(job_id or ''))
+    if not j:
+        return json.dumps({'error': '找不到這個工作（Space 可能重開過，請重新分析）'}, ensure_ascii=False)
+    out = {k: v for k, v in j.items() if k != 'req'}
+    if j.get('started'):
+        out['seconds'] = round((j.get('finished') or time.time()) - j['started'])
+    return json.dumps(out, ensure_ascii=False)
 
 
 def register(api):
@@ -165,13 +198,23 @@ def main():
         gr.Markdown('## B5 Practice 錯誤分析引擎\n老師後台「匯入內容 → 分析上方選的單元」會呼叫這裡。下面是最近的分析工作。')
         info = gr.Markdown()
         table = gr.Dataframe(headers=['單元', '狀態', '步驟', '時間'], interactive=False)
-        gr.Button('重新整理').click(status, outputs=[info, table])
-        demo.load(status, outputs=[info, table])
+        gr.Button('重新整理').click(status, outputs=[info, table], api_name=False)
+        demo.load(status, outputs=[info, table], api_name=False)
+        # 看不到的元件：只用來開出 API（/gradio_api/call/start、/gradio_api/call/job）
+        k, u, d = gr.Textbox(visible=False), gr.Textbox(visible=False), gr.Textbox(visible=False)
+        lm_on, j_in = gr.Checkbox(value=True, visible=False), gr.Textbox(visible=False)
+        o1, o2 = gr.Textbox(visible=False), gr.Textbox(visible=False)
+        gr.Button(visible=False).click(api_start, [k, u, d, lm_on], o1, api_name='start')
+        gr.Button(visible=False).click(api_job, [j_in], o2, api_name='job')
 
     # 由 Gradio 啟動伺服器（Space 給的埠號與代理設定都在這裡處理），啟動後再掛上 API 路由
-    demo.launch(server_name='0.0.0.0', prevent_thread_lock=True, show_api=False)
-    register(demo.server_app)
-    print('API 路由已掛上：/health /analyze /jobs/{job}', flush=True)
+    demo.launch(server_name='0.0.0.0', prevent_thread_lock=True)
+    try:
+        register(demo.server_app)   # 備援：REST 路由（有些環境會被前端網頁路由蓋住，正式用 Gradio API）
+        print('REST 路由已掛上：/health /analyze /jobs/{job}', flush=True)
+    except Exception as e:  # noqa: BLE001
+        print('REST 路由掛載失敗（不影響 Gradio API）：', e, flush=True)
+    print('Gradio API：/gradio_api/call/start、/gradio_api/call/job', flush=True)
     demo.block_thread()
 
 
