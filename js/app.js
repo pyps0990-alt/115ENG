@@ -307,6 +307,9 @@ function tileHTML(u) {
   // 大標題是後台設定的標題；小標是後台設定的類型。標題剛好跟類型名稱一樣時，不重複寫類型
   const heading = String(u.title || '').trim();
   const kind = TYPES[typeOf(u.type)].tile;
+  // 主題（後台匯入內容時填的，課文理解沒填就是文章標題）：小字放在標題下面；空白或跟標題一樣就不顯示
+  const topic = String(u.topic || '').trim();
+  const topicShown = topic && topic.toLowerCase() !== heading.toLowerCase() ? topic : '';
   const catLine = [heading === kind || heading === typeLabel(u.type) ? '' : kind, tileMeta(u, stages)].filter(Boolean).join(' · ');
   const chip = st.k === 'retake' && b != null && b < PASS ? `需補考 · 還差 ${PASS - b}%` : TILE_STATE[st.k];
   const sub = [b != null ? `最佳 ${b}%` : '', st.k === 'miss' ? '' : windowText(u.id, store.done(u.id))].filter(Boolean).join(' · ');
@@ -315,6 +318,7 @@ function tileHTML(u) {
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
       <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span></div>
       <h3 class="en">${esc(u.title)}</h3>
+      ${topicShown ? `<p class="tile-topic en">${esc(topicShown)}</p>` : ''}
       <div class="tile-meta"><span class="tile-cat">${typeIcon(u.type)}</span>${catLine}</div>
       ${sub ? `<div class="tile-sub">${meter}<span>${esc(sub)}</span></div>` : ''}
     </a>`;

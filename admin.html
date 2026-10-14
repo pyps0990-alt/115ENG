@@ -303,7 +303,7 @@
         </details>
 
         <div id="imp-vocab" class="imp-grid" hidden>
-          <label>主題（顯示在首頁卡片上，可空白）<input type="text" id="v-topic" placeholder="例：Resilience"></label>
+          <label>主題（小字顯示在首頁卡片標題下方，可空白）<input type="text" id="v-topic" placeholder="例：Resilience"></label>
           <div class="help">
             <b>單字片語　匯入格式</b><br>
             每行一個單字或片語，欄位順序：<b>英文、詞性、中文、例句（3 句）、例句翻譯（3 句）</b>。<br>
@@ -327,7 +327,7 @@
 
         <div id="imp-reading" class="imp-grid" hidden>
           <label>文章標題<input type="text" id="r-title" placeholder="例：Mia's Second Try"></label>
-          <label>主題（顯示在首頁卡片上，可空白，預設用文章標題）<input type="text" id="r-topic"></label>
+          <label>主題（小字顯示在首頁卡片標題下方，可空白，預設用文章標題）<input type="text" id="r-topic"></label>
           <label>文章（段落之間空一行）<textarea id="r-passage" spellcheck="false"></textarea></label>
           <div class="help"><b>課文理解　匯入格式</b>（<b>每一題都必須有原文依據</b>，包含主旨題）<br><span id="r-ex"></span>想用外部 AI 出題：按「複製『給 AI 的完整提示詞』」，貼到 AI 後把最後一行改成主題與題數，回覆貼進「批次貼上文字格式」再按「填入表單」。<br>依序填：文章標題、主題、文章（段落之間空一行），再逐題填「題型、題目（英文）、四個選項、點選正確答案、中文解析」。「關鍵字句」從文章直接複製最能證明答案的一段，學生檢討時會標亮；沒填可改選「原文依據」的句子。<br>題目與選項請用自己的話改寫，<b>不要照抄文章</b>：和文章連續 6 個英文字以上相同會無法儲存，連續 5 個字會提醒。</div>
           <details class="ai-box" id="r-bulk-box">
@@ -346,7 +346,7 @@
         </div>
 
         <div id="imp-text" class="imp-grid" hidden>
-          <label>主題（顯示在首頁卡片上，可空白）<input type="text" id="t-topic" placeholder="例：not only…but also 與倒裝句"></label>
+          <label>主題（小字顯示在首頁卡片標題下方，可空白）<input type="text" id="t-topic" placeholder="例：not only…but also 與倒裝句"></label>
           <div class="help" id="t-help"></div>
           <div class="bar">
             <button class="btn" id="t-example" type="button">插入範例格式</button>
