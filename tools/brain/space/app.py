@@ -136,11 +136,16 @@ def register(api):
             out['seconds'] = round((j.get('finished') or time.time()) - j['started'])
         return reply(request, out)
 
+    # Gradio 的 server_app 後面有一條「其他網址全部回前端網頁」的路由：我們的路由要排在它前面，不然 /health 會拿到網頁
+    before = len(api.router.routes)
     api.add_api_route('/health', health, methods=['GET'])
     api.add_api_route('/analyze', analyze, methods=['POST'])
     api.add_api_route('/analyze', preflight, methods=['OPTIONS'])
     api.add_api_route('/jobs/{job_id}', job, methods=['GET'])
     api.add_api_route('/jobs/{job_id}', preflight, methods=['OPTIONS'])
+    added = api.router.routes[before:]
+    del api.router.routes[before:]
+    api.router.routes[0:0] = added
 
 
 def main():
