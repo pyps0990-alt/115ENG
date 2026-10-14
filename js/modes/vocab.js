@@ -12,10 +12,8 @@ import { exampleHTML } from '../util.js';
 import { progress, leaveBody } from '../resume.js';
 import { diffAnswer } from '../components/diff.js';
 import { submitScore } from '../submit.js';
-import { PASS, stageSizes, partitionWords, pickWords, PER_TEST } from '../levels.js';
+import { PASS, stageSizes, partitionWords, pickWords, PER_TEST, weigh } from '../levels.js';
 
-const HINT_COST = 0.25;
-const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ''));
 
 export function mount(stage, ctx) {
   const levels = ctx.levels;
@@ -24,6 +22,23 @@ export function mount(stage, ctx) {
   const perTest = Math.min(all.length, PER_TEST); // 一次考幾個字（超過 PER_TEST 個就抽題）
   const sizes = stageSizes(perTest, levels.length);
   const nPhrase = all.filter((w) => w.type === 'phrase').length;
+  // 例句記憶：記下這位學生每個字考過哪幾句例句（存在這台裝置），下次換一句沒考過的；全部考過才重新開始
+  const pickEx = (word, n) => {
+    const key = `${unitId}:ex`;
+    const used = store.bag(key);
+    const mine = used.filter((e) => e.slice(e.indexOf('|') + 1) === word).map((e) => Number(e.slice(0, e.indexOf('|'))));
+    let fresh = Array.from({ length: n }, (_, i) => i).filter((i) => !mine.includes(i));
+    let keep = used;
+    if (!fresh.length) {
+      // 這個字每句都考過了：重新開始一輪，但不要連續考到同一句
+      const last = mine[mine.length - 1];
+      fresh = Array.from({ length: n }, (_, i) => i).filter((i) => i !== last || n === 1);
+      keep = used.filter((e) => e.slice(e.indexOf('|') + 1) !== word);
+    }
+    const idx = fresh[Math.floor(Math.random() * fresh.length)];
+    store.setBag(key, [...keep, `${idx}|${word}`]);
+    return idx;
+  };
   let alive = true;
   let advanceTimer = null;
   let hold = null; // 自動下一題時，碰一下畫面就停的監聽
@@ -101,7 +116,7 @@ export function mount(stage, ctx) {
   function play(student, stagesIn, official, review = false, saved = null) {
     const stages = saved
       ? saved.stages.map(({ levelId, ...r }) => ({ ...r, level: levels.find((l) => l.id === levelId) }))
-      : stagesIn.map(({ level, words }) => ({ level, qs: level.build(shuffle(words), all, ctx.analysis), points: 0, wrong: [] }));
+      : stagesIn.map(({ level, words }) => ({ level, qs: level.build(shuffle(words), all, { analysis: ctx.analysis, pickEx }), points: 0, wrong: [] }));
     const total = stages.reduce((s, x) => s + x.qs.length, 0);
     let si = saved ? saved.si : 0; let qi = saved ? saved.qi : 0; let done = saved ? saved.done : 0;
     let streak = saved ? saved.streak : 0; let bestStreak = saved ? saved.bestStreak : 0;
@@ -162,13 +177,14 @@ export function mount(stage, ctx) {
     nextBtn.addEventListener('click', next);
 
     const paintStepper = () => {
+      const w = weigh(stages, details);
       stage.querySelectorAll('[data-step]').forEach((li, i) => {
         const s = stages[i];
         li.classList.toggle('now', i === si && !s.finished);
         li.classList.toggle('done', !!s.finished);
         li.setAttribute('aria-current', i === si && !s.finished ? 'step' : 'false');
         li.querySelector('.step-dot').innerHTML = s.finished ? icon.check : String(i + 1);
-        li.querySelector('.step-score').textContent = s.finished ? `${fmt(s.points)}/${s.qs.length}` : '';
+        li.querySelector('.step-score').textContent = s.finished ? `${Math.round(w.stages[i])}/${Math.round(w.max)}` : '';
       });
       // 進度條與「第幾題」以目前這一段為準（每段從頭開始，比較知道這段還剩多少）；全部題數放在旁邊小字
       const cur = stages[Math.min(si, stages.length - 1)];
@@ -191,7 +207,7 @@ export function mount(stage, ctx) {
       const label = `${s.level.name}・第 ${qi + 1} 題`;
       current = q.type === 'mc'
         ? renderMC(host, q, { label: `${label}・${q.dir === 'en2zh' ? '選出中文意思' : q.dir === 'cloze' ? '選出空格的字詞' : '選出英文字詞'}`, onAnswer: (ok, chosen) => answered(q, ok, ok ? 1 : 0, q.options[chosen]) })
-        : renderSpell(host, q, { label: `${label}・${q.variant === 'cloze' ? '拼出空格的字詞' : '看中文拼出英文'}`, onAnswer: (ok, { hints, typed }) => answered(q, ok, ok ? Math.max(0, 1 - hints * HINT_COST) : 0, typed, hints) });
+        : renderSpell(host, q, { label: `${label}・${q.variant === 'cloze' ? '拼出空格的字詞' : '看中文拼出英文'}`, onAnswer: (ok, { hints, typed }) => answered(q, ok, ok ? 1 : 0, typed, hints) });
       centerInView(host.querySelector('.q-card'));
     }
 
@@ -269,11 +285,12 @@ export function mount(stage, ctx) {
       const nx = stages[si + 1];
       paintStepper();
       foot.hidden = true;
-      const pct = Math.round((s.points / s.qs.length) * 100);
+      const w = weigh(stages, details);
+      const pct = Math.round((w.stages[si] / w.max) * 100);
       const host = stage.querySelector('[data-q]');
       host.innerHTML = `<div class="stage-card slide-in">
           <div class="stage-done"><span class="stage-badge">${icon.check}</span><div><div class="eyebrow">第 ${si + 1} 段完成</div><h2>${s.level.name}</h2></div>
-            <div class="stage-score"><div class="ss-frac"><b>${fmt(s.points)}</b><i>/ ${s.qs.length}</i></div><span>${pct}%</span></div></div>
+            <div class="stage-score"><div class="ss-frac"><b>${Math.round(w.stages[si])}</b><i>/ ${Math.round(w.max)}</i></div><span>${pct}%</span></div></div>
           <div class="stage-next">
             <div class="eyebrow">下一段 · 第 ${si + 2} 段</div>
             <h3>${nx.level.name}<span class="en">${nx.level.en}</span></h3>
@@ -292,21 +309,23 @@ export function mount(stage, ctx) {
       if (official) progress.clear(unitId);
       delete document.body.dataset.busy;
       window.removeEventListener('beforeunload', unload);
-      const points = stages.reduce((s, x) => s + x.points, 0);
-      const pct = Math.round((points / total) * 100);
+      // 滿分 100 分：三段平均分配，段內每題同分，拼字提示扣分（js/levels.js 的 weigh）；明細的 points 改成實際拿到的分數
+      const w = weigh(stages, details);
+      const points = w.total;
+      const pct = Math.round(points);
       const durationSec = Math.round((Date.now() - t0) / 1000);
       const stamp = nowStamp();
-      const per = Object.fromEntries(stages.map((s) => [s.level.id, `${fmt(s.points)}/${s.qs.length}`]));
+      const per = Object.fromEntries(stages.map((s, i) => [s.level.id, `${Math.round(w.stages[i])}/${Math.round(w.max)}`]));
       if (official) {
         store.setBest(unitId, 'vocab', pct);
-        store.setLast(unitId, Object.fromEntries(stages.map((s) => [s.level.id, Math.round((s.points / s.qs.length) * 100)])));
+        store.setLast(unitId, Object.fromEntries(stages.map((s, i) => [s.level.id, Math.round((w.stages[i] / w.max) * 100)])));
       }
       const wrong = stages.flatMap((s) => s.wrong.map((w) => ({ ...w, level: s.level })));
       stage.innerHTML = '';
-      const bars = `<div class="stage-bars">${stages.map((s) => {
-        const p = Math.round((s.points / s.qs.length) * 100);
+      const bars = `<div class="stage-bars">${stages.map((s, i) => {
+        const p = Math.round((w.stages[i] / w.max) * 100);
         return `<div class="stage-bar"><span class="sb-name">${s.level.name}</span>
-          <span class="bar"><span style="--w:${p}%"></span></span><span class="sb-score">${fmt(s.points)}/${s.qs.length}</span></div>`;
+          <span class="bar"><span style="--w:${p}%"></span></span><span class="sb-score">${Math.round(w.stages[i])}/${Math.round(w.max)}</span></div>`;
       }).join('')}</div>`;
       const passed = pct >= PASS;
       const wasTried = official && !review && store.tried(unitId);
@@ -334,7 +353,7 @@ export function mount(stage, ctx) {
       const box = renderResult(stage, {
         title: !official ? '錯題練習完成' : `${review ? '複習' : '三段測驗'}${passed ? '通過！' : firstTest ? '未通過' : '完成'}`,
         pct,
-        scoreText: `${fmt(points)} / ${total}`,
+        scoreText: `${pct} / 100`,
         passLine: firstTest,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
         extraHTML: bars + (official
@@ -349,7 +368,7 @@ export function mount(stage, ctx) {
         clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
         unit: unitId, unitTitle: ctx.unit.title, mode: 'vocab', review,
         level: `${review ? '複習 · ' : wasTried ? '補考 · ' : ''}${stages.map((s) => s.level.name).join('→')}`,
-        score: Number(fmt(points)), total, pct, durationSec,
+        score: Math.round(points * 100) / 100, total: 100, pct, durationSec,
         basic: per.basic || '', advanced: per.advanced || '', mastery: per.mastery || '',
         wrong: [...new Set(wrong.map((w) => w.q.word.word))],
         details,

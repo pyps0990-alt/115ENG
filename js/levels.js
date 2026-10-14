@@ -14,16 +14,16 @@ export const LEVELS = [
   },
   {
     id: 'advanced', name: '進階', en: 'Advanced',
-    desc: '中文選英文、或例句選字詞，題型隨機出現',
-    items: ['中 → 英 四選一', '例句填空四選一（含詞形變化）'],
-    // 每個字獨立擲一次骰子決定題型：同一個字這次考例句、下次考中翻英都有可能
-    build: (words, pool, analysis) => words.map((w) => (Math.random() < 0.5 ? buildClozeMC(w, pool, analysis) : buildMC(w, pool, 'zh2en'))),
+    desc: '看例句的意思，選出空格裡的字詞',
+    items: ['例句填空四選一（含詞形變化）'],
+    // 全部考例句選字（例句沒有用 [ ] 標出要考的字時，才退回中翻英）
+    build: (words, pool, ctx = {}) => words.map((w) => buildClozeMC(w, pool, ctx.analysis, ctx.pickEx)),
   },
   {
     id: 'mastery', name: '精熟', en: 'Mastery',
     desc: '沒有選項，自己拼出單字或片語，題型隨機出現',
-    items: ['看中文拼出英文', '例句填空拼寫', '提示最多 2 次，每次扣 0.25 分'],
-    build: (words) => words.map((w) => buildSpell(w, Math.random() < 0.5 ? 'cloze' : 'spell')),
+    items: ['看中文拼出英文', '例句填空拼寫', '提示最多 2 次：第 1 次扣 1 分，第 2 次再扣 3 分'],
+    build: (words, pool, ctx = {}) => words.map((w) => buildSpell(w, Math.random() < 0.5 ? 'cloze' : 'spell', ctx.pickEx)),
   },
 ];
 
@@ -34,6 +34,28 @@ export const LEVELS = [
 // 一次測驗最多考幾個字。單元超過這個數量時每次抽題：上次（這一輪）還沒考到的字優先，單字與片語照比例抽；
 // 全部字都輪過一次後，從頭開始新的一輪。抽題紀錄存在這台裝置（每位學生、每個單元一份），老師重製單元時一併清掉。
 export const PER_TEST = 30;
+
+// 計分：整份測驗滿分 100 分，每個階段（大題）平均分配（三段各 33.3 分），段內每題同分。
+// 拼字題用提示要扣分（以 100 分計）：第 1 次扣 1 分、第 2 次再扣 3 分（共扣 4 分），扣到 0 為止。
+export const HINT_PENALTY = [1, 3];
+export const hintDeduction = (hints) => HINT_PENALTY.slice(0, hints).reduce((a, b) => a + b, 0);
+
+// 依每題對錯與提示次數算分（以 100 分計）：每題的 points 改成這題實際拿到的分數。
+// 回傳 { total: 總分（未四捨五入）, stages: [各段得分], max: 每段滿分 }；details 會就地改寫 points
+export function weigh(stages, details) {
+  const k = stages.length || 1;
+  const max = 100 / k;
+  const sums = stages.map(() => 0);
+  stages.forEach((s, i) => {
+    const per = max / (s.qs.length || 1);
+    details.filter((d) => d.stage === s.level.name).forEach((d) => {
+      const got = d.ok ? Math.max(0, per - hintDeduction(d.hints || 0)) : 0;
+      d.points = Math.round(got * 1000) / 1000;
+      sums[i] += got;
+    });
+  });
+  return { total: sums.reduce((a, b) => a + b, 0), stages: sums, max };
+}
 export function pickWords(all, unitId, n = PER_TEST) {
   if (all.length <= n) return all;
   const key = `${unitId}:seen`;

@@ -160,6 +160,7 @@ node tools/e2e/errors.mjs        # 答錯原因：形近混淆、意思相近、
 node tools/e2e/staff.mjs         # 老師名單只在 teachers 分頁維護、同步到 Firestore admins 與 Realtime Database staff；後台操作紀錄（不需要瀏覽器）
 node tools/e2e/admin-load.mjs    # 後台開啟加速：先讀 Firestore 設定、Apps Script 回來後核對，不蓋掉正在編輯的內容（不需要瀏覽器）
 node tools/e2e/analysis.mjs      # 錯誤分析結果接進出題：簽章與 Python 一致、排除不當選項、加入課外選項、答錯解析（不需要瀏覽器）
+node tools/e2e/scoring.mjs       # 單字測驗計分：滿分 100、各段平均、拼字提示扣 1／再扣 3；進階全部例句選字；例句記憶（不需要瀏覽器）
 ```
 
 Firestore 規則測試要用模擬器（需要 Java）：

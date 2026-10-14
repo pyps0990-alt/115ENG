@@ -190,6 +190,15 @@ console.log('Code.gs 儲存邏輯測試全部通過');
       { stage: '進階', n: 1, kind: '中→英', correct: 'bread', yours: 'bread', ok: true, points: 1, word: 'bread' },
       { stage: '精熟', n: 1, kind: '拼字', correct: 'candy', yours: 'candy', ok: true, points: 0.75, hints: 1, word: 'candy' }] });
   assert.equal(lastCheck(), '', '正常的單字成績不該被標記：' + lastCheck());
+  // 單字：滿分 100 分的新計分（total＝100、明細只有 3 題）：不比題數，作答時間依明細題數判斷
+  send({ attemptId: 'v1c', unit: 'v1', unitTitle: 'V', mode: 'vocab', score: 96, total: 100, pct: 96, durationSec: 10, basic: '33/33', advanced: '33/33', mastery: '29/33',
+    details: [{ stage: '基礎', n: 1, kind: '英→中', correct: '中0', yours: '中0', ok: true, points: 33.333, word: 'apple' },
+      { stage: '進階', n: 1, kind: '中→英', correct: 'bread', yours: 'bread', ok: true, points: 33.333, word: 'bread' },
+      { stage: '精熟', n: 1, kind: '拼字', correct: 'candy', yours: 'candy', ok: true, points: 29.333, hints: 2, word: 'candy' }] });
+  assert.equal(lastCheck(), '', '滿分 100 分的單字成績不該被標記：' + lastCheck());
+  send({ attemptId: 'v1d', unit: 'v1', unitTitle: 'V', mode: 'vocab', score: 100, total: 100, pct: 100, durationSec: 2,
+    details: [{ stage: '基礎', n: 1, kind: '英→中', correct: '中0', yours: '中0', ok: true, points: 50, word: 'apple' }, { stage: '進階', n: 1, kind: '中→英', correct: 'bread', yours: 'bread', ok: true, points: 50, word: 'bread' }] });
+  assert.match(lastCheck(), /時間過短/, '2 題 2 秒還是太短');
   // 單字：題庫沒有的字、答錯卻標答對
   send({ attemptId: 'v1b', unit: 'v1', unitTitle: 'V', mode: 'vocab', score: 2, total: 2, pct: 100, durationSec: 40,
     details: [{ stage: '基礎', n: 1, kind: '英→中', correct: '中0', yours: '中3', ok: true, points: 1, word: 'apple' }, { stage: '基礎', n: 2, kind: '中→英', correct: 'zebra', yours: 'zebra', ok: true, points: 1, word: 'zebra' }] });

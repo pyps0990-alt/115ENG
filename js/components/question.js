@@ -4,7 +4,7 @@ import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample, pickExa
 import { icon } from '../icons.js';
 import { diffAnswer } from './diff.js';
 
-// 拼字題每題最多提示 2 次（每次扣 0.25 分），用完按鈕變暗
+// 拼字題每題最多提示 2 次（扣分見 js/levels.js 的 HINT_PENALTY），用完按鈕變暗
 export const MAX_HINTS = 2;
 
 const KEYS = ['A', 'B', 'C', 'D', 'E'];
@@ -36,9 +36,13 @@ export const MAX_EXTRA = 3;
 
 // analysis：錯誤分析引擎的結果（可省略）。有的話：這句例句放進去也說得通的同單元字不當選項（不夠選時才勉強用），
 // 並依機會從這句例句的課外選項裡隨機加 1～3 個（和答案同詞性、同詞形，判斷放進去說不通）
-export function buildClozeMC(word, pool, analysis = null) {
-  const list = (Array.isArray(word.examples) && word.examples.length ? word.examples : [{ ex: word.example || '', zh: word.exampleZh || '' }]).filter((e) => e.ex);
-  const exIdx = list.length ? Math.floor(Math.random() * list.length) : 0;
+// pickEx(word, n)：從 n 句例句裡挑一句的索引（記得這位學生上次考過哪句，換一句沒考過的）；沒給就隨機
+const exampleList = (word) => (Array.isArray(word.examples) && word.examples.length ? word.examples : [{ ex: word.example || '', zh: word.exampleZh || '' }]).filter((e) => e.ex);
+const pickIndex = (word, n, pickEx) => (n ? (pickEx ? pickEx(word.word, n) : Math.floor(Math.random() * n)) : 0);
+
+export function buildClozeMC(word, pool, analysis = null, pickEx = null) {
+  const list = exampleList(word);
+  const exIdx = pickIndex(word, list.length, pickEx);
   const ex = list[exIdx] || pickExample(word);
   const c = clozeParts({ ...word, example: ex.ex });
   if (!c) return buildMC(word, pool, 'zh2en');
@@ -68,9 +72,10 @@ export function buildClozeMC(word, pool, analysis = null) {
     extras: extras.map((e) => ({ form: e.form, word: e.word, zh: e.zh, pos: e.pos })) };
 }
 
-export function buildSpell(word, variant) {
+export function buildSpell(word, variant, pickEx = null) {
   if (variant === 'cloze') {
-    const ex = pickExample(word);
+    const list = exampleList(word);
+    const ex = list.length ? list[pickIndex(word, list.length, pickEx)] : pickExample(word);
     const c = clozeParts({ ...word, example: ex.ex });
     if (c) return { type: 'spell', variant: 'cloze', word, answer: c.answer, parts: c, exampleZh: ex.zh };
   }
