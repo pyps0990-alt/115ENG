@@ -10,9 +10,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 // 學生帳本 key（跟 js/firebase.js studentKey 一樣）
 export const keyOf = (cls, seat, name) => crypto.createHash('sha256').update(`${String(cls).trim()}|${String(seat).trim()}|${String(name).trim().replace(/\s+/g, '')}`).digest('hex');
 
-export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommit = () => {}, codePath = path.join(ROOT, 'apps-script', 'Code.gs'), rosterKeys = null } = {}) {
+export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommit = () => {}, codePath = path.join(ROOT, 'apps-script', 'Code.gs'), rosterKeys = null, fsAdmins = [], rtdbStaff = null } = {}) {
   const sheets = new Map();
   const calls = { commit: [], sheetReads: 0, urlFetch: 0 };
+  const admins = new Set(fsAdmins); // Firestore admins/{email}
+  const rtdb = { staff: rtdbStaff }; // Realtime Database；rtdb.down = true 模擬資料庫還沒建立
   const publicDocs = new Map(); // Firestore 的 public/ 文件（題目只存在這裡）；global.__commitFail = true 模擬寫入失敗
 
   class Range {
@@ -149,7 +151,11 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
         if (global.__commitFail) return resp(503, '{"error":{"message":"unavailable"}}');
         const body = JSON.parse(opts.payload);
         calls.commit.push(body);
-        body.writes.forEach((w) => { if (w.update && w.update.name.includes('/documents/public/')) publicDocs.set(w.update.name.split('/documents/public/')[1], w.update.fields); });
+        body.writes.forEach((w) => {
+          if (w.update && w.update.name.includes('/documents/public/')) publicDocs.set(w.update.name.split('/documents/public/')[1], w.update.fields);
+          if (w.update && w.update.name.includes('/documents/admins/')) admins.add(w.update.name.split('/documents/admins/')[1]);
+          if (w.delete && w.delete.includes('/documents/admins/')) admins.delete(w.delete.split('/documents/admins/')[1]);
+        });
         onFirestoreCommit(body);
         return resp(200, '{}');
       }
@@ -170,7 +176,14 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
         const list = (global.__vault || []).map((r, i) => ({ document: { name: `projects/x/databases/(default)/documents/vault/k${i}`, fields: { cls: { stringValue: r.cls }, seat: { stringValue: r.seat }, name: { stringValue: r.name } } } }));
         return resp(200, JSON.stringify(list));
       }
-      if (url.includes('/documents/admins/')) return resp(404, '{}');
+      if (url.startsWith('https://eng-3385e-default-rtdb')) {
+        if (rtdb.down) return resp(404, '{"error":"not found"}');
+        if ((opts.method || 'get') === 'get') return resp(200, JSON.stringify(rtdb.staff));
+        rtdb.staff = JSON.parse(opts.payload); calls.rtdbPut = (calls.rtdbPut || 0) + 1;
+        return resp(200, opts.payload);
+      }
+      if (/\/documents\/admins\?/.test(url)) return resp(200, JSON.stringify({ documents: [...admins].map((e) => ({ name: 'projects/x/databases/(default)/documents/admins/' + e })) }));
+      if (url.includes('/documents/admins/')) return admins.has(decodeURIComponent(url.split('/documents/admins/')[1])) ? resp(200, '{"name":"x"}') : resp(404, '{}');
       if (url.includes('/documents/vault/') && (opts.method || 'get') === 'get') {
         // 學生帳本：rosterKeys 沒給＝每個人都在名單上；rosterKeys === 'down'＝Firestore 暫時出錯
         const k = url.split('/documents/vault/')[1].split(/[?/]/)[0];
@@ -195,7 +208,7 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
   teachers.forEach((e) => t.appendRow([e, '']));
 
   return {
-    ctx, ss, sheets, calls, propMap, cacheMap, lock, publicDocs,
+    ctx, ss, sheets, calls, propMap, cacheMap, lock, publicDocs, admins, rtdb,
     setRoster(v) { rosterKeys = v; },
     post(body) { return JSON.parse(ctx.doPost({ postData: { contents: typeof body === 'string' ? body : JSON.stringify(body) } }).getContent()); },
     get(parameter) { return JSON.parse(ctx.doGet({ parameter }).getContent()); },

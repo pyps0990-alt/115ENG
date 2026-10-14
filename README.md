@@ -184,7 +184,7 @@ admins/{email}                                    老師／管理員名單
 
 1. Firebase 主控台 → **Authentication → 登入方式**，啟用 **Google**。
 2. **Firestore Database → 規則**：貼上 `firestore.rules` 並發布。
-3. **Firestore Database → 資料**：新增集合 `admins`，每位老師一份文件，文件 ID 是**小寫的 Google 帳號 email**，欄位 `role`（字串）填 `teacher` 或 `admin`。
+3. 老師名單**只在試算表 `teachers` 分頁維護**（一列一個 Google 帳號）。Apps Script 會自動同步到 Firestore `admins` 與 Realtime Database `staff`：老師打開後台時、每 10 分鐘的定時觸發器（名單有變才寫）、或試算表選單「B5 Practice → 同步老師名單到 Firebase」。第一次同步時，Firebase 那邊已有、試算表沒有的帳號會先補進 `teachers` 分頁（備註「從 Firebase 合併」）；之後從 `teachers` 刪掉的人，Firebase 那邊也會移除。名單是空的時候不同步，避免所有人失去權限。
 4. `firebase deploy --only hosting,firestore:rules`。
 
 規則（`firestore.rules`）的重點：測驗紀錄只能新增、不能修改或刪除，欄位、型別、長度與時間（伺服器時間）都有限制；班級路徑（`classes/...`）只有名單上的學生能寫，而且只能寫到自己的班級、座號底下；只有 `admins` 名單上的老師能改公開設定、題目與名單。規則可以在模擬器裡測試（見「自動化測試」）。
@@ -300,7 +300,7 @@ tools/e2e/               自動化測試（Playwright）
 老師後台現在放在網站上：`https://eng-3385e.web.app/admin.html`（先到 `#/teacher` 用 Google 帳號登入）。
 畫面跟 Apps Script 版是同一份，由 `tools/build-admin.py` 從 `apps-script/Admin.html` 產生 `admin.html`；
 改了 `Admin.html` 之後要執行一次 `python3 tools/build-admin.py`，網站和 Apps Script 兩邊都要部署。
-網站版透過 Apps Script 的 API 讀寫資料，伺服器端會驗證 Firebase 登入憑證，老師名單接受試算表 `teachers` 分頁或 Firestore `admins`。
+網站版透過 Apps Script 的 API 讀寫資料，伺服器端會驗證 Firebase 登入憑證（email 要已驗證），老師名單以試算表 `teachers` 分頁為準（自動同步到 Firestore `admins`）。後台的重要操作（儲存／刪除題目、刪除單元、刪除學生、學期清除、修改 AI 設定、同步老師名單）會記在試算表 `audit` 分頁。Firestore 備份、時間點還原、預算快訊的設定步驟見 `docs/firebase-backup.md`。
 
 ## 開放時段與補作時間
 
@@ -328,7 +328,7 @@ Apps Script 每次往返至少 1～2 秒，後台因此做了三件事：
 第一次啟用：
 1. Firebase 主控台 → Realtime Database → 建立資料庫，地區選新加坡（asia-southeast1），以「鎖定模式」開始。
 2. 確認「資料」頁上方的網址和 `js/config.js` 的 `RTDB_URL` 相同（不同就改成主控台上的網址）。
-3. 在「資料」頁新增 `staff` → `你的email（全部小寫，「.」換成「,」）` → `true`（布林值）；每位要看監控的老師都加一筆。
+3. `staff` 名單不用手動加：Apps Script 會從試算表 `teachers` 分頁自動同步（要先授權 Realtime Database 權限：在 Apps Script 編輯器執行一次 `syncStaff`）。
 4. 部署規則與網站：`firebase deploy --only database,hosting`。
 
 ## 成績先送 Firebase（同步到試算表）

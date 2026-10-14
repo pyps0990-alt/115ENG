@@ -13,6 +13,10 @@
 var SHEET_SCORES = 'scores';
 var SHEET_SETTINGS = 'settings';
 var SHEET_TEACHERS = 'teachers';
+var SHEET_AUDIT = 'audit';
+var AUDIT_HEADER = ['time', 'email', 'action', 'target', 'detail'];
+// 即時監控用的 Realtime Database（與網站 js/config.js 的 RTDB_URL 相同）：老師名單同步到這裡的 staff
+var RTDB_URL = 'https://eng-3385e-default-rtdb.asia-southeast1.firebasedatabase.app';
 var SHEET_CONTENT = 'content';
 var CONFIG_CACHE_KEY = 'config-json';
 var CONTENT_HEADER = ['id', 'json', 'updated', 'updatedBy', 'count', 'topic'];
@@ -730,6 +734,7 @@ function onOpen() {
     .addItem('建立班級成績單', 'createGradebookSheet')
     .addItem('整理排隊中的成績（inbox）', 'drainInbox')
     .addItem('開啟老師後台', 'openAdmin')
+    .addItem('同步老師名單到 Firebase', 'syncStaff')
     .addToUi();
   // 打開試算表時，把還在 inbox 的成績先整理進各分頁
   try { drainInbox_(0); } catch (err) { /* 沒有權限或忙碌時略過，不影響選單 */ }
@@ -797,6 +802,7 @@ function migrateBuiltinUnits_() {
 function getAdminData() {
   var email = assertTeacher_();
   migrateBuiltinUnits_();
+  try { syncStaffIfChanged_(); } catch (err) { Logger.log('老師名單同步失敗：' + err); }
   return {
     email: email,
     units: readSettingsRows_(),
@@ -852,6 +858,7 @@ function saveExtensions(list, fast) {
   if (rows.length) {
     sh.getRange(2, 1, rows.length, EXTENSIONS_HEADER.length).setNumberFormat('@').setValues(rows);
   }
+  audit_('儲存補作時間', '', rows.length + ' 筆');
   LAST_SYNC_ERROR = '';
   var cfg = publishConfig_();
   return { ok: true, count: rows.length, updated: cfg.updated, config: cfg, syncError: LAST_SYNC_ERROR };
@@ -912,6 +919,7 @@ function saveAllSettings(builtIn, custom, fast) {
   assertTeacher_();
   saveSettings(builtIn, true);
   saveCustomUnits(custom, true, pickNow_(fast));
+  audit_('儲存單元設定', '', (custom || []).length + ' 個單元');
   try { syncGradebookColumns_(); } catch (err) { Logger.log('成績單欄位同步失敗：' + err); } // 新單元在所有成績單上先建好欄位
   LAST_SYNC_ERROR = '';
   var cfg = publishConfig_();
@@ -956,6 +964,7 @@ function saveCustomUnits(units, skipPublish, nowIso) {
   if (last > 1) sh.getRange(2, 1, last - 1, CUSTOM_UNITS_FIELDS.length).clearContent();
   if (rows.length) sh.getRange(2, 1, rows.length, CUSTOM_UNITS_FIELDS.length).setNumberFormat('@').setValues(rows);
   removed.forEach(purgeUnit_);
+  if (removed.length) audit_('刪除單元', removed.join('、'), '單元設定與題目（成績保留）');
   if (!skipPublish) publishConfig_();
   return { ok: true, savedAt: new Date().toISOString() };
 }
@@ -1089,6 +1098,7 @@ function saveContent(unitId, data, reset, fast) {
     clearContentCache_(unitId);
     throw new Error('題目沒有存到 Firebase，請再按一次儲存（' + why + '）');
   }
+  audit_('儲存題目', unitId, count + ' 題' + (reset !== false ? '，重製學生進度' : ''));
   return { ok: true, count: count, updated: cfg.updated, config: cfg, syncError: '' };
 }
 
@@ -1103,6 +1113,7 @@ function deleteContent(unitId, reset, fast) {
   var cfg = publishConfig_();
   // 設定已經不指向這份題目了，才刪掉 Firestore 裡的題目（順序反過來，學生可能讀到設定說有、題目卻不見）
   if (!LAST_SYNC_ERROR) firestoreRequest_('delete', FIRESTORE_DOCS + encodeURIComponent('content_' + unitId));
+  audit_('刪除題目', unitId, reset !== false ? '重製學生進度' : '');
   return { ok: true, updated: cfg.updated, config: cfg, syncError: LAST_SYNC_ERROR };
 }
 
@@ -1145,6 +1156,7 @@ function backupSpreadsheet() {
       if (parts.length > 1) csh.getRange(m.index, 7, 1, parts.length - 1).setValues([parts.slice(1)]);
     });
   } catch (err) { missing.push('（題目備份失敗：' + err.message + '）'); }
+  audit_('建立成績備份', name, missing.length ? '題目未備份：' + missing.join('、') : '');
   return { ok: true, name: name, url: copy.getUrl(), missing: missing };
 }
 
@@ -1153,6 +1165,7 @@ function backupSpreadsheet() {
 function semesterReset(opts) {
   assertTeacher_();
   opts = opts || {};
+  if (!opts.skipSheets) audit_('學期結算清除', '', [opts.sheets ? '試算表成績' : '', opts.attempts ? '作答紀錄' : '', opts.roster ? '學生名單' : ''].filter(String).join('、'));
   var out = { done: true, sheets: 0, docs: 0 };
   if (opts.sheets && !opts.skipSheets) {
     // 跟整理成績用同一把鎖：清除期間不會有成績寫到一半
@@ -1229,6 +1242,7 @@ function purgeUnitScores(unitId, passphrase) {
   if (String(passphrase || '') !== secret) throw new Error('通關密語錯誤。');
   unitId = String(unitId || '').trim();
   if (!/^[a-z0-9-]+$/i.test(unitId)) throw new Error('單元代號格式錯誤。');
+  audit_('刪除單元所有紀錄', unitId, '成績、作答、檢討、設定、題目');
   var out = { rows: 0, docs: 0, done: true };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   // 先把排隊中的成績整理進來再刪（不然刪完之後又會被寫回來）；刪除期間拿著鎖，成績不會寫到一半
@@ -1407,6 +1421,7 @@ function syncFromFirestore_(budgetMs) {
 // 定時觸發器呼叫的函式（臺灣時間晚上 10 點到早上 7 點不跑，省額度）
 function syncTrigger() {
   var h = Number(Utilities.formatDate(new Date(), 'Asia/Taipei', 'H'));
+  try { syncStaffIfChanged_(); } catch (err) { Logger.log('老師名單同步失敗：' + err); }
   if (h >= 22 || h < 7) return;
   syncFromFirestore_(240000);
 }
@@ -1529,6 +1544,7 @@ function deleteStudent(cls, seat, name) {
   }
   var seatUrl = FIRESTORE_ROOT + '/classes/' + encodeURIComponent(clsTrim) + '/seats/' + encodeURIComponent(seatTrim);
   if (firestoreRequest_('get', seatUrl)) { firestoreRequest_('delete', seatUrl); out.classSeat = true; }
+  audit_('刪除學生資料', clsTrim + ' 班 ' + seatTrim + ' 號 ' + nameTrim, '作答 ' + out.attempts + '、檢討 ' + out.reviews + '、班級複本 ' + out.classAttempts + ' 筆' + (out.timedOut ? '（逾時，未刪完）' : ''));
   return out;
 }
 
@@ -1830,6 +1846,7 @@ function setAiSettings(key, model, opts) {
   }
   if (String(opts.localModel || '').trim()) props.setProperty(LOCAL_MODEL_PROP, String(opts.localModel).trim());
   if (String(opts.localKey || '').trim()) props.setProperty(LOCAL_KEY_PROP, String(opts.localKey).trim());
+  audit_('修改 AI 設定', '', [key ? '更新金鑰' : '', model ? '模型 ' + model : '', opts.provider ? '使用 ' + opts.provider : '', url ? '本地網址' : ''].filter(String).join('、'));
   return getAiStatus();
 }
 
@@ -1838,6 +1855,7 @@ function clearAiKey(which) {
   var props = PropertiesService.getScriptProperties();
   if (which === 'local') { props.deleteProperty(LOCAL_KEY_PROP); props.deleteProperty(LOCAL_URL_PROP); props.deleteProperty(LOCAL_MODEL_PROP); props.setProperty(AI_PROVIDER_PROP, 'gemini'); }
   else props.deleteProperty(AI_KEY_PROP);
+  audit_('清除 AI 金鑰', which === 'local' ? '本地模型' : 'Gemini', '');
   return getAiStatus();
 }
 
@@ -1907,6 +1925,7 @@ function setAiPrompt(type, text) {
   var props = PropertiesService.getScriptProperties();
   if (!text || text === AI_PROMPT_DEFAULTS[type]) props.deleteProperty('AI_PROMPT_' + type);
   else props.setProperty('AI_PROMPT_' + type, text);
+  audit_('修改 AI 出題規則', type, !text || text === AI_PROMPT_DEFAULTS[type] ? '恢復預設' : text.length + ' 字');
   return getAiPrompts();
 }
 
@@ -2457,6 +2476,120 @@ function assertTeacher_() {
   var email = currentEmail_();
   if (!isTeacher_(email)) throw new Error('沒有權限：這個帳號不在老師名單中。');
   return email;
+}
+
+/* ------------------------------------------------------------------ */
+/* 老師名單：只在試算表 teachers 分頁維護，自動同步到 Firebase            */
+/* ------------------------------------------------------------------ */
+// Firestore admins（網站版後台讀寫題目、成績）與 Realtime Database staff（即時監控頁）都從 teachers 分頁同步。
+// 何時同步：老師打開後台、每 10 分鐘的定時觸發器（名單有變才寫）、試算表選單「同步老師名單到 Firebase」。
+// 第一次同步時，Firebase 那邊已經有、試算表沒有的帳號會先補進 teachers 分頁（note 寫「從 Firebase 合併」），不會讓人突然失去權限。
+
+var EMAIL_RE = /^[^\s@\/#$\[\]]+@[^\s@\/#$\[\]]+\.[^\s@\/#$\[\]]+$/;
+
+function teacherEmails_() {
+  var sh = sheet_(SHEET_TEACHERS, ['email', 'note']);
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+  var seen = {};
+  return sh.getRange(2, 1, last - 1, 1).getValues().map(function (r) { return String(r[0]).trim().toLowerCase(); })
+    .filter(function (e) { if (!EMAIL_RE.test(e) || seen[e]) return false; seen[e] = true; return true; });
+}
+
+function rtdbKey_(email) { return email.replace(/\./g, ','); }
+
+function rtdbRequest_(method, path, body) {
+  var res = UrlFetchApp.fetch(RTDB_URL + path + '.json', {
+    method: method,
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    payload: body === undefined ? undefined : JSON.stringify(body),
+    muteHttpExceptions: true,
+  });
+  var code = res.getResponseCode();
+  if (code >= 300) throw new Error('Realtime Database 錯誤 ' + code + '：' + res.getContentText().slice(0, 200));
+  return JSON.parse(res.getContentText() || 'null');
+}
+
+function firestoreAdmins_() {
+  var out = [], token = '';
+  do {
+    var res = firestoreRequest_('get', FIRESTORE_ROOT + '/admins?pageSize=300' + (token ? '&pageToken=' + encodeURIComponent(token) : '')) || {};
+    (res.documents || []).forEach(function (d) { out.push(decodeURIComponent(d.name.split('/admins/')[1]).toLowerCase()); });
+    token = res.nextPageToken || '';
+  } while (token);
+  return out;
+}
+
+// 試算表選單、Apps Script 編輯器都可以執行
+function syncStaff() {
+  var r = syncStaff_();
+  Logger.log(r.message);
+  return r.message;
+}
+
+function syncStaffIfChanged_() {
+  var props = PropertiesService.getScriptProperties();
+  var hash = teacherEmails_().slice().sort().join('\n');
+  if (props.getProperty('STAFF_MERGED') && props.getProperty('STAFF_HASH') === hash) return null;
+  return syncStaff_();
+}
+
+function syncStaff_() {
+  var props = PropertiesService.getScriptProperties();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sh = sheet_(SHEET_TEACHERS, ['email', 'note']);
+    var list = teacherEmails_();
+    var fsList = firestoreAdmins_();
+    var rt = {};
+    try { rt = rtdbRequest_('get', '/staff') || {}; } catch (err) { rt = null; Logger.log(err); }
+    var rtList = rt ? Object.keys(rt).filter(function (k) { return rt[k] === true; }).map(function (k) { return k.replace(/,/g, '.'); }) : [];
+    var added = [];
+    if (!props.getProperty('STAFF_MERGED')) {
+      fsList.concat(rtList).forEach(function (e) {
+        e = String(e).toLowerCase();
+        if (EMAIL_RE.test(e) && list.indexOf(e) < 0) { list.push(e); added.push(e); sh.appendRow([e, '從 Firebase 合併']); }
+      });
+    }
+    if (!list.length) throw new Error('teachers 分頁沒有任何老師帳號，為了避免所有人失去權限，這次不同步');
+    // Firestore admins：補上缺的、刪掉名單上沒有的
+    var writes = [];
+    list.forEach(function (e) {
+      if (fsList.indexOf(e) < 0) writes.push({ update: { name: 'projects/eng-3385e/databases/(default)/documents/admins/' + e, fields: { email: { stringValue: e } } } });
+    });
+    fsList.forEach(function (e) {
+      if (list.indexOf(e) < 0) writes.push({ delete: 'projects/eng-3385e/databases/(default)/documents/admins/' + e });
+    });
+    if (writes.length) firestoreRequest_('post', FIRESTORE_ROOT + ':commit', { writes: writes });
+    // Realtime Database staff：整份換成名單
+    var staff = {};
+    list.forEach(function (e) { staff[rtdbKey_(e)] = true; });
+    var rtOk = true;
+    try { rtdbRequest_('put', '/staff', staff); } catch (err) { rtOk = false; Logger.log(err); }
+    var removed = fsList.filter(function (e) { return list.indexOf(e) < 0; });
+    var cache = CacheService.getScriptCache();
+    removed.concat(list).forEach(function (e) { cache.remove('adm:' + e); });
+    props.setProperty('STAFF_MERGED', '1');
+    if (rtOk) props.setProperty('STAFF_HASH', list.slice().sort().join('\n')); // 監控頁那份沒寫成功：下次再試
+    var message = '老師名單 ' + list.length + ' 人已同步到 Firebase' + (added.length ? '；從 Firebase 補進試算表：' + added.join('、') : '')
+      + (removed.length ? '；移除權限：' + removed.join('、') : '') + (rtOk ? '' : '；即時監控名單（Realtime Database）寫入失敗，請確認資料庫已建立並重新授權');
+    if (added.length || removed.length || writes.length) audit_('同步老師名單', '', message);
+    return { ok: true, count: list.length, added: added, removed: removed, rtdb: rtOk, message: message };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// 後台操作紀錄：誰、什麼時候、做了什麼（audit 分頁，只增不改；學期結算不會清掉）
+function audit_(action, target, detail) {
+  try {
+    sheet_(SHEET_AUDIT, AUDIT_HEADER).appendRow([
+      Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyy-MM-dd HH:mm:ss'),
+      currentEmail_() || Session.getEffectiveUser().getEmail() || '', String(action), String(target || ''), String(detail || '').slice(0, 500),
+    ]);
+  } catch (err) { Logger.log('操作紀錄寫入失敗：' + err); }
 }
 
 /* ------------------------------------------------------------------ */
