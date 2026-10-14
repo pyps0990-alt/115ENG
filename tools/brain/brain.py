@@ -527,7 +527,7 @@ def walkthrough(analysis, data, target, options, kind, example_index=0, chosen=N
 # ---------------------------------------------------------------- 選項安全檢查與課外選項（需要語言模型 lm.py 與單字表 wordbank.py）
 # 語言模型分數差距小於 FIT_MARGIN：這個干擾選項放進句子「也說得通」，出題時不拿來當這句的選項
 FIT_MARGIN = 8.0  # calib.py 校正：DistilRoBERTa 在門檻 8 抓到約 83% 也說得通的選項（roberta-base 沒有比較好）
-EXTRA_PER_EXAMPLE = 2
+EXTRA_PER_EXAMPLE = 3  # 每句例句備好幾個課外選項（網站每題最多用 3 個，用不用由 js/components/question.js 的 EXTRA_CHANCE 決定）
 
 
 def _penn_tag(ex):
@@ -639,6 +639,10 @@ def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, p
             rng.shuffle(hard)
             pick = hard[:pool_size]
             tag = _penn_tag(ex)
+            # 形容詞、副詞不做詞形變化：答案是 complicated／renowned／compelling 這類 -ed／-ing 形容詞時，標註器會標成動詞，
+            # 不能把課外的形容詞也變成 crisped、paled、loosing
+            if need in ('adj', 'adv', 'prep'):
+                tag = None
             if tag in ('NNS', 'NNPS'):
                 pick = [b for b in pick if b['word'] not in UNCOUNTABLE]
             forms = {inflect(b['word'], tag): b for b in pick}

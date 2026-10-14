@@ -27,21 +27,24 @@ const pool = [
   mk('predict', 'v.', '預測', 'We [predict] rain.'),
   mk('plain', 'adj.', '清楚的', 'A [plain] meal.'),
 ];
+const EXTRA_WORDS = ['ordinary', 'physical', 'typical', 'vital'];
 const analysis = {
   unsafe: { compelling: [['objective', 'extensive']] },
-  extra: { compelling: [[{ word: 'ordinary', form: 'ordinary', pos: 'adj.', zh: '普通的', level: 3 }, { word: 'physical', form: 'physical', pos: 'adj.', zh: '身體的', level: 3 }]] },
+  extra: { compelling: [EXTRA_WORDS.map((w) => ({ word: w, form: w, pos: 'adj.', zh: '某某的', level: 3 }))] },
 };
-let withExtra = 0;
-for (let i = 0; i < 200; i++) {
+const counts = [0, 0, 0, 0];
+for (let i = 0; i < 600; i++) {
   const q = buildClozeMC(pool[0], pool, analysis);
   assert.equal(q.options.length, 4);
   assert.ok(!q.options.includes('objective') && !q.options.includes('extensive'), '不當選項不出現：' + q.options);
-  const n = q.options.filter((o) => ['ordinary', 'physical'].includes(o)).length;
-  assert.ok(n >= 1 && n <= 2, '每題 1～2 個課外選項：' + q.options);
+  const n = q.options.filter((o) => EXTRA_WORDS.includes(o)).length;
+  assert.ok(n <= 3, '每題最多 3 個課外選項：' + q.options);
   assert.equal(q.extras.length, n);
-  withExtra++;
+  counts[n]++;
 }
-assert.equal(withExtra, 200);
+// 不定時混入：大約一半的題目有課外選項，有的時候是 1、2、3 個
+assert.ok(counts[0] > 200 && counts[0] < 400, '約一半沒有課外選項：' + counts);
+assert.ok(counts[1] > 0 && counts[2] > 0 && counts[3] > 0, '1、2、3 個都會出現：' + counts);
 // 沒有分析結果：和原本一樣（只有單元裡的字）
 const plainQ = buildClozeMC(pool[0], pool);
 assert.ok(plainQ.options.every((o) => pool.some((w) => w.example.includes(`[${o}]`))));

@@ -30,8 +30,12 @@ export function buildMC(word, pool, dir) {
 
 // 進階：例句挖空，四選一（選項是其他字詞在例句中的形式）
 // 這個字如果存了不只一句例句，每次隨機挑一句出題，同樣的字、同樣題型內容也不會一樣
+// 7000 單字表的課外字只用在「例句填空選擇」：每題有 EXTRA_CHANCE 的機會混入、最多 MAX_EXTRA 個（其他題型沒有例句空格，課外字沒辦法判斷）
+export const EXTRA_CHANCE = 0.5;
+export const MAX_EXTRA = 3;
+
 // analysis：錯誤分析引擎的結果（可省略）。有的話：這句例句放進去也說得通的同單元字不當選項（不夠選時才勉強用），
-// 並從這句例句的課外選項裡隨機加 1～2 個（和答案同詞性、同詞形，語言模型判斷放進去說不通）
+// 並依機會從這句例句的課外選項裡隨機加 1～3 個（和答案同詞性、同詞形，判斷放進去說不通）
 export function buildClozeMC(word, pool, analysis = null) {
   const list = (Array.isArray(word.examples) && word.examples.length ? word.examples : [{ ex: word.example || '', zh: word.exampleZh || '' }]).filter((e) => e.ex);
   const exIdx = list.length ? Math.floor(Math.random() * list.length) : 0;
@@ -43,7 +47,8 @@ export function buildClozeMC(word, pool, analysis = null) {
   const same = pool.filter((w) => (w.type || 'word') === (word.type || 'word'));
   const unsafe = new Set((((analysis && analysis.unsafe && analysis.unsafe[word.word]) || [])[exIdx] || []).map(key));
   const extraList = (analysis && analysis.extra && analysis.extra[word.word] && analysis.extra[word.word][exIdx]) || [];
-  const extras = shuffle(extraList).slice(0, Math.min(extraList.length, 1 + Math.floor(Math.random() * 2)));
+  const useExtras = extraList.length && Math.random() < EXTRA_CHANCE;
+  const extras = useExtras ? shuffle(extraList).slice(0, Math.min(extraList.length, MAX_EXTRA, 1 + Math.floor(Math.random() * MAX_EXTRA))) : [];
   extras.forEach((e) => seen.add(key(e.form)));
   const others = extras.map((e) => e.form);
   const order = [...shuffle(same.length >= 4 ? same : pool), ...shuffle(pool)];
