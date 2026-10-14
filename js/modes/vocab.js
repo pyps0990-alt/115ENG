@@ -171,7 +171,7 @@ export function mount(stage, ctx) {
       });
       // 進度條與「第幾題」以目前這一段為準（每段從頭開始，比較知道這段還剩多少）；全部題數放在旁邊小字
       const cur = stages[Math.min(si, stages.length - 1)];
-      stage.querySelector('.bar > span').style.width = `${(Math.min(qi, cur.qs.length) / cur.qs.length) * 100}%`;
+      stage.querySelector('.bar > span').style.setProperty('--w', `${(Math.min(qi, cur.qs.length) / cur.qs.length) * 100}%`);
       stage.querySelector('[data-n]').textContent = `第 ${Math.min(qi + 1, cur.qs.length)} / ${cur.qs.length} 題`;
       stage.querySelector('[data-all]').textContent = `全部 ${Math.min(done + 1, total)}/${total}`;
     };
@@ -304,7 +304,7 @@ export function mount(stage, ctx) {
       const bars = `<div class="stage-bars">${stages.map((s) => {
         const p = Math.round((s.points / s.qs.length) * 100);
         return `<div class="stage-bar"><span class="sb-name">${s.level.name}</span>
-          <span class="bar"><span style="width:${p}%"></span></span><span class="sb-score">${fmt(s.points)}/${s.qs.length}</span></div>`;
+          <span class="bar"><span style="--w:${p}%"></span></span><span class="sb-score">${fmt(s.points)}/${s.qs.length}</span></div>`;
       }).join('')}</div>`;
       const passed = pct >= PASS;
       const wasTried = official && !review && store.tried(unitId);

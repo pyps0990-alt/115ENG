@@ -23,7 +23,7 @@ export function mountReview(host, { title, items: itemsIn, modes = null, start =
         ${n ? `<span class="review-count">${i + 1} / ${n}</span>` : ''}
       </div>
       ${modes ? `<div class="seg review-seg" role="group" aria-label="檢討範圍">${modes.map((x, k) => `<button type="button" data-mode="${k}" aria-pressed="${k === m}">${esc(x.label)}</button>`).join('')}</div>` : ''}
-      ${n ? `<div class="review-bar"><span style="width:${((i + 1) / n) * 100}%"></span></div>` : ''}
+      ${n ? `<div class="review-bar"><span style="--w:${((i + 1) / n) * 100}%"></span></div>` : ''}
       <div class="review-body" data-body>${n ? items[i].html : `<div class="empty"><div class="big">${icon.check}</div><p>${esc(emptyText)}</p></div>`}</div>
       <div class="review-nav">
         ${n ? `<button class="btn ghost" type="button" data-prev ${i === 0 ? 'disabled' : ''}>${icon.back} 上一題</button>` : '<span></span>'}

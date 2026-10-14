@@ -95,7 +95,7 @@ export function mount(stage, ctx) {
     function show() {
       persist();
       const q = qs[qi];
-      stage.querySelector('.bar > span').style.width = `${(qi / qs.length) * 100}%`;
+      stage.querySelector('.bar > span').style.setProperty('--w', `${(qi / qs.length) * 100}%`);
       stage.querySelector('[data-n]').textContent = `第 ${qi + 1} / ${qs.length} 題`;
       stage.querySelector('[data-fb]').innerHTML = '';
       nextBtn.hidden = true;
@@ -162,7 +162,7 @@ export function mount(stage, ctx) {
       stage.innerHTML = '';
       const bars = `<div class="stage-bars">${Object.entries(byKind).map(([k, v]) => {
         const p = Math.round((v.ok / v.n) * 100);
-        return `<div class="stage-bar"><span class="sb-name">${esc(k)}</span><span class="bar"><span style="width:${p}%"></span></span><span class="sb-score">${fmt(v.ok)}/${v.n}</span></div>`;
+        return `<div class="stage-bar"><span class="sb-name">${esc(k)}</span><span class="bar"><span style="--w:${p}%"></span></span><span class="sb-score">${fmt(v.ok)}/${v.n}</span></div>`;
       }).join('')}</div>`;
       const wrongN = details.filter((d) => !d.ok).length;
       const actions = [];

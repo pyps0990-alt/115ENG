@@ -171,7 +171,7 @@ main.container { padding-block: 24px 56px; outline: none; flex: 1 0 auto; }
 .empty .big.bad { background: var(--bad-soft); color: var(--bad-ink); }
 
 .bar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
-.bar > span { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--navy); transition: width .45s var(--ease); }
+.bar > span { display: block; height: 100%; width: 100%; background: var(--navy); clip-path: inset(0 calc(100% - var(--w, 0%)) 0 0 round 99px); transition: clip-path .45s var(--ease); } /* 長度用 --w；動畫 clip-path 不會重新排版 */
 
 .toast {
   position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
@@ -232,14 +232,14 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 .unit-tile:hover { background: var(--white); }
 .tile-state { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px 3px 9px; border-radius: 999px; background: var(--white); border: 1px solid var(--line-strong); color: var(--steel); font-weight: 800; font-size: .88rem; white-space: nowrap; }
 .tile-state .ic { width: 15px; height: 15px; stroke-width: 2.6; }
-/* 狀態：卡片左側一條狀態色邊（用內陰影畫，會跟著卡片圓角），上方小標籤寫出狀態（補考寫出還差多少、待檢討用燈泡）。
-   缺交紅、待檢討橘、需補考黃、未開放灰、已完成綠；尚未開始沒有色邊 */
+/* 狀態：整張卡片一圈狀態色外框，上方小標籤寫出狀態（補考寫出還差多少、待檢討用燈泡）。
+   缺交紅、待檢討橘、需補考黃、未開放灰、已完成綠；尚未開始沒有外框。滑鼠移上去外框顏色不變，只浮起來 */
 .unit-tile.st-miss { --band: var(--bad); }
 .unit-tile.st-todo { --band: #F97316; }
 .unit-tile.st-retake { --band: #EAB308; }
 .unit-tile.st-wait { --band: var(--edge); }
 .unit-tile.st-ok { --band: var(--good); }
-.unit-tile:is(.st-miss, .st-todo, .st-retake, .st-wait, .st-ok) { padding-left: 26px; box-shadow: inset 8px 0 0 var(--band); }
+.unit-tile:is(.st-miss, .st-todo, .st-retake, .st-wait, .st-ok), .unit-tile:is(.st-miss, .st-todo, .st-retake, .st-wait, .st-ok):hover { border: 2px solid var(--band); }
 .st-retake .tile-state { background: var(--white); border-color: #EAB308; color: #854D0E; }
 .st-todo .tile-state { background: var(--white); border-color: #FB923C; color: #C2410C; }
 .st-miss .tile-state { background: var(--white); border-color: var(--bad); color: var(--bad-ink); }
@@ -521,7 +521,7 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 .review-head h2 { font-size: 1.15rem; }
 .review-count { margin-left: auto; font-family: var(--font-en); font-weight: 800; color: var(--navy); }
 .review-bar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
-.review-bar > span { display: block; height: 100%; background: var(--navy); border-radius: inherit; transition: width .3s var(--ease); }
+.review-bar > span { display: block; height: 100%; width: 100%; background: var(--navy); clip-path: inset(0 calc(100% - var(--w, 0%)) 0 0 round 99px); transition: clip-path .3s var(--ease); }
 .review-nav { display: flex; justify-content: space-between; gap: 10px; }
 .rv-pq .opt { pointer-events: none; animation: none; }
 .rv-pq .explain p { margin: 6px 0 0; }
@@ -687,9 +687,9 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1
   .chip-btn { padding: 0 11px; font-size: .84rem; gap: 4px; }
   .chip-btn .ic { display: none; }
 }
-/* 選單面板：從按鈕下方「展開」（clip-path 由上往下揭開，加上一點點回彈），裡面的項目依序淡入、輕輕往下落；收起時比展開快、不做項目動畫。
+/* 選單面板：從按鈕下方「展開」（clip-path 由上往下揭開，平順減速、不回彈），裡面的項目依序淡入、輕輕往下落；收起時比展開快、不做項目動畫。
    clip-path 的外框往外多留空間，陰影才不會被切掉。 */
-.menu-panel { --spring: cubic-bezier(.22, 1.12, .36, 1); transform-origin: 28px 0; visibility: hidden; opacity: 0; pointer-events: none;
+.menu-panel { --spring: cubic-bezier(.16, 1, .3, 1); transform-origin: 28px 0; visibility: hidden; opacity: 0; pointer-events: none;
   clip-path: inset(-8px -56px 100% -56px round 18px);
   transform: translate3d(var(--mx, 0), -6px, 0) scale(.97);
   transition: opacity .14s ease, transform .18s cubic-bezier(.4, 0, 1, 1), clip-path .2s cubic-bezier(.4, 0, 1, 1), visibility 0s linear .2s; }
@@ -702,7 +702,7 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1
 /* 滑過項目時，一塊淡色底跟著游標滑到該項目（只在有滑鼠的裝置；觸控仍用按下時的底色） */
 .menu-hl { position: absolute; top: 0; left: 8px; right: 8px; height: var(--hl-h, 48px); border-radius: 10px; background: var(--wash);
   transform: translate3d(0, var(--hl-y, 0), 0); opacity: 0; pointer-events: none; z-index: 0;
-  transition: transform .32s var(--nav-ease), height .32s var(--nav-ease), opacity .18s ease; }
+  transition: transform .32s var(--nav-ease), opacity .18s ease; } /* 高度直接換（各項目高度幾乎一樣），只有位置滑動 */
 .menu-hl.on { opacity: 1; }
 .menu-hl.snap { transition: opacity .18s ease; }
 .menu-panel .menu-item, .menu-panel .menu-head { position: relative; z-index: 1; }
@@ -711,7 +711,7 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1
 .menu-scrim { position: fixed; inset: 0; z-index: 19; background: rgba(15, 23, 42, .16); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
   opacity: 0; visibility: hidden; transition: opacity .18s ease, visibility 0s linear .18s; }
 .menu-scrim.on { opacity: 1; visibility: visible; transition: opacity .34s ease, visibility 0s; }
-.menu-btn .mb-chev .ic { transition: transform .5s cubic-bezier(.22, 1.3, .36, 1); }
+.menu-btn .mb-chev .ic { transition: transform .4s cubic-bezier(.16, 1, .3, 1); }
 .menu-item { transition: background .15s ease, transform .15s var(--nav-ease); }
 .menu-item:active { transform: scale(.985); }
 .menu-ic { transition: transform .25s var(--nav-ease), background .15s ease, border-color .15s ease; }
@@ -745,7 +745,6 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1
 /* 卡片、按鈕的觸感 */
 .unit-tile { transition: transform .25s var(--ease), border-color .2s, background .2s, box-shadow .25s var(--ease); }
 .unit-tile:hover { box-shadow: 0 10px 24px rgba(15, 23, 42, .08); }
-.unit-tile:is(.st-miss, .st-todo, .st-retake, .st-wait, .st-ok):hover { box-shadow: inset 8px 0 0 var(--band), 0 10px 24px rgba(15, 23, 42, .08); border-left-color: var(--band); } /* 滑鼠移上去色邊保留，左邊框線併進色邊 */
 .unit-tile:active { transform: translateY(0) scale(.985); transition-duration: .08s; }
 .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(15, 23, 42, .08); }
 .btn:active:not(:disabled) { transform: scale(.97); box-shadow: none; transition-duration: .08s; }
@@ -1069,12 +1068,12 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 .rd-fold .passage-card { position: static; max-height: none; overflow: visible; background-image: none; border-radius: 0 0 14px 14px; }
 
 /* 首頁「全部／現在要做的」：白色底塊在兩個按鈕之間滑動，文字顏色跟著淡變 */
-.seg-glide { position: relative; isolation: isolate; }
+.seg-glide { position: relative; isolation: isolate; display: inline-grid; grid-template-columns: 1fr 1fr; } /* 兩個按鈕等寬：白色底塊寬度不變，只要滑動 */
 .seg-glide button { position: relative; z-index: 1; transition: color .3s ease; }
 .seg-glide button[aria-pressed="true"] { background: transparent; box-shadow: none; }
 .seg-thumb { position: absolute; top: 3px; bottom: 3px; left: 0; width: var(--tw, 0); border-radius: 999px; background: var(--white);
   box-shadow: 0 1px 4px rgba(30, 58, 138, .18); transform: translate3d(var(--tx, 0), 0, 0); z-index: 0;
-  transition: transform .45s cubic-bezier(.16, 1, .3, 1), width .45s cubic-bezier(.16, 1, .3, 1); }
+  transition: transform .45s cubic-bezier(.16, 1, .3, 1); }
 .seg-thumb.snap { transition: none; }
 @media (prefers-reduced-motion: reduce) { .seg-thumb { transition: none; } }
 
