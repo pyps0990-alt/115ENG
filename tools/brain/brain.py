@@ -434,3 +434,82 @@ def _explain(analysis, t, c, kind, example_index):
     if kind == 'spell':
         return ('意思混淆', f"你拼成清單裡的另一個字 {a}；這題要的是 {b}")
     return ('不熟悉', '')
+
+
+# ---------------------------------------------------------------- 解題步驟（像老師講解一樣：先懂題意，再逐一看選項，最後篩出答案）
+_NEED_ZH = {'adj': '形容詞', 'n': '名詞', 'v': '動詞', 'adv': '副詞', 'prep': '介系詞', 'phr': '片語'}
+
+
+def _slot_text(ex, sl):
+    """空格在句子裡的角色：「空格在 evidence 前面修飾它，需要形容詞」"""
+    need = sl.get('need') if sl else None
+    if not need:
+        return ''
+    hint = sl.get('hint') or ''
+    m = re.search(r'\[([^\]]+)\]', ex)
+    after = bool(hint) and m is not None and re.search(r'\b' + re.escape(hint) + r'\b', ex[m.end():], re.I) is not None
+    name = _NEED_ZH.get(need, need)
+    if need == 'adj' and hint and after:
+        return f"空格在「{hint}」前面修飾它，需要{name}"
+    if need == 'v':
+        if hint and after and hint.lower() in _PREPS:
+            return f"空格是句子的動作，後面接「{hint}」，需要{name}"
+        return f"空格是句子的動作，需要{name}" + (f"（受詞是「{hint}」）" if hint and after else '')
+    if need == 'n':
+        return f"空格是一個東西或概念，需要{name}" + (f"，和「{hint}」連在一起" if hint else '')
+    return f"空格需要{name}"
+
+
+_PREPS = {'on', 'in', 'at', 'to', 'for', 'with', 'about', 'over', 'from', 'of', 'by', 'into', 'down', 'up', 'out', 'between', 'among'}
+
+
+def walkthrough(analysis, data, target, options, kind, example_index=0, chosen=None):
+    """選擇題的解題步驟。options：題目的選項（單字字串，含正確答案）；kind：'cloze'、'zh2en'、'en2zh'。
+    回傳 {'ask': 題意, 'need': 空格要的詞性說明, 'options': [{word, form, pos, zh, ok, why, picked}], 'answer': 結論}"""
+    by = {w['word']: w for w in data['words']}
+    t = by[target]
+    tpos = analysis['words'][target]['pos']
+    out = {'ask': '', 'need': '', 'options': [], 'answer': ''}
+    sl = None
+    ex = ex_zh = ''
+    if kind == 'cloze':
+        exs = example_pairs(t)
+        ex, ex_zh = exs[example_index] if example_index < len(exs) else exs[0]
+        sl = slot(t, ex)
+        span = None if 'phr' in tpos else _zh_span(ex_zh or '', meanings(t.get('zh')))
+        stem = (ex_zh[:span[0]] + '＿＿' + ex_zh[span[1]:]) if span else ex_zh
+        out['ask'] = f"這句在說：「{stem}」"
+        out['need'] = _slot_text(ex, sl)
+    elif kind == 'zh2en':
+        out['ask'] = f"題目要找意思是「{t['zh']}」的英文"
+    else:
+        out['ask'] = f"題目問 {t['word']}（{t.get('pos', '')}）是什麼意思"
+    need = sl['need'] if sl else None
+    for o in options:
+        w = by.get(o)
+        if w is None:
+            continue
+        pos = analysis['words'][o]['pos']
+        item = {'word': w['word'], 'form': chosen_form(w) if kind == 'cloze' else w['word'], 'pos': w.get('pos', ''), 'zh': w.get('zh', ''),
+                'ok': o == target, 'picked': o == chosen, 'why': ''}
+        if o == target:
+            item['why'] = ('詞性和意思都符合' if kind == 'cloze' else '意思符合')
+        else:
+            rel = analysis['pairs'].get('|'.join(sorted([target, o])))
+            if kind == 'cloze' and need and pos and need not in pos:
+                item['why'] = f"詞性不合：它是{_pos_zh(pos)}，這裡需要{_NEED_ZH.get(need, need)}"
+            elif rel == 'syn':
+                item['why'] = f"意思接近，但這句習慣用 {t['word']}"
+            elif rel in ('family', 'spell', 'sound'):
+                label = {'family': '和答案同字根', 'spell': '和答案拼法很像', 'sound': '和答案唸起來很像'}[rel]
+                item['why'] = f"{label}，但意思是「{w['zh']}」"
+            elif kind == 'cloze':
+                s = sense(t, w, ex, ex_zh, item['form'])
+                item['why'] = f"意思不合：放進去變成「{s['zh']}」" if s and s['zh'] else '意思不合：放進去句子說不通'
+                if s and s['zh']:
+                    item['zh_sentence'] = s['zh']
+            else:
+                item['why'] = f"意思是「{w['zh']}」，不符" if kind == 'zh2en' else '不是這個字的意思'
+        out['options'].append(item)
+    out['answer'] = f"所以答案是 {t['word']}（{t['zh']}）"
+    return out

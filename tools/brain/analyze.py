@@ -82,6 +82,12 @@ def cases(uid, d, a, rng):
             exs = brain._examples(t)
             idx = rng.randrange(len(exs)) if exs else 0
             cat, tip, st = brain.explain(a, d, t['word'], c['word'], kind, idx)
+            # 題目的四個選項：正確答案、學生選的，再從同類裡隨機補到 4 個（和網站出題一樣）
+            fill = [w['word'] for w in same if w is not c]
+            rng.shuffle(fill)
+            opts = [t['word'], c['word']] + fill[:2]
+            rng.shuffle(opts)
+            walk = brain.walkthrough(a, d, t['word'], opts, kind, idx, chosen=c['word'])
             if kind == 'cloze':
                 q, yours, right = _blank(exs[idx]), _form(c), _form(t, idx)
             elif kind == 'zh2en':
@@ -89,7 +95,7 @@ def cases(uid, d, a, rng):
             else:
                 q, yours, right = f"{t['word']}（選出中文）", c['zh'], t['zh']
             out.append({'id': f"{uid}|{t['word']}|{c['word']}|{kind}|{idx}", 'unit': uid, 'kind': {'cloze': '例句選字', 'zh2en': '中→英', 'en2zh': '英→中'}[kind],
-                        'q': q, 'yours': yours, 'right': right, 'cat': cat, 'tip': tip, 'study': st, 'old': '意思混淆'})
+                        'q': q, 'yours': yours, 'right': right, 'cat': cat, 'tip': tip, 'study': st, 'walk': walk, 'old': '意思混淆'})
     return out
 
 
