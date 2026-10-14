@@ -77,8 +77,7 @@ export function renderMC(host, q, { feedback = true, selected = null, label = ''
     ? `<div class="q-prompt"><span class="w">${esc(q.word.word)}</span></div>
        <div class="q-sub"><span class="pos">${esc(q.word.pos || '')}</span></div>`
     : cloze
-      ? `<div class="q-sentence">${esc(q.parts.before)}<span class="blank"></span>${esc(q.parts.after)}</div>
-         ${q.exampleZh ? `<div class="q-sub hint-zh"><span>${esc(q.exampleZh)}</span></div>` : ''}`
+      ? `<div class="q-sentence">${esc(q.parts.before)}<span class="blank"></span>${esc(q.parts.after)}</div>`  // 例句題作答時不給中文（例句翻譯只在解析與檢討出現）
       : `<div class="q-prompt"><span class="zh">${esc(q.word.zh)}</span></div>
          <div class="q-sub"><span class="pos">${esc(q.word.pos || '')}</span></div>`;
   const card = document.createElement('div');
@@ -132,8 +131,7 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   const head = q.variant === 'cloze'
     ? `<div class="q-meta">${esc(label || '依句意拼出空格中的單字')}</div>
        <div class="q-sentence">${esc(q.parts.before)}<span class="blank"></span>${esc(q.parts.after)}</div>
-       <div class="q-sub"><span>${esc(q.exampleZh || w.exampleZh || '')}</span></div>
-       <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${esc(w.zh)}</span><span>· ${n} 個字母</span></div>`
+       <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${n} 個字母</span></div>`
     : `<div class="q-meta">${esc(label || '看中文，拼出英文單字')}</div>
        <div class="q-prompt"><span class="zh">${esc(w.zh)}</span></div>
        <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${n} 個字母・開頭是 ${esc(target[0].toUpperCase())}</span></div>`;

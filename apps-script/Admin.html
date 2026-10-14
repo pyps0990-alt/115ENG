@@ -296,7 +296,7 @@
           <div class="help">
             <b>單字片語　匯入格式</b><br>
             每行一個單字或片語，欄位順序：<b>英文、詞性、中文、例句（3 句）、例句翻譯（3 句）</b>。<br>
-            <b>每個字請放 3 句例句</b>：在例句欄用 <code>;</code> 隔開 3 句，例句翻譯欄也用 <code>;</code> 依相同順序隔開 3 句翻譯。三句請用不同的情境；學生每次考這個字的例句題會隨機抽其中一句，不同學生拿到的題目就不會一樣。翻譯會當成例句題的中文提示，所以請一定要填。<br>
+            <b>每個字請放 3 句例句</b>：在例句欄用 <code>;</code> 隔開 3 句，例句翻譯欄也用 <code>;</code> 依相同順序隔開 3 句翻譯。三句請用不同的情境；學生每次考這個字的例句題會隨機抽其中一句，不同學生拿到的題目就不會一樣。學生作答時看不到翻譯，答錯的解析和檢討時才會顯示，幫助理解句意，所以請一定要填。<br>
             從 Excel 或 Google 試算表選取這幾欄直接複製貼上即可；也可以自己打字，欄位之間用 <code>|</code> 隔開。<br>
             例句中要考的部分用 <code>[ ]</code> 括起來，例如 <code>The team [bounced back] quickly.</code>（可以是變化後的形態，如 <code>[adapted]</code>）；沒括的話會自動找出來。含空格或詞性寫 <code>phr.</code> 的會當成片語。<br>
             範例（一行）：<code>adapt | v. | 適應 | She [adapted] quickly to her new school. ; We must [adapt] to climate change. ; Animals [adapt] to survive. | 她很快適應了新學校。 ; 我們必須適應氣候變遷。 ; 動物為了生存而適應環境。</code><br>
@@ -1127,7 +1127,7 @@
       if (few) tips.push(few + ' 個字的例句少於 3 句：例句越多，不同學生拿到相同題目的機會越低（可按「AI 補齊到每個字 3 句例句」）');
       var noZh = words.filter(function (w) { return !(w.exampleZh || (w.examples || []).some(function (e) { return e.zh; })); }).length;
       if (sameZh.length) tips.push(sameZh.length + ' 個字的中文意思和前面的字相同或重疊（第 ' + sameZh.join('、') + ' 行，狀態欄有寫和哪一個重疊）');
-      if (noZh) tips.push(noZh + ' 個字的例句沒有中文翻譯：例句選擇題會少了中文提示');
+      if (noZh) tips.push(noZh + ' 個字的例句沒有中文翻譯：檢討時看不到例句的中文意思');
       var data = { title: impUnit().title, topic: $('v-topic').value.trim(), words: words };
       $('imp-report').innerHTML =
         '<div class="stats"><span class="stat">可匯入 ' + words.length + ' 個</span>' + (errs ? '<span class="stat" style="background:#FEE2E2;color:var(--bad)">有 ' + errs + ' 行要修正</span>' : '') + '</div>' +

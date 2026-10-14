@@ -1,2 +1,10 @@
 *.zip
 *.log
+
+# 錯誤分析引擎：虛擬環境、字典、從 Firebase 讀下來的題目與產生的報告不進版本控制
+tools/brain/.venv/
+tools/brain/nltk_data/
+tools/brain/samples/
+tools/brain/out/
+tools/brain/report.html
+tools/brain/__pycache__/
