@@ -30,15 +30,25 @@ export function buildMC(word, pool, dir) {
 
 // 進階：例句挖空，四選一（選項是其他字詞在例句中的形式）
 // 這個字如果存了不只一句例句，每次隨機挑一句出題，同樣的字、同樣題型內容也不會一樣
-export function buildClozeMC(word, pool) {
-  const ex = pickExample(word);
+// analysis：錯誤分析引擎的結果（可省略）。有的話：這句例句放進去也說得通的同單元字不當選項（不夠選時才勉強用），
+// 並從這句例句的課外選項裡隨機加 1～2 個（和答案同詞性、同詞形，語言模型判斷放進去說不通）
+export function buildClozeMC(word, pool, analysis = null) {
+  const list = (Array.isArray(word.examples) && word.examples.length ? word.examples : [{ ex: word.example || '', zh: word.exampleZh || '' }]).filter((e) => e.ex);
+  const exIdx = list.length ? Math.floor(Math.random() * list.length) : 0;
+  const ex = list[exIdx] || pickExample(word);
   const c = clozeParts({ ...word, example: ex.ex });
   if (!c) return buildMC(word, pool, 'zh2en');
   const key = (s) => s.toLowerCase();
   const seen = new Set([key(c.answer)]);
   const same = pool.filter((w) => (w.type || 'word') === (word.type || 'word'));
-  const others = [];
-  for (const w of [...shuffle(same.length >= 4 ? same : pool), ...shuffle(pool)]) {
+  const unsafe = new Set((((analysis && analysis.unsafe && analysis.unsafe[word.word]) || [])[exIdx] || []).map(key));
+  const extraList = (analysis && analysis.extra && analysis.extra[word.word] && analysis.extra[word.word][exIdx]) || [];
+  const extras = shuffle(extraList).slice(0, Math.min(extraList.length, 1 + Math.floor(Math.random() * 2)));
+  extras.forEach((e) => seen.add(key(e.form)));
+  const others = extras.map((e) => e.form);
+  const order = [...shuffle(same.length >= 4 ? same : pool), ...shuffle(pool)];
+  const safeFirst = [...order.filter((w) => !unsafe.has(key(w.word))), ...order.filter((w) => unsafe.has(key(w.word)))];
+  for (const w of safeFirst) {
     if (others.length >= 3) break;
     const p = clozeParts(w);
     if (!p || w.word === word.word || seen.has(key(p.answer))) continue;
@@ -49,7 +59,8 @@ export function buildClozeMC(word, pool) {
   const cap = /^[A-Z]/.test(c.answer) && !c.before.trim();
   const fix = (s) => (cap ? s.charAt(0).toUpperCase() + s.slice(1) : s.charAt(0).toLowerCase() + s.slice(1));
   const options = shuffle([c.answer, ...others.map(fix)]);
-  return { type: 'mc', word, dir: 'cloze', parts: c, options, answer: options.indexOf(c.answer), exampleZh: ex.zh };
+  return { type: 'mc', word, dir: 'cloze', parts: c, options, answer: options.indexOf(c.answer), exampleZh: ex.zh,
+    extras: extras.map((e) => ({ form: e.form, word: e.word, zh: e.zh, pos: e.pos })) };
 }
 
 export function buildSpell(word, variant) {
@@ -250,7 +261,13 @@ function spellDiff(typed, answer) {
 function chosenWord(q, chosen, pool) {
   if (chosen == null) return null;
   if (q.dir === 'en2zh') return pool.find((w) => w.zh === chosen);
-  if (q.dir === 'cloze') return pool.find((w) => { const c = clozeParts(w); return c && c.answer.toLowerCase() === String(chosen).toLowerCase(); });
+  if (q.dir === 'cloze') {
+    const hit = pool.find((w) => { const c = clozeParts(w); return c && c.answer.toLowerCase() === String(chosen).toLowerCase(); });
+    if (hit) return hit;
+    // 課外選項：不在這個單元的字，意思與詞性存在題目裡
+    const x = (q.extras || []).find((e) => String(e.form).toLowerCase() === String(chosen).toLowerCase());
+    return x ? { word: x.word, zh: x.zh, pos: x.pos, type: 'word' } : undefined;
+  }
   return pool.find((w) => w.word === chosen);
 }
 
@@ -338,7 +355,7 @@ export function errorOf(d, pool = []) {
   if (!yours) return { err: '未作答', tip: ERR_TIPS.未作答 };
   const dir = d.kind === '英→中' ? 'en2zh' : d.kind === '例句選字' ? 'cloze' : d.kind === '中→英' ? 'zh2en' : '';
   if (!dir) return { err: d.err || '', tip: errDetail(d.err, w, pool.find((x) => x.word !== w.word && lettersOf(x.word) === lettersOf(yours))) || ERR_TIPS[d.err] || '' };
-  const other = chosenWord({ dir }, yours, pool);
+  const other = chosenWord({ dir, extras: d.extras }, yours, pool);
   const err = classifyChoice(w, other && other.word !== w.word ? other : null, dir === 'cloze');
   return { err, tip: errDetail(err, w, other) || ERR_TIPS[err] || '' };
 }

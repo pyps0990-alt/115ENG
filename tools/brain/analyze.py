@@ -51,6 +51,13 @@ def run(with_lm=False):
     os.makedirs(OUT, exist_ok=True)
     for uid, d in units():
         a = brain.analyze(d)
+        old_path = os.path.join(OUT, uid + '.json')
+        if not with_lm and os.path.exists(old_path):
+            # 沒加 --lm：語言模型的結果很花時間，單字沒變就沿用上一次的
+            with open(old_path, encoding='utf-8') as f:
+                old = json.load(f)
+            if 'extra' in old and set(old.get('words', {})) == set(a['words']):
+                a['unsafe'], a['extra'] = old['unsafe'], old['extra']
         if with_lm:
             a['unsafe'] = brain.option_safety(d, a)
             a['extra'] = brain.extra_options(d, a, random.Random(uid))

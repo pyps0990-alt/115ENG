@@ -101,7 +101,7 @@ export function mount(stage, ctx) {
   function play(student, stagesIn, official, review = false, saved = null) {
     const stages = saved
       ? saved.stages.map(({ levelId, ...r }) => ({ ...r, level: levels.find((l) => l.id === levelId) }))
-      : stagesIn.map(({ level, words }) => ({ level, qs: level.build(shuffle(words), all), points: 0, wrong: [] }));
+      : stagesIn.map(({ level, words }) => ({ level, qs: level.build(shuffle(words), all, ctx.analysis), points: 0, wrong: [] }));
     const total = stages.reduce((s, x) => s + x.qs.length, 0);
     let si = saved ? saved.si : 0; let qi = saved ? saved.qi : 0; let done = saved ? saved.done : 0;
     let streak = saved ? saved.streak : 0; let bestStreak = saved ? saved.bestStreak : 0;
@@ -204,6 +204,7 @@ export function mount(stage, ctx) {
         stage: s.level.name, n: qi + 1, kind: q.type === 'mc' ? (q.dir === 'en2zh' ? '英→中' : q.dir === 'cloze' ? '例句選字' : '中→英') : (q.variant === 'cloze' ? '例句拼寫' : '拼字'),
         q: promptText(q), correct: answerText(q), yours: yours == null ? '' : String(yours), ok, points: got, hints,
         word: q.word.word, err: ok ? '' : classifyError(q, yours, all),
+        extras: ok || !q.extras || !q.extras.length ? undefined : q.extras, // 課外選項（答錯時要知道學生選的是哪個字、什麼意思）
         exampleEn: clozeQ ? `${q.parts.before}[${q.parts.answer}]${q.parts.after}` : '',
         exampleZh: clozeQ ? (q.exampleZh || '') : '',
       });

@@ -59,6 +59,24 @@ export async function loadUnit(id, config) {
   throw new Error('老師還沒有放入這個單元的題目');
 }
 
+// 錯誤分析引擎（tools/brain）的結果：同單元哪些字放進某句例句也說得通（不當干擾選項）、每句例句的課外選項。
+// 存在 Firestore 的 public/analysis_<單元>；沒有、或老師改過題目（簽章對不上）就當作沒有，照原本的方式出題。
+export function analysisSig(words) {
+  const s = (words || []).filter((w) => w && w.word).map((w) => {
+    const list = Array.isArray(w.examples) && w.examples.length ? w.examples : [{ ex: w.example || '' }];
+    return [w.word, ...list.map((e) => e.ex).filter(Boolean)].join('\u0001');
+  }).join('\u0002');
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((Math.imul(h, 33) >>> 0) ^ s.charCodeAt(i)) >>> 0;
+  return String(h);
+}
+export async function loadAnalysis(id) {
+  try {
+    const d = await firestoreDoc(`analysis_${id}`, 2500);
+    return d && d.words ? d : null;
+  } catch { return null; }
+}
+
 // 把老師後台「新增單元」建立的全新課次併進單元清單（網站原本沒有的 id）
 export function addCustomUnits(index, config) {
   const list = (config && config.customUnits) || [];

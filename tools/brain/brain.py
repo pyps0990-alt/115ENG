@@ -363,6 +363,15 @@ def _hint(tags, i, j, need):
 
 
 # ---------------------------------------------------------------- 整個單元
+def signature(words):
+    """題目內容的簽章（單字＋每句英文例句）：老師改過題目後簽章會變，網站就不會套用舊的分析結果。和 js/data.js 的 analysisSig 一樣"""
+    s = '\u0002'.join('\u0001'.join([w['word']] + [ex for ex, _ in example_pairs(w)]) for w in words)
+    h = 5381
+    for ch in s:
+        h = ((h * 33) ^ ord(ch)) & 0xFFFFFFFF
+    return str(h)
+
+
 def analyze(data):
     words = [w for w in data.get('words', []) if w.get('word')]
     info = {}
@@ -378,7 +387,7 @@ def analyze(data):
             if r:
                 key = '|'.join(sorted([a['word'], b['word']]))
                 pairs[key] = r
-    return {'engine': ENGINE_VERSION, 'words': info, 'pairs': pairs}
+    return {'engine': ENGINE_VERSION, 'sig': signature(words), 'words': info, 'pairs': pairs}
 
 
 # ---------------------------------------------------------------- 判斷與說明（網站 js/components/question.js 有相同邏輯）
@@ -577,7 +586,7 @@ def option_safety(data, analysis, margin=FIT_MARGIN):
 
 
 def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, pool_size=14):
-    """每句例句挑 n 個課外選項：詞性和空格一樣、級數接近（3 級以上優先）、不是本單元的字、不是答案的同義字或同字根、
+    """每句例句挑 n 個課外選項：詞性和空格一樣、級數接近（4 級以上優先）、不是本單元的字、不是答案的同義字或同字根、
     做成和答案一樣的形式後，語言模型認為放進去說不通（分數差距 ≥ margin＋1，留一點安全距離）。
     回傳 {單字: [[{word, form, pos, zh, level}, ...], ...]}"""
     import lm
@@ -601,7 +610,7 @@ def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, p
             cands = [b for b in bank.values() if need in pos_list(b) and b['word'] not in unit and ' ' not in b['word']
                      and len(b['word']) >= 4 and not same_family(b['word'], t['word']) and not synonyms(b['word'], t['word'])
                      and not zh_overlap(b['zh'], t['zh'])]
-            hard = [b for b in cands if b['level'] >= 3] or cands
+            hard = [b for b in cands if b['level'] >= 4] or [b for b in cands if b['level'] >= 3] or cands
             rng.shuffle(hard)
             pick = hard[:pool_size]
             tag = _penn_tag(ex)

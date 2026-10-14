@@ -17,7 +17,7 @@ export const LEVELS = [
     desc: '中文選英文、或例句選字詞，題型隨機出現',
     items: ['中 → 英 四選一', '例句填空四選一（含詞形變化）'],
     // 每個字獨立擲一次骰子決定題型：同一個字這次考例句、下次考中翻英都有可能
-    build: (words, pool) => words.map((w) => (Math.random() < 0.5 ? buildClozeMC(w, pool) : buildMC(w, pool, 'zh2en'))),
+    build: (words, pool, analysis) => words.map((w) => (Math.random() < 0.5 ? buildClozeMC(w, pool, analysis) : buildMC(w, pool, 'zh2en'))),
   },
   {
     id: 'mastery', name: '精熟', en: 'Mastery',

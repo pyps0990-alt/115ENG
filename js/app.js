@@ -1,4 +1,4 @@
-import { loadIndex, loadUnit, applyImported, addCustomUnits } from './data.js';
+import { loadIndex, loadUnit, applyImported, addCustomUnits, loadAnalysis, analysisSig } from './data.js';
 import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow, fmtWhen } from './remote-config.js';
 import { store } from './storage.js';
 import { esc, confirmDialog } from './util.js';
@@ -373,7 +373,9 @@ async function renderUnit(id, sub) {
 
   app.innerHTML = unitShellHTML(meta); // 先顯示標題外框（版面和正式標題一致），資料到了再換成完整頁面
   // 剛登入時紀錄還在背景載入：等它載完（最多幾秒），才不會把做過的單元當成沒做過
-  const [data, mod] = await Promise.all([loadUnit(meta.id, config), modes[typeOf(meta.type)](), historyReady()]);
+  const [data, mod, rawAnalysis] = await Promise.all([loadUnit(meta.id, config), modes[typeOf(meta.type)](), meta.type === 'vocab' ? loadAnalysis(meta.id) : null, historyReady()]);
+  // 分析結果要和目前的題目對得上（簽章相同）才用
+  const analysis = rawAnalysis && rawAnalysis.sig === analysisSig(data.words) ? rawAnalysis : null;
 
   if (meta.type !== 'vocab') {
     if (!modeOn(config, meta.id, meta.type)) { locked(meta); return; }
@@ -390,7 +392,7 @@ async function renderUnit(id, sub) {
   document.title = `${meta.title} — B5 Practice`;
   app.innerHTML = `<div class="focus">${headHTML(meta, data)}<section id="stage"></section></div>`;
   cleanup = mod.mount(app.querySelector('#stage'), {
-    unit: meta, data, allWords: data.words || [], config, levels,
+    unit: meta, data, allWords: data.words || [], config, levels, analysis,
     questionCount: questionCount(config, meta.id),
   }) || null;
 }

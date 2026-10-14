@@ -15,3 +15,9 @@ cd tools\brain
 ```
 
 之後會把 `brain.py` 放到 Firebase Cloud Functions（Python），老師儲存題目時自動分析，結果存成 `public/analysis_<單元>`。
+
+## 接到網站
+
+1. `analyze.py fetch` → `run --lm` → `options` 檢查出題選項。
+2. 老師後台「匯入內容」分頁最下面的「錯誤分析結果上傳」，選 `out/單元代號.json` 上傳（寫到 Firebase `public/analysis_<單元>`，不改單元設定、不重製學生進度）。
+3. 網站開單元時讀這份結果：同單元「放進句子也說得通」的字不當選項、每句加 1～2 個課外選項；老師改過題目（簽章對不上）就自動不用。

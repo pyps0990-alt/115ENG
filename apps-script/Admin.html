@@ -357,6 +357,15 @@
         </div>
         <div id="imp-report" class="report"></div>
       </div>
+      <div class="card" id="an-card" hidden>
+        <h2 style="margin-top:0">錯誤分析結果上傳</h2>
+        <div class="help">在老師電腦上用 <code>tools/brain</code> 的程式分析過單元之後，把 <code>out</code> 資料夾裡的 <code>單元代號.json</code>（可以一次選多個）上傳到這裡。學生測驗時會用它排除「放進句子也說得通」的干擾選項、加入課外選項，答錯時顯示更完整的解析。上傳不會改單元設定，也不會重製學生的成績與進度。</div>
+        <div class="bar" style="margin-top:10px">
+          <input type="file" id="an-file" accept=".json,application/json" multiple>
+          <button class="btn primary" id="an-go" type="button" disabled>上傳</button>
+          <span class="msg" id="an-msg"></span>
+        </div>
+      </div>
     </section>
 
     <section id="tab-roster" hidden>
@@ -1059,6 +1068,46 @@
         $('imp-msg').textContent = '這個單元還沒有題目，請直接貼上新內容'; $('imp-msg').className = 'msg';
       }, function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; });
     };
+
+    // ----- 錯誤分析結果上傳（網站版後台才有；內建版沒有 fastPublish） -----
+    (function () {
+      if (!window.fastPublish) return;
+      $('an-card').hidden = false;
+      var docs = null;
+      $('an-file').onchange = function () {
+        docs = {}; var files = [].slice.call(this.files || []); var left = files.length; var bad = [];
+        $('an-go').disabled = true; $('an-msg').textContent = ''; $('an-msg').className = 'msg';
+        if (!left) return;
+        files.forEach(function (f) {
+          var id = f.name.replace(/\.json$/i, '');
+          var r = new FileReader();
+          r.onload = function () {
+            try {
+              var d = JSON.parse(r.result);
+              var known = units.some(function (u) { return u.id === id; });
+              if (!d.words || !d.sig || !d.pairs) throw new Error('不是錯誤分析的結果');
+              if (!known) throw new Error('找不到單元「' + id + '」（檔名要是單元代號）');
+              if (JSON.stringify(d).length > 800000) throw new Error('檔案太大');
+              docs['analysis_' + id] = d;
+            } catch (e) { bad.push(f.name + '：' + e.message); }
+            if (--left === 0) {
+              var n = Object.keys(docs).length;
+              $('an-go').disabled = !n;
+              $('an-msg').textContent = (n ? '可以上傳 ' + n + ' 個單元' : '') + (bad.length ? (n ? '；' : '') + '有問題：' + bad.join('、') : '');
+              $('an-msg').className = 'msg ' + (bad.length ? 'err' : 'ok');
+            }
+          };
+          r.readAsText(f);
+        });
+      };
+      $('an-go').onclick = function () {
+        if (!docs || !Object.keys(docs).length) return;
+        var btn = this; btn.disabled = true; $('an-msg').textContent = '上傳中…'; $('an-msg').className = 'msg';
+        window.fastPublish(docs).then(function () {
+          $('an-msg').textContent = '✓ 已上傳 ' + Object.keys(docs).length + ' 個單元；學生重新打開單元就會用到'; $('an-msg').className = 'msg ok';
+        }, function (err) { btn.disabled = false; $('an-msg').textContent = '上傳失敗：' + (err && err.message || err); $('an-msg').className = 'msg err'; });
+      };
+    })();
 
     // ----- 解析與檢查 -----
     function reEsc(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
