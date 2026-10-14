@@ -10,7 +10,7 @@ import { flushOutbox, pendingItems, clearOutbox, outboxStatus, rejectedItems } f
 import { submitStateHTML } from './components/gate.js';
 import { leaveBody } from './resume.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
-import { TYPES, typeOf, typeLabel, typeIcon, bestKey, lessonLabel, lessonCmp, unitName } from './types.js';
+import { TYPES, typeOf, typeLabel, typeIcon, bestKey, lessonLabel, lessonHeading, lessonCmp, unitName } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
 const firebase = () => import('./firebase.js');
 
@@ -290,16 +290,13 @@ function windowText(id, done) {
   return w.closeAt ? `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}` : '';
 }
 
-// 首頁課次標題：數字（或數字開頭，例如 1-2）寫成「Lesson 3」；英文代號（例如 R-X）照原樣
-const lessonHeading = (n) => (typeof n === 'number' || /^\d/.test(String(n)) ? `Lesson ${n}` : lessonLabel(n));
-
-// 單字卡片的說明分三行：類型／幾個單字、幾個片語／階段
+// 單字卡片的說明：類型一行、字數一行。基礎 → 進階 → 精熟每張都一樣，不寫（單元頁有）；老師關掉某些階段時才寫出有哪幾段
 function vocabMetaHTML(u, levels) {
   const n = Number(u.count) || 0;
   const ph = typeof u.phrases === 'number' ? Math.min(u.phrases, n) : null;
-  const counts = ph == null ? `總共 ${n} 個單字與片語` : ph ? `總共 ${n - ph} 個單字，${ph} 個片語` : `總共 ${n} 個單字`;
-  const stages = levels.length > 1 ? `從${levels.join(' → ')}` : levels[0] || '';
-  return `<div class="tile-meta stack"><span><span class="tile-cat">${typeIcon(u.type)}</span>${TYPES.vocab.tile}</span><span>${counts}</span>${stages ? `<span>${stages}</span>` : ''}</div>`;
+  const counts = ph == null ? `${n} 個單字與片語` : ph ? `${n - ph} 個單字 · ${ph} 個片語` : `${n} 個單字`;
+  const partial = levels.length < LEVELS.length ? ` · 只考${levels.join('、')}` : '';
+  return `<div class="tile-meta stack"><span><span class="tile-cat">${typeIcon(u.type)}</span>${TYPES.vocab.tile}</span><span>${counts}${partial}</span></div>`;
 }
 
 function tileMeta(u) {

@@ -1,7 +1,7 @@
 // 導覽列的「選擇單元」下拉選單：任何頁面都能直接跳到各課的單字片語或課文理解
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
-import { typeLabel, typeIcon, lessonLabel, lessonCmp } from './types.js';
+import { typeLabel, typeIcon, lessonLabel, lessonHeading, lessonCmp } from './types.js';
 import { leaveBody } from './resume.js';
 
 const root = document.getElementById('nav-menu');
@@ -56,8 +56,8 @@ export function initNav(visibleUnits) {
   const lessons = [...new Set(units.map((u) => u.lesson))].sort(lessonCmp);
   panel.innerHTML = `
     <a class="menu-item home" role="menuitem" href="#/">${icon.home}<span>所有單元</span></a>
-    ${lessons.map((n) => `<div class="menu-group" role="group" aria-label="${lessonLabel(n)}">
-      <div class="menu-head">${icon.chapter}<span>${lessonLabel(n)}</span></div>
+    ${lessons.map((n) => `<div class="menu-group" role="group" aria-label="${lessonHeading(n)}">
+      <div class="menu-head">${icon.book}<span>${lessonHeading(n)}</span></div>
       ${units.filter((u) => u.lesson === n).map((u) => `<a class="menu-item" role="menuitem" href="#/u/${esc(u.id)}" data-id="${esc(u.id)}">
         <span class="menu-ic">${typeIcon(u.type)}</span>
         <span class="menu-txt"><b>${kindLabel(u)}</b><span class="en">${esc(u.title || '')}</span></span></a>`).join('')}

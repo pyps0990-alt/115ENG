@@ -31,6 +31,11 @@ export const unitName = (u) => {
   const has = (p) => t.startsWith(p) && !/^[0-9]/.test(t.slice(p.length));
   return !title ? label : has(l) || has('l' + l) ? title : `${label} ${title}`;
 };
+// 首頁與選單的課次標題：3、「1-2」、「L3」都寫成「Lesson 3」；英文代號（例如 R-X）照原樣
+export const lessonHeading = (l) => {
+  const m = /^l?\s*(\d.*)$/i.exec(String(l).trim());
+  return m ? `Lesson ${m[1]}` : lessonLabel(l);
+};
 export const lessonCmp = (a, b) => (typeof a === 'number' && typeof b === 'number' ? a - b
   : typeof a === 'number' ? -1 : typeof b === 'number' ? 1
     : String(a).localeCompare(String(b), 'zh-Hant', { numeric: true }));
