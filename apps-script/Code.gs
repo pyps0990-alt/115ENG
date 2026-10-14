@@ -19,7 +19,7 @@ var AUDIT_HEADER = ['time', 'email', 'action', 'target', 'detail'];
 var RTDB_URL = 'https://eng-3385e-default-rtdb.asia-southeast1.firebasedatabase.app';
 var SHEET_CONTENT = 'content';
 var CONFIG_CACHE_KEY = 'config-json';
-var CONTENT_HEADER = ['id', 'json', 'updated', 'updatedBy', 'count', 'topic'];
+var CONTENT_HEADER = ['id', 'json', 'updated', 'updatedBy', 'count', 'topic', 'phrases']; // phrases：單字單元裡的片語數（首頁卡片顯示「n 個單字，m 個片語」）
 // 題目內容只存在 Firestore 的 public/content_<單元>（學生網站本來就讀這裡）；試算表 content 分頁只留單元、更新時間、題數、主題。
 // json 欄是舊資料：還有內容的列以那份為準，執行一次 moveContentToFirestore 就會搬過去並清空。
 var MAX_CONTENT_CHARS = 300000; // Firestore 一份文件上限 1 MB（中文一個字 3 bytes）
@@ -783,7 +783,7 @@ function migrateBuiltinUnits_() {
           LAST_SYNC_ERROR = '';
           publishDocs_(contentDoc_(u.id, at, data));
           if (LAST_SYNC_ERROR) throw new Error(LAST_SYNC_ERROR);
-          sheet_(SHEET_CONTENT, CONTENT_HEADER).appendRow([u.id, '', at, '內建題目轉入', countOf_(normType_(u.type), data), topic]);
+          sheet_(SHEET_CONTENT, CONTENT_HEADER).appendRow([u.id, '', at, '內建題目轉入', countOf_(normType_(u.type), data), topic, phrasesOf_(normType_(u.type), data)]);
           clearContentCache_(u.id);
         }
       } catch (err) { Logger.log('內建題目轉入失敗 ' + u.id + '：' + err); }
@@ -1068,7 +1068,7 @@ function saveContent(unitId, data, reset, fast) {
   try {
     sh = sheet_(SHEET_CONTENT, CONTENT_HEADER);
     var row = findContentMeta_(unitId);
-    var values = [[unitId, '', now, email, count, topic]]; // 題目本身只存 Firestore；json 欄清空（舊資料也一起清掉）
+    var values = [[unitId, '', now, email, count, topic, phrasesOf_(type, data)]]; // 題目本身只存 Firestore；json 欄清空（舊資料也一起清掉）
     if (row) {
       oldValues = sh.getRange(row.index, 1, 1, values[0].length).getValues();
       sh.getRange(row.index, 1, 1, values[0].length).setValues(values);
@@ -1142,7 +1142,7 @@ function backupSpreadsheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var name = ss.getName() + ' 成績備份 ' + Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyy-MM-dd HHmm');
   var copy = ss.copy(name);
-  // 題目內容只存在 Firebase：備份裡的 content 分頁補上每個單元的題目（JSON；一格放不下就接在第 7 欄之後）
+  // 題目內容只存在 Firebase：備份裡的 content 分頁補上每個單元的題目（JSON；一格放不下就接在第 8 欄之後）
   var missing = [];
   try {
     var csh = copy.getSheetByName(SHEET_CONTENT);
@@ -1153,7 +1153,7 @@ function backupSpreadsheet() {
       var json = JSON.stringify(JSON.parse(str).data), parts = [];
       for (var i = 0; i < json.length; i += 45000) parts.push(json.slice(i, i + 45000));
       csh.getRange(m.index, 2).setValue(parts[0]);
-      if (parts.length > 1) csh.getRange(m.index, 7, 1, parts.length - 1).setValues([parts.slice(1)]);
+      if (parts.length > 1) csh.getRange(m.index, 8, 1, parts.length - 1).setValues([parts.slice(1)]);
     });
   } catch (err) { missing.push('（題目備份失敗：' + err.message + '）'); }
   audit_('建立成績備份', name, missing.length ? '題目未備份：' + missing.join('、') : '');
@@ -1597,16 +1597,17 @@ function readContentMeta_() {
   if (last < 2) return [];
   var n = last - 1;
   var ids = sh.getRange(2, 1, n, 1).getValues();
-  var both = sh.getRange(1, 3, last, 4).getValues(); // 第一列是欄名；其餘：更新時間、更新者、題數、主題
+  var both = sh.getRange(1, 3, last, 5).getValues(); // 第一列是欄名；其餘：更新時間、更新者、題數、主題、片語數
   var meta = both.slice(1);
-  if (String(both[0][2]) !== 'count') sh.getRange(1, 5, 1, 2).setValues([['count', 'topic']]).setFontWeight('bold');
+  if (String(both[0][2]) !== 'count' || String(both[0][4]) !== 'phrases') sh.getRange(1, 5, 1, 3).setValues([['count', 'topic', 'phrases']]).setFontWeight('bold');
   var out = [], missing = [];
   for (var i = 0; i < n; i++) {
     var id = String(ids[i][0]).trim();
     if (!id) continue;
     var cnt = meta[i][2];
-    var r = { index: i + 2, id: id, updated: String(meta[i][0]), updatedBy: String(meta[i][1]), count: Number(cnt) || 0, topic: String(meta[i][3] || '') };
-    if (cnt === '' || isNaN(Number(cnt))) missing.push(r);
+    var ph = meta[i][4];
+    var r = { index: i + 2, id: id, updated: String(meta[i][0]), updatedBy: String(meta[i][1]), count: Number(cnt) || 0, topic: String(meta[i][3] || ''), phrases: Number(ph) || 0 };
+    if (cnt === '' || isNaN(Number(cnt)) || ph === '' || isNaN(Number(ph))) missing.push(r); // 舊資料沒有題數、片語數：讀一次題目補上
     out.push(r);
   }
   if (missing.length) {
@@ -1617,7 +1618,8 @@ function readContentMeta_() {
       var type = types[r.id] || (data.words ? 'vocab' : data.items ? 'pattern' : 'reading');
       r.count = countOf_(type, data);
       r.topic = String(data.topic || '');
-      sh.getRange(r.index, 5, 1, 2).setValues([[r.count, r.topic]]);
+      r.phrases = phrasesOf_(type, data);
+      sh.getRange(r.index, 5, 1, 3).setValues([[r.count, r.topic, r.phrases]]);
     });
   }
   return out;
@@ -1673,7 +1675,6 @@ function moveContentToFirestore() {
     var back = readContentDoc_(m.id);
     if (!back || JSON.stringify(JSON.parse(back).data) !== JSON.stringify(data)) { failed.push(m.id + '（讀回來不一樣）'); return; }
     sh.getRange(m.index, 2).setValue('');
-    if (sh.getLastColumn() >= 7) sh.getRange(m.index, 7, 1, sh.getLastColumn() - 6).clearContent(); // 之前分格存的部分
     clearContentCache_(m.id);
     moved.push(m.id);
   });
@@ -1696,6 +1697,11 @@ function unitType_(unitId) {
 // 三種單元類型：單字片語、課文理解、句型練習
 var UNIT_TYPES = ['vocab', 'reading', 'pattern'];
 function normType_(t) { return UNIT_TYPES.indexOf(String(t)) >= 0 ? String(t) : 'vocab'; }
+
+// 單字單元裡的片語數（其他類型 0）
+function phrasesOf_(type, data) {
+  return type === 'vocab' ? (data.words || []).filter(function (w) { return w.type === 'phrase'; }).length : 0;
+}
 
 function countOf_(type, data) {
   if (type === 'vocab') return (data.words || []).length;
@@ -2406,7 +2412,7 @@ function readConfigCached_() {
   // 老師匯入過的單元：網站會改讀試算表裡的內容
   cfg.content = {};
   readContentMeta_().forEach(function (r) {
-    cfg.content[r.id] = { updated: r.updated, count: r.count, topic: r.topic };
+    cfg.content[r.id] = { updated: r.updated, count: r.count, topic: r.topic, phrases: r.phrases };
   });
   cache.put(CONFIG_CACHE_KEY, JSON.stringify(cfg), 60);
   return cfg;

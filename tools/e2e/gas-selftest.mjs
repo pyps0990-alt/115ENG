@@ -49,6 +49,7 @@ assert.deepEqual(published['content_l1-voc'].data, vocab);
 assert.equal(r.config.content['l1-voc'].updated, t1);
 assert.equal(r.config.content['l1-voc'].count, 5);
 assert.equal(r.config.content['l1-voc'].topic, 'Food');
+assert.equal(r.config.content['l1-voc'].phrases, 0, '片語數（首頁卡片用）');
 assert.equal(r.config.units['l1-voc'].since, t1, '重製進度時 since 要等於這次的時間');
 
 // 內容分頁多了 count / topic 欄，且 getAdminData 不用讀題目內容
@@ -102,7 +103,7 @@ assert.equal(sh.rows[1][1], '', '試算表不再存題目內容');
   const bk = ok(g.api('backupSpreadsheet', []));
   assert.deepEqual(bk.missing, []);
   const crow = g.ss.copies.at(-1).sheets.get('content').rows[1];
-  assert.deepEqual(JSON.parse(String(crow[1]) + crow.slice(6).join('')), big, '備份檔裡的題目完整');
+  assert.deepEqual(JSON.parse(String(crow[1]) + crow.slice(7).join('')), big, '備份檔裡的題目完整');
   assert.equal(sh.rows[1][1], '', '原本的試算表不受影響');
   ok(g.api('saveContent', ['l1-voc', vocab, false, null]));
 }
@@ -126,6 +127,8 @@ old.rows[0] = old.rows[0].slice(0, 4);
 d = ok(g.api('getAdminData', []));
 assert.equal(d.content.find((x) => x.id === 'l1-voc').count, 5);
 assert.equal(old.rows[1][5], 'Food');
+assert.equal(old.rows[1][6], 0, '舊資料補上片語數');
+assert.equal(old.rows[0][6], 'phrases');
 assert.equal(old.rows[0][4], 'count');
 
 // 補作時間

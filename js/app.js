@@ -222,7 +222,7 @@ function renderHome() {
   host.innerHTML = filterHTML + lessons.map((n) => {
     const units = visible.filter((u) => u.lesson === n);
     return `<section class="lesson">
-      <h2 class="lesson-head">${icon.chapter}<span>${lessonLabel(n)}</span></h2>
+      <h2 class="lesson-head">${icon.book}<span>${lessonHeading(n)}</span></h2>
       <div class="unit-grid">${units.map((u) => tileHTML(u)).join('')}</div>
     </section>`;
   }).join('');
@@ -290,8 +290,19 @@ function windowText(id, done) {
   return w.closeAt ? `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}` : '';
 }
 
-function tileMeta(u, stages) {
-  if (u.type === 'vocab') return `${u.count} 個單字與片語 · ${stages}`;
+// 首頁課次標題：數字（或數字開頭，例如 1-2）寫成「Lesson 3」；英文代號（例如 R-X）照原樣
+const lessonHeading = (n) => (typeof n === 'number' || /^\d/.test(String(n)) ? `Lesson ${n}` : lessonLabel(n));
+
+// 單字卡片的說明分三行：類型／幾個單字、幾個片語／階段
+function vocabMetaHTML(u, levels) {
+  const n = Number(u.count) || 0;
+  const ph = typeof u.phrases === 'number' ? Math.min(u.phrases, n) : null;
+  const counts = ph == null ? `總共 ${n} 個單字與片語` : ph ? `總共 ${n - ph} 個單字，${ph} 個片語` : `總共 ${n} 個單字`;
+  const stages = levels.length > 1 ? `從${levels.join(' → ')}` : levels[0] || '';
+  return `<div class="tile-meta stack"><span><span class="tile-cat">${typeIcon(u.type)}</span>${TYPES.vocab.tile}</span><span>${counts}</span>${stages ? `<span>${stages}</span>` : ''}</div>`;
+}
+
+function tileMeta(u) {
   if (u.type === 'pattern') return `${u.count} 題 · 選擇、填空、應用`;
   return `一篇文章 · ${u.count} 題閱讀測驗`;
 }
@@ -302,7 +313,6 @@ const TILE_STATE = { ok: '已完成', retake: '需補考', todo: '待檢討', mi
 function tileHTML(u) {
   const vocab = u.type === 'vocab';
   const b = store.best(u.id)[bestKey(u.type)];
-  const stages = openLevels(u).map((l) => l.name).join(' → ');
   const st = unitStatus(u);
   // 大標題是後台設定的標題；小標是後台設定的類型。標題剛好跟類型名稱一樣時，不重複寫類型
   const heading = String(u.title || '').trim();
@@ -310,7 +320,7 @@ function tileHTML(u) {
   // 主題（後台匯入內容時填的，課文理解沒填就是文章標題）：小字放在標題下面；空白或跟標題一樣就不顯示
   const topic = String(u.topic || '').trim();
   const topicShown = topic && topic.toLowerCase() !== heading.toLowerCase() ? topic : '';
-  const catLine = [heading === kind || heading === typeLabel(u.type) ? '' : kind, tileMeta(u, stages)].filter(Boolean).join(' · ');
+  const catLine = [heading === kind || heading === typeLabel(u.type) ? '' : kind, tileMeta(u)].filter(Boolean).join(' · ');
   const chip = st.k === 'retake' && b != null && b < PASS ? `需補考 · 還差 ${PASS - b}%` : TILE_STATE[st.k];
   const sub = [b != null ? `最佳 ${b}%` : '', st.k === 'miss' ? '' : windowText(u.id, store.done(u.id))].filter(Boolean).join(' · ');
   // 最佳成績旁的小量尺：刻度就是及格線，每張卡片都看得到離通過還有多遠
@@ -319,7 +329,7 @@ function tileHTML(u) {
       <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span></div>
       <h3 class="en">${esc(u.title)}</h3>
       ${topicShown ? `<p class="tile-topic en">${esc(topicShown)}</p>` : ''}
-      <div class="tile-meta"><span class="tile-cat">${typeIcon(u.type)}</span>${catLine}</div>
+      ${vocab ? vocabMetaHTML(u, openLevels(u).map((l) => l.name)) : `<div class="tile-meta"><span class="tile-cat">${typeIcon(u.type)}</span>${catLine}</div>`}
       ${sub ? `<div class="tile-sub">${meter}<span>${esc(sub)}</span></div>` : ''}
     </a>`;
 }

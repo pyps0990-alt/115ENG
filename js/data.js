@@ -79,6 +79,7 @@ export function applyImported(index, config) {
     const c = content[u.id];
     if (!c) return;
     if (c.count) u.count = c.count;
+    if (typeof c.phrases === 'number') u.phrases = c.phrases; // 舊設定沒有片語數：卡片改寫「n 個單字與片語」
     if (c.topic) u.topic = c.topic;
     u.sample = false;
   });

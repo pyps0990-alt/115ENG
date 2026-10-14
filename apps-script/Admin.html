@@ -647,7 +647,7 @@
     function cfgForContent(unitId, data, type, reset, now) {
       var cfg = clone(cfgBase); cfg.updated = now;
       cfg.content = cfg.content || {};
-      cfg.content[unitId] = { updated: now, count: countOf(type, data), topic: String(data.topic || '') };
+      cfg.content[unitId] = { updated: now, count: countOf(type, data), topic: String(data.topic || ''), phrases: type === 'vocab' ? (data.words || []).filter(function (w) { return w.type === 'phrase'; }).length : 0 };
       if (reset) { cfg.units[unitId] = cfg.units[unitId] || {}; if (now > (cfg.units[unitId].since || '')) cfg.units[unitId].since = now; }
       return cfg;
     }
