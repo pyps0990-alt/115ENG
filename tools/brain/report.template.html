@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>錯誤分析準確度</title>
+<style>
+  :root { --navy:#1E3A8A; --steel:#586880; --paper:#F6F8FB; --surface:#ECF0F6; --line:#DCE2EB; --good:#15803D; --good-soft:#DCFCE7; --bad:#B91C1C; --bad-soft:#FEE2E2; --white:#fff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--steel); font: 16px/1.6 "Noto Sans TC", system-ui, -apple-system, "Microsoft JhengHei", sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: var(--navy); color: #fff; padding: 12px 16px; }
+  header h1 { margin: 0; font-size: 1.05rem; }
+  .sum { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 4px; font-size: .9rem; }
+  .sum b { font-size: 1.15rem; }
+  main { max-width: 860px; margin: 0 auto; padding: 16px; }
+  .help { background: var(--white); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; margin-bottom: 14px; font-size: .92rem; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+  select, button { font: inherit; border-radius: 10px; border: 1px solid #C7CFDB; background: var(--white); padding: 6px 12px; min-height: 40px; color: var(--navy); }
+  button { cursor: pointer; font-weight: 700; }
+  .card { background: var(--white); border: 2px solid var(--line); border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; }
+  .card.ok { border-color: #86C99E; }
+  .card.no { border-color: #F2A3A3; }
+  .meta { font-size: .82rem; font-weight: 700; }
+  .q { color: var(--navy); font-weight: 700; font-size: 1.05rem; margin: 4px 0 8px; }
+  .ans { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: .95rem; }
+  .ans .y b { color: var(--bad); } .ans .r b { color: var(--good); }
+  .tip { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--surface); color: #334155; }
+  .tag { display: inline-block; margin-right: 8px; padding: 1px 10px; border-radius: 999px; background: var(--bad-soft); color: var(--bad); font-weight: 800; font-size: .85rem; }
+  .vote { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+  .vote button[aria-pressed="true"].y { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+  .vote button[aria-pressed="true"].n { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+  .vote input { flex: 1 1 240px; min-height: 40px; border-radius: 10px; border: 1px solid #C7CFDB; padding: 6px 10px; font: inherit; }
+  .muted { color: #6B7789; font-size: .85rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>錯誤分析準確度：逐題判斷說明是否合理</h1>
+  <div class="sum" id="sum"></div>
+</header>
+<main>
+  <div class="help">每一題是模擬學生答錯的情況：題目、學生選的答案、正確答案，以及新的分析引擎給的「分類＋說明」。請判斷這個說明對學生<b>有沒有幫助、說得對不對</b>，按「準確」或「不準確」；不準確可以在框裡寫應該怎麼說。判斷會存在這台電腦，做完按「複製結果」貼給 Claude 調整。（原本的網站一律顯示「意思混淆」。）</div>
+  <div class="bar">
+    <label>單元 <select id="f-unit"><option value="">全部</option></select></label>
+    <label>分類 <select id="f-cat"><option value="">全部</option></select></label>
+    <label>顯示 <select id="f-state"><option value="">全部</option><option value="todo">還沒判斷</option><option value="no">不準確</option></select></label>
+    <button id="copy" type="button">複製結果</button>
+    <span class="muted" id="msg"></span>
+  </div>
+  <div id="list"></div>
+</main>
+<script>
+  var CASES = /*CASES*/[];
+  var KEY = 'brain-review-v1';
+  var votes = {};
+  try { votes = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { votes = {}; }
+  var save = function () { try { localStorage.setItem(KEY, JSON.stringify(votes)); } catch (e) {} };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var $ = function (id) { return document.getElementById(id); };
+  var uniq = function (k) { return CASES.map(function (c) { return c[k]; }).filter(function (v, i, a) { return a.indexOf(v) === i; }); };
+  uniq('unit').forEach(function (u) { $('f-unit').insertAdjacentHTML('beforeend', '<option>' + esc(u) + '</option>'); });
+  uniq('cat').forEach(function (u) { $('f-cat').insertAdjacentHTML('beforeend', '<option>' + esc(u) + '</option>'); });
+
+  function summary() {
+    var done = CASES.filter(function (c) { return votes[c.id] && votes[c.id].v; });
+    var ok = done.filter(function (c) { return votes[c.id].v === 'y'; }).length;
+    var byCat = {};
+    done.forEach(function (c) { var b = byCat[c.cat] || (byCat[c.cat] = [0, 0]); b[1]++; if (votes[c.id].v === 'y') b[0]++; });
+    $('sum').innerHTML = '<span>已判斷 <b>' + done.length + '</b> / ' + CASES.length + '</span><span>準確率 <b>' + (done.length ? Math.round(ok / done.length * 100) : 0) + '%</b></span>' +
+      Object.keys(byCat).map(function (k) { return '<span>' + esc(k) + ' ' + byCat[k][0] + '/' + byCat[k][1] + '</span>'; }).join('');
+  }
+  function render() {
+    var u = $('f-unit').value, cat = $('f-cat').value, st = $('f-state').value;
+    $('list').innerHTML = CASES.filter(function (c) {
+      var v = (votes[c.id] || {}).v;
+      return (!u || c.unit === u) && (!cat || c.cat === cat) && (!st || (st === 'todo' ? !v : v === 'n'));
+    }).map(function (c) {
+      var v = votes[c.id] || {};
+      return '<div class="card ' + (v.v === 'y' ? 'ok' : v.v === 'n' ? 'no' : '') + '" data-id="' + esc(c.id) + '">' +
+        '<div class="meta">' + esc(c.unit) + '・' + esc(c.kind) + '</div>' +
+        '<div class="q">' + esc(c.q) + '</div>' +
+        '<div class="ans"><span class="y">學生選 <b>' + esc(c.yours) + '</b></span><span class="r">正確 <b>' + esc(c.right) + '</b></span></div>' +
+        '<p class="tip"><span class="tag">' + esc(c.cat) + '</span>' + esc(c.tip) + '</p>' +
+        '<div class="vote"><button type="button" class="y" aria-pressed="' + (v.v === 'y') + '">準確</button><button type="button" class="n" aria-pressed="' + (v.v === 'n') + '">不準確</button>' +
+        '<input type="text" placeholder="應該怎麼說（選填）" value="' + esc(v.note || '') + '"></div></div>';
+    }).join('') || '<p class="muted">沒有符合的題目</p>';
+    summary();
+  }
+  $('list').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var id = b.closest('.card').dataset.id;
+    votes[id] = votes[id] || {};
+    votes[id].v = b.classList.contains('y') ? 'y' : 'n';
+    save(); render();
+  });
+  $('list').addEventListener('change', function (e) {
+    if (e.target.tagName !== 'INPUT') return;
+    var id = e.target.closest('.card').dataset.id;
+    votes[id] = votes[id] || {}; votes[id].note = e.target.value; save(); summary();
+  });
+  ['f-unit', 'f-cat', 'f-state'].forEach(function (id) { $(id).onchange = render; });
+  $('copy').onclick = function () {
+    var out = CASES.filter(function (c) { return votes[c.id] && (votes[c.id].v || votes[c.id].note); }).map(function (c) {
+      return { id: c.id, cat: c.cat, tip: c.tip, verdict: votes[c.id].v === 'y' ? '準確' : votes[c.id].v === 'n' ? '不準確' : '', note: votes[c.id].note || '' };
+    });
+    var text = JSON.stringify(out, null, 1);
+    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { $('msg').textContent = '已複製 ' + out.length + ' 題，貼給 Claude'; }, function () {
+      var t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); $('msg').textContent = '已複製 ' + out.length + ' 題';
+    });
+  };
+  render();
+</script>
+</body>
+</html>
