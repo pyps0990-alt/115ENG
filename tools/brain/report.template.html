@@ -37,6 +37,9 @@
   .study .ex { margin-top: 4px; color: var(--navy); }
   .study mark { background: #FDE68A; color: inherit; padding: 0 2px; border-radius: 3px; }
   .study .exzh { color: #6B7789; font-size: .9rem; }
+  .sense { margin: 8px 0 10px; padding: 8px 12px; border-left: 0; border-radius: 12px; background: #FFF7ED; }
+  .sense .sl { font-size: .8rem; font-weight: 800; color: #C2410C; }
+  mark.no { background: #FECACA; } mark.ok { background: #BBF7D0; }
 </style>
 </head>
 <body>
@@ -63,6 +66,7 @@
   var save = function () { try { localStorage.setItem(KEY, JSON.stringify(votes)); } catch (e) {} };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var $ = function (id) { return document.getElementById(id); };
+  var mk = function (t, cls) { return esc(t).replace(/\[([^\]]+)\]/g, '<mark class="' + cls + '">$1</mark>'); };
   var uniq = function (k) { return CASES.map(function (c) { return c[k]; }).filter(function (v, i, a) { return a.indexOf(v) === i; }); };
   uniq('unit').forEach(function (u) { $('f-unit').insertAdjacentHTML('beforeend', '<option>' + esc(u) + '</option>'); });
   uniq('cat').forEach(function (u) { $('f-cat').insertAdjacentHTML('beforeend', '<option>' + esc(u) + '</option>'); });
@@ -88,6 +92,9 @@
         '<div class="ans"><span class="y">學生選 <b>' + esc(c.yours) + '</b></span><span class="r">正確 <b>' + esc(c.right) + '</b></span></div>' +
         '<p class="tip"><span class="tag">' + esc(c.cat) + '</span>' + esc(c.tip) + '</p>' +
         '<div class="study"><div><b class="en">' + esc(c.study.word) + '</b> <span class="pos">' + esc(c.study.pos) + '</span> ' + esc(c.study.zh) + '</div>' +
+        (c.study.sense ? '<div class="sense"><div class="sl">放進句子看看</div><div class="ex">' + mk(c.study.sense.en, 'no') + '</div>' +
+          (c.study.sense.zh ? '<div class="exzh">意思變成「' + mk(c.study.sense.zh, 'no') + '」，說不通；原句是「' + mk(c.study.sense.orig, 'ok') + '」</div>'
+            : '<div class="exzh">' + esc(c.yours) + ' 放在這裡不合適；原句是「' + esc(c.study.sense.orig) + '」</div>') + '</div>' : '') +
         (c.study.ex ? '<div class="ex">' + esc(c.study.ex).replace(/\[([^\]]+)\]/g, '<mark>$1</mark>') + '</div>' + (c.study.exZh ? '<div class="exzh">' + esc(c.study.exZh) + '</div>' : '') : '') + '</div>' +
         '<div class="vote"><button type="button" class="y" aria-pressed="' + (v.v === 'y') + '">準確</button><button type="button" class="n" aria-pressed="' + (v.v === 'n') + '">不準確</button>' +
         '<input type="text" placeholder="應該怎麼說（選填）" value="' + esc(v.note || '') + '"></div></div>';

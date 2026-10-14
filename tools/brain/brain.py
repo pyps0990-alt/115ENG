@@ -9,11 +9,12 @@
   analyze(unit_data) -> dict（存成 Firestore public/analysis_<單元>，網站讀這份）
   explain(analysis, target, chosen, kind, example_index) -> (分類, 說明)（測試準確度、產生報告用；網站有一份相同邏輯的 JS）
 
-只依賴 nltk 與 tools/brain/nltk_data 裡的字典（wordnet、cmudict、averaged_perceptron_tagger_eng）。
+依賴 nltk（tools/brain/nltk_data 裡的 wordnet、cmudict、averaged_perceptron_tagger_eng）與 jieba（中文斷詞，找翻譯裡對應的詞）。
 """
 import os
 import re
 
+import jieba
 import nltk
 
 ENGINE_VERSION = 1
@@ -210,6 +211,13 @@ def example_pairs(w):
     return [(e.get('ex', ''), e.get('zh', '')) for e in exs if e.get('ex')]
 
 
+def chosen_form(w):
+    """這個字在自己第一句例句裡的形式（例句選字題的選項就是這個）"""
+    exs = example_pairs(w)
+    m = re.search(r'\[([^\]]+)\]', exs[0][0]) if exs else None
+    return m.group(1) if m else w['word']
+
+
 def study(w, kind, example_index=0):
     """答錯後一定附上的「正確的字」：意思、詞性，加一句相關例句（例句題換一句沒考過的，讓學生多看一種用法）"""
     exs = example_pairs(w)
@@ -218,6 +226,59 @@ def study(w, kind, example_index=0):
         i = (example_index + 1) % len(exs) if kind == 'cloze' and len(exs) > 1 else 0
         ex, zh = exs[i]
     return {'word': w['word'], 'pos': w.get('pos', ''), 'zh': w.get('zh', ''), 'ex': ex, 'exZh': zh}
+
+
+def _zh_span(zh, meaning_list):
+    """在中文翻譯裡找出對應這個字的那幾個字：先找完全相同的義項，找不到就找字最相近的一段（穿過／穿透、著名的／聞名）"""
+    pieces = []
+    for m in meaning_list:
+        pieces += [p for p in m.split('⋯') if p] if '⋯' in m else [m]
+    for m in sorted(pieces, key=len, reverse=True):
+        if len(m) >= 2 and m in zh:
+            i = zh.index(m)
+            return i, i + len(m)
+    # 找不到完全相同的：用 jieba 斷詞，在完整的詞（或相鄰兩個詞）裡找字最相近的，替換時不會切在詞的中間
+    toks = list(jieba.tokenize(zh))
+    spans = [(t[1], t[2]) for t in toks] + [(toks[k][1], toks[k + 1][2]) for k in range(len(toks) - 1)]
+    best = (0, None)
+    for a, b in spans:
+        win = zh[a:b]
+        if not all('一' <= ch <= '鿿' for ch in win):
+            continue
+        for m in pieces:
+            if len(m) < 2:
+                continue
+            shared = sum(1 for ch in set(m) if ch in win)
+            if not shared:
+                continue
+            score = shared / max(len(m), len(win)) + (0.1 if win[0] in m else 0) + len(win) * 0.001
+            if score > best[0]:
+                best = (score, (a, b))
+    return best[1] if best[0] >= 0.5 else None
+
+
+def sense(t, c, ex, ex_zh, chosen_form):
+    """文意：把學生選的字放回這句，看句子變成什麼意思（翻譯裡對應的詞換成學生選的字的意思）"""
+    m = re.search(r'\[([^\]]+)\]', ex)
+    if not m:
+        return None
+    yours_en = ex[:m.start()] + '[' + chosen_form + ']' + ex[m.end():]
+    out = {'en': yours_en, 'zh': '', 'orig': ex_zh}
+    # 片語的翻譯常被拆開（fall for → 上了⋯的當），硬換會換錯字：片語只放回英文句子，不換中文
+    span = None if 'phr' in pos_list(t) else _zh_span(ex_zh or '', meanings(t.get('zh')))
+    if span:
+        i, j = span
+        while j - i > 1 and ex_zh[i] in '的了著地得':
+            i += 1
+        while j - i > 1 and ex_zh[j - 1] in '的了著地得':
+            j -= 1
+        span = (i, j)
+    cm = [x for x in meanings(c.get('zh')) if '⋯' not in x] or [x.replace('⋯', '') for x in meanings(c.get('zh'))]
+    if span and cm:
+        i, j = span
+        out['zh'] = ex_zh[:i] + '[' + cm[0] + ']' + ex_zh[j:]
+        out['orig'] = ex_zh[:i] + '[' + ex_zh[i:j] + ']' + ex_zh[j:]
+    return out
 
 
 def _examples(w):
@@ -331,6 +392,12 @@ def explain(analysis, data, target, chosen, kind, example_index=0):
     t, c = by[target], by.get(chosen)
     st = study(t, kind, example_index)
     cat, tip = _explain(analysis, t, c, kind, example_index) if c is not None else ('不熟悉', '')
+    # 例句題：把學生選的字放回句子，看意思變成什麼（意思相近的字放進去常常說得通，不用這個說明）
+    if kind == 'cloze' and c is not None and cat != '意思相近':
+        exs = example_pairs(t)
+        if exs:
+            ex, ex_zh = exs[example_index] if example_index < len(exs) else exs[0]
+            st['sense'] = sense(t, c, ex, ex_zh, chosen_form(c))
     if not tip:
         tip = f"{t['word']} 的意思是「{t['zh']}」，看下面的例句記住它的用法"
     elif cat == '詞性不合':
