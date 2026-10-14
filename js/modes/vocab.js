@@ -3,7 +3,7 @@ import { typeLabel } from '../types.js';
 import { store } from '../storage.js';
 import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog } from '../util.js';
 import { icon } from '../icons.js';
-import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError, ERR_TIPS } from '../components/question.js';
+import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError, errorOf } from '../components/question.js';
 import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
@@ -41,12 +41,13 @@ export function mount(stage, ctx) {
     // 拼寫題（拼字、例句拼寫）把拼錯的字母標出來；選擇題的答案是整個選項，不標
     const spellKind = /拼/.test(String(d.kind || ''));
     const mark = spellKind && yours ? diffAnswer(yours, [d.correct || '']) : null;
+    const xp = d.err ? errorOf(d, all) : { err: '' }; // 錯誤原因依兩個字的關係重新判斷（舊紀錄的選擇題都記成「意思混淆」）
     return `<div class="rv-card">
         <div class="rv-meta">${esc(d.stage || '')}・${esc(d.kind || '')}</div>
         <div class="rv-prompt ${/[a-z]/i.test(d.q || d.question || '') ? 'en' : ''}">${esc(d.q || d.question || '')}</div>
         <div class="rv-row no"><span>你的答案</span><b class="en">${yours ? (spellKind ? mark.yoursHTML : esc(yours)) : '（未作答）'}</b></div>
         <div class="rv-row ok"><span>正確答案</span><b class="en">${spellKind && yours ? mark.correctHTML : esc(d.correct || '')}</b></div>
-        ${d.err ? `<p class="xp-tip"><span class="xp-tag">${esc(d.err)}</span>${esc(ERR_TIPS[d.err] || '')}</p>` : ''}
+        ${xp.err ? `<p class="xp-tip"><span class="xp-tag">${esc(xp.err)}</span>${esc(xp.tip)}</p>` : ''}
         <div class="xp-main"><span class="xp-word en">${esc(w.word)}</span>${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>
         ${exEn ? `<p class="xp-ex en">${exampleHTML(exEn)}</p>` : ''}
         ${exZh ? `<p class="xp-exzh">${esc(exZh)}</p>` : ''}

@@ -256,7 +256,13 @@ function chosenWord(q, chosen, pool) {
   return pool.find((w) => w.word === chosen);
 }
 
-// 錯誤原因：意思混淆（選到或拼成別的字）、詞形錯誤（字對了但形式不對）、拼字錯誤（差幾個字母）、不熟悉、未作答
+// 錯誤原因（看學生選到／拼成的字和正確的字是什麼關係，不是一律說「意思混淆」）：
+//   形近混淆：兩個字拼法很像（compelling／compiling、adapt／adopt）
+//   意思相近：兩個字中文意思重疊（big／large），差在用法和搭配
+//   詞性不合：例句題空格要形容詞，卻選了名詞（compelling／validity）
+//   句意不合：例句題選的字放在這句不合適（詞性一樣、意思對不上）
+//   意思混淆：拼字題拼成清單裡的另一個字
+//   詞形錯誤（字對了但形式不對）、拼字錯誤（差幾個字母）、不熟悉、未作答
 const stem = (s) => s.replace(/(ies|ied|ying|ing|es|ed|s|d)$/, '').replace(/i$/, 'y');
 
 function editDistance(a, b) {
@@ -270,20 +276,80 @@ function editDistance(a, b) {
   return d[a.length][b.length];
 }
 
+// 拼法很像：兩個字的差異不到三分之一（至少容許 2 個字母），或開頭有 5 個字母相同
+function lookAlike(a, b) {
+  const x = lettersOf(a.word), y = lettersOf(b.word);
+  if (x.length < 4 || y.length < 4 || x === y) return false;
+  let p = 0;
+  while (p < x.length && x[p] === y[p]) p++;
+  return p >= 5 || editDistance(x, y) <= Math.max(2, Math.floor(Math.max(x.length, y.length) / 3));
+}
+
+// 詞性：從 pos 欄（n.、v.、adj.、adv.、v./n.…）讀出中文名稱；片語另外算
+const POS_NAME = { n: '名詞', v: '動詞', vt: '動詞', vi: '動詞', adj: '形容詞', a: '形容詞', adv: '副詞', prep: '介系詞', conj: '連接詞', pron: '代名詞', phr: '片語', ph: '片語' };
+function posNames(w) {
+  if (w.type === 'phrase') return ['片語'];
+  return [...new Set(String(w.pos || '').toLowerCase().split(/[^a-z]+/).filter((t) => POS_NAME[t]).map((t) => POS_NAME[t]))];
+}
+
+// 選擇題：依學生選到的字（other）和正確的字（w）的關係分類
+function classifyChoice(w, other, cloze) {
+  if (!other) return cloze ? '句意不合' : '不熟悉';
+  if (lookAlike(w, other)) return '形近混淆';
+  if (sameMeaning(w.zh, other.zh)) return '意思相近';
+  if (cloze) {
+    const a = posNames(w), b = posNames(other);
+    if (a.length && b.length && !a.some((x) => b.includes(x))) return '詞性不合';
+    return '句意不合';
+  }
+  return '不熟悉';
+}
+
 export function classifyError(q, chosen, pool = []) {
   if (chosen == null || String(chosen).trim() === '') return '未作答';
-  if (q.type === 'mc') return '意思混淆';
+  if (q.type === 'mc') return classifyChoice(q.word, chosenWord(q, chosen, pool), q.dir === 'cloze');
   const typed = lettersOf(chosen);
   const ans = lettersOf(q.answer);
   const base = lettersOf(q.word.word);
   if (!typed) return '未作答';
   if (typed !== ans && (typed === base || (ans.length > 3 && stem(typed) === stem(ans)))) return '詞形錯誤';
-  if (pool.some((w) => w.word !== q.word.word && lettersOf(w.word) === typed)) return '意思混淆';
+  const other = pool.find((w) => w.word !== q.word.word && lettersOf(w.word) === typed);
+  if (other) return lookAlike(q.word, other) ? '形近混淆' : sameMeaning(q.word.zh, other.zh) ? '意思相近' : '意思混淆';
   if (editDistance(typed, ans) <= Math.max(1, Math.floor(ans.length / 4))) return '拼字錯誤';
   return '不熟悉';
 }
 
+// 針對這一題的說明（寫出兩個字各是什麼意思、差在哪裡）；沒有更具體的說法時回傳空字串，改用 ERR_TIPS
+function errDetail(err, w, other) {
+  if (!other || other.word === w.word) return '';
+  const a = `${other.word}（${other.zh}）`, b = `${w.word}（${w.zh}）`;
+  if (err === '形近混淆') return `${other.word} 和 ${w.word} 拼法很像，意思不同：${a}；${b}`;
+  if (err === '意思相近') return `${a} 和 ${b} 意思接近，這題要的是 ${w.word}，看例句記住它的用法和搭配`;
+  if (err === '詞性不合') return `空格需要${posNames(w).join('／')}，你選的 ${other.word} 是${posNames(other).join('／')}（${other.zh}）`;
+  if (err === '句意不合') return `這句要的是「${w.zh}」的 ${w.word}；你選的 ${other.word} 是「${other.zh}」，放在這裡不合適`;
+  if (err === '意思混淆') return `你拼成清單裡的另一個字 ${a}；這題要的是 ${b}`;
+  return '';
+}
+
+// 逐題檢討用：從紀錄（題型、學生的答案）找出選到的字，重新判斷錯誤原因並寫出說明。
+// 舊紀錄的選擇題一律記成「意思混淆」，這裡也會改成更準確的分類。
+export function errorOf(d, pool = []) {
+  const w = pool.find((x) => x.word === d.word);
+  const yours = String(d.yours || '').trim();
+  if (!w) return { err: d.err || '', tip: ERR_TIPS[d.err] || '' };
+  if (!yours) return { err: '未作答', tip: ERR_TIPS.未作答 };
+  const dir = d.kind === '英→中' ? 'en2zh' : d.kind === '例句選字' ? 'cloze' : d.kind === '中→英' ? 'zh2en' : '';
+  if (!dir) return { err: d.err || '', tip: errDetail(d.err, w, pool.find((x) => x.word !== w.word && lettersOf(x.word) === lettersOf(yours))) || ERR_TIPS[d.err] || '' };
+  const other = chosenWord({ dir }, yours, pool);
+  const err = classifyChoice(w, other && other.word !== w.word ? other : null, dir === 'cloze');
+  return { err, tip: errDetail(err, w, other) || ERR_TIPS[err] || '' };
+}
+
 export const ERR_TIPS = {
+  形近混淆: '兩個字拼法很像，意思卻不同，分開記',
+  意思相近: '兩個字意思接近，差在用法和搭配，看例句裡哪個字和前後文搭得起來',
+  詞性不合: '先看空格需要什麼詞性，再選意思對的字',
+  句意不合: '選的字放在這句不合適，先讀懂整句在說什麼，再找意思對得上的字',
   意思混淆: '這兩個字容易搞混，對照一下各自的意思和例句',
   詞形錯誤: '字選對了，注意句子需要的形式（時態、單複數、詞性變化）',
   拼字錯誤: '意思想對了，拼字再檢查一次',
@@ -295,13 +361,15 @@ export const ERR_TIPS = {
 export function explainWrong(q, chosen, pool = []) {
   const w = q.word;
   const err = classifyError(q, chosen, pool);
-  const lines = [`<p class="xp-tip"><span class="xp-tag">${esc(err)}</span>${esc(ERR_TIPS[err] || '')}</p>`];
+  const picked = q.type === 'mc' ? chosenWord(q, chosen, pool) : pool.find((x) => x.word !== w.word && lettersOf(x.word) === lettersOf(chosen || ''));
+  const detail = errDetail(err, w, picked);
+  const lines = [`<p class="xp-tip"><span class="xp-tag">${esc(err)}</span>${esc(detail || ERR_TIPS[err] || '')}</p>`];
   const text = [];
   lines.push(`<div class="xp-main"><span class="xp-word en">${esc(w.word)}</span><span class="pos">${esc(w.pos || '')}</span><span class="xp-zh">${esc(w.zh)}</span></div>`);
   text.push(`〔${err}〕${w.word}：${w.zh}`);
   if (q.type === 'mc') {
-    const other = chosenWord(q, chosen, pool);
-    if (other && other.word !== w.word) {
+    const other = picked;
+    if (!detail && other && other.word !== w.word) {
       const msg = q.dir === 'en2zh'
         ? `你選的「${esc(chosen)}」是 <b class="en">${esc(other.word)}</b> 的意思`
         : `你選的 <b class="en">${esc(chosen)}</b> 意思是「${esc(other.zh)}」`;

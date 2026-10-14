@@ -240,6 +240,9 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 .unit-tile.st-wait { --band: var(--edge); }
 .unit-tile.st-ok { --band: var(--good); }
 .unit-tile:is(.st-miss, .st-todo, .st-retake, .st-wait, .st-ok), .unit-tile:is(.st-miss, .st-todo, .st-retake, .st-wait, .st-ok):hover { border: 2px solid var(--band); }
+/* 未開放：還不能做，整張淡一點、虛線框 */
+.unit-tile.st-wait, .unit-tile.st-wait:hover { border-style: dashed; background: color-mix(in srgb, var(--surface) 45%, var(--paper)); }
+.unit-tile.st-wait > * { opacity: .8; }
 .st-retake .tile-state { background: var(--white); border-color: #EAB308; color: #854D0E; }
 .st-todo .tile-state { background: var(--white); border-color: #FB923C; color: #C2410C; }
 .st-miss .tile-state { background: var(--white); border-color: var(--bad); color: var(--bad-ink); }
