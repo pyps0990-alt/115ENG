@@ -14,7 +14,7 @@ CR, LF = bytes([13]), bytes([10])
 
 
 def copy_lf(src):
-    """一律存成 LF 換行：Windows 上的 CRLF 會讓 Dockerfile 的反斜線接續行失效，建置失敗"""
+    """一律存成 LF 換行：README 開頭的 Space 設定與 requirements 用 LF 最保險"""
     with open(src, 'rb') as f:
         data = f.read().replace(CR + LF, LF)
     with open(os.path.join(DIST, os.path.basename(src)), 'wb') as f:
@@ -24,7 +24,7 @@ def copy_lf(src):
 if os.path.isdir(DIST):
     shutil.rmtree(DIST)
 os.makedirs(DIST)
-for name in ('app.py', 'Dockerfile', 'requirements.txt', 'README.md'):
+for name in ('app.py', 'requirements.txt', 'README.md'):
     copy_lf(os.path.join(HERE, 'space', name))
 for name in ('brain.py', 'lm.py', 'wordbank.py', 'rejected_extras.json'):
     copy_lf(os.path.join(HERE, name))

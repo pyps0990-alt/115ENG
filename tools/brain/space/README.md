@@ -3,8 +3,10 @@ title: B5 Brain
 emoji: 🧠
 colorFrom: blue
 colorTo: indigo
-sdk: docker
-app_port: 7860
+sdk: gradio
+sdk_version: 5.9.1
+python_version: "3.11"
+app_file: app.py
 pinned: false
 ---
 
@@ -15,5 +17,7 @@ pinned: false
 
 - `POST /analyze`（標頭 `X-Brain-Key`）：`{unit, data, lm, rejected}` → `{job}`
 - `GET /jobs/{job}`：`status`（queued／running／done／error）、`step`、`result`
+- `GET /health`
 
 Secrets：`BRAIN_KEY`（必填）、`HF_TOKEN`（讀私人單字表）；Variables：`WORDBANK_REPO`（私人 dataset）。
+硬體選免費的 CPU basic 即可。
