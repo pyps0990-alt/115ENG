@@ -13,7 +13,6 @@ import { icon } from './icons.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js';
 const STALE_MS = 4 * 60000; // 學生端每 90 秒更新一次；超過 4 分鐘沒更新就當成已離開
-const CAP = 100; // Spark 免費方案同時連線上限
 const main = document.getElementById('main');
 const live = document.getElementById('live');
 const liveText = document.getElementById('live-text');
@@ -150,10 +149,8 @@ async function start(email) {
     main.querySelector('[data-now]').textContent = n;
     main.querySelector('[data-now-sub]').textContent = n ? `作答中 ${quiz} 人・其他畫面 ${n - quiz} 人` : '目前沒有人在線上';
     const used = n + 1; // 加上這個監控頁自己的連線
-    const cap = main.querySelector('[data-cap]');
-    cap.style.setProperty('--w', `${Math.min(100, (used / CAP) * 100)}%`);
-    cap.dataset.level = used >= 90 ? 'bad' : used >= 70 ? 'warn' : 'ok';
-    main.querySelector('[data-cap-text]').textContent = `同時連線 ${used} / ${CAP}（免費方案上限，含這個監控頁）`;
+    // Blaze 方案同時連線上限 20 萬，用不到；只顯示目前連線數（含這個監控頁）
+    main.querySelector('[data-cap-text]').textContent = `資料庫同時連線 ${used}（含這個監控頁）`;
 
     const byView = Object.fromEntries(VIEWS.map(([k]) => [k, 0]));
     people.forEach((p) => { byView[p.v in byView ? p.v : 'other']++; });
@@ -222,7 +219,7 @@ function layoutHTML() {
   return `
     <section class="mon-hero card mon-card">
       <div class="mh-now"><span class="mh-label-top">現在在線</span><b data-now>0</b><span class="muted" data-now-sub></span></div>
-      <div class="mon-cap"><span class="mon-cap-track" data-cap><span></span></span><span class="muted" data-cap-text></span></div>
+      <div class="mon-cap"><span class="muted" data-cap-text></span></div>
     </section>
     <div class="mon-grid">
       <section class="card mon-card"><h2>在哪個畫面</h2><ul class="hbars" data-views></ul></section>

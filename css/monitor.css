@@ -29,10 +29,6 @@ body.mon { background: var(--paper); }
 .mh-label-top { font-weight: 800; color: var(--navy); }
 .mh-now b { font-family: var(--font-en); font-weight: 900; font-size: clamp(3rem, 9vw, 4.5rem); line-height: 1; color: var(--navy); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 .mon-cap { display: grid; gap: 6px; }
-.mon-cap-track { display: block; height: 10px; border-radius: 999px; background: var(--wash); overflow: hidden; }
-.mon-cap-track > span { display: block; height: 100%; width: 100%; background: var(--navy); clip-path: inset(0 calc(100% - var(--w, 0%)) 0 0 round 999px); transition: clip-path .6s cubic-bezier(.16, 1, .3, 1); }
-.mon-cap-track[data-level="warn"] > span { background: var(--amber); }
-.mon-cap-track[data-level="bad"] > span { background: var(--bad); }
 @media (max-width: 640px) { .mon-hero { grid-template-columns: 1fr; } }
 
 .mon-grid { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -92,5 +88,5 @@ body.mon { background: var(--paper); }
 
 @media (prefers-reduced-motion: reduce) {
   .mon-live[data-state="on"] .dot { animation: none; }
-  .hb-bar, .mon-cap-track > span { transition: none; }
+  .hb-bar { transition: none; }
 }
