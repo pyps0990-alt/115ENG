@@ -578,20 +578,43 @@ def option_safety(data, analysis, margin=FIT_MARGIN):
                 per.append([])
                 continue
             before, ans, after = parts
-            forms = {chosen_form(w): w['word'] for w in same}
+            # 詞性和空格不合的字，學生一看就能刪掉，不需要特別排除；只檢查詞性對得上的（避免把一半的字都排掉）
+            need = (slot(t, ex) or {}).get('need')
+            forms = {chosen_form(w): w['word'] for w in same if not need or not pos_list(w) or need in pos_list(w)}
+            if not forms:
+                per.append([])
+                continue
             fit = lm.fit(before, after, ans, list(forms))
             per.append(sorted(forms[f] for f, d in fit.items() if d < margin))
         out[t['word']] = per
     return out
 
 
-def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, pool_size=14):
+def load_rejected():
+    """老師在出題選項檢查頁標成「不適合」的課外選項（rejected_extras.json：單元|單字|第幾句|課外字）。
+    回傳 (完整鍵集合, {單元|單字: 被標過的課外字}, 全域禁用字)；同一個課外字被兩個以上不同的字標過就全域禁用"""
+    import json
+    path = os.path.join(HERE, 'rejected_extras.json')
+    if not os.path.exists(path):
+        return set(), {}, set()
+    with open(path, encoding='utf-8') as f:
+        keys = set(json.load(f))
+    per_target, targets = {}, {}
+    for k in keys:
+        uid, w, _i, x = k.split('|')
+        per_target.setdefault(f'{uid}|{w}', set()).add(x)
+        targets.setdefault(x, set()).add(f'{uid}|{w}')
+    return keys, per_target, {x for x, t in targets.items() if len(t) >= 2}
+
+
+def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, pool_size=30, uid=''):
     """每句例句挑 n 個課外選項：詞性和空格一樣、級數接近（4 級以上優先）、不是本單元的字、不是答案的同義字或同字根、
     做成和答案一樣的形式後，語言模型認為放進去說不通（分數差距 ≥ margin＋1，留一點安全距離）。
     回傳 {單字: [[{word, form, pos, zh, level}, ...], ...]}"""
     import lm
     import wordbank
     bank = wordbank.load()
+    rej_keys, rej_target, rej_global = load_rejected()
     unit = {w['word'].lower() for w in data['words']}
     out = {}
     for t in data['words']:
@@ -608,9 +631,11 @@ def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, p
             before, ans, after = parts
             need = sl['need']
             cands = [b for b in bank.values() if need in pos_list(b) and b['word'] not in unit and ' ' not in b['word']
+                     and len(b['zh']) <= 22 and '【' not in b['zh']  # 單字表裡幾個詞性合併的項目，中文會黏在一起（「疹子輕率的」），不用
                      and len(b['word']) >= 4 and not same_family(b['word'], t['word']) and not synonyms(b['word'], t['word'])
-                     and not zh_overlap(b['zh'], t['zh'])]
-            hard = [b for b in cands if b['level'] >= 4] or [b for b in cands if b['level'] >= 3] or cands
+                     and not zh_overlap(b['zh'], t['zh'])
+                     and b['word'] not in rej_global and b['word'] not in rej_target.get(f"{uid}|{t['word']}", ())]
+            hard = [b for b in cands if b['level'] in (3, 4)] or [b for b in cands if b['level'] in (2, 5)] or cands  # 課外字以 3～4 級為主（老師指定），不夠才放寬
             rng.shuffle(hard)
             pick = hard[:pool_size]
             tag = _penn_tag(ex)

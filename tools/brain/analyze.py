@@ -60,7 +60,7 @@ def run(with_lm=False):
                 a['unsafe'], a['extra'] = old['unsafe'], old['extra']
         if with_lm:
             a['unsafe'] = brain.option_safety(d, a)
-            a['extra'] = brain.extra_options(d, a, random.Random(uid))
+            a['extra'] = brain.extra_options(d, a, random.Random(uid), uid=uid)
         with open(os.path.join(OUT, uid + '.json'), 'w', encoding='utf-8') as f:
             json.dump(a, f, ensure_ascii=False)
         print(uid, len(a['words']), '個字', len(a['pairs']), '組有關係：', a['pairs'])
