@@ -154,6 +154,13 @@ export async function listAttempts({ cls = '', days = 14, max = 500 } = {}) {
 
 /* ---------------- 老師 ---------------- */
 
+// 老師後台直接讀 Firestore 的公開文件（設定 config、題目 content_<單元>）：約 0.1 秒，不用等 Apps Script 的 1～3 秒。沒有這份文件回傳 null
+export async function readPublic(id) {
+  const snap = await getDoc(doc(db, 'public', id));
+  if (!snap.exists()) return null;
+  return JSON.parse(snap.data().json);
+}
+
 // cb(null) 未登入；cb({ email, role }) 已登入，role 為 'teacher'、'admin' 或 null（不在名單）
 export function watchStaff(cb) {
   let unsub = () => {};

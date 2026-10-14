@@ -144,6 +144,16 @@ function gradeOf(book) {
   const n = Number((/(\d+)/.exec(book) || [])[1]);
   return n >= 1 && n <= 2 ? '高一' : n >= 3 && n <= 4 ? '高二' : n >= 5 && n <= 6 ? '高三' : '';
 }
+// 首頁畫好後，趁空檔把接下來要做的單元題目先下載存在裝置上（依老師更新時間存，沒改過就不再下載）：點進單元時不用等網路。
+// 一次載入只做一次；省流量模式不做。
+let prefetched = false;
+function prefetchUnits(list) {
+  if (prefetched || !list.length || (navigator.connection && navigator.connection.saveData)) return;
+  prefetched = true;
+  const run = () => list.reduce((p, u) => p.then(() => loadUnit(u.id, config).catch(() => {})), Promise.resolve());
+  (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(run, { timeout: 4000 });
+}
+
 function renderHome() {
   document.title = 'B5 Practice';
   const s = store.student();
@@ -193,8 +203,10 @@ function renderHome() {
   const nTodo = st.filter((k) => k === 'todo').length;
   const nMiss = st.filter((k) => k === 'miss').length;
   const order = { retake: 0, todo: 1, open: 2 };
-  const nextRow = visible.map((u) => ({ u, ...unitStatus(u) })).filter((r) => r.k in order)
-    .sort((a, b) => order[a.k] - order[b.k] || lessonCmp(a.u.lesson, b.u.lesson))[0];
+  const upcoming = visible.map((u) => ({ u, ...unitStatus(u) })).filter((r) => r.k in order)
+    .sort((a, b) => order[a.k] - order[b.k] || lessonCmp(a.u.lesson, b.u.lesson));
+  const nextRow = upcoming[0];
+  prefetchUnits(upcoming.slice(0, 6).map((r) => r.u));
   if (nextRow) {
     const lead = { retake: '需要補考', todo: '待檢討', open: '下一個單元' }[nextRow.k];
     app.querySelector('#next-slot').innerHTML = `<a class="next-card ${nextRow.k}" href="#/u/${esc(nextRow.u.id)}">

@@ -164,6 +164,8 @@ bootstrap = r'''
       window.fastPublish = (docs) => fb.publishPublic(docs);
       // 成績分頁「即時（Firebase）」：直接讀 Firestore（老師帳號才讀得到）
       window.fbAttempts = (opts) => fb.listAttempts(opts);
+      // 開啟加速與讀題目：直接讀 Firestore 的 public/config、public/content_<單元>
+      window.fbPublic = (id) => fb.readPublic(id);
       // Apps Script 閒置一陣子會「睡著」，下一次儲存要多等 1～3 秒開機：頁面開著時每 4 分鐘敲一下，保持清醒
       const keepWarm = () => { if (document.visibilityState === 'visible') fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ api: 'ping' }), credentials: 'omit', cache: 'no-store' }).catch(() => {}); };
       setInterval(keepWarm, 240000);

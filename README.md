@@ -156,6 +156,8 @@ node tools/e2e/reset.mjs          # 老師重製單元：本機紀錄只清那�
 node tools/e2e/lessons.mjs        # 課次：數字顯示 L1、英文（例如 R-X）照原樣、不能用中文（不需要瀏覽器）
 node tools/e2e/submit.mjs         # 成績送出：伺服器拒收的成績留紀錄、裝置存不了時改用記憶體照樣送出並提醒別離開（不需要瀏覽器）
 node tools/e2e/submit-fs.mjs      # 成績先送 Firestore：兩種傳送方式、備援改走 Apps Script、之後送到會從待送清單拿掉（不需要瀏覽器，約 6 秒）
+node tools/e2e/staff.mjs         # 老師名單只在 teachers 分頁維護、同步到 Firestore admins 與 Realtime Database staff；後台操作紀錄（不需要瀏覽器）
+node tools/e2e/admin-load.mjs    # 後台開啟加速：先讀 Firestore 設定、Apps Script 回來後核對，不蓋掉正在編輯的內容（不需要瀏覽器）
 ```
 
 Firestore 規則測試要用模擬器（需要 Java）：

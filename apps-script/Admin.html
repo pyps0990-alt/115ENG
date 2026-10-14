@@ -1043,13 +1043,21 @@
       }
       impDirty();
     }
+    // 讀已儲存的題目：網站版直接讀 Firestore（題目只存在那裡，約 0.1 秒）；讀不到或 Apps Script 內建版才問 Apps Script
+    function getSavedContent(id, ok, fail) {
+      var viaScript = function () { google.script.run.withSuccessHandler(ok).withFailureHandler(fail).getContent(id); };
+      if (!window.fbPublic) { viaScript(); return; }
+      window.fbPublic('content_' + id).then(function (d) {
+        if (d && d.data) ok({ data: d.data, updated: d.v }); else viaScript();
+      }, viaScript);
+    }
     $('imp-load').onclick = function () {
       var u = impUnit(); if (!u) return;
       $('imp-msg').textContent = '讀取中…'; $('imp-msg').className = 'msg';
-      google.script.run.withSuccessHandler(function (res) {
+      getSavedContent(u.id, function (res) {
         if (res && res.data) { fillForm(u, res.data); $('imp-msg').textContent = '✓ 已載入匯入的內容'; $('imp-msg').className = 'msg ok'; return; }
         $('imp-msg').textContent = '這個單元還沒有題目，請直接貼上新內容'; $('imp-msg').className = 'msg';
-      }).withFailureHandler(function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; }).getContent(u.id);
+      }, function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; });
     };
 
     // ----- 解析與檢查 -----
@@ -1552,10 +1560,10 @@
     function withContent(cb) {
       var u = impUnit(); if (!u) return;
       $('imp-msg').textContent = '讀取中…'; $('imp-msg').className = 'msg';
-      google.script.run.withSuccessHandler(function (res) {
+      getSavedContent(u.id, function (res) {
         if (!res || !res.data) { $('imp-msg').textContent = '這個單元還沒有儲存的題目'; $('imp-msg').className = 'msg err'; return; }
         $('imp-msg').textContent = ''; cb(u, res.data);
-      }).withFailureHandler(function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; }).getContent(u.id);
+      }, function (err) { $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; });
     }
     function exportText(u, d) {
       var head = (d.topic ? '主題：' + d.topic + '\n\n' : '');
@@ -2012,29 +2020,99 @@
       content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit(); exRender(); puRender();
     }
     var staleNote = null;
-    try {
-      var cached = ADMIN_CACHE ? JSON.parse(localStorage.getItem(ADMIN_CACHE) || 'null') : null;
-      if (cached && cached.units) {
-        applyAdminData(cached);
-        [].forEach.call(tabSections(), function (s) { s.inert = true; });
+    function lockTabs(text) {
+      [].forEach.call(tabSections(), function (s) { s.inert = true; });
+      if (!staleNote) {
         staleNote = document.createElement('div');
-        staleNote.className = 'stale-note';
         staleNote.setAttribute('role', 'status');
-        staleNote.textContent = '正在讀取最新資料…先顯示上次的內容，讀完前暫時不能編輯。';
         $('tab-settings').parentNode.insertBefore(staleNote, $('tab-settings'));
       }
-    } catch (e) { /* 快取壞掉就照一般流程 */ }
+      staleNote.className = 'stale-note';
+      staleNote.textContent = text;
+    }
+    function unlockTabs() {
+      [].forEach.call(tabSections(), function (s) { s.inert = false; });
+      if (staleNote) { staleNote.remove(); staleNote = null; }
+    }
+    // 比對兩份設定（不看每次都會變的 updated、也不管欄位順序）
+    function stable(v) {
+      if (Array.isArray(v)) return '[' + v.map(stable).join(',') + ']';
+      if (v && typeof v === 'object') return '{' + Object.keys(v).filter(function (k) { return k !== 'updated'; }).sort().map(function (k) { return JSON.stringify(k) + ':' + stable(v[k]); }).join(',') + '}';
+      return JSON.stringify(v === undefined ? null : v);
+    }
+    // 後台畫面用到的資料（比對 Apps Script 回來的和畫面上的是否一樣）
+    function dataKey(d) {
+      return stable({ units: d.units || [], customUnits: d.customUnits || [], extensions: d.extensions || [], content: (d.content || []).map(function (c) { return [c.id, c.count, c.updated]; }) });
+    }
+    // 沒有這台電腦的快取時，用 Firestore 的學生網站設定先畫出畫面（只能看：補作備註、題目更新者等設定裡沒有，要等 Apps Script）
+    function fromConfig(cfg, old) {
+      old = old || {};
+      var notes = {};
+      (old.extensions || []).forEach(function (x) { notes[x.unit + '|' + x.cls + '-' + x.seat] = x.note; });
+      var ext = [];
+      Object.keys(cfg.ext || {}).forEach(function (unit) {
+        Object.keys(cfg.ext[unit]).forEach(function (k) {
+          var i = k.lastIndexOf('-');
+          ext.push({ unit: unit, cls: k.slice(0, i), seat: k.slice(i + 1), until: cfg.ext[unit][k], note: notes[unit + '|' + k] || '' });
+        });
+      });
+      return {
+        units: [],
+        customUnits: (cfg.customUnits || []).map(function (u) {
+          var s = (cfg.units || {})[u.id] || {};
+          return { id: u.id, title: u.title || u.id, type: u.type, lesson: u.lesson, topic: u.topic || '', visible: s.visible !== false, disabled: s.disabled || [],
+            questionCount: s.questionCount || 10, createdAt: '', openAt: s.openAt || '', closeAt: s.closeAt || '', custom: true };
+        }),
+        content: Object.keys(cfg.content || {}).map(function (id) { return { id: id, updated: cfg.content[id].updated, count: cfg.content[id].count, updatedBy: '' }; }),
+        extensions: ext, config: cfg, siteUrl: old.siteUrl || '', sheetUrl: old.sheetUrl || '#',
+      };
+    }
+    // 開啟後開始編輯過：Apps Script 晚到的資料不覆蓋畫面
+    var touched = false;
+    ['input', 'change'].forEach(function (ev) {
+      document.addEventListener(ev, function (e) { if (e.target && e.target.closest && e.target.closest('section[id^="tab-"]')) touched = true; }, true);
+    });
+    var cached = null, earlyKey = '', serverDone = false;
+    try {
+      cached = ADMIN_CACHE ? JSON.parse(localStorage.getItem(ADMIN_CACHE) || 'null') : null;
+      if (cached && cached.units) { applyAdminData(cached); lockTabs('正在讀取最新資料…先顯示上次的內容，讀完前暫時不能編輯。'); }
+      else cached = null;
+    } catch (e) { cached = null; /* 快取壞掉就照一般流程 */ }
+    // 網站版：先讀 Firestore 上學生網站目前的設定（約 0.1 秒）。
+    // 跟這台電腦上次的資料一樣 → 上次的資料就是最新的，馬上可以編輯；不一樣或沒有快取 → 先用設定畫出畫面（只能看），等 Apps Script。
+    if (window.fbPublic) {
+      window.fbPublic('config').then(function (cfg) {
+        if (serverDone || !cfg) return;
+        if (cached && cached.config && stable(cached.config) === stable(cfg)) { earlyKey = dataKey(cached); unlockTabs(); return; }
+        applyAdminData(fromConfig(cfg, cached));
+        lockTabs('正在讀取完整資料…先顯示學生網站目前的設定，讀完前暫時不能編輯。');
+      }, function () { /* 讀不到就等 Apps Script */ });
+    }
     // AI 狀態與提示詞跟單元資料互不相關，同時讀，不用排在後面
     google.script.run.withSuccessHandler(aiPaint).withFailureHandler(function () {}).getAiStatus();
     prLoad();
     google.script.run
       .withSuccessHandler(function (d) {
-        applyAdminData(d);
-        [].forEach.call(tabSections(), function (s) { s.inert = false; });
-        if (staleNote) { staleNote.remove(); staleNote = null; }
+        serverDone = true;
         try { if (ADMIN_CACHE) localStorage.setItem(ADMIN_CACHE, JSON.stringify(d)); } catch (e) { /* 空間不足就不存 */ }
+        if (earlyKey && dataKey(d) === earlyKey) {
+          // 提早開放編輯的畫面就是最新的：只更新基準設定，不重畫（不會打斷正在輸入的內容）
+          cfgBase = d.config || cfgBase; siteUrl = d.siteUrl || siteUrl; $('sheet').href = d.sheetUrl;
+          return;
+        }
+        if (earlyKey && touched) {
+          // 已經開始編輯，但伺服器上的資料在別處被改過：不覆蓋正在編輯的內容，提醒重新整理
+          lockTabs('');
+          staleNote.className = 'stale-note err';
+          staleNote.textContent = '試算表上的資料剛在別處被修改過，為了不蓋掉別人的修改，請重新整理頁面後再編輯（尚未儲存的修改會遺失）。';
+          return;
+        }
+        applyAdminData(d);
+        unlockTabs();
       })
       .withFailureHandler(function (err) {
+        serverDone = true;
+        if (earlyKey) return; // 畫面上的資料已確認和學生網站一致，照常使用；之後儲存時會再連一次 Apps Script
         if (staleNote) { staleNote.textContent = '讀取最新資料失敗：' + err.message + '（畫面是上次的內容，請重新整理再試）'; staleNote.className = 'stale-note err'; return; }
         $('units').innerHTML = '<tr><td colspan="5" class="msg err">' + esc(err.message) + '</td></tr>';
       })
