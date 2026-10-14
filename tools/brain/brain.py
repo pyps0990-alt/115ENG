@@ -204,6 +204,22 @@ _TAG = [('NN', 'n'), ('VB', 'v'), ('JJ', 'adj'), ('RB', 'adv'), ('IN', 'prep'), 
 _STOP = set('a an the this that these those my your his her its our their of to in on at for with by from and or but is are was were be been it he she they we you i as than so very'.split())
 
 
+def example_pairs(w):
+    """[(英文例句, 中文翻譯)]"""
+    exs = w.get('examples') or [{'ex': w.get('example', ''), 'zh': w.get('exampleZh', '')}]
+    return [(e.get('ex', ''), e.get('zh', '')) for e in exs if e.get('ex')]
+
+
+def study(w, kind, example_index=0):
+    """答錯後一定附上的「正確的字」：意思、詞性，加一句相關例句（例句題換一句沒考過的，讓學生多看一種用法）"""
+    exs = example_pairs(w)
+    ex, zh = ('', '')
+    if exs:
+        i = (example_index + 1) % len(exs) if kind == 'cloze' and len(exs) > 1 else 0
+        ex, zh = exs[i]
+    return {'word': w['word'], 'pos': w.get('pos', ''), 'zh': w.get('zh', ''), 'ex': ex, 'exZh': zh}
+
+
 def _examples(w):
     exs = w.get('examples') or [{'ex': w.get('example', ''), 'zh': w.get('exampleZh', '')}]
     return [e.get('ex', '') for e in exs if e.get('ex')]
@@ -310,11 +326,20 @@ def _pos_zh(ps):
 
 
 def explain(analysis, data, target, chosen, kind, example_index=0):
-    """target、chosen：單字（字串）；kind：'cloze' 例句選字、'zh2en'、'en2zh'、'spell'。回傳 (分類, 說明)"""
+    """target、chosen：單字（字串）；kind：'cloze' 例句選字、'zh2en'、'en2zh'、'spell'。回傳 (分類, 說明, 正確的字的意思與相關例句)"""
     by = {w['word']: w for w in data['words']}
     t, c = by[target], by.get(chosen)
-    if c is None:
-        return ('不熟悉', '')
+    st = study(t, kind, example_index)
+    cat, tip = _explain(analysis, t, c, kind, example_index) if c is not None else ('不熟悉', '')
+    if not tip:
+        tip = f"{t['word']} 的意思是「{t['zh']}」，看下面的例句記住它的用法"
+    elif cat == '詞性不合':
+        tip += f"；這裡要的是 {t['word']}（{t['zh']}）"
+    return (cat, tip, st)
+
+
+def _explain(analysis, t, c, kind, example_index):
+    target, chosen = t['word'], c['word']
     rel = analysis['pairs'].get('|'.join(sorted([target, chosen])))
     a = f"{c['word']}（{c['zh']}）"
     b = f"{t['word']}（{t['zh']}）"

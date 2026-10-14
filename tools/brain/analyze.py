@@ -81,7 +81,7 @@ def cases(uid, d, a, rng):
         for c, kind in picks:
             exs = brain._examples(t)
             idx = rng.randrange(len(exs)) if exs else 0
-            cat, tip = brain.explain(a, d, t['word'], c['word'], kind, idx)
+            cat, tip, st = brain.explain(a, d, t['word'], c['word'], kind, idx)
             if kind == 'cloze':
                 q, yours, right = _blank(exs[idx]), _form(c), _form(t, idx)
             elif kind == 'zh2en':
@@ -89,7 +89,7 @@ def cases(uid, d, a, rng):
             else:
                 q, yours, right = f"{t['word']}（選出中文）", c['zh'], t['zh']
             out.append({'id': f"{uid}|{t['word']}|{c['word']}|{kind}|{idx}", 'unit': uid, 'kind': {'cloze': '例句選字', 'zh2en': '中→英', 'en2zh': '英→中'}[kind],
-                        'q': q, 'yours': yours, 'right': right, 'cat': cat, 'tip': tip or '（沒有特別的說明，顯示一般提示）', 'old': '意思混淆'})
+                        'q': q, 'yours': yours, 'right': right, 'cat': cat, 'tip': tip, 'study': st, 'old': '意思混淆'})
     return out
 
 

@@ -31,6 +31,12 @@
   .vote button[aria-pressed="true"].n { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
   .vote input { flex: 1 1 240px; min-height: 40px; border-radius: 10px; border: 1px solid #C7CFDB; padding: 6px 10px; font: inherit; }
   .muted { color: #6B7789; font-size: .85rem; }
+  .study { margin-top: 8px; padding: 0 2px; }
+  .study b { color: var(--navy); font-size: 1.05rem; }
+  .study .pos { display: inline-block; padding: 0 8px; border-radius: 999px; background: var(--surface); color: var(--navy); font-size: .8rem; font-style: italic; }
+  .study .ex { margin-top: 4px; color: var(--navy); }
+  .study mark { background: #FDE68A; color: inherit; padding: 0 2px; border-radius: 3px; }
+  .study .exzh { color: #6B7789; font-size: .9rem; }
 </style>
 </head>
 <body>
@@ -51,7 +57,7 @@
 </main>
 <script>
   var CASES = /*CASES*/[];
-  var KEY = 'brain-review-v1';
+  var KEY = 'brain-review-v2'; // 引擎改版後重新判斷
   var votes = {};
   try { votes = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { votes = {}; }
   var save = function () { try { localStorage.setItem(KEY, JSON.stringify(votes)); } catch (e) {} };
@@ -81,6 +87,8 @@
         '<div class="q">' + esc(c.q) + '</div>' +
         '<div class="ans"><span class="y">學生選 <b>' + esc(c.yours) + '</b></span><span class="r">正確 <b>' + esc(c.right) + '</b></span></div>' +
         '<p class="tip"><span class="tag">' + esc(c.cat) + '</span>' + esc(c.tip) + '</p>' +
+        '<div class="study"><div><b class="en">' + esc(c.study.word) + '</b> <span class="pos">' + esc(c.study.pos) + '</span> ' + esc(c.study.zh) + '</div>' +
+        (c.study.ex ? '<div class="ex">' + esc(c.study.ex).replace(/\[([^\]]+)\]/g, '<mark>$1</mark>') + '</div>' + (c.study.exZh ? '<div class="exzh">' + esc(c.study.exZh) + '</div>' : '') : '') + '</div>' +
         '<div class="vote"><button type="button" class="y" aria-pressed="' + (v.v === 'y') + '">準確</button><button type="button" class="n" aria-pressed="' + (v.v === 'n') + '">不準確</button>' +
         '<input type="text" placeholder="應該怎麼說（選填）" value="' + esc(v.note || '') + '"></div></div>';
     }).join('') || '<p class="muted">沒有符合的題目</p>';
