@@ -28,6 +28,24 @@ infrastructure|0|operation infrastructure|2|performance
 genetic|0|environmental genetic|0|unique genetic|1|regional genetic|1|characteristic genetic|2|annual genetic|2|constant
 latter|0|opposite latter|1|combination induce|2|fuel somewhat|0|largely alter|0|decrease
 comprehensive|1|manageable comprehensive|2|vivid
+contemporary|1|award contemporary|2|various contemporary|2|modest complicated|0|imaginative complicated|0|scary
+complicated|1|distinct complicated|1|artificial plain|0|typical plain|0|conventional penetrate|2|strengthen penetrate|2|overcome
+renowned|0|financial renowned|0|bald depict|0|concern depict|1|celebrate solitary|0|memorable solitary|1|mechanical
+compelling|1|enjoyable predict|0|recognize predict|1|clarify predict|2|reveal predict|2|establish
+unconventional|0|superior unconventional|0|artistic unconventional|1|imaginative justify|2|dispute encounter|0|observe
+encounter|2|confine essence|2|significance mislead|1|instruct journalism|1|literature journalism|2|management attempt|2|approach
+illustrate|0|suggest illustrate|0|reflect illustrate|2|trace extensive|2|appropriate mainstream|0|conservative mainstream|1|impressive
+evaluate|1|communicate evaluate|2|manage validity|0|structure cite|2|edit cite|2|consult objective|0|honorable
+objective|2|appropriate objective|2|genuine differ|0|unite differ|2|interact crew|1|security crew|2|charity settle|1|retreat
+possess|0|strengthen exceptional|2|magnificent exceptional|2|competitive strategic|0|offensive opposite|0|empty opposite|1|romantic
+opposite|1|normal opposite|1|intermediate core|2|desirable considerably|0|lately considerably|1|nowadays considerably|2|yearly
+considerably|2|scarcely dense|2|swift stark|0|tragic stark|1|vacant stark|2|definite lively|0|brilliant lively|0|monthly
+agricultural|0|current agricultural|0|typical agricultural|0|previous agricultural|1|prosperous agricultural|1|influential
+agricultural|2|technological agricultural|2|commercial gorgeous|0|inferior lush|2|delightful bustling|0|enjoyable bustling|2|prosperous
+mountainous|0|unique primitive|0|multiple substantial|0|constructive substantial|0|specific unethical|0|offensive torment|0|challenge
+livestock|2|battery estimate|2|suggest switch|0|determine concern|2|obstacle infrastructure|0|vision infrastructure|2|structure
+genetic|0|individual genetic|1|fundamental genetic|2|gradual latter|0|indoor reaction|2|ache alter|0|disturb suit|0|reward
+scale|0|firework scale|0|fashion scale|1|costume comprehensive|2|unique
 """.split()
 
 

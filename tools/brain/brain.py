@@ -593,6 +593,11 @@ def option_safety(data, analysis, margin=FIT_MARGIN):
 EXTRA_REJECTED = set()  # 網路服務（space/app.py）呼叫時另外帶來的不適合清單
 
 
+# 不適合出現在高中測驗裡的字（單字表裡有，但不拿來當選項）
+SCHOOL_UNSAFE = set("""bra brassiere breast damn hell queer sex sexual sexy suicide naked drunk kill murder gay bitch
+shit fuck ass bastard porn rape""".split())
+
+
 def load_rejected():
     """老師在出題選項檢查頁標成「不適合」的課外選項（rejected_extras.json：單元|單字|第幾句|課外字）。
     回傳 (完整鍵集合, {單元|單字: 被標過的課外字}, 全域禁用字)；同一個課外字被兩個以上不同的字標過就全域禁用"""
@@ -641,7 +646,8 @@ def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, p
                      and len(b['zh']) <= 22 and '【' not in b['zh']  # 單字表裡幾個詞性合併的項目，中文會黏在一起（「疹子輕率的」），不用
                      and len(b['word']) >= 4 and not same_family(b['word'], t['word']) and not synonyms(b['word'], t['word'])
                      and not zh_overlap(b['zh'], t['zh'])
-                     and b['word'] not in rej_global and b['word'] not in rej_target.get(f"{uid}|{t['word']}", ())]
+                     and b['word'] not in rej_global and b['word'] not in rej_target.get(f"{uid}|{t['word']}", ())
+                     and b['word'] not in SCHOOL_UNSAFE]
             hard = [b for b in cands if b['level'] in (3, 4)] or [b for b in cands if b['level'] in (2, 5)] or cands  # 課外字以 3～4 級為主（老師指定），不夠才放寬
             rng.shuffle(hard)
             pick = hard[:pool_size]

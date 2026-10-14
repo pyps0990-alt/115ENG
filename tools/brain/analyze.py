@@ -150,9 +150,34 @@ def options():
     print(len(rows), '句例句')
 
 
+def prune():
+    """不重跑分析：把 out/ 裡已經被標成不適合（rejected_extras.json、全域禁用、不適合學生的字）的課外選項拿掉。
+    留下來的都是看過的，不會冒出新的沒檢查過的選項"""
+    keys, per_target, banned = brain.load_rejected()
+    for uid, d in units():
+        path = os.path.join(OUT, uid + '.json')
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding='utf-8') as f:
+            a = json.load(f)
+        if 'extra' not in a:
+            continue
+        before = after = empty = 0
+        for w, per in a['extra'].items():
+            for i, lst in enumerate(per):
+                before += len(lst)
+                per[i] = [o for o in lst if f"{uid}|{w}|{i}|{o['word']}" not in keys and o['word'] not in banned
+                          and o['word'] not in per_target.get(f"{uid}|{w}", ()) and o['word'] not in brain.SCHOOL_UNSAFE]
+                after += len(per[i])
+                empty += not per[i]
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(a, f, ensure_ascii=False)
+        print(uid, '課外選項', before, '→', after, '；沒有課外選項的句子', empty)
+
+
 if __name__ == '__main__':
     cmd = sys.argv[1] if len(sys.argv) > 1 else 'run'
     if cmd == 'run' and '--lm' in sys.argv:
         run(True)
     else:
-        {'fetch': fetch, 'run': run, 'report': report, 'options': options}[cmd]()
+        {'fetch': fetch, 'run': run, 'report': report, 'options': options, 'prune': prune}[cmd]()
