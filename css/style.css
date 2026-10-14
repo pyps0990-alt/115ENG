@@ -232,23 +232,22 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 .unit-tile:hover { background: var(--white); }
 .tile-state { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px 3px 9px; border-radius: 999px; background: var(--white); border: 1px solid var(--line-strong); color: var(--steel); font-weight: 800; font-size: .88rem; white-space: nowrap; }
 .tile-state .ic { width: 15px; height: 15px; stroke-width: 2.6; }
-/* 狀態：整張卡片換成該狀態的淡色底＋同色系框線，上方小標籤寫出狀態（補考寫出還差多少、待檢討用燈泡），學生端不用實心紅色。
-   淡色底上的灰字、藍字對比都超過 4.5:1；滑鼠移上去只換成藍框，底色不變（狀態不會消失） */
-.unit-tile.st-ok { --tint: #EAF7EE; border-color: #C6E9D1; }
-.unit-tile.st-retake { --tint: #FDF5DC; border-color: #F3DFA2; }
-.unit-tile.st-todo { --tint: var(--navy-soft); border-color: #C3CFEA; }
-.unit-tile.st-miss { --tint: #FCEBEB; border-color: #F5C2C2; }
-.unit-tile:is(.st-ok, .st-retake, .st-todo, .st-miss), .unit-tile:is(.st-ok, .st-retake, .st-todo, .st-miss):hover { background: var(--tint); }
-.unit-tile:is(.st-ok, .st-retake, .st-todo, .st-miss):hover { border-color: var(--navy); }
-.st-retake .tile-state { background: var(--white); border-color: var(--amber); color: var(--amber-ink); }
-.st-todo .tile-state { background: var(--white); border-color: #C3CFEA; color: var(--navy); }
+/* 狀態：卡片左側一條狀態色邊（用內陰影畫，會跟著卡片圓角），上方小標籤寫出狀態（補考寫出還差多少、待檢討用燈泡）。
+   缺交紅、待檢討橘、需補考黃、未開放灰、已完成綠；尚未開始沒有色邊 */
+.unit-tile.st-miss { --band: var(--bad); }
+.unit-tile.st-todo { --band: #F97316; }
+.unit-tile.st-retake { --band: #EAB308; }
+.unit-tile.st-wait { --band: var(--edge); }
+.unit-tile.st-ok { --band: var(--good); }
+.unit-tile:is(.st-miss, .st-todo, .st-retake, .st-wait, .st-ok) { padding-left: 26px; box-shadow: inset 8px 0 0 var(--band); }
+.st-retake .tile-state { background: var(--white); border-color: #EAB308; color: #854D0E; }
+.st-todo .tile-state { background: var(--white); border-color: #FB923C; color: #C2410C; }
 .st-miss .tile-state { background: var(--white); border-color: var(--bad); color: var(--bad-ink); }
 .st-ok .tile-state { background: transparent; border-color: transparent; padding-left: 0; color: var(--good-ink); }
 /* 已完成：不用再看離及格線多遠，量尺拿掉，最佳成績改綠字 */
 .st-ok .meter { display: none; }
 .st-ok .tile-sub { color: var(--good-ink); }
 .st-open .tile-state, .st-wait .tile-state { background: transparent; border-color: transparent; padding-left: 0; }
-.unit-tile.st-wait { background: transparent; border: 1.5px dashed var(--edge); }
 .tile-top .badge { margin-left: auto; }
 .unit-tile h3 { font-weight: 800; font-size: 1.3rem; }
 .tile-topic { margin-top: -4px; font-size: .95rem; font-weight: 600; color: var(--steel); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -746,6 +745,7 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1
 /* 卡片、按鈕的觸感 */
 .unit-tile { transition: transform .25s var(--ease), border-color .2s, background .2s, box-shadow .25s var(--ease); }
 .unit-tile:hover { box-shadow: 0 10px 24px rgba(15, 23, 42, .08); }
+.unit-tile:is(.st-miss, .st-todo, .st-retake, .st-wait, .st-ok):hover { box-shadow: inset 8px 0 0 var(--band), 0 10px 24px rgba(15, 23, 42, .08); border-left-color: var(--band); } /* 滑鼠移上去色邊保留，左邊框線併進色邊 */
 .unit-tile:active { transform: translateY(0) scale(.985); transition-duration: .08s; }
 .btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(15, 23, 42, .08); }
 .btn:active:not(:disabled) { transform: scale(.97); box-shadow: none; transition-duration: .08s; }
