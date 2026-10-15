@@ -1159,7 +1159,7 @@
         google.script.run.withSuccessHandler(function (c) { cfg = c; $('br-key').value = ''; keyHint(c); msg('✓ 已儲存引擎設定', 'ok'); })
           .withFailureHandler(function (err) { msg(err.message, 'err'); }).setBrainConfig($('br-url').value, $('br-key').value);
       };
-      // 「用這台電腦分析」：呼叫老師電腦上的本機引擎（tools/brain/本機分析引擎.bat，和雲端同一份程式、同一把金鑰）
+      // 「用這台電腦分析」：呼叫老師電腦上的本機引擎（tools/brain/start-local-engine.bat，和雲端同一份程式、同一把金鑰）
       var LOCAL_URL = 'http://127.0.0.1:8765';
       var local = function () { return $('br-where').value === 'local'; };
       try { if (localStorage.getItem('brWhere')) $('br-where').value = localStorage.getItem('brWhere'); } catch (e) {}
@@ -1207,7 +1207,7 @@
         if (!cfg || !cfg.key) { msg('請先在「引擎設定」填金鑰', 'err'); return; }
         var btn = this; btn.disabled = true;
         localUp().then(function (up) {
-          if (!up) { msg('這台電腦的分析引擎沒有開：請先雙擊 tools 資料夾裡 brain 的「本機分析引擎.bat」', 'err'); return; }
+          if (!up) { msg('這台電腦的分析引擎沒有開：請先雙擊 tools 資料夾裡 brain 的「start-local-engine.bat」', 'err'); return; }
           return pending.reduce(function (p, u) { return p.then(function () { return analyzeUnit(u, LOCAL_URL); }); }, Promise.resolve());
         }).then(function () { btn.disabled = false; pendingRefresh(); });
       };
@@ -1298,7 +1298,7 @@
         }).catch(function (err) {
           var m = String(err && err.message || err);
           $('br-now').textContent = '已停止';
-          msg('分析失敗：' + (/Failed to fetch|NetworkError|Load failed/i.test(m) ? (base === LOCAL_URL ? '連不到這台電腦的分析引擎（請先雙擊 tools 資料夾裡 brain 的「本機分析引擎.bat」，視窗開著再按分析）' : '連不到分析引擎（網址錯誤、網路中斷，或請求被切斷）') : m), 'err');
+          msg('分析失敗：' + (/Failed to fetch|NetworkError|Load failed/i.test(m) ? (base === LOCAL_URL ? '連不到這台電腦的分析引擎（請先雙擊 tools 資料夾裡 brain 的「start-local-engine.bat」，視窗開著再按分析）' : '連不到分析引擎（網址錯誤、網路中斷，或請求被切斷）') : m), 'err');
         }).then(function () { clearInterval(timer); timer = null; $('br-eta').textContent = '共 ' + mmss((Date.now() - t0) / 1000); });
       }
     })();

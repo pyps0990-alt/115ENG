@@ -2622,7 +2622,7 @@ function notifyAnalysis_(unitId, editor, count) {
     var lines = [
       editor + ' 剛儲存了單元 ' + unitId + '（' + count + ' 個字詞）。',
       '',
-      '請在自己電腦雙擊 tools\\brain\\本機分析引擎.bat，打開老師後台 → 匯入內容 → 錯誤分析，按「全部用這台電腦分析」。',
+      '請在自己電腦雙擊 tools\\brain\\start-local-engine.bat，打開老師後台 → 匯入內容 → 錯誤分析，按「全部用這台電腦分析」。',
       '分析完成前，學生看到的是基本解析（不影響作答與成績）。',
     ];
     MailApp.sendEmail(owner, '[B5 Practice] 單元 ' + unitId + ' 有新的單字題目，需要錯誤分析', lines.join('\n'));
