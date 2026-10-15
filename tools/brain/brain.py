@@ -228,7 +228,7 @@ def study(w, kind, example_index=0):
     return {'word': w['word'], 'pos': w.get('pos', ''), 'zh': w.get('zh', ''), 'ex': ex, 'exZh': zh}
 
 
-def _zh_span(zh, meaning_list):
+def _zh_span(zh, meaning_list, fuzzy=True):
     """在中文翻譯裡找出對應這個字的那幾個字：先找完全相同的義項，找不到就找字最相近的一段（穿過／穿透、著名的／聞名）"""
     pieces = []
     for m in meaning_list:
@@ -237,19 +237,27 @@ def _zh_span(zh, meaning_list):
         if len(m) >= 2 and m in zh:
             i = zh.index(m)
             return i, i + len(m)
+    # 意思被中間插了幾個字（引起共鳴 → 引起了強烈共鳴、造成惡果 → 造成嚴重的惡果）：前後兩半各至少兩個字
+    for m in sorted(pieces, key=len, reverse=True):
+        for k in range(2, len(m) - 1):
+            g = re.search(re.escape(m[:k]) + r'[^，。；、！？]{1,5}?' + re.escape(m[k:]), zh)
+            if g:
+                return g.start(), g.end()
+    if not fuzzy:
+        return None
     # 找不到完全相同的：用 jieba 斷詞，在完整的詞（或相鄰兩個詞）裡找字最相近的，替換時不會切在詞的中間
     toks = list(jieba.tokenize(zh))
     spans = [(t[1], t[2]) for t in toks] + [(toks[k][1], toks[k + 1][2]) for k in range(len(toks) - 1)]
     best = (0, None)
     for a, b in spans:
         win = zh[a:b]
-        if not all('一' <= ch <= '鿿' for ch in win):
+        if len(win) < 2 or not all('一' <= ch <= '鿿' for ch in win):
             continue
         for m in pieces:
             if len(m) < 2:
                 continue
             shared = sum(1 for ch in set(m) if ch in win)
-            if not shared:
+            if shared < 2:  # 只有一個字相同（上當／上午）不算
                 continue
             score = shared / max(len(m), len(win)) + (0.1 if win[0] in m else 0) + len(win) * 0.001
             if score > best[0]:
@@ -257,18 +265,32 @@ def _zh_span(zh, meaning_list):
     return best[1] if best[0] >= 0.5 else None
 
 
+def _bank_entry(word):
+    """7000 單字表裡這個字的資料（沒有單字表時回 None）"""
+    import wordbank
+    return wordbank.load().get(str(word).lower())
+
+
 def answer_span(t, ex_zh):
     """中文翻譯裡對應答案的那一段 (i, j)，頭尾的「的了著地得」不算；找不到回 None。
     片語的翻譯常被拆開（fall for → 上了⋯的當），硬換會換錯字：片語一律回 None"""
-    span = None if 'phr' in pos_list(t) else _zh_span(ex_zh or '', meanings(t.get('zh')))
+    ms = meanings(t.get('zh'))
+    if 'phr' in pos_list(t):
+        ms = [x for x in ms if '⋯' not in x]  # 拆開的片語意思（受⋯的騙）不硬找
+    else:
+        bank = _bank_entry(t['word'])  # 7000 單字表的中文意思當補充（shatter：使破碎 → 粉碎）
+        ms = ms + [x for x in meanings(re.sub(r'\(\d\)', '；', bank['zh'])) if x not in ms] if bank else ms
+    ms = ms + [x[1:] for x in ms if len(x) >= 3 and x[0] in '使被有']  # 使破碎 → 破碎、有天壤之別 → 天壤之別
+    # 片語不用「字最相近」的找法：只找到一半（引起了強烈共鳴 → 引起）時，換字會換出怪句子
+    span = _zh_span(ex_zh or '', ms, fuzzy='phr' not in pos_list(t)) if ms else None
     if not span:
         return None
     i, j = span
-    while j - i > 1 and ex_zh[i] in '的了著地得':
+    while j - i > 1 and ex_zh[i] in '的了地得':  # 開頭的「著」不去掉（著名、著稱）
         i += 1
     while j - i > 1 and ex_zh[j - 1] in '的了著地得':
         j -= 1
-    return (i, j)
+    return (i, j) if j - i >= 2 else None
 
 
 def sense(t, c, ex, ex_zh, chosen_form):
@@ -485,7 +507,19 @@ def _slot_text(ex, sl):
             return f"空格是句子的動作，後面接「{hint}」，需要{name}"
         return f"空格是句子的動作，需要{name}" + (f"（受詞是「{hint}」）" if hint and after else '')
     if need == 'n':
-        return f"空格是一個東西或概念，需要{name}" + (f"，和「{hint}」連在一起" if hint else '')
+        # 只有提示字緊貼空格才說它們的關係（前面描述它的字、後面接的介系詞）；離得遠的提示常常不相干，就不提
+        before = ex[:m.start()] if m else ''
+        if hint and after and hint.lower() in _PREPS and re.match(r'\s*' + re.escape(hint) + r'\b', ex[m.end():], re.I):
+            return f"空格是一個東西或概念，後面接「{hint}」，需要{name}"
+        if hint and not after and re.search(r'\b' + re.escape(hint) + r"\s+(?:[A-Za-z'-]+\s+)?$", before, re.I):
+            plain = before + m.group(1) + ex[m.end():]
+            tag = dict(nltk.pos_tag(re.findall(r"[A-Za-z']+", plain))).get(hint, '')
+            if tag.startswith('VB'):
+                return f"空格是「{hint}」的對象，需要{name}"
+            return f"空格是一個東西或概念，前面的「{hint}」在描述它，需要{name}"
+        return f"空格是一個東西或概念，需要{name}"
+    if need == 'phr':
+        return '空格是一個片語，先想整句在說什麼，再找意思對得上的片語'
     return f"空格需要{name}"
 
 
