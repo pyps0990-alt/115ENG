@@ -481,6 +481,11 @@ def analyze(data):
             'role': roles(w),  # 在句子裡當什麼詞性用（片語也算出來：participate in → 動詞），網站解題步驟用來排除詞性不合的選項
             'ex': [_slot_view(w, ex, ex_zh) for ex, ex_zh in example_pairs(w)],
         }
+    # 每句例句的選項形式（同單元的字變成和答案一樣的時態、單複數）
+    for t in words:
+        for sl, (ex, _zh) in zip(info[t['word']]['ex'], example_pairs(t)):
+            if sl is not None:
+                sl['forms'] = option_forms(t, ex, sl, words)
     pairs = {}
     for i, a in enumerate(words):
         for b in words[i + 1:]:
@@ -691,7 +696,8 @@ UNCOUNTABLE = set("""advice baggage bread chaos clothing courage damage dirt edu
 garbage gold grass happiness harm health help homework honesty housework information intelligence jewelry knowledge laughter
 leisure luck luggage machinery mail money music news nonsense nutrition oxygen patience permission pollution poetry progress
 research rice safety scenery sand silver smoke snow software stuff sunshine traffic transportation trash violence vocabulary
-water weather wealth wisdom""".split())
+water weather wealth wisdom
+validity infrastructure torment mainstream essence journalism livestock""".split())  # 第二行：本單元常見、複數很少用的字（validities、essences）
 
 
 def inflect(word, tag):
@@ -701,6 +707,83 @@ def inflect(word, tag):
     from lemminflect import getInflection
     forms = getInflection(word, tag=tag)
     return forms[0] if forms else word
+
+
+def _answer_tag(ex):
+    """答案第一個字在句子裡的詞性標記（片語看第一個字：[laid out] → VBD、[are worlds apart] → VBP）"""
+    m = re.search(r'\[([^\]]+)\]', ex)
+    if not m:
+        return None
+    plain = ex[:m.start()] + m.group(1) + ex[m.end():]
+    toks = re.findall(r"[A-Za-z']+|[^\sA-Za-z']", plain)
+    i = len(re.findall(r"[A-Za-z']+|[^\sA-Za-z']", ex[:m.start()]))
+    return nltk.pos_tag(toks)[i][1] if i < len(toks) else None
+
+
+_BE = {'VBZ': 'is', 'VBP': 'are', 'VBD': 'was', 'VBN': 'been', 'VBG': 'being'}
+
+
+def form_like(w, tag, need):
+    """把字詞 w 變成和答案一樣的形式（tag 是答案的詞性標記）：
+    動詞跟著時態（composed、depicting、possesses）、名詞跟著單複數；形容詞、副詞、介系詞用原形；片語只變第一個字（fell for、kept an eye on）"""
+    toks = w['word'].split()
+    first = toks[0]
+    if need == 'v' and tag in ('VBD', 'VBN', 'VBG', 'VBZ'):
+        if first.lower() == 'be':
+            new = _BE[tag]  # 只會遇到 VBN／VBG（VBZ／VBD 在 option_forms 就排除了）
+        else:
+            from lemminflect import getInflection
+            got = getInflection(first, tag=tag)
+            new = got[0] if got else first
+        return ' '.join([new] + toks[1:])
+    if need == 'v' and tag == 'VBP' and first.lower() == 'be':
+        return ' '.join(['are'] + toks[1:])  # 主詞是複數或 I／you 才會用 VBP 的原形動詞
+    if need == 'n' and tag in ('NNS', 'NNPS') and len(toks) == 1 and first.lower() not in UNCOUNTABLE:
+        from lemminflect import getInflection
+        got = getInflection(first, tag='NNS')
+        return got[0] if got else first
+    return w['word']
+
+
+def _answer_form_tag(t, ex, need):
+    """答案在這句是什麼形式（VBD、VBZ、NNS…）：先用答案和原形的詞形變化表比對（標註器常把 depicts 標成名詞），
+    比對到不只一種（過去式和過去分詞同形）才用標註器的判斷"""
+    m = re.search(r'\[([^\]]+)\]', ex)
+    if not m:
+        return None
+    ans_first = m.group(1).split()[0].lower()
+    base_first = t['word'].split()[0].lower()
+    if ans_first == base_first:
+        return 'VB' if need == 'v' else 'NN'
+    from lemminflect import getAllInflections, getAllInflectionsOOV
+    table = getAllInflections(base_first, upos='VERB' if need == 'v' else 'NOUN') or         getAllInflectionsOOV(base_first, upos='VERB' if need == 'v' else 'NOUN')
+    if base_first == 'be':
+        table = {'VBZ': ('is',), 'VBP': ('are', 'am'), 'VBD': ('was', 'were'), 'VBN': ('been',), 'VBG': ('being',)}
+    tags = [tag for tag, forms in table.items() if ans_first in [f.lower() for f in forms]]
+    if not tags:
+        return _answer_tag(ex)
+    guess = _answer_tag(ex)
+    return guess if guess in tags else sorted(tags)[0]
+
+
+def option_forms(t, ex, sl, words):
+    """這句例句裡，同單元每個字當選項時要顯示的形式：詞性和空格對得上的，變成和答案一樣的形式（四個選項詞形一致，不能靠形式猜答案）；
+    詞性不合的維持原形（它們在「依詞性排除」那一步就該刪掉）。值是 None＝這句不拿它當選項（be 動詞片語遇到要看主詞的 is／was）"""
+    need = (sl or {}).get('role') or (sl or {}).get('need')
+    tag = _answer_form_tag(t, ex, need) if need in ('v', 'n') else None
+    out = {}
+    for w in words:
+        if w is t:
+            continue
+        if need not in roles(w):
+            out[w['word']] = w['word']
+        elif need == 'n' and tag in ('NNS', 'NNPS') and w['word'].lower() in UNCOUNTABLE:
+            out[w['word']] = None  # 空格要複數，不可數名詞沒有自然的複數（validities），不當選項
+        elif need == 'v' and w['word'].split()[0].lower() == 'be' and tag in ('VBZ', 'VBD'):
+            out[w['word']] = None  # is／was 還是 are／were 要看主詞，猜錯會變成文法錯誤，乾脆不當選項
+        else:
+            out[w['word']] = form_like(w, tag, need)
+    return out
 
 
 def _split(ex):
@@ -717,17 +800,20 @@ def option_safety(data, analysis, progress=None):
     for k, t in enumerate(words):
         if progress:
             progress(k, len(words), t['word'])
-        same = [w for w in words if w is not t and ('phr' in pos_list(w)) == ('phr' in pos_list(t))]
         per = []
-        for ex in _examples(t):
+        slots = analysis['words'][t['word']]['ex']
+        for k_ex, ex in enumerate(_examples(t)):
             parts = _split(ex)
-            if not parts:
+            sl = slots[k_ex] if k_ex < len(slots) else None
+            if not parts or not sl:
                 per.append([])
                 continue
             before, ans, after = parts
-            # 詞性和空格不合的字，學生一看就能刪掉，不需要特別排除；只檢查詞性對得上的（避免把一半的字都排掉）
-            need = (slot(t, ex) or {}).get('need')
-            forms = {chosen_form(w): w['word'] for w in same if not need or not pos_list(w) or need in pos_list(w)}
+            # 詞性和空格不合的字，學生一看就能刪掉，不需要特別排除；只檢查詞性對得上的（避免把一半的字都排掉）。
+            # 用出題時真正顯示的形式（和答案同時態、單複數，analyze 算好的 forms）放進句子判斷
+            need = sl.get('role') or sl.get('need')
+            shown = sl.get('forms') or {}
+            forms = {shown.get(w['word']) or chosen_form(w): w['word'] for w in words if w is not t and (not need or need in roles(w)) and shown.get(w['word'], '') is not None}
             if not forms:
                 per.append([])
                 continue

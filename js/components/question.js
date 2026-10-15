@@ -57,19 +57,26 @@ export function buildClozeMC(word, pool, analysis = null, pickEx = null) {
   const others = extras.map((e) => e.form);
   const order = [...shuffle(same.length >= 4 ? same : pool), ...shuffle(pool)];
   const safeFirst = [...order.filter((w) => !unsafe.has(key(w.word))), ...order.filter((w) => unsafe.has(key(w.word)))];
+  // 選項的形式：引擎算好的（和答案同時態、單複數：shattered → composed、depicted），四個選項詞形一致，不能靠形式猜答案；
+  // null＝這句不拿它當選項（be 動詞片語遇到要看主詞的 is／was）；沒有引擎結果就用它自己例句裡的形式
+  const slot = (analysis && analysis.words && analysis.words[word.word] && analysis.words[word.word].ex[exIdx]) || null;
+  const shown = (slot && slot.forms) || {};
+  const forms = {}; // 選項形式 → 哪個字（判斷學生選了哪個字用）
   for (const w of safeFirst) {
     if (others.length >= 3) break;
+    if (w.word === word.word || shown[w.word] === null) continue;
     const p = clozeParts(w);
-    if (!p || w.word === word.word || seen.has(key(p.answer))) continue;
-    seen.add(key(p.answer));
-    others.push(p.answer);
+    const form = shown[w.word] || (p && p.answer);
+    if (!form || seen.has(key(form))) continue;
+    seen.add(key(form));
+    forms[key(form)] = w.word;
+    others.push(form);
   }
   // 句首大寫的答案，干擾選項也跟著大寫，避免一眼看出
   const cap = /^[A-Z]/.test(c.answer) && !c.before.trim();
   const fix = (s) => (cap ? s.charAt(0).toUpperCase() + s.slice(1) : s.charAt(0).toLowerCase() + s.slice(1));
   const options = shuffle([c.answer, ...others.map(fix)]);
   // 解題步驟要用的：這句空格的資訊（引擎算好的詞性、中文對應位置）與每個同單元選項和答案的關係
-  const slot = (analysis && analysis.words && analysis.words[word.word] && analysis.words[word.word].ex[exIdx]) || null;
   const rel = {};
   const roles = {};  // 每個字詞在句子裡能當的詞性（片語也有：participate in → 動詞），用來先刪掉詞性不合的選項
   if (slot) {
@@ -81,7 +88,7 @@ export function buildClozeMC(word, pool, analysis = null, pickEx = null) {
     }
   }
   return { type: 'mc', word, dir: 'cloze', parts: c, options, answer: options.indexOf(c.answer), exampleZh: ex.zh,
-    extras: extras.map((e) => ({ form: e.form, word: e.word, zh: e.zh, pos: e.pos })), slot, rel, roles, exIdx };
+    extras: extras.map((e) => ({ form: e.form, word: e.word, zh: e.zh, pos: e.pos })), slot, rel, roles, exIdx, forms };
 }
 
 export function buildSpell(word, variant, pickEx = null) {
@@ -284,7 +291,11 @@ function chosenWord(q, chosen, pool) {
   if (chosen == null) return null;
   if (q.dir === 'en2zh') return pool.find((w) => w.zh === chosen);
   if (q.dir === 'cloze') {
-    const hit = pool.find((w) => { const c = clozeParts(w); return c && c.answer.toLowerCase() === String(chosen).toLowerCase(); });
+    const ch = String(chosen).toLowerCase();
+    // 選項是變過形的（composed、depicted）：用出題時記下的對照，或引擎算好的這句選項形式找回原本的字
+    const viaForm = (q.forms && q.forms[ch]) || Object.entries((q.slot && q.slot.forms) || {}).find(([, f]) => f && f.toLowerCase() === ch)?.[0];
+    if (viaForm) { const w = pool.find((x) => x.word === viaForm); if (w) return w; }
+    const hit = pool.find((w) => { const c = clozeParts(w); return c && c.answer.toLowerCase() === ch; });
     if (hit) return hit;
     // 課外選項：不在這個單元的字，意思與詞性存在題目裡
     const x = (q.extras || []).find((e) => String(e.form).toLowerCase() === String(chosen).toLowerCase());
