@@ -34,6 +34,15 @@ app = FastAPI(title='B5 錯誤分析引擎', docs_url=None, redoc_url=None, open
 app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=['GET', 'POST', 'OPTIONS'],
                    allow_headers=['Content-Type', 'X-Brain-Key'], max_age=600)
 
+@app.middleware('http')
+async def _private_network(request, call_next):
+    """本機執行（老師電腦 127.0.0.1）時：網站從 https 呼叫本機要多一個許可標頭（Chrome 的 Private Network Access）"""
+    resp = await call_next(request)
+    if request.headers.get('access-control-request-private-network'):
+        resp.headers['Access-Control-Allow-Private-Network'] = 'true'
+    return resp
+
+
 _lock = threading.Lock()  # 一個實例一次只分析一個單元（記憶體與 CPU 都吃緊）
 
 

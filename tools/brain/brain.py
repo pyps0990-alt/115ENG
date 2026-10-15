@@ -57,6 +57,30 @@ def pos_list(w):
     return out
 
 
+_PHRASE_PREP_HEAD = {'in', 'on', 'at', 'from', 'by', 'for', 'with', 'under', 'out', 'of', 'to', 'into', 'within', 'without', 'beyond', 'after', 'before', 'over', 'as'}
+
+
+def phrase_role(w):
+    """片語在句子裡當什麼詞性用：動詞片語（participate in、take a toll、be worlds apart）→ 'v'；
+    介系詞開頭（in theory、from far and wide）→ 'adv'；結尾是介系詞且開頭不是動詞（prior to、because of）→ 'prep'"""
+    toks = w['word'].lower().split()
+    first, last = toks[0], toks[-1]
+    if first in ('be', 'get', 'have', 'make', 'take', 'keep', 'give', 'put', 'set', 'go', 'come', 'do'):
+        return 'v'
+    if first in _PHRASE_PREP_HEAD:
+        return 'adv'
+    if wn.synsets(first, pos='v') and not (wn.synsets(first, pos='a') and last in _PHRASE_PREP_HEAD | {'to'} and len(toks) == 2 and not wn.synsets(first, pos='n')):
+        return 'v'
+    if last in _PHRASE_PREP_HEAD or last == 'to':
+        return 'prep'
+    return 'adv'
+
+
+def roles(w):
+    """這個字詞在句子裡能當的詞性（單字＝老師填的詞性；片語＝phrase_role）"""
+    return [phrase_role(w)] if pos_list(w) == ['phr'] else pos_list(w)
+
+
 def meanings(zh):
     """中文意思拆成義項（和網站 js/util.js 的 meaningsOf 相同）"""
     s = re.sub(r'[（(][^）)]*[）)]', '', str(zh or ''))
@@ -409,6 +433,7 @@ def _slot_view(w, ex, ex_zh):
     span = answer_span(w, ex_zh)
     sl['span'] = list(span) if span else None
     sl['say'] = _slot_text(ex, sl)
+    sl['role'] = roles(w)[0] if pos_list(w) == ['phr'] else sl['need']  # 空格要的詞性（片語換成它當的詞性）
     # 人工校對過的修正（slot_overrides.json）：例句英文完全相同才套用，老師改過例句就自動失效
     for o in _overrides().get(w['word'], []):
         if o.get('ex') == ex:
@@ -441,6 +466,7 @@ def analyze(data):
     for w in words:
         info[w['word']] = {
             'pos': pos_list(w),
+            'role': roles(w),  # 在句子裡當什麼詞性用（片語也算出來：participate in → 動詞），網站解題步驟用來排除詞性不合的選項
             'ex': [_slot_view(w, ex, ex_zh) for ex, ex_zh in example_pairs(w)],
         }
     pairs = {}
@@ -540,7 +566,7 @@ def _slot_text(ex, sl):
         return ''
     name = _NEED_ZH.get(need, need)
     if need == 'phr':
-        return '空格是一個片語，先想整句在說什麼，再找意思對得上的片語'
+        return ''  # 片語：網站依它當的詞性（sl['role']）說明
     m = re.search(r'\[([^\]]+)\]', ex)
     if not m:
         return f"空格需要{name}"
@@ -633,8 +659,7 @@ def walkthrough(analysis, data, target, options, kind, example_index=0, chosen=N
 
 
 # ---------------------------------------------------------------- 選項安全檢查與課外選項（需要語言模型 lm.py 與單字表 wordbank.py）
-# 語言模型分數差距小於 FIT_MARGIN：這個干擾選項放進句子「也說得通」，出題時不拿來當這句的選項
-FIT_MARGIN = 8.0  # calib.py 校正：DistilRoBERTa 在門檻 8 抓到約 83% 也說得通的選項（roberta-base 沒有比較好）
+# 語言模型給每個選項「放進句子也說得通」的機率（lm.py）；門檻 lm.P_UNSAFE／lm.P_EXTRA 由 train_lm.py 依老師標記決定
 EXTRA_PER_EXAMPLE = 3  # 每句例句備好幾個課外選項（網站每題最多用 3 個，用不用由 js/components/question.js 的 EXTRA_CHANCE 決定）
 
 
@@ -671,8 +696,8 @@ def _split(ex):
     return (ex[:m.start()], m.group(1), ex[m.end():]) if m else None
 
 
-def option_safety(data, analysis, margin=FIT_MARGIN, progress=None):
-    """每句例句：同單元其他字放進去也說得通的（語言模型分數和答案差不到 margin）列為「不能當選項」。
+def option_safety(data, analysis, progress=None):
+    """每句例句：同單元其他字放進去也說得通的（語言模型機率 ≥ lm.P_UNSAFE）列為「不能當選項」。
     回傳 {單字: [[這句不能用的字...], ...]}（依例句順序）"""
     import lm
     words = [w for w in data['words'] if w.get('word')]
@@ -695,7 +720,7 @@ def option_safety(data, analysis, margin=FIT_MARGIN, progress=None):
                 per.append([])
                 continue
             fit = lm.fit(before, after, ans, list(forms))
-            per.append(sorted(forms[f] for f, d in fit.items() if d < margin))
+            per.append(sorted(forms[f] for f, p in fit.items() if p >= lm.P_UNSAFE))
         out[t['word']] = per
     return out
 
@@ -729,9 +754,9 @@ def load_rejected():
     return keys, per_target, {x for x, t in targets.items() if len(t) >= 2}
 
 
-def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, pool_size=15, uid='', progress=None):
+def extra_options(data, analysis, rng, n=EXTRA_PER_EXAMPLE, pool_size=15, uid='', progress=None):
     """每句例句挑 n 個課外選項：詞性和空格一樣、級數接近（4 級以上優先）、不是本單元的字、不是答案的同義字或同字根、
-    做成和答案一樣的形式後，語言模型認為放進去說不通（分數差距 ≥ margin＋1，留一點安全距離）。
+    做成和答案一樣的形式後，語言模型認為放進去說不通（也說得通的機率 ≤ lm.P_EXTRA）。
     回傳 {單字: [[{word, form, pos, zh, level}, ...], ...]}"""
     import lm
     import wordbank
@@ -778,11 +803,11 @@ def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, p
                     break
                 forms.update(batch)
                 fit.update(lm.fit(before, after, ans, list(batch)))
-                if sum(1 for d in fit.values() if d >= margin + 1) >= n:
+                if sum(1 for p in fit.values() if p <= lm.P_EXTRA) >= n:
                     break
             # 最像答案但仍確定說不通的優先（太離譜的選項一眼就能刪掉，沒有鑑別度）
-            ok = sorted([(d, f) for f, d in fit.items() if d >= margin + 1])
-            per.append([{'word': forms[f]['word'], 'form': f, 'pos': forms[f]['pos'], 'zh': forms[f]['zh'], 'level': forms[f]['level'], 'gap': d}
+            ok = sorted([(-p, f) for f, p in fit.items() if p <= lm.P_EXTRA])
+            per.append([{'word': forms[f]['word'], 'form': f, 'pos': forms[f]['pos'], 'zh': forms[f]['zh'], 'level': forms[f]['level'], 'p': -d}
                         for d, f in ok[:n]])
         out[t['word']] = per
     return out

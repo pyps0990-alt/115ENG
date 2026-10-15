@@ -41,3 +41,10 @@ curl https://<Service URL>/health
 ```
 
 回 `{"ok":true,"engine":1,"wordbank":6486}` 就是好的。
+
+## 2026-10 起：主要改用老師電腦（GPU）分析
+
+- 引擎的語言模型換成兩個 Qwen2.5-1.5B（lm.py），在老師電腦的 GPU 上一個單元不到 1 分鐘。
+- 用法：雙擊 `tools\brain\本機分析引擎.bat`，後台「錯誤分析」選「用這台電腦分析」，或按「全部用這台電腦分析」處理待分析的單元。
+- Cloud Run 上的服務維持舊版（DistilRoBERTa）當備援，**不要再重新部署**：新版模型在沒有 GPU 的 Cloud Run 上會非常慢，映像檔也要另外下載 Qwen 模型。
+- 老師多標一批「不適合」的課外選項後，執行 `.venv\Scripts\python train_lm.py` 重新訓練判斷門檻。

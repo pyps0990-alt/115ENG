@@ -119,6 +119,7 @@
     .bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .msg { font-weight:700; }
     /* 雲端分析即時進度 */
+    .br-pending { margin-top:10px; padding:10px 14px; border:1px solid #F59E0B; border-radius:12px; background:#FFFBEB; color:#92400E; display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:space-between; }
     .br-live { margin-top:10px; padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:var(--surface); display:grid; gap:8px; }
     .br-steps { display:flex; flex-wrap:wrap; gap:4px 14px; margin:0; padding:0; list-style:none; counter-reset:st; font-size:.85rem; color:var(--muted); }
     .br-steps li { counter-increment:st; }
@@ -384,8 +385,16 @@
         <div class="help">錯誤分析結果讓學生測驗時排除「放進句子也說得通」的干擾選項、在例句選字題混入 7000 單字的課外選項，答錯時顯示更完整的解析。不會改單元設定，也不會重製學生的成績與進度。</div>
         <h3 style="margin:14px 0 6px">雲端分析（Google Cloud Run）</h3>
         <div class="bar">
+          <select id="br-where" aria-label="在哪裡分析">
+            <option value="cloud">用雲端分析（Cloud Run）</option>
+            <option value="local">用這台電腦分析（較快，要先開「本機分析引擎」）</option>
+          </select>
           <button class="btn primary" id="br-go" type="button">分析上方選的單元</button>
           <span class="msg" id="br-msg"></span>
+        </div>
+        <div class="br-pending" id="br-pending" hidden>
+          <span>⚠ 待分析：<b id="br-pending-list"></b>（題目改過，還沒分析；學生暫時看到基本解析）</span>
+          <button class="btn" id="br-all" type="button">全部用這台電腦分析</button>
         </div>
         <div class="br-live" id="br-live" hidden>
           <ol class="br-steps" id="br-steps"><li>開機與連線</li><li>詞性與字詞關係</li><li>檢查同單元選項</li><li>挑選課外選項</li></ol>
@@ -1156,7 +1165,7 @@
       };
     })();
 
-    // ----- 雲端分析：老師的瀏覽器直接呼叫 Cloud Run，一個請求等到分析完（約 3～10 分鐘），結果存到 Firebase -----
+    // ----- 雲端分析：老師的瀏覽器直接呼叫 Cloud Run，一個請求等到分析完（雲端約 10 分鐘；這台電腦約 3 分鐘），結果存到 Firebase -----
     // （Cloud Run 只在請求進行中給 CPU，所以不用「先回工作編號、再查進度」；分析期間伺服器每 2 秒送一行進度，後台即時顯示）
     (function () {
       if (!window.fastPublish || !window.fbPublic) return;
@@ -1168,11 +1177,69 @@
         google.script.run.withSuccessHandler(function (c) { cfg = c; $('br-key').value = ''; keyHint(c); msg('✓ 已儲存引擎設定', 'ok'); })
           .withFailureHandler(function (err) { msg(err.message, 'err'); }).setBrainConfig($('br-url').value, $('br-key').value);
       };
+      // 「用這台電腦分析」：呼叫老師電腦上的本機引擎（tools/brain/本機分析引擎.bat，和雲端同一份程式、同一把金鑰）
+      var LOCAL_URL = 'http://127.0.0.1:8765';
+      var local = function () { return $('br-where').value === 'local'; };
+      try { if (localStorage.getItem('brWhere')) $('br-where').value = localStorage.getItem('brWhere'); } catch (e) {}
+      $('br-where').onchange = function () { try { localStorage.setItem('brWhere', this.value); } catch (e) {} };
       $('br-go').onclick = function () {
         var u = impUnit();
         if (!u || u.type !== 'vocab') { msg('請先在上方選一個單字片語單元', 'err'); return; }
-        if (!cfg || !cfg.url || !cfg.key) { msg('請先在「引擎設定」填網址與金鑰', 'err'); return; }
-        var btn = this; btn.disabled = true; msg('讀取題目…');
+        if (!cfg || !cfg.key || (!local() && !cfg.url)) { msg('請先在「引擎設定」填網址與金鑰', 'err'); return; }
+        var btn = this; btn.disabled = true;
+        analyzeUnit(u, local() ? LOCAL_URL : cfg.url).then(function () { btn.disabled = false; pendingRefresh(); });
+      };
+      // 本機引擎有沒有開（1.5 秒內回應 /health）
+      var localUp = function () {
+        var ctl = window.AbortController ? new AbortController() : null;
+        var t = setTimeout(function () { if (ctl) ctl.abort(); }, 1500);
+        return fetch(LOCAL_URL + '/health', ctl ? { signal: ctl.signal } : {}).then(function (r) { clearTimeout(t); return r.ok; }, function () { clearTimeout(t); return false; });
+      };
+      // 題目簽章（和 js/data.js 的 analysisSig、tools/brain/brain.py 的 signature 相同）：分析結果的簽章和目前題目不同＝需要重新分析
+      var sigOf = function (words) {
+        var s = (words || []).filter(function (w) { return w && w.word; }).map(function (w) {
+          var list = Array.isArray(w.examples) && w.examples.length ? w.examples : [{ ex: w.example || '' }];
+          return [w.word].concat(list.map(function (e) { return e.ex; }).filter(Boolean)).join('\u0001');
+        }).join('\u0002');
+        var h = 5381;
+        for (var i = 0; i < s.length; i++) h = ((Math.imul(h, 33) >>> 0) ^ s.charCodeAt(i)) >>> 0;
+        return String(h);
+      };
+      // 待分析的單元：題目改過（或從沒分析過）的單字片語單元
+      var pending = [];
+      var pendingRefresh = function () {
+        var list = (typeof units !== 'undefined' ? units : []).filter(function (u) { return u.type === 'vocab'; });
+        return Promise.all(list.map(function (u) {
+          return Promise.all([window.fbPublic('content_' + u.id), window.fbPublic('analysis_' + u.id)]).then(function (r) {
+            var c = r[0], a = r[1];
+            if (!c || !c.data || !(c.data.words || []).length) return null;
+            return a && a.sig === sigOf(c.data.words) ? null : u;
+          }, function () { return null; });
+        })).then(function (list) {
+          pending = list.filter(Boolean);
+          $('br-pending').hidden = !pending.length;
+          $('br-pending-list').textContent = pending.map(function (u) { return u.title || u.id; }).join('、');
+        });
+      };
+      $('br-all').onclick = function () {
+        if (!cfg || !cfg.key) { msg('請先在「引擎設定」填金鑰', 'err'); return; }
+        var btn = this; btn.disabled = true;
+        localUp().then(function (up) {
+          if (!up) { msg('這台電腦的分析引擎沒有開：請先雙擊 tools 資料夾裡 brain 的「本機分析引擎.bat」', 'err'); return; }
+          return pending.reduce(function (p, u) { return p.then(function () { return analyzeUnit(u, LOCAL_URL); }); }, Promise.resolve());
+        }).then(function () { btn.disabled = false; pendingRefresh(); });
+      };
+      // 存完單字片語單元：這台電腦有開本機引擎就馬上分析並存到 Firebase；沒開就留在「待分析」（並已通知管理者）
+      window.afterVocabSave = function (u) {
+        if (!cfg || !cfg.key) return pendingRefresh();
+        return localUp().then(function (up) {
+          if (up) { msg('題目已儲存，正在用這台電腦分析…'); return analyzeUnit(u, LOCAL_URL); }
+          msg('題目已儲存。這個單元還沒分析（已通知管理者）；學生暫時看到的是基本解析', '');
+        }).then(pendingRefresh);
+      };
+      setTimeout(pendingRefresh, 1500);
+      function analyzeUnit(u, base) {
+        msg('讀取題目…');
         var t0 = 0, timer = null, last = null, stepAt = {};
         var live = $('br-live'), steps = $('br-steps').children;
         var mmss = function (sec) { sec = Math.max(0, Math.round(sec)); return Math.floor(sec / 60) + ':' + ('0' + sec % 60).slice(-2); };
@@ -1201,11 +1268,11 @@
           }
           $('br-eta').textContent = '已過 ' + mmss(sec) + eta;
         };
-        window.fbPublic('content_' + u.id).then(function (c) {
+        return window.fbPublic('content_' + u.id).then(function (c) {
           if (!c || !c.data || !(c.data.words || []).length) throw new Error('這個單元還沒有題目');
           t0 = Date.now(); live.hidden = false; msg('分析中…可以先做別的事，不要關掉這一頁');
           paint(); timer = setInterval(paint, 1000);
-          return fetch(cfg.url + '/analyze', {
+          return fetch(base + '/analyze', {
             method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Brain-Key': cfg.key },
             body: JSON.stringify({ unit: u.id, data: c.data, lm: true }),
           });
@@ -1249,9 +1316,9 @@
         }).catch(function (err) {
           var m = String(err && err.message || err);
           $('br-now').textContent = '已停止';
-          msg('分析失敗：' + (/Failed to fetch|NetworkError|Load failed/i.test(m) ? '連不到分析引擎（網址錯誤、網路中斷，或請求被切斷）' : m), 'err');
-        }).then(function () { clearInterval(timer); timer = null; $('br-eta').textContent = '共 ' + mmss((Date.now() - t0) / 1000); btn.disabled = false; });
-      };
+          msg('分析失敗：' + (/Failed to fetch|NetworkError|Load failed/i.test(m) ? (base === LOCAL_URL ? '連不到這台電腦的分析引擎（請先雙擊 tools 資料夾裡 brain 的「本機分析引擎.bat」，視窗開著再按分析）' : '連不到分析引擎（網址錯誤、網路中斷，或請求被切斷）') : m), 'err');
+        }).then(function () { clearInterval(timer); timer = null; $('br-eta').textContent = '共 ' + mmss((Date.now() - t0) / 1000); });
+      }
     })();
 
     // ----- 解析與檢查 -----
@@ -1897,6 +1964,8 @@
           content = content.filter(function (x) { return x.id !== u.id; }).concat([{ id: u.id, updated: (cfgBase && cfgBase.content && cfgBase.content[u.id] || {}).updated || new Date().toISOString(), count: res.count }]);
           impStatus();
           if (!res.syncError) { $('imp-msg').textContent = fastOk ? '✓ 已儲存，學生網站已即時更新' : '✓ 已儲存，學生重新打開網頁就會看到新內容'; $('imp-msg').className = 'msg ok'; }
+          // 單字片語單元：存完接著跑錯誤分析（這台電腦有開本機引擎就自動分析，沒開就列入待分析）
+          if (u.type === 'vocab' && window.afterVocabSave) window.afterVocabSave(u);
         },
         fail: function (err) { $('imp-save').disabled = false; $('imp-msg').textContent = '儲存失敗：' + err.message; $('imp-msg').className = 'msg err'; },
       });

@@ -1102,6 +1102,7 @@ function saveContent(unitId, data, reset, fast) {
     throw new Error('題目沒有存到 Firebase，請再按一次儲存（' + why + '）');
   }
   audit_('儲存題目', unitId, count + ' 題' + (reset !== false ? '，重製學生進度' : ''));
+  if (type === 'vocab') notifyAnalysis_(unitId, email, count);
   return { ok: true, count: count, updated: cfg.updated, config: cfg, syncError: '' };
 }
 
@@ -2608,6 +2609,25 @@ function syncStaff_() {
     return { ok: true, count: list.length, added: added, removed: removed, rtdb: rtOk, message: message };
   } finally {
     lock.releaseLock();
+  }
+}
+
+// 後台操作紀錄：誰、什麼時候、做了什麼（audit 分頁，只增不改；學期結算不會清掉）
+// 單字片語單元的題目改了：通知管理者（這個 Apps Script 的擁有者）用自己電腦跑錯誤分析再同步到 Firebase。
+// 管理者自己存的不寄（後台存完會直接用本機引擎分析，或列在「待分析」）。寄信失敗不影響儲存
+function notifyAnalysis_(unitId, editor, count) {
+  try {
+    var owner = Session.getEffectiveUser().getEmail();
+    if (!owner || String(owner).toLowerCase() === String(editor || '').toLowerCase()) return;
+    var lines = [
+      editor + ' 剛儲存了單元 ' + unitId + '（' + count + ' 個字詞）。',
+      '',
+      '請在自己電腦雙擊 tools\\brain\\本機分析引擎.bat，打開老師後台 → 匯入內容 → 錯誤分析，按「全部用這台電腦分析」。',
+      '分析完成前，學生看到的是基本解析（不影響作答與成績）。',
+    ];
+    MailApp.sendEmail(owner, '[B5 Practice] 單元 ' + unitId + ' 有新的單字題目，需要錯誤分析', lines.join('\n'));
+  } catch (e) {
+    console.warn('通知管理者失敗：' + e);
   }
 }
 

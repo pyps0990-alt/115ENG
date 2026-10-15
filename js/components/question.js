@@ -71,14 +71,17 @@ export function buildClozeMC(word, pool, analysis = null, pickEx = null) {
   // 解題步驟要用的：這句空格的資訊（引擎算好的詞性、中文對應位置）與每個同單元選項和答案的關係
   const slot = (analysis && analysis.words && analysis.words[word.word] && analysis.words[word.word].ex[exIdx]) || null;
   const rel = {};
-  if (slot && analysis.pairs) {
+  const roles = {};  // 每個字詞在句子裡能當的詞性（片語也有：participate in → 動詞），用來先刪掉詞性不合的選項
+  if (slot) {
     for (const w of pool) {
-      const r = analysis.pairs[[w.word, word.word].sort().join('|')];
+      const info = analysis.words[w.word];
+      if (info && info.role) roles[w.word] = info.role;
+      const r = analysis.pairs && analysis.pairs[[w.word, word.word].sort().join('|')];
       if (r) rel[w.word] = r;
     }
   }
   return { type: 'mc', word, dir: 'cloze', parts: c, options, answer: options.indexOf(c.answer), exampleZh: ex.zh,
-    extras: extras.map((e) => ({ form: e.form, word: e.word, zh: e.zh, pos: e.pos })), slot, rel };
+    extras: extras.map((e) => ({ form: e.form, word: e.word, zh: e.zh, pos: e.pos })), slot, rel, roles };
 }
 
 export function buildSpell(word, variant, pickEx = null) {
@@ -393,41 +396,65 @@ export const ERR_TIPS = {
 
 // 例句選字題的解題步驟（引擎 tools/brain/brain.py 的 walkthrough）：先懂題意，再逐一看選項，最後篩出答案。
 // 需要錯誤分析引擎的結果（q.slot）；沒有就回空字串，照舊只顯示錯誤原因
-const NEED_NAME = { adj: '形容詞', n: '名詞', v: '動詞', adv: '副詞', prep: '介系詞', phr: '片語' };
+const NEED_NAME = { adj: '形容詞', n: '名詞', v: '動詞', adv: '副詞', prep: '介系詞' };
+const POS_CODE = { n: 'n', v: 'v', vt: 'v', vi: 'v', adj: 'adj', a: 'adj', adv: 'adv', prep: 'prep' };
 const firstMeaning = (w) => {
   const m = meaningsOf(w.zh);
   return m.find((x) => !x.includes('⋯')) || (m[0] || '').replace(/⋯/g, '');
 };
+// 這個字詞在句子裡能當的詞性：引擎算好的（片語也有：participate in → 動詞），沒有就看 pos 欄
+function rolesOf(q, w) {
+  const r = q.roles && q.roles[w.word];
+  if (r && r.length) return r;
+  if (w.type === 'phrase' || /\s/.test(String(w.word).trim())) return [];
+  return [...new Set(String(w.pos || '').toLowerCase().split(/[^a-z]+/).map((t) => POS_CODE[t]).filter(Boolean))];
+}
+const roleName = (codes, phrase) => codes.map((c) => NEED_NAME[c] + (phrase ? '片語' : '')).join('／');
+const isPhrase = (w) => w.type === 'phrase' || /\s/.test(String(w.word).trim());
+
 function walkthroughHTML(q, chosen, pool) {
   const sl = q.slot;
   const zh = q.exampleZh || '';
   if (!sl || !zh) return '';
   const span = Array.isArray(sl.span) ? sl.span : null;
   const ask = span ? `${zh.slice(0, span[0])}＿＿${zh.slice(span[1])}` : zh;
-  const need = NEED_NAME[sl.need] || '';
-  const items = q.options.map((opt) => {
-    const ok = opt === q.options[q.answer];
+  const need = sl.role && NEED_NAME[sl.role] ? sl.role : null;
+  const answer = q.options[q.answer];
+  const opts = q.options.map((opt) => {
+    const ok = opt === answer;
     const w = ok ? q.word : chosenWord(q, opt, pool);
-    const picked = String(opt).toLowerCase() === String(chosen || '').toLowerCase();
+    const codes = w ? rolesOf(q, w) : [];
+    const posOut = !ok && need && codes.length > 0 && !codes.includes(need);
+    return { opt, ok, w, codes, posOut, picked: String(opt).toLowerCase() === String(chosen || '').toLowerCase() };
+  });
+  // 第 2 步：先用詞性刪掉不可能的選項，再看剩下的
+  const out = opts.filter((o) => o.posOut);
+  let step2 = '';
+  if (need) {
+    const role = isPhrase(q.word) ? `空格需要一個${NEED_NAME[need]}片語` : (sl.say || `空格需要${NEED_NAME[need]}`);
+    step2 = out.length
+      ? `${role}。根據詞性，這題可以先排除 ${out.map((o) => `${o.opt}（${roleName(o.codes, isPhrase(o.w))}）`).join('、')}，再看剩下的選項意思合不合`
+      : `${role}。選項的詞性都對得上，要從意思判斷`;
+  }
+  const items = opts.map((o) => {
     let why = '';
-    if (ok) why = '詞性和意思都符合';
-    else if (!w) why = '意思不合';
+    if (o.ok) why = '詞性和意思都符合';
+    else if (!o.w) why = '意思不合';
+    else if (o.posOut) why = `詞性不合：它是${roleName(o.codes, isPhrase(o.w))}，這裡需要${NEED_NAME[need]}`;
     else {
-      const names = posNames(w);
-      const r = q.rel && q.rel[w.word];
-      if (need && sl.need !== 'phr' && names.length && !names.includes(need)) why = `詞性不合：它是${names.join('／')}，這裡需要${need}`;
-      else if (r === 'syn') why = `意思接近，但這句習慣用 ${q.word.word}`;
-      else if (r === 'family' || r === 'spell' || r === 'sound') why = `${{ family: '和答案同字根', spell: '和答案拼法很像', sound: '和答案唸起來很像' }[r]}，但意思是「${w.zh}」`;
-      else if (span && firstMeaning(w)) why = `意思不合：放進去變成「${zh.slice(0, span[0])}【${firstMeaning(w)}】${zh.slice(span[1])}」`;
+      const r = q.rel && q.rel[o.w.word];
+      if (r === 'syn') why = `意思接近，但這句習慣用 ${q.word.word}`;
+      else if (r === 'family' || r === 'spell' || r === 'sound') why = `${{ family: '和答案同字根', spell: '和答案拼法很像', sound: '和答案唸起來很像' }[r]}，但意思是「${o.w.zh}」`;
+      else if (span && firstMeaning(o.w)) why = `意思不合：放進去變成「${zh.slice(0, span[0])}【${firstMeaning(o.w)}】${zh.slice(span[1])}」`;
       else why = '意思不合：放進去句子說不通';
     }
-    const zhText = w ? `<span class="wt-zh">${esc(w.zh || '')}</span>` : '';
-    return `<li class="wt-opt${ok ? ' ok' : ''}${picked ? ' picked' : ''}"><span class="wt-mark" aria-hidden="true">${ok ? '✓' : '✗'}</span><b class="en">${esc(opt)}</b>${zhText}${picked && !ok ? '<span class="wt-you">你選的</span>' : ''}<span class="wt-why">${esc(why)}</span></li>`;
+    const zhText = o.w ? `<span class="wt-zh">${esc(o.w.zh || '')}</span>` : '';
+    return `<li class="wt-opt${o.ok ? ' ok' : ''}${o.picked ? ' picked' : ''}"><span class="wt-mark" aria-hidden="true">${o.ok ? '✓' : '✗'}</span><b class="en">${esc(o.opt)}</b>${zhText}${o.picked && !o.ok ? '<span class="wt-you">你選的</span>' : ''}<span class="wt-why">${esc(why)}</span></li>`;
   });
   return `<div class="wt"><p class="wt-step"><span class="wt-n">1</span>這句在說：「${esc(ask)}」</p>`
-    + (sl.say ? `<p class="wt-step"><span class="wt-n">2</span>${esc(sl.say)}</p>` : '')
-    + `<p class="wt-step"><span class="wt-n">${sl.say ? 3 : 2}</span>逐一看選項：</p><ul class="wt-list">${items.join('')}</ul>`
-    + `<p class="wt-step wt-end">所以答案是 <b class="en">${esc(q.options[q.answer])}</b>（${esc(q.word.zh)}）</p></div>`;
+    + (step2 ? `<p class="wt-step"><span class="wt-n">2</span>${esc(step2)}</p>` : '')
+    + `<p class="wt-step"><span class="wt-n">${step2 ? 3 : 2}</span>逐一看選項：</p><ul class="wt-list">${items.join('')}</ul>`
+    + `<p class="wt-step wt-end">所以答案是 <b class="en">${esc(answer)}</b>（${esc(q.word.zh)}）</p></div>`;
 }
 
 // 回傳 { html, text, err }：html 顯示在題目下方，text 用在總成績單與試算表，err 是錯誤類型
