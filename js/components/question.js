@@ -1,6 +1,6 @@
 // 可重複使用的題目元件：選擇題 (renderMC) 與字母框拼字 (renderSpell)。
 // feedback=true：練習模式，作答後立即顯示對錯；false：正式測驗，只記錄作答。
-import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample, pickExample, sameMeaning } from '../util.js';
+import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample, pickExample, sameMeaning, meaningsOf } from '../util.js';
 import { icon } from '../icons.js';
 import { diffAnswer } from './diff.js';
 
@@ -68,8 +68,17 @@ export function buildClozeMC(word, pool, analysis = null, pickEx = null) {
   const cap = /^[A-Z]/.test(c.answer) && !c.before.trim();
   const fix = (s) => (cap ? s.charAt(0).toUpperCase() + s.slice(1) : s.charAt(0).toLowerCase() + s.slice(1));
   const options = shuffle([c.answer, ...others.map(fix)]);
+  // 解題步驟要用的：這句空格的資訊（引擎算好的詞性、中文對應位置）與每個同單元選項和答案的關係
+  const slot = (analysis && analysis.words && analysis.words[word.word] && analysis.words[word.word].ex[exIdx]) || null;
+  const rel = {};
+  if (slot && analysis.pairs) {
+    for (const w of pool) {
+      const r = analysis.pairs[[w.word, word.word].sort().join('|')];
+      if (r) rel[w.word] = r;
+    }
+  }
   return { type: 'mc', word, dir: 'cloze', parts: c, options, answer: options.indexOf(c.answer), exampleZh: ex.zh,
-    extras: extras.map((e) => ({ form: e.form, word: e.word, zh: e.zh, pos: e.pos })) };
+    extras: extras.map((e) => ({ form: e.form, word: e.word, zh: e.zh, pos: e.pos })), slot, rel };
 }
 
 export function buildSpell(word, variant, pickEx = null) {
@@ -382,6 +391,45 @@ export const ERR_TIPS = {
   未作答: '這題沒有作答，先記住正確答案',
 };
 
+// 例句選字題的解題步驟（引擎 tools/brain/brain.py 的 walkthrough）：先懂題意，再逐一看選項，最後篩出答案。
+// 需要錯誤分析引擎的結果（q.slot）；沒有就回空字串，照舊只顯示錯誤原因
+const NEED_NAME = { adj: '形容詞', n: '名詞', v: '動詞', adv: '副詞', prep: '介系詞', phr: '片語' };
+const firstMeaning = (w) => {
+  const m = meaningsOf(w.zh);
+  return m.find((x) => !x.includes('⋯')) || (m[0] || '').replace(/⋯/g, '');
+};
+function walkthroughHTML(q, chosen, pool) {
+  const sl = q.slot;
+  const zh = q.exampleZh || '';
+  if (!sl || !zh) return '';
+  const span = Array.isArray(sl.span) ? sl.span : null;
+  const ask = span ? `${zh.slice(0, span[0])}＿＿${zh.slice(span[1])}` : zh;
+  const need = NEED_NAME[sl.need] || '';
+  const items = q.options.map((opt) => {
+    const ok = opt === q.options[q.answer];
+    const w = ok ? q.word : chosenWord(q, opt, pool);
+    const picked = String(opt).toLowerCase() === String(chosen || '').toLowerCase();
+    let why = '';
+    if (ok) why = '詞性和意思都符合';
+    else if (!w) why = '意思不合';
+    else {
+      const names = posNames(w);
+      const r = q.rel && q.rel[w.word];
+      if (need && sl.need !== 'phr' && names.length && !names.includes(need)) why = `詞性不合：它是${names.join('／')}，這裡需要${need}`;
+      else if (r === 'syn') why = `意思接近，但這句習慣用 ${q.word.word}`;
+      else if (r === 'family' || r === 'spell' || r === 'sound') why = `${{ family: '和答案同字根', spell: '和答案拼法很像', sound: '和答案唸起來很像' }[r]}，但意思是「${w.zh}」`;
+      else if (span && firstMeaning(w)) why = `意思不合：放進去變成「${zh.slice(0, span[0])}【${firstMeaning(w)}】${zh.slice(span[1])}」`;
+      else why = '意思不合：放進去句子說不通';
+    }
+    const zhText = w ? `<span class="wt-zh">${esc(w.zh || '')}</span>` : '';
+    return `<li class="wt-opt${ok ? ' ok' : ''}${picked ? ' picked' : ''}"><span class="wt-mark" aria-hidden="true">${ok ? '✓' : '✗'}</span><b class="en">${esc(opt)}</b>${zhText}${picked && !ok ? '<span class="wt-you">你選的</span>' : ''}<span class="wt-why">${esc(why)}</span></li>`;
+  });
+  return `<div class="wt"><p class="wt-step"><span class="wt-n">1</span>這句在說：「${esc(ask)}」</p>`
+    + (sl.say ? `<p class="wt-step"><span class="wt-n">2</span>${esc(sl.say)}</p>` : '')
+    + `<p class="wt-step"><span class="wt-n">${sl.say ? 3 : 2}</span>逐一看選項：</p><ul class="wt-list">${items.join('')}</ul>`
+    + `<p class="wt-step wt-end">所以答案是 <b class="en">${esc(q.options[q.answer])}</b>（${esc(q.word.zh)}）</p></div>`;
+}
+
 // 回傳 { html, text, err }：html 顯示在題目下方，text 用在總成績單與試算表，err 是錯誤類型
 export function explainWrong(q, chosen, pool = []) {
   const w = q.word;
@@ -417,5 +465,6 @@ export function explainWrong(q, chosen, pool = []) {
     if (exZh) lines.push(`<p class="xp-exzh">${esc(exZh)}</p>`);
     text.push(plainExample(exEn));
   }
+  if (q.type === 'mc' && q.dir === 'cloze') lines.push(walkthroughHTML(q, chosen, pool));
   return { html: `<div class="explain xp slide-in"><div class="xp-head">${icon.bulb} 解析</div>${lines.join('')}</div>`, text: text.join('｜'), err };
 }

@@ -537,6 +537,18 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 .rv-row.ok { background: var(--good-soft); color: var(--good-ink); }
 .xp-ex { color: var(--navy); }
 .xp-exzh { font-size: .88rem; }
+/* 解題步驟 */
+.wt { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); display: grid; gap: 6px; font-size: .9rem; }
+.wt-step { display: flex; gap: 8px; align-items: baseline; }
+.wt-n { flex: none; width: 1.4em; height: 1.4em; border-radius: 50%; display: inline-grid; place-items: center; background: var(--wash); color: var(--steel); font-size: .75rem; font-weight: 700; }
+.wt-end { padding-left: calc(1.4em + 8px); font-weight: 600; }
+.wt-list { list-style: none; margin: 0; padding: 0 0 0 calc(1.4em + 8px); display: grid; gap: 4px; }
+.wt-opt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.wt-mark { width: 1em; color: var(--bad-ink); font-weight: 700; }
+.wt-opt.ok .wt-mark, .wt-opt.ok b { color: var(--good-ink); }
+.wt-zh { color: var(--steel); font-size: .85rem; }
+.wt-you { padding: 0 8px; border-radius: 999px; background: var(--bad-soft); color: var(--bad-ink); font-size: .72rem; font-weight: 700; }
+.wt-why { flex-basis: 100%; padding-left: calc(1em + 8px); color: var(--steel); font-size: .85rem; }
 .wrong-item .x { grid-column: 1 / -1; font-size: .85rem; color: var(--steel); }
 .ex-head { display: inline-flex; align-items: center; gap: 4px; }
 .ex-head .ic { width: 16px; height: 16px; stroke-width: 3; }

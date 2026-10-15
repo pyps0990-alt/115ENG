@@ -257,6 +257,20 @@ def _zh_span(zh, meaning_list):
     return best[1] if best[0] >= 0.5 else None
 
 
+def answer_span(t, ex_zh):
+    """中文翻譯裡對應答案的那一段 (i, j)，頭尾的「的了著地得」不算；找不到回 None。
+    片語的翻譯常被拆開（fall for → 上了⋯的當），硬換會換錯字：片語一律回 None"""
+    span = None if 'phr' in pos_list(t) else _zh_span(ex_zh or '', meanings(t.get('zh')))
+    if not span:
+        return None
+    i, j = span
+    while j - i > 1 and ex_zh[i] in '的了著地得':
+        i += 1
+    while j - i > 1 and ex_zh[j - 1] in '的了著地得':
+        j -= 1
+    return (i, j)
+
+
 def sense(t, c, ex, ex_zh, chosen_form):
     """文意：把學生選的字放回這句，看句子變成什麼意思（翻譯裡對應的詞換成學生選的字的意思）"""
     m = re.search(r'\[([^\]]+)\]', ex)
@@ -264,16 +278,8 @@ def sense(t, c, ex, ex_zh, chosen_form):
         return None
     yours_en = ex[:m.start()] + '[' + chosen_form + ']' + ex[m.end():]
     out = {'en': yours_en, 'zh': '', 'orig': ex_zh}
-    # 片語的翻譯常被拆開（fall for → 上了⋯的當），硬換會換錯字：片語只放回英文句子，不換中文
-    span = None if 'phr' in pos_list(t) else _zh_span(ex_zh or '', meanings(t.get('zh')))
-    if span:
-        i, j = span
-        while j - i > 1 and ex_zh[i] in '的了著地得':
-            i += 1
-        while j - i > 1 and ex_zh[j - 1] in '的了著地得':
-            j -= 1
-        span = (i, j)
-    cm = [x for x in meanings(c.get('zh')) if '⋯' not in x] or [x.replace('⋯', '') for x in meanings(c.get('zh'))]
+    span = answer_span(t, ex_zh)
+    cm =[x for x in meanings(c.get('zh')) if '⋯' not in x] or [x.replace('⋯', '') for x in meanings(c.get('zh'))]
     if span and cm:
         i, j = span
         out['zh'] = ex_zh[:i] + '[' + cm[0] + ']' + ex_zh[j:]
@@ -372,13 +378,24 @@ def signature(words):
     return str(h)
 
 
+def _slot_view(w, ex, ex_zh):
+    """一句例句的空格資訊，加上網站解題步驟要用的：span 中文翻譯裡答案那一段、say 空格角色的說明"""
+    sl = slot(w, ex)
+    if sl is None:
+        return None
+    span = answer_span(w, ex_zh)
+    sl['span'] = list(span) if span else None
+    sl['say'] = _slot_text(ex, sl)
+    return sl
+
+
 def analyze(data):
     words = [w for w in data.get('words', []) if w.get('word')]
     info = {}
     for w in words:
         info[w['word']] = {
             'pos': pos_list(w),
-            'ex': [slot(w, ex) for ex in _examples(w)],
+            'ex': [_slot_view(w, ex, ex_zh) for ex, ex_zh in example_pairs(w)],
         }
     pairs = {}
     for i, a in enumerate(words):
@@ -458,8 +475,11 @@ def _slot_text(ex, sl):
     m = re.search(r'\[([^\]]+)\]', ex)
     after = bool(hint) and m is not None and re.search(r'\b' + re.escape(hint) + r'\b', ex[m.end():], re.I) is not None
     name = _NEED_ZH.get(need, need)
-    if need == 'adj' and hint and after:
-        return f"空格在「{hint}」前面修飾它，需要{name}"
+    if need == 'adj':
+        # 名詞緊接在空格後面（中間最多隔一個字）才是「修飾它」；否則是放在 be 動詞等後面描述主詞（is considered unethical at school）
+        if hint and m is not None and re.match(r"\s*(?:[A-Za-z'-]+\s+)?" + re.escape(hint) + r'\b', ex[m.end():], re.I):
+            return f"空格在「{hint}」前面修飾它，需要{name}"
+        return f"空格在描述人或事物的狀態，需要{name}"
     if need == 'v':
         if hint and after and hint.lower() in _PREPS:
             return f"空格是句子的動作，後面接「{hint}」，需要{name}"
