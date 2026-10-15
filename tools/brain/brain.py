@@ -315,7 +315,19 @@ def answer_span(t, ex_zh):
         i += 1
     while j - i > 1 and ex_zh[j - 1] in '的了著地得':
         j -= 1
-    return (i, j) if j - i >= 2 else None
+    if j - i < 2:
+        return None
+    # 翻譯常把同義的兩個詞並列（廣泛且豐富、明顯而鮮明、引發並誘導）：只挖掉一個，另一個等於把答案寫出來，一起挖掉
+    toks = [(a, b) for _, a, b in jieba.tokenize(ex_zh)]
+    if j < len(ex_zh) and ex_zh[j] in '且而並又':
+        nxt = next(((a, b) for a, b in toks if a == j + 1), None)
+        if nxt and nxt[1] - nxt[0] >= 2 and all('一' <= ch <= '鿿' for ch in ex_zh[nxt[0]:nxt[1]]):
+            j = nxt[1]
+    if i > 0 and ex_zh[i - 1] in '且而並又':
+        prv = next(((a, b) for a, b in toks if b == i - 1), None)
+        if prv and prv[1] - prv[0] >= 2 and all('一' <= ch <= '鿿' for ch in ex_zh[prv[0]:prv[1]]):
+            i = prv[0]
+    return (i, j)
 
 
 def sense(t, c, ex, ex_zh, chosen_form):

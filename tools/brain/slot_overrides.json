@@ -43,6 +43,10 @@
   {
    "ex": "A [solitary] protestor stood outside the city hall for three hours.",
    "zh": "形單影隻"
+  },
+  {
+   "ex": "Mark is a [solitary] student who prefers studying in the library alone.",
+   "zh": "性格孤僻"
   }
  ],
  "compelling": [
@@ -90,7 +94,7 @@
  "settle": [
   {
    "ex": "The new transfer student finally [settled] down in his classroom.",
-   "zh": "安定"
+   "zh": "適應並安定"
   }
  ],
  "stream": [
@@ -107,12 +111,24 @@
   {
    "ex": "The report revealed [stark] inequalities in wealth across the nation.",
    "zh": "鮮明"
+  },
+  {
+   "ex": "There is a [stark] difference between the two exam results.",
+   "zh": "明顯而鮮明"
+  },
+  {
+   "ex": "The empty house felt cold with its [stark] white walls.",
+   "zh": "簡陋單調"
   }
  ],
  "lively": [
   {
    "ex": "The night market is always [lively] on Friday and Saturday.",
-   "zh": "熱鬧非凡"
+   "zh": "充滿活力且熱鬧非凡"
+  },
+  {
+   "ex": "We enjoyed a [lively] family dinner filled with cheerful laughter.",
+   "zh": "熱烈歡樂"
   }
  ],
  "dense": [
@@ -125,6 +141,14 @@
   {
    "ex": "Our family kitchen was [bustling] with activity on New Year's Eve.",
    "zh": "忙碌"
+  },
+  {
+   "ex": "The school cafeteria is always [bustling] during the lunch hour.",
+   "zh": "繁忙擁擠"
+  },
+  {
+   "ex": "Tourists love exploring the [bustling] streets of old historic neighborhoods.",
+   "zh": "熙熙攘攘、人潮不斷"
   }
  ],
  "soar": [
@@ -134,13 +158,13 @@
   },
   {
    "ex": "Colorful school festival balloons [soared] high into the clear sky.",
-   "zh": "聳入"
+   "zh": "聳入並飄升"
   }
  ],
  "substantial": [
   {
    "ex": "My parents spent a [substantial] amount of money repairing our old roof.",
-   "zh": "可觀"
+   "zh": "一大筆可觀"
   }
  ],
  "provoke": [
@@ -225,12 +249,130 @@
   {
    "ex": "The math teacher explained the [complicated] formula step by step.",
    "say": "空格在「formula」前面修飾它，需要形容詞"
+  },
+  {
+   "ex": "The government faces a [complicated] problem regarding public housing policies.",
+   "zh": "棘手複雜"
   }
  ],
  "possess": [
   {
    "ex": "Good student leaders must [possess] strong communication and problem-solving skills.",
    "say": "空格是句子的動作，需要動詞（受詞是「skills」）"
+  }
+ ],
+ "essence": [
+  {
+   "ex": "Love and trust form the [essence] of a peaceful happy family.",
+   "zh": "核心本質"
+  },
+  {
+   "ex": "Freedom of speech is the very [essence] of democratic societies worldwide.",
+   "zh": "根本的本質"
+  }
+ ],
+ "extensive": [
+  {
+   "ex": "The school library offers an [extensive] collection of modern literature.",
+   "zh": "廣泛且豐富"
+  },
+  {
+   "ex": "The police launched an [extensive] search for the missing young boy.",
+   "zh": "大規模且廣泛"
+  }
+ ],
+ "exceptional": [
+  {
+   "ex": "The teacher praised Alice for her [exceptional] performance on tests.",
+   "zh": "優秀的出色"
+  }
+ ],
+ "objective": [
+  {
+   "ex": "News reporters must remain [objective] when covering sensitive national elections.",
+   "zh": "客觀公正"
+  }
+ ],
+ "core": [
+  {
+   "ex": "Critical thinking is a [core] skill taught in modern schools.",
+   "zh": "核心關鍵"
+  },
+  {
+   "ex": "Family love remains the true [core] of my happy childhood.",
+   "zh": "核心本質"
+  }
+ ],
+ "considerably": [
+  {
+   "ex": "Public air quality has improved [considerably] over the past decade.",
+   "zh": "非常顯著"
+  }
+ ],
+ "majestic": [
+  {
+   "ex": "Students admired the [majestic] ancient oak tree on campus.",
+   "zh": "雄偉壯觀"
+  },
+  {
+   "ex": "The historical documentary showed the [majestic] beauty of old castles.",
+   "zh": "壯觀莊嚴"
+  }
+ ],
+ "gorgeous": [
+  {
+   "ex": "The art teacher showed us several [gorgeous] classical oil paintings.",
+   "zh": "美麗絢麗"
+  },
+  {
+   "ex": "Mom wore a [gorgeous] silk dress to our family reunion.",
+   "zh": "華麗優雅"
+  }
+ ],
+ "lush": [
+  {
+   "ex": "Tall trees and [lush] grass surround our quiet high school campus.",
+   "zh": "茂盛翠綠"
+  }
+ ],
+ "mountainous": [
+  {
+   "ex": "Our school organized a difficult hiking trip in a [mountainous] area.",
+   "zh": "多山起伏"
+  },
+  {
+   "ex": "My grandparents live in a peaceful village within this [mountainous] county.",
+   "zh": "多山的山區"
+  }
+ ],
+ "primitive": [
+  {
+   "ex": "Archaeologists discovered [primitive] wall paintings inside the deep mountain cave.",
+   "zh": "早期的原始"
+  }
+ ],
+ "induce": [
+  {
+   "ex": "The peaceful sound of rainfall quickly [induced] a deep sleep in baby.",
+   "zh": "引發並誘導"
+  }
+ ],
+ "keep an eye on": [
+  {
+   "ex": "The class leader promised to [keep an eye on] our study room.",
+   "zh": "留意照看"
+  }
+ ],
+ "fall for": [
+  {
+   "ex": "Smart students will not easily [fall for] silly online examination tricks.",
+   "zh": "上當受騙"
+  }
+ ],
+ "genetic": [
+  {
+   "ex": "Some health conditions run in our family due to certain [genetic] factors.",
+   "zh": "基因遺傳"
   }
  ]
 }
