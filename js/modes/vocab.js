@@ -251,7 +251,7 @@ export function mount(stage, ctx) {
         store.addWrong(unitId, q.word.word);
         stage.querySelector('[data-q]').insertAdjacentHTML('beforeend', xp.html);
         fb.className = 'feedback no';
-        fb.innerHTML = q.type === 'mc' ? `${icon.x} 答錯了` : `${icon.x} 再記一下`; // 正確答案在下方解析裡已經打勾，這裡不再重複
+        fb.innerHTML = ''; // 答錯不另外寫字：正確答案與錯誤類型都在下方解析裡
       }
       st.querySelector('b').textContent = streak;
       const lastInStage = qi === s.qs.length - 1;
