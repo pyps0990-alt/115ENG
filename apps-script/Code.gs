@@ -133,7 +133,7 @@ function handleApi_(d) {
     syncGradebookRoster: syncGradebookRoster, syncAllGradebooks: syncAllGradebooks,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
     getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey, testLocalAi: testLocalAi,
-    aiGenerateReading: aiGenerateReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, getBrainConfig: getBrainConfig, setBrainConfig: setBrainConfig, brainStart: brainStart, brainJob: brainJob, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
+    aiGenerateReading: aiGenerateReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, getBrainConfig: getBrainConfig, setBrainConfig: setBrainConfig, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
     lookupStudent: lookupStudent, deleteStudent: deleteStudent,
     backupSpreadsheet: backupSpreadsheet, semesterReset: semesterReset, purgeUnitScores: purgeUnitScores, listPurgeUnits: listPurgeUnits,
     syncNow: syncNow, getSyncStatus: getSyncStatus, syncReport: syncReport,
@@ -1926,56 +1926,20 @@ function getAiPrompts() {
 }
 
 // text 留空或和預設一樣 ＝ 還原預設
-// 錯誤分析引擎（Hugging Face Space）的網址與金鑰：存在指令碼屬性，只有老師讀得到（後台直接呼叫 Space）
+// 錯誤分析引擎（Google Cloud Run）的網址與金鑰：存在指令碼屬性，只有老師讀得到。
+// Cloud Run 一個請求要等分析完（3～10 分鐘），Apps Script 等不了那麼久，所以由老師的瀏覽器直接呼叫，金鑰交給已登入的老師
 function getBrainConfig() {
   assertTeacher_();
   var props = PropertiesService.getScriptProperties();
-  // 金鑰不回傳給瀏覽器：只告訴後台「有沒有設定」
-  return { url: props.getProperty('BRAIN_URL') || '', hasKey: !!props.getProperty('BRAIN_KEY') };
-}
-
-// 呼叫 Space 的 Gradio API：POST /gradio_api/call/<名稱> 拿到 event_id，再 GET 取結果（結果是一個 JSON 字串）
-function brainCall_(name, data) {
-  var url = PropertiesService.getScriptProperties().getProperty('BRAIN_URL');
-  if (!url) throw new Error('還沒設定錯誤分析引擎的網址');
-  var res = UrlFetchApp.fetch(url + '/gradio_api/call/' + name, {
-    method: 'post', contentType: 'application/json', payload: JSON.stringify({ data: data }), muteHttpExceptions: true,
-  });
-  if (res.getResponseCode() !== 200) throw new Error('引擎沒有回應（HTTP ' + res.getResponseCode() + '）：Space 可能正在醒來，請 1～2 分鐘後再試');
-  var id = JSON.parse(res.getContentText()).event_id;
-  var r2 = UrlFetchApp.fetch(url + '/gradio_api/call/' + name + '/' + id, { muteHttpExceptions: true });
-  var text = r2.getContentText();
-  var m = /event: complete\s*\n\s*data: (.*)/.exec(text);
-  if (!m) throw new Error('引擎回傳格式不認得：' + text.slice(0, 200));
-  var out = JSON.parse(JSON.parse(m[1])[0]);
-  if (out.error) throw new Error(out.error);
-  return out;
-}
-
-// 後台「分析上方選的單元」：讀這個單元的題目（Firebase）送去分析，回傳 { job }
-function brainStart(unitId) {
-  assertTeacher_();
-  unitId = String(unitId || '').trim();
-  var key = PropertiesService.getScriptProperties().getProperty('BRAIN_KEY');
-  if (!key) throw new Error('還沒設定錯誤分析引擎的金鑰');
-  var raw = readContentDoc_(unitId);
-  if (!raw) throw new Error('這個單元還沒有題目');
-  var data = JSON.parse(raw).data;
-  var out = brainCall_('start', [key, unitId, JSON.stringify(data), true]);
-  audit_('錯誤分析', unitId, '送出分析');
-  return out;
-}
-
-function brainJob(job) {
-  assertTeacher_();
-  return brainCall_('job', [String(job || '')]);
+  var key = props.getProperty('BRAIN_KEY') || '';
+  return { url: props.getProperty('BRAIN_URL') || '', hasKey: !!key, key: key };
 }
 
 function setBrainConfig(url, key) {
   assertTeacher_();
   var props = PropertiesService.getScriptProperties();
   url = String(url || '').trim().replace(/\/+$/, '');
-  if (url && !/^https:\/\/[a-z0-9.-]+\.hf\.space$/i.test(url)) throw new Error('網址要像 https://帳號-space名稱.hf.space（Space 頁面右上角「⋯ → Embed this Space」裡的 Direct URL）');
+  if (url && !/^https:\/\/[a-z0-9.-]+\.run\.app$/i.test(url)) throw new Error('網址要像 https://b5-brain-xxxxx.asia-east1.run.app（部署完 Cloud Run 時顯示的 Service URL）');
   if (url) props.setProperty('BRAIN_URL', url);
   if (String(key || '').trim()) props.setProperty('BRAIN_KEY', String(key).trim());
   audit_('修改錯誤分析引擎設定', url || '', key ? '更新金鑰' : '');

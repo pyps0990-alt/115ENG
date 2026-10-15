@@ -13,3 +13,5 @@ tools/brain/options.html
 tools/brain/wordbank/
 tools/brain/space_dist/
 tools/brain/review_dump*.txt
+tools/brain/cloudrun_dist/
+tools/brain/.brain_key

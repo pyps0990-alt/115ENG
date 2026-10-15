@@ -64,35 +64,16 @@ assert.ok(log.slice(1).every((r) => r[1]), '每筆都有帳號');
 assert.ok(log.find((r) => r[3] === 'u1' && r[2] === '儲存題目')[1] === T, '記下操作的老師');
 assert.ok(!JSON.stringify(log).includes('secret-key-123'), '不記金鑰內容');
 
-// 7. 錯誤分析引擎：Apps Script 代為呼叫 Space 的 Gradio API（金鑰不給瀏覽器）
+// 7. 錯誤分析引擎（Cloud Run）：網址只收 run.app，金鑰只給已登入的老師（後台直接呼叫 Cloud Run）
 {
-  const words = ['apple', 'bread', 'candy', 'dance'].map((w) => ({ word: w, pos: 'n.', zh: w, example: `I like [${w}].`, exampleZh: '我喜歡。' }));
-  ok(g.api('saveContent', ['u1', { topic: 't', words }, false, null]));
-  const seen = [];
-  global.__space = (name, data) => {
-    seen.push([name, data]);
-    return name === 'start' ? JSON.stringify({ job: 'job-1', ahead: 0 })
-      : JSON.stringify({ status: 'done', result: { sig: 'x', words: {}, pairs: {} }, seconds: 3 });
-  };
-  assert.deepEqual(ok(g.api('getBrainConfig', [])), { url: '', hasKey: false });
-  assert.throws(() => g.ctx.brainStart('u1'), /權限|網址|金鑰/);
-  const cfg = ok(g.api('setBrainConfig', ['https://abc-b5-brain.hf.space/', 'secret-key']));
-  assert.deepEqual(cfg, { url: 'https://abc-b5-brain.hf.space', hasKey: true }, '金鑰不回傳給瀏覽器');
-  assert.match(String(g.api('setBrainConfig', ['https://evil.example.com', '']).error), /hf\.space/, '網址只收 hf.space');
-  const s = ok(g.api('brainStart', ['u1']));
-  assert.equal(s.job, 'job-1');
-  assert.equal(seen[0][0], 'start');
-  assert.equal(seen[0][1][0], 'secret-key', '金鑰由 Apps Script 帶給 Space');
-  assert.equal(seen[0][1][1], 'u1');
-  assert.deepEqual(JSON.parse(seen[0][1][2]).words.map((w) => w.word), ['apple', 'bread', 'candy', 'dance'], '題目從 Firebase 讀出送去分析');
-  const j = ok(g.api('brainJob', ['job-1']));
-  assert.equal(j.status, 'done');
-  // Space 回報錯誤、或沒開機
-  global.__space = () => JSON.stringify({ error: '金鑰不正確' });
-  assert.match(String(g.api('brainStart', ['u1']).error), /金鑰不正確/);
-  global.__spaceDown = true;
-  assert.match(String(g.api('brainJob', ['job-1']).error), /沒有回應|醒來/);
-  global.__spaceDown = false;
-  assert.ok(g.sheets.get('audit').rows.some((r) => r[2] === '錯誤分析' && r[3] === 'u1'));
+  assert.deepEqual(ok(g.api('getBrainConfig', [])), { url: '', hasKey: false, key: '' });
+  const cfg = ok(g.api('setBrainConfig', ['https://b5-brain-abc123.asia-east1.run.app/', 'secret-key']));
+  assert.deepEqual(cfg, { url: 'https://b5-brain-abc123.asia-east1.run.app', hasKey: true, key: 'secret-key' });
+  assert.match(String(g.api('setBrainConfig', ['https://evil.example.com', '']).error), /run\.app/, '網址只收 run.app');
+  assert.match(String(g.api('setBrainConfig', ['https://abc.hf.space', '']).error), /run\.app/, '不再接受 Hugging Face');
+  ok(g.api('setBrainConfig', ['', 'new-key']));
+  assert.equal(ok(g.api('getBrainConfig', [])).url, 'https://b5-brain-abc123.asia-east1.run.app', '只改金鑰時網址保留');
+  assert.match(String(g.api('getBrainConfig', [], 'student@example.com').error), /權限/, '不是老師拿不到金鑰');
+  assert.ok(g.sheets.get('audit').rows.some((r) => r[2] === '修改錯誤分析引擎設定'));
 }
 console.log('老師名單同步與操作紀錄測試通過');

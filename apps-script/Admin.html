@@ -360,14 +360,14 @@
       <div class="card" id="an-card" hidden>
         <h2 style="margin-top:0">錯誤分析結果上傳</h2>
         <div class="help">錯誤分析結果讓學生測驗時排除「放進句子也說得通」的干擾選項、在例句選字題混入 7000 單字的課外選項，答錯時顯示更完整的解析。不會改單元設定，也不會重製學生的成績與進度。</div>
-        <h3 style="margin:14px 0 6px">雲端分析（Hugging Face）</h3>
+        <h3 style="margin:14px 0 6px">雲端分析（Google Cloud Run）</h3>
         <div class="bar">
           <button class="btn primary" id="br-go" type="button">分析上方選的單元</button>
           <span class="msg" id="br-msg"></span>
         </div>
         <details style="margin-top:8px"><summary class="muted">引擎設定（網址與金鑰）</summary>
           <div class="bar" style="margin-top:8px">
-            <label>網址 <input type="text" id="br-url" placeholder="https://帳號-b5-brain.hf.space" size="32"></label>
+            <label>網址 <input type="text" id="br-url" placeholder="https://b5-brain-xxxxx.asia-east1.run.app" size="32"></label>
             <label>金鑰 <input type="password" id="br-key" placeholder="（不變更就留空）" size="16"></label>
             <button class="btn" id="br-save" type="button">儲存</button>
           </div>
@@ -1122,46 +1122,50 @@
       };
     })();
 
-    // ----- 雲端分析：送目前選的單元到 Hugging Face Space，等它分析完（約 3～4 分鐘），結果存到 Firebase -----
+    // ----- 雲端分析：老師的瀏覽器直接呼叫 Cloud Run，一個請求等到分析完（約 3～10 分鐘），結果存到 Firebase -----
+    // （Cloud Run 只在請求進行中給 CPU，所以不用「先回工作編號、再查進度」；分析期間伺服器每 10 秒送一個空白當心跳）
     (function () {
-      if (!window.fastPublish) return;
+      if (!window.fastPublish || !window.fbPublic) return;
       var cfg = null;
       var msg = function (t, cls) { $('br-msg').textContent = t; $('br-msg').className = 'msg ' + (cls || ''); };
-      google.script.run.withSuccessHandler(function (c) { cfg = c; $('br-url').value = c.url || ''; $('br-key').placeholder = c.hasKey ? '（已設定，不變更就留空）' : '貼上 BRAIN_KEY'; }).withFailureHandler(function () {}).getBrainConfig();
+      var keyHint = function (c) { $('br-key').placeholder = c.hasKey ? '（已設定，不變更就留空）' : '貼上 BRAIN_KEY'; };
+      google.script.run.withSuccessHandler(function (c) { cfg = c; $('br-url').value = c.url || ''; keyHint(c); }).withFailureHandler(function () {}).getBrainConfig();
       $('br-save').onclick = function () {
-        google.script.run.withSuccessHandler(function (c) { cfg = c; $('br-key').value = ''; $('br-key').placeholder = c.hasKey ? '（已設定，不變更就留空）' : '貼上 BRAIN_KEY'; msg('✓ 已儲存引擎設定', 'ok'); })
+        google.script.run.withSuccessHandler(function (c) { cfg = c; $('br-key').value = ''; keyHint(c); msg('✓ 已儲存引擎設定', 'ok'); })
           .withFailureHandler(function (err) { msg(err.message, 'err'); }).setBrainConfig($('br-url').value, $('br-key').value);
       };
       $('br-go').onclick = function () {
         var u = impUnit();
         if (!u || u.type !== 'vocab') { msg('請先在上方選一個單字片語單元', 'err'); return; }
-        if (!cfg || !cfg.url || !cfg.hasKey) { msg('請先在「引擎設定」填網址與金鑰', 'err'); return; }
-        var btn = this; btn.disabled = true; msg('送出分析…（Space 剛醒來時要多等 1～2 分鐘）');
-        // 由 Apps Script 代為呼叫 Space（金鑰不經過瀏覽器，也沒有跨網站限制）
-        var call = function (name, arg) {
-          return new Promise(function (resolve, reject) {
-            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[name](arg);
+        if (!cfg || !cfg.url || !cfg.key) { msg('請先在「引擎設定」填網址與金鑰', 'err'); return; }
+        var btn = this; btn.disabled = true; msg('讀取題目…');
+        var t0 = 0, timer = null;
+        window.fbPublic('content_' + u.id).then(function (c) {
+          if (!c || !c.data || !(c.data.words || []).length) throw new Error('這個單元還沒有題目');
+          t0 = Date.now();
+          var tick = function () { msg('分析中… ' + Math.round((Date.now() - t0) / 1000) + ' 秒（約 3～10 分鐘；第一次或閒置後要多等約 1 分鐘開機。可以先做別的事，不要關掉這一頁）'); };
+          tick(); timer = setInterval(tick, 1000);
+          return fetch(cfg.url + '/analyze', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Brain-Key': cfg.key },
+            body: JSON.stringify({ unit: u.id, data: c.data, lm: true }),
           });
-        };
-        call('brainStart', u.id).then(function (s) {
-          var t0 = Date.now();
-          return new Promise(function (resolve, reject) {
-            (function poll() {
-              call('brainJob', s.job).then(function (j) {
-                if (j.status === 'done') { resolve(j.result); return; }
-                if (j.status === 'error') { reject(new Error(j.error || '分析失敗')); return; }
-                msg('分析中…' + (j.step ? j.step + '・' : j.status === 'queued' ? '排隊中・' : '') + Math.round((Date.now() - t0) / 1000) + ' 秒（約 3～4 分鐘，可以先做別的事，不要關掉這一頁）');
-                setTimeout(poll, 5000);
-              }, function (err) { reject(err); });
-            })();
+        }).then(function (r) {
+          return r.text().then(function (t) {
+            var j;
+            try { j = JSON.parse(t.trim()); } catch (e) { throw new Error('引擎的回應不完整（HTTP ' + r.status + '），請再試一次'); }
+            if (j.error) throw new Error(j.error);
+            if (!j.result) throw new Error('引擎沒有回傳結果（HTTP ' + r.status + '）');
+            return j.result;
           });
         }).then(function (result) {
           var docs = {}; docs['analysis_' + u.id] = result;
           return window.fastPublish(docs).then(function () {
-            msg('✓「' + (u.title || u.id) + '」分析完成並已存到 Firebase：' + Object.keys(result.pairs || {}).length + ' 組相關字，學生重新打開單元就會用到', 'ok');
+            msg('✓「' + (u.title || u.id) + '」分析完成（' + Math.round((Date.now() - t0) / 1000) + ' 秒）並已存到 Firebase，學生重新打開單元就會用到', 'ok');
           });
-        }).catch(function (err) { msg('分析失敗：' + (err && err.message || err), 'err'); })
-          .then(function () { btn.disabled = false; });
+        }).catch(function (err) {
+          var m = String(err && err.message || err);
+          msg('分析失敗：' + (/Failed to fetch|NetworkError|Load failed/i.test(m) ? '連不到分析引擎（網址錯誤、網路中斷，或請求被切斷）' : m), 'err');
+        }).then(function () { clearInterval(timer); btn.disabled = false; });
       };
     })();
 

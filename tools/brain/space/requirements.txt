@@ -1,7 +1,0 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.8.0
-transformers==4.46.3
-nltk==3.10.3
-jieba==0.42.1
-lemminflect==0.2.3
-huggingface_hub

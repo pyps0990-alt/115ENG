@@ -176,17 +176,6 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
         const list = (global.__vault || []).map((r, i) => ({ document: { name: `projects/x/databases/(default)/documents/vault/k${i}`, fields: { cls: { stringValue: r.cls }, seat: { stringValue: r.seat }, name: { stringValue: r.name } } } }));
         return resp(200, JSON.stringify(list));
       }
-      // 錯誤分析引擎（Hugging Face Space 的 Gradio API）：global.__space = (name, data) => 回傳的 JSON 字串（要模擬失敗就丟錯誤或回非 200）
-      if (/^https:\/\/[a-z0-9.-]+\.hf\.space\/gradio_api\/call\//.test(url)) {
-        const m = /\/gradio_api\/call\/([a-z]+)(?:\/([a-z0-9-]+))?$/.exec(url);
-        if (global.__spaceDown) return resp(503, '{}');
-        if (!m[2]) {
-          const id = 'evt-' + (calls.space = (calls.space || 0) + 1);
-          (global.__spaceEvents ||= {})[id] = global.__space(m[1], JSON.parse(opts.payload).data);
-          return resp(200, JSON.stringify({ event_id: id }));
-        }
-        return resp(200, ['event: complete', 'data: ' + JSON.stringify([global.__spaceEvents[m[2]]]), '', ''].join(String.fromCharCode(10)));
-      }
       if (url.startsWith('https://eng-3385e-default-rtdb')) {
         if (rtdb.down) return resp(404, '{"error":"not found"}');
         if ((opts.method || 'get') === 'get') return resp(200, JSON.stringify(rtdb.staff));

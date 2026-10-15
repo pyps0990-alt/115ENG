@@ -16,8 +16,10 @@ cd tools\brain
 
 之後會把 `brain.py` 放到 Firebase Cloud Functions（Python），老師儲存題目時自動分析，結果存成 `public/analysis_<單元>`。
 
-## 接到網站
+## 接到網站（Google Cloud Run）
 
-1. `analyze.py fetch` → `run --lm` → `options` 檢查出題選項。
-2. 老師後台「匯入內容」分頁最下面的「錯誤分析結果上傳」，選 `out/單元代號.json` 上傳（寫到 Firebase `public/analysis_<單元>`，不改單元設定、不重製學生進度）。
-3. 網站開單元時讀這份結果：同單元「放進句子也說得通」的字不當選項、每句加 1～2 個課外選項；老師改過題目（簽章對不上）就自動不用。
+1. 部署：見 `cloudrun/DEPLOY.md`（`make_cloudrun.py` 打包、`gcloud run deploy`）。
+2. 老師後台「匯入內容」最下面「錯誤分析結果上傳 → 引擎設定」填 Cloud Run 網址與金鑰。
+3. 選好單元按「分析上方選的單元」：瀏覽器直接呼叫 Cloud Run，一個請求等到分析完（3～10 分鐘），結果寫到 Firebase `public/analysis_<單元>`（不改單元設定、不重製學生進度）。
+4. 也可以在自己電腦跑 `analyze.py run --lm`，把 `out/單元代號.json` 用同一張卡片的「上傳檔案」上傳。
+5. 網站開單元時讀這份結果：同單元「放進句子也說得通」的字不當選項、例句選字有一半機會混入 1～3 個課外字；老師改過題目（簽章對不上）就自動不用。
