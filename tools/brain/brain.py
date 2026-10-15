@@ -729,7 +729,7 @@ def load_rejected():
     return keys, per_target, {x for x, t in targets.items() if len(t) >= 2}
 
 
-def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, pool_size=30, uid='', progress=None):
+def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, pool_size=15, uid='', progress=None):
     """每句例句挑 n 個課外選項：詞性和空格一樣、級數接近（4 級以上優先）、不是本單元的字、不是答案的同義字或同字根、
     做成和答案一樣的形式後，語言模型認為放進去說不通（分數差距 ≥ margin＋1，留一點安全距離）。
     回傳 {單字: [[{word, form, pos, zh, level}, ...], ...]}"""
@@ -762,16 +762,24 @@ def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, p
                      and b['word'] not in SCHOOL_UNSAFE]
             hard = [b for b in cands if b['level'] in (3, 4)] or [b for b in cands if b['level'] in (2, 5)] or cands  # 課外字以 3～4 級為主（老師指定），不夠才放寬
             rng.shuffle(hard)
-            pick = hard[:pool_size]
             tag = _penn_tag(ex)
             # 形容詞、副詞不做詞形變化：答案是 complicated／renowned／compelling 這類 -ed／-ing 形容詞時，標註器會標成動詞，
             # 不能把課外的形容詞也變成 crisped、paled、loosing
             if need in ('adj', 'adv', 'prep'):
                 tag = None
             if tag in ('NNS', 'NNPS'):
-                pick = [b for b in pick if b['word'] not in UNCOUNTABLE]
-            forms = {inflect(b['word'], tag): b for b in pick}
-            fit = lm.fit(before, after, ans, list(forms))
+                hard = [b for b in hard if b['word'] not in UNCOUNTABLE]
+            # 一次評 pool_size 個候選字（語言模型最花時間）；確定說不通的不到 n 個再多評一批，最多三批
+            forms, fit = {}, {}
+            for start in range(0, pool_size * 3, pool_size):
+                batch = {inflect(b['word'], tag): b for b in hard[start:start + pool_size]}
+                batch = {f: b for f, b in batch.items() if f not in forms}
+                if not batch:
+                    break
+                forms.update(batch)
+                fit.update(lm.fit(before, after, ans, list(batch)))
+                if sum(1 for d in fit.values() if d >= margin + 1) >= n:
+                    break
             # 最像答案但仍確定說不通的優先（太離譜的選項一眼就能刪掉，沒有鑑別度）
             ok = sorted([(d, f) for f, d in fit.items() if d >= margin + 1])
             per.append([{'word': forms[f]['word'], 'form': f, 'pos': forms[f]['pos'], 'zh': forms[f]['zh'], 'level': forms[f]['level'], 'gap': d}
