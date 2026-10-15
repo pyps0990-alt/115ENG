@@ -2,12 +2,12 @@
 
 Cloud Run 只在「有請求進來」時給 CPU，所以不能「先回 job 編號、背景慢慢算」：
 老師後台直接呼叫 POST /analyze，這個請求一路等到分析完才回應（Cloud Run 的請求逾時設 60 分鐘）。
-分析期間每 10 秒回一個空白字元當心跳，避免學校網路或代理把閒置連線切掉；最後一行才是 JSON 結果
-（用 JSON.parse 直接解析即可，前面的空白會被忽略）。
+回應是一行一個 JSON（NDJSON）：分析期間每 2 秒一行進度 {"p": {stage, step, steps, done, total, word, sec}}
+（同時當心跳，避免學校網路或代理把閒置連線切掉），最後一行是 {"result": …} 或 {"error": …}。
 
   GET  /health    健康檢查（單字表字數、引擎版本）
   POST /analyze   標頭 X-Brain-Key；本文 {unit, data: {words:[…]}, lm: true, rejected: []}
-                  回 {result: {…}} 或 {error: "…"}
+                  回進度行＋最後一行 {result: {…}} 或 {error: "…"}
 
 環境變數：
   BRAIN_KEY       必填。老師後台呼叫時帶的金鑰
@@ -37,15 +37,29 @@ app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=['GET', 
 _lock = threading.Lock()  # 一個實例一次只分析一個單元（記憶體與 CPU 都吃緊）
 
 
-def _run(req):
-    """真正的分析（在執行緒裡跑，不擋住心跳）"""
+_STEPS = 3
+
+
+def _run(req, state):
+    """真正的分析（在執行緒裡跑，不擋住進度回報）。state：目前進度，串流每 2 秒讀一次回報給後台"""
+    def stage(step, name):
+        state.update(step=step, stage=name, done=0, total=0, word='')
+
+    def prog(done, total, word):
+        state.update(done=done, total=total, word=word)
+
+    if _lock.locked():
+        stage(0, '等另一個單元分析完')
     with _lock:
         data = req['data']
         brain.EXTRA_REJECTED = set(req.get('rejected') or [])
+        stage(1, '分析詞性與字詞關係')
         a = brain.analyze(data)
         if req.get('lm', True):
-            a['unsafe'] = brain.option_safety(data, a)
-            a['extra'] = brain.extra_options(data, a, random.Random(req['unit']), uid=req['unit'])
+            stage(2, '檢查同單元選項會不會也說得通')
+            a['unsafe'] = brain.option_safety(data, a, progress=prog)
+            stage(3, '挑選課外選項')
+            a['extra'] = brain.extra_options(data, a, random.Random(req['unit']), uid=req['unit'], progress=prog)
         return a
 
 
@@ -72,18 +86,21 @@ async def analyze(request: Request, x_brain_key: str = Header(default='')):
 
     async def stream():
         loop = asyncio.get_running_loop()
-        fut = loop.run_in_executor(None, _run, req)
+        state = {'step': 0, 'stage': '準備中', 'done': 0, 'total': 0, 'word': ''}
+        fut = loop.run_in_executor(None, _run, req, state)
         t0 = time.time()
+        line = lambda o: (json.dumps(o, ensure_ascii=False) + chr(10)).encode('utf-8')
         while True:
+            yield line({'p': dict(state, steps=_STEPS, sec=round(time.time() - t0))})  # 進度（也是心跳）
             try:
-                result = await asyncio.wait_for(asyncio.shield(fut), timeout=10)
+                result = await asyncio.wait_for(asyncio.shield(fut), timeout=2)
                 break
             except asyncio.TimeoutError:
-                yield b' '  # 心跳
+                continue
             except Exception as e:  # noqa: BLE001
                 traceback.print_exc()
-                yield json.dumps({'error': f'{type(e).__name__}: {e}'}, ensure_ascii=False).encode('utf-8')
+                yield line({'error': f'{type(e).__name__}: {e}'})
                 return
-        yield json.dumps({'result': result, 'seconds': round(time.time() - t0)}, ensure_ascii=False).encode('utf-8')
+        yield line({'result': result, 'seconds': round(time.time() - t0)})
 
-    return StreamingResponse(stream(), media_type='application/json')
+    return StreamingResponse(stream(), media_type='application/x-ndjson')

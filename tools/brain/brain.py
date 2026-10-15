@@ -671,13 +671,15 @@ def _split(ex):
     return (ex[:m.start()], m.group(1), ex[m.end():]) if m else None
 
 
-def option_safety(data, analysis, margin=FIT_MARGIN):
+def option_safety(data, analysis, margin=FIT_MARGIN, progress=None):
     """每句例句：同單元其他字放進去也說得通的（語言模型分數和答案差不到 margin）列為「不能當選項」。
     回傳 {單字: [[這句不能用的字...], ...]}（依例句順序）"""
     import lm
     words = [w for w in data['words'] if w.get('word')]
     out = {}
-    for t in words:
+    for k, t in enumerate(words):
+        if progress:
+            progress(k, len(words), t['word'])
         same = [w for w in words if w is not t and ('phr' in pos_list(w)) == ('phr' in pos_list(t))]
         per = []
         for ex in _examples(t):
@@ -727,7 +729,7 @@ def load_rejected():
     return keys, per_target, {x for x, t in targets.items() if len(t) >= 2}
 
 
-def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, pool_size=30, uid=''):
+def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, pool_size=30, uid='', progress=None):
     """每句例句挑 n 個課外選項：詞性和空格一樣、級數接近（4 級以上優先）、不是本單元的字、不是答案的同義字或同字根、
     做成和答案一樣的形式後，語言模型認為放進去說不通（分數差距 ≥ margin＋1，留一點安全距離）。
     回傳 {單字: [[{word, form, pos, zh, level}, ...], ...]}"""
@@ -737,7 +739,9 @@ def extra_options(data, analysis, rng, margin=FIT_MARGIN, n=EXTRA_PER_EXAMPLE, p
     rej_keys, rej_target, rej_global = load_rejected()
     unit = {w['word'].lower() for w in data['words']}
     out = {}
-    for t in data['words']:
+    for k, t in enumerate(data['words']):
+        if progress:
+            progress(k, len(data['words']), t['word'])
         if 'phr' in pos_list(t):
             out[t['word']] = []
             continue

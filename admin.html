@@ -118,6 +118,17 @@
     .switch { display:inline-flex; gap:6px; align-items:center; font-weight:700; }
     .bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
     .msg { font-weight:700; }
+    /* 雲端分析即時進度 */
+    .br-live { margin-top:10px; padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:var(--surface); display:grid; gap:8px; }
+    .br-steps { display:flex; flex-wrap:wrap; gap:4px 14px; margin:0; padding:0; list-style:none; counter-reset:st; font-size:.85rem; color:var(--muted); }
+    .br-steps li { counter-increment:st; }
+    .br-steps li::before { content:counter(st) '. '; }
+    .br-steps li.on { color:var(--ink); font-weight:700; }
+    .br-steps li.done { color:#166534; }
+    .br-steps li.done::before { content:'✓ '; }
+    .br-track { height:8px; border-radius:999px; background:var(--line); overflow:hidden; }
+    .br-fill { height:100%; width:0; border-radius:999px; background:var(--ink); transition:width .6s ease; }
+    .br-info { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:.85rem; color:var(--muted); font-variant-numeric:tabular-nums; }
     .msg.ok { color:var(--good); } .msg.err { color:var(--bad); }
     .muted { color:var(--muted); }
     tr.off td { opacity:.5; }
@@ -375,6 +386,11 @@
         <div class="bar">
           <button class="btn primary" id="br-go" type="button">分析上方選的單元</button>
           <span class="msg" id="br-msg"></span>
+        </div>
+        <div class="br-live" id="br-live" hidden>
+          <ol class="br-steps" id="br-steps"><li>開機與連線</li><li>詞性與字詞關係</li><li>檢查同單元選項</li><li>挑選課外選項</li></ol>
+          <div class="br-track"><div class="br-fill" id="br-fill"></div></div>
+          <div class="br-info"><span id="br-now"></span><span id="br-eta"></span></div>
         </div>
         <details style="margin-top:8px"><summary class="muted">引擎設定（網址與金鑰）</summary>
           <div class="bar" style="margin-top:8px">
@@ -1141,7 +1157,7 @@
     })();
 
     // ----- 雲端分析：老師的瀏覽器直接呼叫 Cloud Run，一個請求等到分析完（約 3～10 分鐘），結果存到 Firebase -----
-    // （Cloud Run 只在請求進行中給 CPU，所以不用「先回工作編號、再查進度」；分析期間伺服器每 10 秒送一個空白當心跳）
+    // （Cloud Run 只在請求進行中給 CPU，所以不用「先回工作編號、再查進度」；分析期間伺服器每 2 秒送一行進度，後台即時顯示）
     (function () {
       if (!window.fastPublish || !window.fbPublic) return;
       var cfg = null;
@@ -1157,33 +1173,84 @@
         if (!u || u.type !== 'vocab') { msg('請先在上方選一個單字片語單元', 'err'); return; }
         if (!cfg || !cfg.url || !cfg.key) { msg('請先在「引擎設定」填網址與金鑰', 'err'); return; }
         var btn = this; btn.disabled = true; msg('讀取題目…');
-        var t0 = 0, timer = null;
+        var t0 = 0, timer = null, last = null, stepAt = {};
+        var live = $('br-live'), steps = $('br-steps').children;
+        var mmss = function (sec) { sec = Math.max(0, Math.round(sec)); return Math.floor(sec / 60) + ':' + ('0' + sec % 60).slice(-2); };
+        // 進度條：第 1、2 步很快，第 3、4 步（語言模型）佔大部分時間
+        var W = [0.08, 0.04, 0.28, 0.60];
+        var paint = function () {
+          var sec = (Date.now() - t0) / 1000;
+          var step = last ? last.step : 0;  // 畫面上的第幾步（0 = 開機與連線；1～3 和引擎回報的步驟一致）
+          var frac = last && last.total ? last.done / last.total : 0;
+          var f = 0;
+          for (var i = 0; i < step; i++) f += W[i];
+          f += (W[step] || 0) * frac;
+          for (var k = 0; k < steps.length; k++) steps[k].className = k < step ? 'done' : k === step ? 'on' : '';
+          $('br-fill').style.width = Math.round(Math.min(1, f) * 100) + '%';
+          var now = !last ? '開機中，第一次或閒置後約需 1 分鐘…'
+            : last.step === 0 ? last.stage
+            : last.stage + (last.total ? '：' + last.done + ' / ' + last.total + ' 個字' + (last.word ? '（' + last.word + '）' : '') : '');
+          $('br-now').textContent = now;
+          // 預估剩餘：用語言模型階段目前的速度推算（開始超過 5% 才估，不然太不準）
+          var eta = '';
+          var lmStart = stepAt[2];
+          if (last && last.step >= 2 && lmStart != null && f > W[0] + W[1] + 0.05) {
+            var lmDone = (f - W[0] - W[1]) / (W[2] + W[3]);
+            var used = sec - lmStart;
+            eta = '・預估還要 ' + mmss(used / lmDone * (1 - lmDone));
+          }
+          $('br-eta').textContent = '已過 ' + mmss(sec) + eta;
+        };
         window.fbPublic('content_' + u.id).then(function (c) {
           if (!c || !c.data || !(c.data.words || []).length) throw new Error('這個單元還沒有題目');
-          t0 = Date.now();
-          var tick = function () { msg('分析中… ' + Math.round((Date.now() - t0) / 1000) + ' 秒（約 3～10 分鐘；第一次或閒置後要多等約 1 分鐘開機。可以先做別的事，不要關掉這一頁）'); };
-          tick(); timer = setInterval(tick, 1000);
+          t0 = Date.now(); live.hidden = false; msg('分析中…可以先做別的事，不要關掉這一頁');
+          paint(); timer = setInterval(paint, 1000);
           return fetch(cfg.url + '/analyze', {
             method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Brain-Key': cfg.key },
             body: JSON.stringify({ unit: u.id, data: c.data, lm: true }),
           });
         }).then(function (r) {
-          return r.text().then(function (t) {
-            var j;
-            try { j = JSON.parse(t.trim()); } catch (e) { throw new Error('引擎的回應不完整（HTTP ' + r.status + '），請再試一次'); }
-            if (j.error) throw new Error(j.error);
-            if (!j.result) throw new Error('引擎沒有回傳結果（HTTP ' + r.status + '）');
-            return j.result;
-          });
+          // 回應一行一個 JSON：分析期間每 2 秒一行進度，最後一行是結果
+          var final = null, buf = '';
+          var handle = function (ln) {
+            ln = ln.trim(); if (!ln) return;
+            var j; try { j = JSON.parse(ln); } catch (e) { return; }
+            if (j.p) { if (!last || j.p.step !== last.step) stepAt[j.p.step] = (Date.now() - t0) / 1000; last = j.p; paint(); }
+            else final = j;
+          };
+          var done = function () {
+            handle(buf);
+            if (!final) throw new Error('引擎的回應不完整（HTTP ' + r.status + '），請再試一次');
+            if (final.error) throw new Error(final.error);
+            if (!final.result) throw new Error('引擎沒有回傳結果（HTTP ' + r.status + '）');
+            return final.result;
+          };
+          if (!r.body || !r.body.getReader) return r.text().then(function (t) { t.split(/\r?\n/).forEach(handle); return done(); });
+          var reader = r.body.getReader(), dec = new TextDecoder();
+          var pump = function () {
+            return reader.read().then(function (x) {
+              if (x.done) return done();
+              buf += dec.decode(x.value, { stream: true });
+              var parts = buf.split(/\r?\n/); buf = parts.pop();
+              parts.forEach(handle);
+              return pump();
+            });
+          };
+          return pump();
         }).then(function (result) {
+          last = { step: 3, stage: '存進 Firebase', done: 1, total: 1 }; paint();
           var docs = {}; docs['analysis_' + u.id] = result;
           return window.fastPublish(docs).then(function () {
-            msg('✓「' + (u.title || u.id) + '」分析完成（' + Math.round((Date.now() - t0) / 1000) + ' 秒）並已存到 Firebase，學生重新打開單元就會用到', 'ok');
+            for (var k = 0; k < steps.length; k++) steps[k].className = 'done';
+            $('br-fill').style.width = '100%';
+            $('br-now').textContent = '完成';
+            msg('✓「' + (u.title || u.id) + '」分析完成（' + mmss((Date.now() - t0) / 1000) + '）並已存到 Firebase，學生重新打開單元就會用到', 'ok');
           });
         }).catch(function (err) {
           var m = String(err && err.message || err);
+          $('br-now').textContent = '已停止';
           msg('分析失敗：' + (/Failed to fetch|NetworkError|Load failed/i.test(m) ? '連不到分析引擎（網址錯誤、網路中斷，或請求被切斷）' : m), 'err');
-        }).then(function () { clearInterval(timer); btn.disabled = false; });
+        }).then(function () { clearInterval(timer); timer = null; $('br-eta').textContent = '共 ' + mmss((Date.now() - t0) / 1000); btn.disabled = false; });
       };
     })();
 
