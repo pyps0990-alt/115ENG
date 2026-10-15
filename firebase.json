@@ -18,6 +18,7 @@
       "tools/**",
       "README.md",
       "docs/**",
+      "videos/**",
       "database.rules.json",
       "firestore.indexes.json",
       "firestore.rules",
