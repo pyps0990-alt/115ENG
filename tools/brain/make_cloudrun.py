@@ -32,8 +32,10 @@ files = [n for n in (os.listdir(bank) if os.path.isdir(bank) else []) if n.lower
 if not files:
     raise SystemExit('找不到單字表：請把 7000 單字 CSV 放在 tools/brain/wordbank/')
 os.makedirs(os.path.join(DIST, 'wordbank'))
-for name in files:
-    shutil.copy(os.path.join(bank, name), os.path.join(DIST, 'wordbank', name))
+for i, name in enumerate(sorted(files)):
+    # 映像檔裡的檔名一律用英數（中文檔名會讓 Cloud Run 匯入映像檔失敗）
+    ext = os.path.splitext(name)[1].lower()
+    shutil.copy(os.path.join(bank, name), os.path.join(DIST, 'wordbank', 'bank%d%s' % (i, ext)))
 with open(os.path.join(DIST, '.gcloudignore'), 'w', encoding='utf-8') as f:
     f.write('__pycache__/\n*.pyc\n')
 print('已產生', DIST)
