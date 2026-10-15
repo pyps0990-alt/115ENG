@@ -1,0 +1,236 @@
+{
+ "plain": [
+  {
+   "ex": "She explained the difficult grammar in [plain] and simple English.",
+   "zh": "清晰平易"
+  },
+  {
+   "ex": "We enjoyed a [plain] meal together around the kitchen table.",
+   "zh": "家常簡便"
+  }
+ ],
+ "penetrate": [
+  {
+   "ex": "The cold winter wind [penetrated] our cozy living room yesterday.",
+   "zh": "吹進"
+  },
+  {
+   "ex": "Foreign companies tried hard to [penetrate] the new Asian market.",
+   "zh": "打入"
+  }
+ ],
+ "renowned": [
+  {
+   "ex": "Her mother is [renowned] in our neighborhood for baking delicious bread.",
+   "zh": "聞名"
+  },
+  {
+   "ex": "The city is [renowned] for its rich history and vibrant culture.",
+   "zh": "著稱"
+  }
+ ],
+ "compose": [
+  {
+   "ex": "Students must [compose] a short essay before the semester ends.",
+   "zh": "寫出"
+  }
+ ],
+ "solitary": [
+  {
+   "ex": "After the children left home, the old man lived a [solitary] life.",
+   "zh": "孤獨"
+  },
+  {
+   "ex": "A [solitary] protestor stood outside the city hall for three hours.",
+   "zh": "形單影隻"
+  }
+ ],
+ "compelling": [
+  {
+   "ex": "The student gave a [compelling] speech during the debate contest yesterday.",
+   "zh": "極具說服力"
+  }
+ ],
+ "unconventional": [
+  {
+   "ex": "The mayor adopted an [unconventional] policy to tackle traffic jams downtown.",
+   "zh": "非常規"
+  }
+ ],
+ "justify": [
+  {
+   "ex": "The student tried to [justify] his absence by showing a fake note.",
+   "zh": "辯解"
+  }
+ ],
+ "encounter": [
+  {
+   "ex": "Medical workers frequently [encounter] infectious diseases in crowded hospitals.",
+   "zh": "面臨"
+  }
+ ],
+ "shatter": [
+  {
+   "ex": "The economic crisis [shattered] many young people's hopes of buying homes.",
+   "zh": "化為泡影"
+  }
+ ],
+ "differ": [
+  {
+   "ex": "Cultural traditions [differ] greatly between Eastern and Western modern societies.",
+   "zh": "差異"
+  }
+ ],
+ "from far and wide": [
+  {
+   "ex": "Thousands of eager fans gathered [from far and wide] for the concert.",
+   "zh": "從各地"
+  }
+ ],
+ "settle": [
+  {
+   "ex": "The new transfer student finally [settled] down in his classroom.",
+   "zh": "安定"
+  }
+ ],
+ "stream": [
+  {
+   "ex": "Tears [streamed] down my sister's face during the sad movie.",
+   "zh": "流下"
+  },
+  {
+   "ex": "Heavy traffic [streamed] steadily through the busy city center streets.",
+   "zh": "川流"
+  }
+ ],
+ "stark": [
+  {
+   "ex": "The report revealed [stark] inequalities in wealth across the nation.",
+   "zh": "鮮明"
+  }
+ ],
+ "lively": [
+  {
+   "ex": "The night market is always [lively] on Friday and Saturday.",
+   "zh": "熱鬧非凡"
+  }
+ ],
+ "dense": [
+  {
+   "ex": "A [dense] fog covered our garden early this morning outside.",
+   "zh": "濃厚"
+  }
+ ],
+ "bustling": [
+  {
+   "ex": "Our family kitchen was [bustling] with activity on New Year's Eve.",
+   "zh": "忙碌"
+  }
+ ],
+ "soar": [
+  {
+   "ex": "Global oil prices [soared] rapidly following the unexpected international conflict.",
+   "zh": "猛增飆升"
+  },
+  {
+   "ex": "Colorful school festival balloons [soared] high into the clear sky.",
+   "zh": "聳入"
+  }
+ ],
+ "substantial": [
+  {
+   "ex": "My parents spent a [substantial] amount of money repairing our old roof.",
+   "zh": "可觀"
+  }
+ ],
+ "provoke": [
+  {
+   "ex": "My teasing brother deliberately [provoked] our peaceful cat until it ran away.",
+   "zh": "激怒"
+  }
+ ],
+ "estimate": [
+  {
+   "ex": "Dad provided a rough cost [estimate] before beginning the home renovation.",
+   "zh": "估價"
+  }
+ ],
+ "concern": [
+  {
+   "ex": "Our parents expressed deep [concern] over my sister's poor sleeping habits.",
+   "zh": "憂慮"
+  }
+ ],
+ "somewhat": [
+  {
+   "ex": "The final election outcome was [somewhat] surprising to most political analysts.",
+   "zh": "多少"
+  }
+ ],
+ "alter": [
+  {
+   "ex": "Mom asked the local tailor to [alter] my sister's school uniform skirt.",
+   "zh": "修改"
+  },
+  {
+   "ex": "Climate change threatens to [alter] delicate marine ecosystems permanently around the world.",
+   "say": "空格是句子的動作，需要動詞（受詞是「ecosystems」）"
+  }
+ ],
+ "suit": [
+  {
+   "ex": "The flexible online course schedule [suits] busy high school students very well.",
+   "zh": "符合"
+  },
+  {
+   "ex": "We finally found a comfortable dining table that [suits] our small apartment.",
+   "zh": "合乎"
+  },
+  {
+   "ex": "The proposed tax policy does not [suit] the economic needs of small businesses.",
+   "zh": "符合"
+  }
+ ],
+ "take a toll": [
+  {
+   "ex": "The heavy financial burden began to [take a toll] on our family.",
+   "zh": "造成不良影響"
+  },
+  {
+   "ex": "Severe air pollution has [taken a heavy toll] on public health citywide.",
+   "zh": "造成了沉重代價"
+  }
+ ],
+ "jump to conclusions": [
+  {
+   "ex": "Students should gather solid evidence rather than [jump to conclusions] during debates.",
+   "zh": "貿然草率地下結論"
+  },
+  {
+   "ex": "Mom warned me not to [jump to conclusions] before hearing my brother's side.",
+   "zh": "匆忙下定論"
+  },
+  {
+   "ex": "Cautious investigators refused to [jump to conclusions] before testing all physical evidence.",
+   "zh": "草率妄下斷語"
+  }
+ ],
+ "comment": [
+  {
+   "ex": "Officials declined to [comment] on the controversial new labor law.",
+   "zh": "發表意見"
+  }
+ ],
+ "complicated": [
+  {
+   "ex": "The math teacher explained the [complicated] formula step by step.",
+   "say": "空格在「formula」前面修飾它，需要形容詞"
+  }
+ ],
+ "possess": [
+  {
+   "ex": "Good student leaders must [possess] strong communication and problem-solving skills.",
+   "say": "空格是句子的動作，需要動詞（受詞是「skills」）"
+  }
+ ]
+}

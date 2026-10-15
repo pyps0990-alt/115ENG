@@ -25,7 +25,7 @@ if os.path.isdir(DIST):
 os.makedirs(DIST)
 for name in ('main.py', 'Dockerfile', 'requirements.txt'):
     copy_lf(os.path.join(HERE, 'cloudrun', name), DIST)
-for name in ('brain.py', 'lm.py', 'wordbank.py', 'rejected_extras.json'):
+for name in ('brain.py', 'lm.py', 'wordbank.py', 'rejected_extras.json', 'slot_overrides.json'):
     copy_lf(os.path.join(HERE, name), DIST)
 bank = os.path.join(HERE, 'wordbank')
 files = [n for n in (os.listdir(bank) if os.path.isdir(bank) else []) if n.lower().endswith(('.csv', '.tsv', '.txt'))]

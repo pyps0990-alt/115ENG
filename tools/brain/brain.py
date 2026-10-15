@@ -11,6 +11,7 @@
 
 依賴 nltk（tools/brain/nltk_data 裡的 wordnet、cmudict、averaged_perceptron_tagger_eng）與 jieba（中文斷詞，找翻譯裡對應的詞）。
 """
+import json
 import os
 import re
 
@@ -408,7 +409,30 @@ def _slot_view(w, ex, ex_zh):
     span = answer_span(w, ex_zh)
     sl['span'] = list(span) if span else None
     sl['say'] = _slot_text(ex, sl)
+    # 人工校對過的修正（slot_overrides.json）：例句英文完全相同才套用，老師改過例句就自動失效
+    for o in _overrides().get(w['word'], []):
+        if o.get('ex') == ex:
+            if o.get('zh') and ex_zh and o['zh'] in ex_zh:
+                i = ex_zh.index(o['zh'])
+                sl['span'] = [i, i + len(o['zh'])]
+            if o.get('say'):
+                sl['say'] = o['say']
     return sl
+
+
+_OVERRIDES = None
+
+
+def _overrides():
+    global _OVERRIDES
+    if _OVERRIDES is None:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'slot_overrides.json')
+        try:
+            with open(path, encoding='utf-8') as f:
+                _OVERRIDES = json.load(f)
+        except FileNotFoundError:
+            _OVERRIDES = {}
+    return _OVERRIDES
 
 
 def analyze(data):
@@ -488,38 +512,68 @@ def _explain(analysis, t, c, kind, example_index):
 _NEED_ZH = {'adj': '形容詞', 'n': '名詞', 'v': '動詞', 'adv': '副詞', 'prep': '介系詞', 'phr': '片語'}
 
 
+_NOT_HEAD = {'yesterday', 'today', 'tonight', 'tomorrow', 'overnight', 'recently', 'downtown', 'together', 'home', 'worldwide', 'citywide',
+             'morning', 'evening', 'week', 'year', 'month', 'day', 'night', 'way', 'time'}
+
+
+def _np_head(tags, j):
+    """從 j 開始的名詞片語的中心名詞（the thick [windows]、this emergency medical rescue [team]）：跳過限定詞、所有格、數字，
+    在名詞與形容詞連在一起的範圍裡取最後一個名詞（yesterday、downtown 這類時間地點副詞不算）；j 開頭不是名詞片語就回 None"""
+    k = j
+    while k < len(tags) and tags[k][1] in ('DT', 'PDT', 'PRP$', 'POS', 'CD'):
+        k += 1
+    head = None
+    while k < len(tags) and (tags[k][1][:2] in ('NN', 'JJ') or tags[k][1] == 'POS'):
+        w = tags[k][0]
+        if tags[k][1].startswith('NN') and re.match(r"[A-Za-z]", w):
+            if w.lower() in _NOT_HEAD and head:
+                break
+            head = w
+        k += 1
+    return head if head and head.lower() not in _STOP and head.lower() not in _NOT_HEAD else None
+
+
 def _slot_text(ex, sl):
-    """空格在句子裡的角色：「空格在 evidence 前面修飾它，需要形容詞」"""
+    """空格在句子裡的角色（「空格在 evidence 前面修飾它，需要形容詞」）。只說確定的關係，不確定就只說詞性"""
     need = sl.get('need') if sl else None
     if not need:
         return ''
-    hint = sl.get('hint') or ''
-    m = re.search(r'\[([^\]]+)\]', ex)
-    after = bool(hint) and m is not None and re.search(r'\b' + re.escape(hint) + r'\b', ex[m.end():], re.I) is not None
     name = _NEED_ZH.get(need, need)
-    if need == 'adj':
-        # 名詞緊接在空格後面（中間最多隔一個字）才是「修飾它」；否則是放在 be 動詞等後面描述主詞（is considered unethical at school）
-        if hint and m is not None and re.match(r"\s*(?:[A-Za-z'-]+\s+)?" + re.escape(hint) + r'\b', ex[m.end():], re.I):
-            return f"空格在「{hint}」前面修飾它，需要{name}"
-        return f"空格在描述人或事物的狀態，需要{name}"
-    if need == 'v':
-        if hint and after and hint.lower() in _PREPS:
-            return f"空格是句子的動作，後面接「{hint}」，需要{name}"
-        return f"空格是句子的動作，需要{name}" + (f"（受詞是「{hint}」）" if hint and after else '')
-    if need == 'n':
-        # 只有提示字緊貼空格才說它們的關係（前面描述它的字、後面接的介系詞）；離得遠的提示常常不相干，就不提
-        before = ex[:m.start()] if m else ''
-        if hint and after and hint.lower() in _PREPS and re.match(r'\s*' + re.escape(hint) + r'\b', ex[m.end():], re.I):
-            return f"空格是一個東西或概念，後面接「{hint}」，需要{name}"
-        if hint and not after and re.search(r'\b' + re.escape(hint) + r"\s+(?:[A-Za-z'-]+\s+)?$", before, re.I):
-            plain = before + m.group(1) + ex[m.end():]
-            tag = dict(nltk.pos_tag(re.findall(r"[A-Za-z']+", plain))).get(hint, '')
-            if tag.startswith('VB'):
-                return f"空格是「{hint}」的對象，需要{name}"
-            return f"空格是一個東西或概念，前面的「{hint}」在描述它，需要{name}"
-        return f"空格是一個東西或概念，需要{name}"
     if need == 'phr':
         return '空格是一個片語，先想整句在說什麼，再找意思對得上的片語'
+    m = re.search(r'\[([^\]]+)\]', ex)
+    if not m:
+        return f"空格需要{name}"
+    split = lambda s: re.findall(r"[A-Za-z][A-Za-z'-]*|[^\sA-Za-z]", s)
+    before, ans = split(ex[:m.start()]), split(m.group(1))
+    tags = nltk.pos_tag(before + ans + split(ex[m.end():]))
+    i, j = len(before), len(before) + len(ans)  # 空格前一個字是 i-1，空格後第一個字是 j
+    word = lambda k: tags[k][0] if 0 <= k < len(tags) else ''
+    tag = lambda k: tags[k][1] if 0 <= k < len(tags) else ''
+    if need == 'adj':
+        # 後面直接是名詞片語（中間最多一個形容詞或名詞）才是「修飾它」；否則是放在 be 動詞等後面描述主詞
+        if tag(j).startswith('NN') or (tag(j)[:2] in ('JJ', 'NN') and tag(j + 1).startswith('NN')):
+            head = _np_head(tags, j)
+            if head:
+                return f"空格在「{head}」前面修飾它，需要{name}"
+        return f"空格在描述人或事物的狀態，需要{name}"
+    if need == 'v':
+        nxt = word(j).lower()
+        if tag(j) in ('IN', 'TO', 'RP') and nxt in _PREPS:
+            return f"空格是句子的動作，後面接「{nxt}」，需要{name}"
+        head = _np_head(tags, j)
+        return f"空格是句子的動作，需要{name}" + (f"（受詞是「{head}」）" if head else '')
+    if need == 'n':
+        if word(j).lower() == 'of':
+            return f"空格是一個東西或概念，後面接「of」，需要{name}"
+        prev = i - 1
+        while prev >= 0 and tag(prev) in ('DT', 'PRP$'):
+            prev -= 1
+        if prev >= 0 and tag(prev)[:2] == 'VB' and tag(prev) != 'VBN' and word(prev).lower() not in _STOP:
+            return f"空格是「{word(prev)}」的對象，需要{name}"
+        if tag(i - 1)[:2] in ('JJ', 'NN') and re.match(r"[A-Za-z]", word(i - 1)) and word(i - 1).lower() not in _STOP:
+            return f"空格是一個東西或概念，前面的「{word(i - 1)}」在描述它，需要{name}"
+        return f"空格是一個東西或概念，需要{name}"
     return f"空格需要{name}"
 
 
