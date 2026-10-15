@@ -3,7 +3,7 @@ import { typeLabel } from '../types.js';
 import { store } from '../storage.js';
 import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog } from '../util.js';
 import { icon } from '../icons.js';
-import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError, errorOf } from '../components/question.js';
+import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError, errorOf, questionFromRecord } from '../components/question.js';
 import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
@@ -56,6 +56,17 @@ export function mount(stage, ctx) {
     // 拼寫題（拼字、例句拼寫）把拼錯的字母標出來；選擇題的答案是整個選項，不標
     const spellKind = /拼/.test(String(d.kind || ''));
     const mark = spellKind && yours ? diffAnswer(yours, [d.correct || '']) : null;
+    // 能重建題目就用完整版解析：解題步驟在前，最後才揭曉正確答案、例句與翻譯
+    const q = questionFromRecord(d, all, ctx.analysis);
+    if (q) {
+      const full = explainWrong(q, yours, all, 'full');
+      return `<div class="rv-card">
+        <div class="rv-meta">${esc(d.stage || '')}・${esc(d.kind || '')}</div>
+        <div class="rv-prompt ${/[a-z]/i.test(d.q || d.question || '') ? 'en' : ''}">${esc(d.q || d.question || '')}</div>
+        <div class="rv-row no"><span>你的答案</span><b class="en">${yours ? esc(yours) : '（未作答）'}</b></div>
+        ${full.html}
+      </div>`;
+    }
     const xp = d.err ? errorOf(d, all) : { err: '' }; // 錯誤原因依兩個字的關係重新判斷（舊紀錄的選擇題都記成「意思混淆」）
     return `<div class="rv-card">
         <div class="rv-meta">${esc(d.stage || '')}・${esc(d.kind || '')}</div>
@@ -221,6 +232,8 @@ export function mount(stage, ctx) {
         q: promptText(q), correct: answerText(q), yours: yours == null ? '' : String(yours), ok, points: got, hints,
         word: q.word.word, err: ok ? '' : classifyError(q, yours, all),
         extras: ok || !q.extras || !q.extras.length ? undefined : q.extras, // 課外選項（答錯時要知道學生選的是哪個字、什麼意思）
+        options: ok || q.type !== 'mc' ? undefined : q.options, // 答錯的選擇題記下當時的選項：逐題檢討要重跑解題步驟
+        exIdx: ok || !Number.isInteger(q.exIdx) ? undefined : q.exIdx, // 考的是第幾句例句（對應錯誤分析結果）
         exampleEn: clozeQ ? `${q.parts.before}[${q.parts.answer}]${q.parts.after}` : '',
         exampleZh: clozeQ ? (q.exampleZh || '') : '',
       });

@@ -537,18 +537,39 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 .rv-row.ok { background: var(--good-soft); color: var(--good-ink); }
 .xp-ex { color: var(--navy); }
 .xp-exzh { font-size: .88rem; }
-/* 解題步驟 */
-.wt { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); display: grid; gap: 6px; font-size: .9rem; }
+/* 解析：錯誤類型標籤放在標題列 */
+.xp-head .xp-tag { margin-left: 4px; }
+/* 解題步驟（檢討時） */
+.wt { list-style: none; margin: 4px 0 0; padding: 10px 0 0; border-top: 1px dashed var(--line); display: grid; gap: 8px; font-size: .92rem; color: var(--navy); }
 .wt-step { display: flex; gap: 8px; align-items: baseline; }
-.wt-n { flex: none; width: 1.4em; height: 1.4em; border-radius: 50%; display: inline-grid; place-items: center; background: var(--wash); color: var(--steel); font-size: .75rem; font-weight: 700; }
-.wt-end { padding-left: calc(1.4em + 8px); font-weight: 600; }
-.wt-list { list-style: none; margin: 0; padding: 0 0 0 calc(1.4em + 8px); display: grid; gap: 4px; }
-.wt-opt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
-.wt-mark { width: 1em; color: var(--bad-ink); font-weight: 700; }
-.wt-opt.ok .wt-mark, .wt-opt.ok b { color: var(--good-ink); }
-.wt-zh { color: var(--steel); font-size: .85rem; }
-.wt-you { padding: 0 8px; border-radius: 999px; background: var(--bad-soft); color: var(--bad-ink); font-size: .72rem; font-weight: 700; }
-.wt-why { flex-basis: 100%; padding-left: calc(1em + 8px); color: var(--steel); font-size: .85rem; }
+.wt-n { flex: none; width: 1.5em; height: 1.5em; border-radius: 50%; display: inline-grid; place-items: center; background: var(--wash); color: var(--steel); font-size: .75rem; font-weight: 700; }
+/* 選項列：記號一欄、內容一欄（換行後的文字都留在內容欄，✓／✗ 排成一直線） */
+.op-list { list-style: none; margin: 2px 0 0; padding: 0; display: grid; gap: 8px; }
+.op-full { padding-left: calc(1.5em + 8px); }
+.op { display: grid; grid-template-columns: 1.1em minmax(0, 1fr); gap: 0 8px; align-items: baseline; }
+.op-mark { font-weight: 800; color: var(--bad-ink); text-align: center; }
+.op-ok .op-mark { color: var(--good-ink); }
+/* 單字、詞性、「你選的」、意思同一行；意思放不下就整段移到下一行（彈性項目以整段為單位換行） */
+.op-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.op-word { font-weight: 800; color: var(--navy); }
+.op-ok .op-word { color: var(--good-ink); }
+.op-pos { flex: none; padding: 0 7px; border-radius: 6px; background: var(--wash); color: var(--steel); font-size: .72rem; font-weight: 700; line-height: 1.6; }
+.op-you { flex: none; padding: 0 8px; border-radius: 999px; background: var(--bad-soft); color: var(--bad-ink); font-size: .72rem; font-weight: 700; line-height: 1.6; }
+.op-zh { color: var(--steel); font-size: .84rem; }
+/* 原因：一定另起一行，依結果上色（和上面的意思明顯不同） */
+.op-why { margin: 2px 0 0; font-size: .86rem; font-weight: 600; }
+.why-pos { color: var(--bad-ink); }
+.why-sense { color: var(--amber-ink); }
+.why-ok { color: var(--good-ink); }
+/* 逐題檢討卡片裡的解析：不再套一層外框 */
+.rv-card > .xp { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; }
+/* 最後揭曉的答案卡 */
+.xp-answer { display: grid; gap: 6px; margin-top: 6px; padding: 12px 14px; border-radius: 12px; background: var(--good-soft); }
+.xp-answer-label { font-size: .76rem; font-weight: 800; color: var(--good-ink); letter-spacing: .04em; }
+.xp-answer .xp-word, .xp-answer .xp-zh { color: var(--good-ink); }
+.xp-answer .xp-ex, .xp-answer .xp-exzh { margin: 0; }
+.xp-more { display: grid; gap: 4px; margin-top: 4px; padding-top: 8px; border-top: 1px dashed rgba(22, 101, 52, .25); }
+.xp-more-label { font-size: .76rem; font-weight: 700; color: var(--steel); }
 .wrong-item .x { grid-column: 1 / -1; font-size: .85rem; color: var(--steel); }
 .ex-head { display: inline-flex; align-items: center; gap: 4px; }
 .ex-head .ic { width: 16px; height: 16px; stroke-width: 3; }

@@ -50,9 +50,17 @@ assert.equal(r.err, '拼字錯誤');
 r = errorOf({ kind: '例句選字', word: '不在清單的字', yours: 'x', err: '意思混淆' }, pool);
 assert.equal(r.err, '意思混淆', '找不到字就沿用原本的紀錄');
 
-// 作答當下的解析：寫出具體說明，不重複「你選的…意思是」那一行
-const x = explainWrong({ type: 'mc', dir: 'cloze', word: w('compelling'), parts: { before: 'The police found ', answer: 'compelling', after: ' evidence.' } }, 'validity', pool);
+// 作答當下（精簡）：錯誤類型＋每個選項的詞性與意思，不寫解題步驟；檢討（完整）才有說明與答案卡
+const cq = { type: 'mc', dir: 'cloze', word: w('compelling'), options: ['validity', 'compelling'], answer: 1, parts: { before: 'The police found ', answer: 'compelling', after: ' evidence.' } };
+const x = explainWrong(cq, 'validity', pool);
 assert.equal(x.err, '詞性不合');
-assert.match(x.html, /空格需要形容詞/);
-assert.doesNotMatch(x.html, /xp-yours/);
+assert.match(x.html, /op-you/, '標出學生選的');
+assert.match(x.html, /validity[\s\S]*名詞/, '選項附詞性');
+assert.doesNotMatch(x.html, /xp-answer|wt-step|xp-yours/, '作答中不顯示解題步驟與答案卡');
+const xf = explainWrong(cq, 'validity', pool, 'full');
+assert.equal(xf.err, '詞性不合');
+assert.match(xf.html, /空格需要形容詞/);
+assert.ok(xf.html.indexOf('xp-answer') > xf.html.indexOf('op-list'), '答案卡在最後');
+// 沒有選項清單的舊題目也能顯示
+assert.match(explainWrong({ ...cq, options: undefined }, 'validity', pool).html, /compelling/);
 console.log('答錯原因分析測試通過');

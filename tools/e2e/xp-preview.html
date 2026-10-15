@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>解析預覽</title>
+<link rel="stylesheet" href="../../css/style.css">
+<style>
+  body { padding: 16px; background: var(--paper); }
+  .case { max-width: 720px; margin: 0 auto 28px; }
+  .case h2 { font-size: .9rem; color: var(--steel); margin: 0 0 6px; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script type="module">
+// 開發用：用真實的單元與錯誤分析結果，畫出「作答中（精簡）」與「檢討（完整）」兩種解析
+import { buildClozeMC, buildMC, buildSpell, explainWrong, questionFromRecord } from '../../js/components/question.js';
+const out = document.getElementById('out');
+const load = (p) => fetch(p).then((r) => r.json());
+const units = ['L3VOC', 'L4VOC'];
+for (const u of units) {
+  const d = await load(`../brain/samples/${u}.json`);
+  const a = await load(`../brain/out/${u}.json`);
+  const words = d.words.map((w) => ({ ...w, example: (w.examples && w.examples[0] && w.examples[0].ex) || w.example, exampleZh: (w.examples && w.examples[0] && w.examples[0].zh) || w.exampleZh }));
+  const pick = (name) => words.find((w) => w.word === name);
+  const cases = u === 'L3VOC' ? ['dense', 'core', 'be worlds apart', 'considerably'] : ['primitive', 'keep an eye on', 'tissue'];
+  for (const name of cases) {
+    const w = pick(name); if (!w) continue;
+    let q; let tries = 0;
+    do { q = buildClozeMC(w, words, a, () => 1 % ((w.examples || []).length || 1)); tries++; } while (name === 'dense' && !q.extras.length && tries < 50);
+    const wrong = q.options.find((_, i) => i !== q.answer);
+    const brief = explainWrong(q, wrong, words);
+    // 檢討：模擬交卷紀錄 → 重建題目
+    const rec = { word: w.word, kind: '例句選字', yours: wrong, correct: q.options[q.answer], options: q.options, exIdx: q.exIdx, extras: q.extras,
+      exampleEn: `${q.parts.before}[${q.parts.answer}]${q.parts.after}`, exampleZh: q.exampleZh };
+    const full = explainWrong(questionFromRecord(rec, words, a), wrong, words, 'full');
+    out.insertAdjacentHTML('beforeend', `<div class="case" data-case="${u}-${name}"><h2>${u}｜${name}｜作答中</h2>${brief.html}<h2 style="margin-top:14px">${u}｜${name}｜檢討</h2><div class="rv-card">${full.html}</div></div>`);
+  }
+  // 其他題型：英→中、拼字
+  const w = words[0];
+  const mc = buildMC(w, words, 'en2zh');
+  const wr = mc.options.find((_, i) => i !== mc.answer);
+  out.insertAdjacentHTML('beforeend', `<div class="case"><h2>${u}｜英→中｜作答中</h2>${explainWrong(mc, wr, words).html}<h2>檢討</h2>${explainWrong(mc, wr, words, 'full').html}</div>`);
+  const sp = buildSpell(words[1], 'cloze', () => 0);
+  out.insertAdjacentHTML('beforeend', `<div class="case"><h2>${u}｜例句拼寫｜作答中</h2>${explainWrong(sp, 'abcde', words).html}<h2>檢討</h2>${explainWrong(sp, 'abcde', words, 'full').html}</div>`);
+}
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

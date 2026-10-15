@@ -1,6 +1,6 @@
 // 可重複使用的題目元件：選擇題 (renderMC) 與字母框拼字 (renderSpell)。
 // feedback=true：練習模式，作答後立即顯示對錯；false：正式測驗，只記錄作答。
-import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample, pickExample, sameMeaning, meaningsOf } from '../util.js';
+import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample, pickExample, sameMeaning } from '../util.js';
 import { icon } from '../icons.js';
 import { diffAnswer } from './diff.js';
 
@@ -81,7 +81,7 @@ export function buildClozeMC(word, pool, analysis = null, pickEx = null) {
     }
   }
   return { type: 'mc', word, dir: 'cloze', parts: c, options, answer: options.indexOf(c.answer), exampleZh: ex.zh,
-    extras: extras.map((e) => ({ form: e.form, word: e.word, zh: e.zh, pos: e.pos })), slot, rel, roles };
+    extras: extras.map((e) => ({ form: e.form, word: e.word, zh: e.zh, pos: e.pos })), slot, rel, roles, exIdx };
 }
 
 export function buildSpell(word, variant, pickEx = null) {
@@ -330,11 +330,12 @@ function posNames(w) {
 }
 
 // 選擇題：依學生選到的字（other）和正確的字（w）的關係分類
-function classifyChoice(w, other, cloze) {
+// posKnown：已經用引擎算好的空格詞性確認過詞性對得上（不再用 pos 欄比；片語的 pos 欄只寫 phr.）
+function classifyChoice(w, other, cloze, posKnown = false) {
   if (!other) return cloze ? '句意不合' : '不熟悉';
   if (lookAlike(w, other)) return '形近混淆';
   if (sameMeaning(w.zh, other.zh)) return '意思相近';
-  if (cloze) {
+  if (cloze && !posKnown) {
     const a = posNames(w), b = posNames(other);
     if (a.length && b.length && !a.some((x) => b.includes(x))) return '詞性不合';
     return '句意不合';
@@ -344,7 +345,17 @@ function classifyChoice(w, other, cloze) {
 
 export function classifyError(q, chosen, pool = []) {
   if (chosen == null || String(chosen).trim() === '') return '未作答';
-  if (q.type === 'mc') return classifyChoice(q.word, chosenWord(q, chosen, pool), q.dir === 'cloze');
+  if (q.type === 'mc') {
+    const other = chosenWord(q, chosen, pool);
+    // 例句選字題有引擎算好的空格詞性（q.slot.role）：選的字當不了這個詞性就是詞性不合（core 可當名詞或形容詞，但這句要名詞）
+    const need = q.dir === 'cloze' && q.slot && q.slot.role;
+    if (need && other && other.word !== q.word.word) {
+      const codes = rolesOf(q, other);
+      if (codes.length && !codes.includes(need)) return '詞性不合';
+      if (codes.length) return classifyChoice(q.word, other, true, true);
+    }
+    return classifyChoice(q.word, other, q.dir === 'cloze');
+  }
   const typed = lettersOf(chosen);
   const ans = lettersOf(q.answer);
   const base = lettersOf(q.word.word);
@@ -394,14 +405,33 @@ export const ERR_TIPS = {
   未作答: '這題沒有作答，先記住正確答案',
 };
 
-// 例句選字題的解題步驟（引擎 tools/brain/brain.py 的 walkthrough）：先懂題意，再逐一看選項，最後篩出答案。
-// 需要錯誤分析引擎的結果（q.slot）；沒有就回空字串，照舊只顯示錯誤原因
+// ---------------- 答錯的解析：作答中（精簡）與檢討（完整解題步驟） ----------------
+// 精簡（mode 'brief'，練習與測驗答錯當下）：錯誤類型＋每個選項的詞性與意思，不打斷作答節奏
+// 完整（mode 'full'，交卷後逐題檢討）：1 題意 → 2 依詞性先排除 → 3 逐一看選項（附原因）→ 最後揭曉答案卡（例句與翻譯）
+// 例句選字題的解題步驟需要錯誤分析引擎的結果（q.slot，tools/brain/brain.py）；沒有就只列選項與原因
 const NEED_NAME = { adj: '形容詞', n: '名詞', v: '動詞', adv: '副詞', prep: '介系詞' };
 const POS_CODE = { n: 'n', v: 'v', vt: 'v', vi: 'v', adj: 'adj', a: 'adj', adv: 'adv', prep: 'prep' };
-const firstMeaning = (w) => {
-  const m = meaningsOf(w.zh);
-  return m.find((x) => !x.includes('⋯')) || (m[0] || '').replace(/⋯/g, '');
+// 放進翻譯句子的意思：第一個義項，保留「的」（月的小木屋，不是月小木屋）；空格後面已經有「的」就拿掉，免得變成「的的」
+const fillMeaning = (w, after) => {
+  const parts = shortZh(w.zh).split('；');
+  const m = parts.find((x) => x && !x.includes('⋯')) || (parts[0] || '').replace(/⋯/g, ''); // 受⋯的騙；上當 → 上當
+  return after === '的' && m.endsWith('的') ? m.slice(0, -1) : m;
 };
+// 顯示用的中文意思：最多兩個義項。7000 單字表的意思常把幾個詞性黏在一起（每年的，一年一次的每年，一年一度年刊），只取乾淨的前段
+export function shortZh(zh) {
+  const parts = String(zh || '').replace(/[（(]\d+[)）]/g, '；').replace(/[（(][^）)]*[）)]/g, '')
+    .split(/[；;，,、]+/).map((s) => s.trim()).filter(Boolean);
+  const out = [];
+  for (const p of parts) {
+    if (out.length >= 2) break;
+    // 黏在一起的義項：「的」後面還接著兩個字以上（一年一次的每年）→ 第一個義項只留到「的」，之後的義項直接略過
+    const glued = (p.length > 8 ? p.match(/^(.+?的)(?=.)/) : null) || p.match(/^(.+?的)(?=[^的]{2,}$)/);
+    const s = glued ? (out.length ? '' : glued[1]) : p;
+    if (s && !out.includes(s) && s.length <= 12) out.push(s);
+    if (glued) break;
+  }
+  return out.join('；') || String(zh || '');
+}
 // 這個字詞在句子裡能當的詞性：引擎算好的（片語也有：participate in → 動詞），沒有就看 pos 欄
 function rolesOf(q, w) {
   const r = q.roles && q.roles[w.word];
@@ -409,89 +439,153 @@ function rolesOf(q, w) {
   if (w.type === 'phrase' || /\s/.test(String(w.word).trim())) return [];
   return [...new Set(String(w.pos || '').toLowerCase().split(/[^a-z]+/).map((t) => POS_CODE[t]).filter(Boolean))];
 }
-const roleName = (codes, phrase) => codes.map((c) => NEED_NAME[c] + (phrase ? '片語' : '')).join('／');
 const isPhrase = (w) => w.type === 'phrase' || /\s/.test(String(w.word).trim());
+const roleName = (codes, phrase) => codes.map((c) => NEED_NAME[c] + (phrase ? '片語' : '')).join('／');
+// 選項旁的詞性小標籤：形容詞、動詞片語…（不知道就只寫「片語」或不顯示）
+const posLabel = (q, w) => { const c = rolesOf(q, w); return c.length ? roleName(c, isPhrase(w)) : (isPhrase(w) ? '片語' : ''); };
 
+// 一個選項一列：記號（✓／✗）一欄；單字、詞性、「你選的」、意思同一行（放不下時意思整段換到下一行，對齊單字）；原因另起一行
+function optionRow({ text, w, ok, picked, pos, why, whyKind }) {
+  return `<li class="op${ok ? ' op-ok' : ''}${picked ? ' op-picked' : ''}">`
+    + `<span class="op-mark" aria-label="${ok ? '正確' : '錯誤'}">${ok ? '✓' : '✗'}</span>`
+    + `<div class="op-body"><div class="op-line"><b class="op-word en">${esc(text)}</b>`
+    + (pos ? `<span class="op-pos">${esc(pos)}</span>` : '')
+    + (picked && !ok ? '<span class="op-you">你選的</span>' : '')
+    + (w && w.zh ? `<span class="op-zh">${esc(shortZh(w.zh))}</span>` : '')
+    + `</div>${why ? `<p class="op-why why-${whyKind || 'sense'}">${esc(why)}</p>` : ''}</div></li>`;
+}
+
+// 選擇題的每個選項：對應到哪個字、詞性、對不對、是不是學生選的
+function optionsOf(q, chosen, pool) {
+  // 沒有選項清單（舊紀錄或測試資料）：只列學生的答案和正確答案
+  const pick = (x) => (q.dir === 'en2zh' ? x.zh : q.dir === 'cloze' && q.parts ? q.parts.answer : x.word);
+  const list = Array.isArray(q.options) && q.options.length ? q.options : [...new Set([String(chosen || ''), pick(q.word)].filter(Boolean))];
+  const answer = Array.isArray(q.options) && q.options.length ? q.options[q.answer] : pick(q.word);
+  return list.map((opt) => {
+    const ok = opt === answer;
+    const w = ok ? q.word : chosenWord(q, opt, pool);
+    return { opt, ok, w, codes: w ? rolesOf(q, w) : [], picked: String(opt).toLowerCase() === String(chosen || '').toLowerCase() };
+  });
+}
+// 選項列上的英文：英→中的選項是中文意思，改顯示那個字（意思放在旁邊）
+const optText = (q, o) => (q.dir === 'en2zh' && o.w ? o.w.word : o.opt);
+const simpleRows = (q, chosen, pool) => `<ul class="op-list">${optionsOf(q, chosen, pool).map((o) => optionRow({ text: optText(q, o), w: o.w, ok: o.ok, picked: o.picked, pos: o.w ? posLabel(q, o.w) : '' })).join('')}</ul>`;
+
+// 答案卡：正確的字、詞性、意思、這題的例句（答案標亮）與翻譯；另外附一句沒考過的例句
+function answerCard(q, exEn, exZh, extra) {
+  const w = q.word;
+  return `<div class="xp-answer"><div class="xp-answer-label">正確答案</div>`
+    + `<div class="xp-main"><span class="xp-word en">${esc(w.word)}</span>${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>`
+    + (exEn ? `<p class="xp-ex en">${exampleHTML(exEn)}</p>${exZh ? `<p class="xp-exzh">${esc(exZh)}</p>` : ''}` : '')
+    + (extra ? `<div class="xp-more"><div class="xp-more-label">再看一句</div><p class="xp-ex en">${exampleHTML(extra.ex)}</p>${extra.zh ? `<p class="xp-exzh">${esc(extra.zh)}</p>` : ''}</div>` : '')
+    + '</div>';
+}
+
+// 例句選字題的完整解題步驟（1 題意、2 依詞性排除、3 逐一看選項）；沒有引擎結果時只有「逐一看選項」
 function walkthroughHTML(q, chosen, pool) {
   const sl = q.slot;
   const zh = q.exampleZh || '';
-  if (!sl || !zh) return '';
-  const span = Array.isArray(sl.span) ? sl.span : null;
-  const ask = span ? `${zh.slice(0, span[0])}＿＿${zh.slice(span[1])}` : zh;
-  const need = sl.role && NEED_NAME[sl.role] ? sl.role : null;
-  const answer = q.options[q.answer];
-  const opts = q.options.map((opt) => {
-    const ok = opt === answer;
-    const w = ok ? q.word : chosenWord(q, opt, pool);
-    const codes = w ? rolesOf(q, w) : [];
-    const posOut = !ok && need && codes.length > 0 && !codes.includes(need);
-    return { opt, ok, w, codes, posOut, picked: String(opt).toLowerCase() === String(chosen || '').toLowerCase() };
-  });
-  // 第 2 步：先用詞性刪掉不可能的選項，再看剩下的
-  const out = opts.filter((o) => o.posOut);
-  let step2 = '';
+  const span = sl && zh && Array.isArray(sl.span) ? sl.span : null;
+  const need = sl && sl.role && NEED_NAME[sl.role] ? sl.role : null;
+  const opts = optionsOf(q, chosen, pool).map((o) => ({ ...o, posOut: !o.ok && !!need && o.codes.length > 0 && !o.codes.includes(need) }));
+  const steps = [];
+  if (sl && zh) steps.push(`這句在說：「${span ? `${zh.slice(0, span[0])}＿＿${zh.slice(span[1])}` : zh}」`);
   if (need) {
     const role = isPhrase(q.word) ? `空格需要一個${NEED_NAME[need]}片語` : (sl.say || `空格需要${NEED_NAME[need]}`);
-    step2 = out.length
+    const out = opts.filter((o) => o.posOut);
+    steps.push(out.length
       ? `${role}。根據詞性，這題可以先排除 ${out.map((o) => `${o.opt}（${roleName(o.codes, isPhrase(o.w))}）`).join('、')}，再看剩下的選項意思合不合`
-      : `${role}。選項的詞性都對得上，要從意思判斷`;
+      : `${role}。選項的詞性都對得上，要從意思判斷`);
   }
-  const items = opts.map((o) => {
-    let why = '';
-    if (o.ok) why = '詞性和意思都符合';
+  const rows = opts.map((o) => {
+    let why = '', kind = 'sense';
+    if (o.ok) { why = need ? '詞性和意思都符合' : '意思符合'; kind = 'ok'; }
     else if (!o.w) why = '意思不合';
-    else if (o.posOut) why = `詞性不合：它是${roleName(o.codes, isPhrase(o.w))}，這裡需要${NEED_NAME[need]}`;
+    else if (o.posOut) { why = `詞性不合：它是${roleName(o.codes, isPhrase(o.w))}，這裡需要${NEED_NAME[need]}`; kind = 'pos'; }
     else {
       const r = q.rel && q.rel[o.w.word];
       if (r === 'syn') why = `意思接近，但這句習慣用 ${q.word.word}`;
-      else if (r === 'family' || r === 'spell' || r === 'sound') why = `${{ family: '和答案同字根', spell: '和答案拼法很像', sound: '和答案唸起來很像' }[r]}，但意思是「${o.w.zh}」`;
-      else if (span && firstMeaning(o.w)) why = `意思不合：放進去變成「${zh.slice(0, span[0])}【${firstMeaning(o.w)}】${zh.slice(span[1])}」`;
+      else if (r === 'family' || r === 'spell' || r === 'sound') why = `${{ family: '和答案同字根', spell: '和答案拼法很像', sound: '和答案唸起來很像' }[r]}，但意思是「${shortZh(o.w.zh)}」`;
+      else if (span && fillMeaning(o.w, zh[span[1]])) why = `意思不合：放進去變成「${zh.slice(0, span[0])}【${fillMeaning(o.w, zh[span[1]])}】${zh.slice(span[1])}」`;
       else why = '意思不合：放進去句子說不通';
     }
-    const zhText = o.w ? `<span class="wt-zh">${esc(o.w.zh || '')}</span>` : '';
-    return `<li class="wt-opt${o.ok ? ' ok' : ''}${o.picked ? ' picked' : ''}"><span class="wt-mark" aria-hidden="true">${o.ok ? '✓' : '✗'}</span><b class="en">${esc(o.opt)}</b>${zhText}${o.picked && !o.ok ? '<span class="wt-you">你選的</span>' : ''}<span class="wt-why">${esc(why)}</span></li>`;
+    return optionRow({ text: o.opt, w: o.w, ok: o.ok, picked: o.picked, pos: o.w ? posLabel(q, o.w) : '', why: `→ ${why}`, whyKind: kind });
   });
-  return `<div class="wt"><p class="wt-step"><span class="wt-n">1</span>這句在說：「${esc(ask)}」</p>`
-    + (step2 ? `<p class="wt-step"><span class="wt-n">2</span>${esc(step2)}</p>` : '')
-    + `<p class="wt-step"><span class="wt-n">${step2 ? 3 : 2}</span>逐一看選項：</p><ul class="wt-list">${items.join('')}</ul>`
-    + `<p class="wt-step wt-end">所以答案是 <b class="en">${esc(answer)}</b>（${esc(q.word.zh)}）</p></div>`;
+  const n = steps.length + 1;
+  return `<ol class="wt">${steps.map((s, i) => `<li class="wt-step"><span class="wt-n">${i + 1}</span><span>${esc(s)}</span></li>`).join('')}`
+    + `<li class="wt-step"><span class="wt-n">${n}</span><span>逐一看選項：</span></li></ol><ul class="op-list op-full">${rows.join('')}</ul>`;
 }
 
 // 回傳 { html, text, err }：html 顯示在題目下方，text 用在總成績單與試算表，err 是錯誤類型
-export function explainWrong(q, chosen, pool = []) {
+// mode：'brief'（作答中，預設）或 'full'（逐題檢討）
+export function explainWrong(q, chosen, pool = [], mode = 'brief') {
   const w = q.word;
   const err = classifyError(q, chosen, pool);
   const picked = q.type === 'mc' ? chosenWord(q, chosen, pool) : pool.find((x) => x.word !== w.word && lettersOf(x.word) === lettersOf(chosen || ''));
   const detail = errDetail(err, w, picked);
-  const lines = [`<p class="xp-tip"><span class="xp-tag">${esc(err)}</span>${esc(detail || ERR_TIPS[err] || '')}</p>`];
-  const text = [];
-  lines.push(`<div class="xp-main"><span class="xp-word en">${esc(w.word)}</span><span class="pos">${esc(w.pos || '')}</span><span class="xp-zh">${esc(w.zh)}</span></div>`);
-  text.push(`〔${err}〕${w.word}：${w.zh}`);
-  if (q.type === 'mc') {
-    const other = picked;
-    if (!detail && other && other.word !== w.word) {
-      const msg = q.dir === 'en2zh'
-        ? `你選的「${esc(chosen)}」是 <b class="en">${esc(other.word)}</b> 的意思`
-        : `你選的 <b class="en">${esc(chosen)}</b> 意思是「${esc(other.zh)}」`;
-      lines.push(`<p class="xp-yours">${msg}</p>`);
-      text.push(q.dir === 'en2zh' ? `你選的是 ${other.word} 的意思` : `你選的 ${chosen} 是「${other.zh}」`);
-    }
-  } else {
+  const text = [`〔${err}〕${w.word}：${w.zh}`];
+  const clozeMC = q.type === 'mc' && q.dir === 'cloze';
+  const clozeQ = clozeMC || (q.type === 'spell' && q.variant === 'cloze');
+  const exEn = clozeQ ? `${q.parts.before}[${q.parts.answer}]${q.parts.after}` : w.example;
+  const exZh = clozeQ ? q.exampleZh : w.exampleZh;
+  if (exEn) text.push(plainExample(exEn));
+  const head = `<div class="xp-head">${icon.bulb} 解析<span class="xp-tag">${esc(err)}</span></div>`;
+  const parts = [];
+  // 拼字題：標出拼錯的字母
+  if (q.type !== 'mc') {
     const d = spellDiff(chosen, q.answer);
     const typed = lettersOf(chosen || '');
     const mark = typed ? diffAnswer(typed, [lettersOf(q.answer) || q.answer]) : null;
-    lines.push(`<p class="xp-yours">${typed ? `你拼成 <b class="en">${mark.yoursHTML}</b>，正確是 <b class="en">${mark.correctHTML}</b>` : '沒有作答'}${typed && d ? `・${esc(d)}` : ''}</p>`);
+    parts.push(`<p class="xp-yours">${typed ? `你拼成 <b class="en">${mark.yoursHTML}</b>，正確是 <b class="en">${mark.correctHTML}</b>` : '沒有作答'}${typed && d ? `・${esc(d)}` : ''}</p>`);
     if (d) text.push(d);
   }
-  // 這題是例句題的話，顯示的例句要跟剛才考的那句一致（同一個字可能存了不只一句）
-  const clozeQ = (q.type === 'mc' && q.dir === 'cloze') || (q.type === 'spell' && q.variant === 'cloze');
-  const exEn = clozeQ ? `${q.parts.before}[${q.parts.answer}]${q.parts.after}` : w.example;
-  const exZh = clozeQ ? q.exampleZh : w.exampleZh;
-  if (exEn) {
-    lines.push(`<p class="xp-ex en">${exampleHTML(exEn)}</p>`);
-    if (exZh) lines.push(`<p class="xp-exzh">${esc(exZh)}</p>`);
-    text.push(plainExample(exEn));
+  if (mode !== 'full') {
+    // 作答中：每個選項的詞性與意思（正確的打勾），不寫解題步驟
+    parts.push(q.type === 'mc' ? simpleRows(q, chosen, pool) : `<ul class="op-list">${optionRow({ text: w.word, w, ok: true, pos: posLabel(q, w) })}</ul>`);
+    return { html: `<div class="explain xp xp-brief slide-in">${head}${parts.join('')}</div>`, text: text.join('｜'), err };
   }
-  if (q.type === 'mc' && q.dir === 'cloze') lines.push(walkthroughHTML(q, chosen, pool));
-  return { html: `<div class="explain xp slide-in"><div class="xp-head">${icon.bulb} 解析</div>${lines.join('')}</div>`, text: text.join('｜'), err };
+  // 檢討：解題步驟在前，最後才揭曉答案卡
+  if (clozeMC) {
+    // 沒有錯誤分析結果時解題步驟只有「逐一看選項」：先用一句話說明錯在哪
+    if (!q.slot && (detail || ERR_TIPS[err])) parts.push(`<p class="xp-tip">${esc(detail || ERR_TIPS[err])}</p>`);
+    parts.push(walkthroughHTML(q, chosen, pool));
+  }
+  else {
+    if (detail || ERR_TIPS[err]) parts.push(`<p class="xp-tip">${esc(detail || ERR_TIPS[err])}</p>`);
+    if (q.type === 'mc') parts.push(simpleRows(q, chosen, pool));
+  }
+  const list = (Array.isArray(w.examples) && w.examples.length ? w.examples : [{ ex: w.example, zh: w.exampleZh }]).filter((e) => e && e.ex);
+  const extra = list.find((e) => plainExample(e.ex) !== plainExample(exEn || ''));
+  parts.push(answerCard(q, exEn, exZh, extra));
+  return { html: `<div class="explain xp xp-full slide-in">${head}${parts.join('')}</div>`, text: text.join('｜'), err };
+}
+
+// 逐題檢討：從作答紀錄（details 的一筆）重建題目，好用完整版解析（explainWrong 的 'full'）。
+// 新紀錄有選項與例句編號；舊紀錄沒有選項，就用「你的答案、正確答案」兩個選項。analysis：這個單元的錯誤分析結果（可省略）
+export function questionFromRecord(d, pool = [], analysis = null) {
+  const word = pool.find((x) => x.word === d.word);
+  if (!word) return null;
+  const kind = String(d.kind || '');
+  const dir = kind === '英→中' ? 'en2zh' : kind === '例句選字' ? 'cloze' : kind === '中→英' ? 'zh2en' : '';
+  const m = String(d.exampleEn || '').match(/^(.*?)\[([^\]]+)\](.*)$/);
+  const parts = m ? { before: m[1], answer: m[2], after: m[3] } : null;
+  if (!dir) {
+    const cloze = kind === '例句拼寫' && parts;
+    return { type: 'spell', variant: cloze ? 'cloze' : 'spell', word, answer: String(d.correct || word.word), parts: cloze ? parts : undefined, exampleZh: d.exampleZh || '' };
+  }
+  if (dir === 'cloze' && !parts) return null;
+  const correct = String(d.correct || '');
+  const options = Array.isArray(d.options) && d.options.includes(correct) ? d.options.slice() : [...new Set([String(d.yours || ''), correct].filter(Boolean))];
+  const q = { type: 'mc', word, dir, options, answer: options.indexOf(correct), parts, exampleZh: d.exampleZh || '', extras: d.extras || [] };
+  if (dir === 'cloze' && analysis && analysis.words && analysis.words[word.word] && Number.isInteger(d.exIdx)) {
+    q.slot = analysis.words[word.word].ex[d.exIdx] || null;
+    q.roles = {}; q.rel = {};
+    for (const w of pool) {
+      const info = analysis.words[w.word];
+      if (info && info.role) q.roles[w.word] = info.role;
+      const r = analysis.pairs && analysis.pairs[[w.word, word.word].sort().join('|')];
+      if (r) q.rel[w.word] = r;
+    }
+  }
+  return q;
 }
