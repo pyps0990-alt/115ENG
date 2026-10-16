@@ -88,19 +88,32 @@
     td.window label { display:flex; gap:6px; align-items:center; font-size:.8rem; color:var(--muted); margin:2px 0; }
     td.window input { padding:5px 8px; font-size:.85rem; }
     .modes { display:flex; gap:4px 10px; flex-wrap:wrap; white-space:normal; min-width:240px; }
-    /* 出題設定 */
-    .quiz-sum { white-space:normal; font-size:.82rem; color:var(--muted); margin-bottom:6px; max-width:320px; }
-    .quiz-row td { background:var(--surface); white-space:normal; }
-    .quiz-panel { display:grid; gap:10px; padding:6px 4px; }
-    .quiz-modes { display:flex; gap:6px 16px; flex-wrap:wrap; font-weight:700; }
-    .quiz-modes label, .quiz-panel .modes label { display:inline-flex; gap:6px; align-items:center; }
-    .quiz-stage { display:grid; gap:6px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; }
-    .quiz-stage input[type=text] { max-width:160px; }
-    .quiz-now { margin:0; }
-    .quiz-count { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-weight:700; }
-    .quiz-count input { width:72px; }
+    /* 出題設定：面板接在單元那一列下面，看起來是同一張卡片 */
+    .quiz-sum { white-space:normal; font-size:.82rem; color:var(--muted); margin-bottom:8px; max-width:320px; line-height:1.5; }
+    tr.quiz-open td { border-bottom:none; }
+    .quiz-row td { white-space:normal; padding:0 8px 18px; }
+    .quiz-panel { display:grid; gap:14px; padding:16px 18px; border:1px solid var(--line); border-radius:14px; background:var(--white,#fff); box-shadow:var(--shadow-sm); }
+    .quiz-panel .help { margin:0; }
+    .quiz-panel .seg label { font-size:.88rem; padding:7px 14px; }
+    .quiz-panel .seg input { accent-color:var(--ink); }
+    .quiz-field { display:grid; gap:8px; }
+    .quiz-label { font-size:.78rem; font-weight:700; color:var(--muted); letter-spacing:.02em; }
+    .quiz-stage { display:grid; gap:10px; padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:var(--surface); }
+    .quiz-stage-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .quiz-stage-head input { max-width:180px; }
+    .quiz-count { display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-weight:700; }
+    .quiz-count input { width:80px; }
     .quiz-count .muted { font-weight:400; font-size:.82rem; }
-    .quiz-ai textarea { width:100%; margin:8px 0; font-size:.85rem; line-height:1.5; }
+    .quiz-now { margin:0; display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; font-weight:700; color:var(--ink); line-height:1.6; }
+    .quiz-now .pill { flex:none; }
+    .quiz-ai { margin-top:0; }
+    .quiz-ai textarea { width:100%; margin:8px 0; font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; border:1px solid var(--line); border-radius:9px; padding:10px; resize:vertical; }
+    @media (max-width:720px) {
+      .cards-table tr.quiz-open { margin-bottom:0; border-bottom-left-radius:0; border-bottom-right-radius:0; border-bottom-style:dashed; }
+      .cards-table tr.quiz-row { display:block; padding:0; margin-top:-1px; border-top:none; border-top-left-radius:0; border-top-right-radius:0; }
+      .cards-table tr.quiz-row td { padding:0; }
+      .quiz-row .quiz-panel { border:none; box-shadow:none; border-radius:0 0 14px 14px; padding:14px; }
+    }
     .modes label { display:inline-flex; gap:4px; align-items:center; font-size:.85rem; }
     input[type=number] { width:68px; }
     input[type=number], input[type=date], input[type=datetime-local], input[type=text], input[type=password], input[type=url], select {
@@ -625,27 +638,34 @@
       var q = quizOf(u), mode = q ? q.mode : 'default', n = quizCount(u);
       var auto = q && q.mode === 'auto' ? q.types : ['en2zh', 'zh2en', 'cloze', 'spell', 'clozeSpell'];
       var stages = q && q.mode === 'custom' ? q.stages : [{ name: '', types: ['cloze'] }];
+      // 三種模式各自的設定內容（沿用後台既有的樣式：.seg 選項、.help 說明框、.ex-box 收合框）
       var body = '';
       if (mode === 'default') {
-        body = '<p class="muted">基礎（英↔中選擇）→ 進階（例句選字）→ 精熟（拼字、例句拼寫）。可以關掉不考的段落：</p><div class="modes">' +
-          (MODES.vocab).map(function (m) { return '<label><input type="checkbox" data-mode="' + m[0] + '" ' + (u.disabled.indexOf(m[0]) === -1 ? 'checked' : '') + '>' + m[1] + '</label>'; }).join('') + '</div>';
+        body = '<div class="help">基礎（英↔中選擇）→ 進階（例句選字）→ 精熟（拼字、例句拼寫）。不考的段落取消勾選。</div>' +
+          '<div class="seg">' + (MODES.vocab).map(function (m) { return '<label><input type="checkbox" data-mode="' + m[0] + '" ' + (u.disabled.indexOf(m[0]) === -1 ? 'checked' : '') + '>' + m[1] + '</label>'; }).join('') + '</div>';
       } else if (mode === 'auto') {
-        body = '<p class="muted">勾要出的題型，系統自動分段：選擇 → 例句選字 → 拼寫（沒勾的那段不出）。只勾「例句選字」就是純單字填空。</p><div class="modes">' + typeBoxes(auto, 'data-q-auto') + '</div>';
+        body = '<div class="help">勾要出的題型，系統依「選擇 → 例句選字 → 拼寫」自動分段，沒勾的那段不出。只勾「例句選字」就是純單字填空。</div>' +
+          '<div class="seg">' + typeBoxes(auto, 'data-q-auto') + '</div>';
       } else {
-        body = '<p class="muted">自己決定分幾段、每段考哪些題型（一段勾多種就隨機出現）。最多 3 段，各段分數平均分配。</p>' +
-          '<label>分成 <select data-q-count>' + [1, 2, 3].map(function (n) { return '<option' + (n === stages.length ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select> 段</label>' +
+        body = '<div class="help">自己決定分幾段、每段考哪些題型（同一段勾多種就隨機出現）。最多 3 段，各段分數平均分配。</div>' +
+          '<div class="quiz-field"><span class="quiz-label">段數</span><div class="seg">' + [1, 2, 3].map(function (k) {
+            return '<label><input type="radio" name="qc-' + i + '" data-q-count value="' + k + '"' + (k === stages.length ? ' checked' : '') + '>' + k + ' 段</label>';
+          }).join('') + '</div></div>' +
           stages.map(function (st, k) {
-            return '<div class="quiz-stage"><input type="text" data-q-name="' + k + '" maxlength="8" placeholder="第 ' + (k + 1) + ' 段" value="' + esc(st.name || '') + '">' +
-              '<div class="modes">' + typeBoxes(st.types || [], 'data-q-stage="' + k + '"') + '</div></div>';
+            return '<div class="quiz-stage"><div class="quiz-stage-head"><span class="quiz-label">第 ' + (k + 1) + ' 段</span>' +
+              '<input type="text" data-q-name="' + k + '" maxlength="8" placeholder="段名（選填）" value="' + esc(st.name || '') + '"></div>' +
+              '<div class="seg">' + typeBoxes(st.types || [], 'data-q-stage="' + k + '"') + '</div></div>';
           }).join('');
       }
       return '<div class="quiz-panel">' +
-        '<div class="quiz-modes">' + [['default', '預設三段'], ['auto', '勾題型，自動分段'], ['custom', '自訂每一段']].map(function (m) {
+        '<div class="quiz-field"><span class="quiz-label">出題方式</span><div class="seg">' + [['default', '預設三段'], ['auto', '勾題型，自動分段'], ['custom', '自訂每一段']].map(function (m) {
           return '<label><input type="radio" name="qm-' + i + '" data-q-mode value="' + m[0] + '"' + (mode === m[0] ? ' checked' : '') + '>' + m[1] + '</label>';
-        }).join('') + '</div>' +
-        '<label class="quiz-count">每次測驗考 <input type="number" min="1" max="100" data-q-words value="' + (n || '') + '" placeholder="30"> 個字<span class="muted">（空白＝最多 30 個；單元的字比較多時每次抽題，下次優先考沒考到的；各段平均分配）</span></label>' + body +
-        '<p class="quiz-now"><b>學生會考：</b>' + esc(quizSummary(u)) + '</p>' +
-        '<details class="quiz-ai"><summary>給 AI 的提示詞（依上面的題型產生，複製後貼到 AI，再把結果貼回「匯入內容」）</summary>' +
+        }).join('') + '</div></div>' + body +
+        '<div class="quiz-field"><span class="quiz-label">每次題數</span><div class="quiz-count"><input type="number" min="1" max="100" data-q-words value="' + (n || '') + '" placeholder="30"> 個字' +
+          '<span class="muted">空白＝最多 30 個；字比較多時每次抽題，下次優先考沒考到的</span></div></div>' +
+        '<p class="quiz-now"><span class="pill on">學生會考</span>' + esc(quizSummary(u)) + '</p>' +
+        '<details class="ex-box quiz-ai"><summary>給 AI 的提示詞</summary>' +
+        '<p class="muted" style="margin:8px 0 0">依上面勾的題型產生。複製後貼到 AI，在最後貼上單字清單，再把 AI 的結果貼回「匯入內容」。</p>' +
         '<textarea readonly rows="12">' + esc(quizPromptFor(u)) + '</textarea><button class="btn small" type="button" data-q-copy>複製提示詞</button></details>' +
         '</div>';
     }
@@ -690,7 +710,7 @@
         u.quiz = withCount({ mode: 'auto', types: t.length ? t : (quizOf(u) && quizOf(u).types) || ['cloze'] });
         return;
       }
-      var cnt = Number((row.querySelector('[data-q-count]') || {}).value) || 1;
+      var cnt = Number((row.querySelector('[data-q-count]:checked') || {}).value) || 1;
       var stages = [];
       for (var k = 0; k < cnt; k++) {
         var nameEl = row.querySelector('[data-q-name="' + k + '"]');
@@ -705,7 +725,7 @@
     function render() {
       $('units').innerHTML = units.map(function (u, i) {
         var modes = MODES[u.type] || MODES.vocab;
-        return '<tr data-i="' + i + '" class="' + (u.visible ? '' : 'off') + '">' +
+        return '<tr data-i="' + i + '" class="' + (u.visible ? '' : 'off') + (u.type === 'vocab' && quizOpen === i ? ' quiz-open' : '') + '">' +
           '<td class="c-vis"><label class="vis-lbl"><input type="checkbox" data-k="visible" ' + (u.visible ? 'checked' : '') + ' aria-label="顯示"><span>顯示</span></label></td>' +
           '<td class="title">' + titleCellHTML(u) + '</td>' +
           '<td data-label="包含的階段／測驗">' + (u.type === 'vocab'
