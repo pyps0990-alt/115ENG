@@ -27,6 +27,7 @@ export function mount(stage, ctx) {
     stage.innerHTML = `<div class="empty"><div class="big">${icon.file}</div><p>這個單元還沒有題目。</p></div>`;
     return;
   }
+  try { document.fonts && document.fonts.load('400 1em Merriweather'); } catch { /* 舊瀏覽器 */ }
   const nWords = paras.join(' ').split(/\s+/).filter(Boolean).length;
   const minutes = Math.max(1, Math.round(nWords / 150));
 
@@ -108,12 +109,23 @@ export function mount(stage, ctx) {
     document.body.dataset.busy = '1';
     window.addEventListener('beforeunload', unload);
 
-    // 搭配課本使用：作答時文章預設收起來，只看題目；沒帶課本的人按「看文章」就能展開（檢討時文章與題目並排，見 startReview）
+    // 文章怎麼顯示：
+    //   手機：文章收在題目上方，建議搭配課本，需要時原地展開
+    //   平板、電腦：文章預設在左邊、題目在右邊；按「收起文章」→ 題目移到中間，文章縮成右上角的懸浮按鈕（在導覽列下面），按它再展開。
+    //   切換用 View Transitions 讓文章和按鈕之間直接變形（不支援的瀏覽器就直接切換）。收起或展開記在這台裝置
+    //   （檢討時文章與題目並排，見 startReview）
+    let shut = false;
+    try { shut = localStorage.getItem('b5p:rd-passage') === 'closed'; } catch { /* 無痕模式 */ }
     stage.innerHTML = `
-      <div class="reading-quiz">
-        <details class="rd-fold"><summary>${icon.book} 看文章（沒帶課本時可以在這裡看）</summary>${passageHTML()}</details>
+      <div class="reading-quiz" data-passage="${shut ? 'closed' : 'open'}">
+        <details class="rd-fold"><summary>${icon.book} 看文章<span class="rd-fold-note">建議搭配課本使用</span></summary>${passageHTML()}</details>
+        <aside class="rd-side" aria-label="文章">
+          <div class="rd-side-bar"><span class="muted">沒帶課本時可以看這篇文章</span>
+            <button class="btn small ghost" type="button" data-passage-close aria-label="收起文章，題目移到中間">${icon.x} 收起文章</button></div>
+          ${passageHTML()}
+        </aside>
         <section class="pq-list" aria-label="閱讀測驗">
-          <div class="pq-intro"><span class="eyebrow">Questions${review ? ' · 複習' : ''}</span><span class="muted">對照課本作答，需要時可以展開文章</span></div>
+          <div class="pq-intro"><span class="eyebrow">Questions${review ? ' · 複習' : ''}</span><span class="muted rd-hint-phone">建議搭配課本作答，需要時展開上面的文章</span><span class="muted rd-hint-wide">對照課本或文章作答</span></div>
           ${qs.map((q, i) => `<div class="pq" data-q="${i}">
             <div class="pq-head"><span class="pq-num">${i + 1}</span>
               <div><span class="skill">${esc(q.skill || '')}</span><div class="pq-q">${esc(q.q || '')}</div></div></div>
@@ -122,12 +134,49 @@ export function mount(stage, ctx) {
           </div>`).join('')}
         </section>
       </div>
+      <button class="rd-float" type="button" data-passage-open aria-label="展開文章">${icon.book}<span>文章</span></button>
       <div class="passage-foot">
         <span class="count" data-count></span>
         <button class="btn primary" type="button" data-submit-btn>${icon.send} 交卷</button>
       </div>`;
 
     centerInView(stage.querySelector('.reading-quiz'), 'start');
+    // 收起／展開文章（平板、電腦）：有 View Transitions 就讓文章卡和懸浮按鈕互相變形，題目滑到新位置
+    const quiz = stage.querySelector('.reading-quiz');
+    const setPassage = (open) => {
+      const apply = () => { quiz.dataset.passage = open ? 'open' : 'closed'; };
+      try { localStorage.setItem('b5p:rd-passage', open ? 'open' : 'closed'); } catch { /* 無痕模式 */ }
+      if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(apply);
+      else apply();
+    };
+    stage.querySelector('[data-passage-close]').addEventListener('click', () => {
+      setPassage(false);
+      setTimeout(() => stage.querySelector('[data-passage-open]')?.focus({ preventScroll: true }), 600);
+    });
+    stage.querySelector('[data-passage-open]').addEventListener('click', () => setPassage(true));
+    // 手機：文章原地展開／收合，高度平滑變化（減少動態效果時直接切換）
+    const fold = stage.querySelector('.rd-fold');
+    const card = fold.querySelector('.passage-card');
+    fold.querySelector('summary').addEventListener('click', (e) => {
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches || !card.animate) return;
+      e.preventDefault();
+      const opening = !fold.open;
+      if (opening) fold.open = true;
+      const h = card.scrollHeight;
+      const duration = Math.min(520, 240 + h / 8);
+      card.getAnimations().forEach((x) => x.cancel());
+      const anim = card.animate(opening ? [{ height: '0px', opacity: 0 }, { height: `${h}px`, opacity: 1 }] : [{ height: `${h}px`, opacity: 1 }, { height: '0px', opacity: 0 }],
+        { duration, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+      // 收合：動畫結束才真的關起來；另外用計時器保底（分頁在背景、動畫沒播的時候也會關）
+      if (!opening) {
+        const token = (fold.dataset.t = String(Date.now()));
+        const close = () => { if (fold.dataset.t === token) { fold.open = false; anim.cancel(); } };
+        anim.onfinish = close;
+        setTimeout(close, duration + 80);
+      } else {
+        fold.dataset.t = '';
+      }
+    });
     const countEl = stage.querySelector('[data-count]');
     const updateFoot = () => { countEl.textContent = `已作答 ${answers.filter((a) => a != null).length} / ${qs.length}`; };
 

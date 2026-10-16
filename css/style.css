@@ -1101,12 +1101,57 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
   }
 }
 
-/* 課文理解作答：單欄、文章收合（搭配實體課本）；展開後文章在原位置，不黏住也不限高，整篇都看得到 */
+/* 課文理解作答
+   手機：單欄，文章收在題目上方（建議搭配課本），點一下原地展開
+   平板、電腦（768px 以上）：文章在左、題目在右；收起後題目移到中間，文章縮成右上角的懸浮按鈕（在導覽列下面）
+   兩種狀態之間用 View Transitions：文章卡和按鈕共用 rd-passage、題目區 rd-questions，瀏覽器會補出變形動畫 */
 .reading-quiz { display: grid; gap: 14px; }
 .rd-fold { border: 1.5px solid var(--line); border-radius: 16px; background: var(--white); }
 .rd-fold > summary { cursor: pointer; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 16px; font-weight: 700; color: var(--navy); }
+.rd-fold-note { margin-left: auto; font-size: .8rem; font-weight: 600; color: var(--steel); }
 .rd-fold[open] > summary { border-bottom: 1.5px solid var(--line); }
 .rd-fold .passage-card { position: static; max-height: none; overflow: visible; background-image: none; border-radius: 0 0 14px 14px; }
+/* 手機原地展開：高度平滑展開／收合由 js/modes/reading.js 用 Web Animations 處理（每種瀏覽器都一樣） */
+.rd-fold .passage-card { overflow: hidden; }
+.rd-side, .rd-float, .rd-hint-wide { display: none; }
+
+@media (min-width: 768px) {
+  .focus:has(.reading-quiz) { max-width: 1200px; }
+  .rd-fold, .rd-hint-phone { display: none; }
+  .rd-hint-wide { display: inline; }
+  .reading-quiz { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); align-items: start; gap: 24px; }
+  .rd-side { display: grid; gap: 8px; position: sticky; top: 76px; view-transition-name: rd-passage; }
+  .rd-side-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; font-size: .85rem; }
+  .rd-side .passage-card { position: static; top: auto; max-height: calc(100vh - 76px - 150px); max-height: calc(100dvh - 76px - 150px); overflow: auto; overscroll-behavior: contain; }
+  .pq-list { view-transition-name: rd-questions; }
+  /* 收起：只剩題目，置中；文章變成右上角的懸浮按鈕（導覽列高 62px，再留一點距離，不會壓到導覽列） */
+  .reading-quiz[data-passage="closed"] { grid-template-columns: minmax(0, 760px); justify-content: center; }
+  .reading-quiz[data-passage="closed"] .rd-side { display: none; }
+  .rd-float {
+    position: fixed; z-index: 15; top: calc(env(safe-area-inset-top, 0px) + 62px + 16px); right: max(16px, calc((100vw - 1200px) / 2 + 16px));
+    align-items: center; gap: 8px; min-height: 48px; padding: 0 18px 0 14px; border-radius: 999px; border: 1.5px solid var(--line);
+    background: var(--white); color: var(--navy); font: inherit; font-weight: 800; cursor: pointer; box-shadow: var(--shadow);
+    transition: transform .18s var(--ease), box-shadow .18s var(--ease);
+  }
+  .rd-float .ic { width: 20px; height: 20px; }
+  .rd-float:hover { transform: translateY(-1px); }
+  .reading-quiz[data-passage="closed"] ~ .rd-float { display: inline-flex; view-transition-name: rd-passage; }
+}
+
+/* 變形動畫：外框（位置、大小）平滑過去；文章卡淡出、按鈕淡入，題目區照原比例滑到新位置不拉伸 */
+::view-transition-group(rd-passage), ::view-transition-group(rd-questions) { animation-duration: .52s; animation-timing-function: cubic-bezier(.22, .8, .24, 1); }
+::view-transition-old(rd-passage) { animation: rd-vt-out .24s ease both; }
+::view-transition-new(rd-passage) { animation: rd-vt-in .3s .16s ease both; }
+::view-transition-old(rd-passage), ::view-transition-new(rd-passage) { height: 100%; width: 100%; object-fit: cover; object-position: 0 0; }
+::view-transition-old(rd-questions), ::view-transition-new(rd-questions) { height: 100%; width: 100%; object-fit: none; object-position: 50% 0; }
+::view-transition-old(rd-questions) { animation: rd-vt-out .26s ease both; }
+::view-transition-new(rd-questions) { animation: rd-vt-in .34s .12s ease both; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .3s; }
+@keyframes rd-vt-out { to { opacity: 0; } }
+@keyframes rd-vt-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
 
 /* 首頁「全部／現在要做的」：白色底塊在兩個按鈕之間滑動，文字顏色跟著淡變 */
 .seg-glide { position: relative; isolation: isolate; display: inline-grid; grid-template-columns: 1fr 1fr; } /* 兩個按鈕等寬：白色底塊寬度不變，只要滑動 */

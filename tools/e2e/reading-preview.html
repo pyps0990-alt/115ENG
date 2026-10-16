@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>課文理解預覽</title>
+<link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner"><b>B5 Practice（預覽）</b></div></header>
+<main id="app" class="container"><div class="focus"><section id="stage"></section></div></main>
+<script type="module">
+// 開發用：用假文章直接進入課文理解作答畫面，檢查文章在手機、平板、電腦的顯示與收起／展開
+import { mount } from '../../js/modes/reading.js';
+try { localStorage.setItem('b5p:student', JSON.stringify({ cls: '201', seat: '1', name: '預覽', key: 'preview' })); } catch {}
+const para = 'Friendship is one of the most valuable things in life. Good friends support us when we face difficulties, and they celebrate with us when we succeed. ';
+const data = {
+  title: 'The Value of Friendship',
+  passage: [para.repeat(3), para.repeat(2), para.repeat(3), para.repeat(2)],
+  questions: Array.from({ length: 5 }, (_, i) => ({ q: `Question ${i + 1}: What does the passage mainly say about friends?`, options: ['They are rare.', 'They support us.', 'They compete with us.', 'They are teachers.'], answer: 1, skill: '細節' })),
+};
+const ctx = { unit: { id: 'preview-rd', title: '預覽' }, data, config: {} };
+mount(document.getElementById('stage'), ctx);
+setTimeout(() => { const b = document.querySelector('[data-start]'); if (b) b.click(); document.body.dataset.ready = '1'; }, 300);
+</script>
+</body>
+</html>
