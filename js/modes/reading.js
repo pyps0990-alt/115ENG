@@ -157,16 +157,23 @@ export function mount(stage, ctx) {
     // 手機：文章原地展開／收合，高度平滑變化（減少動態效果時直接切換）
     const fold = stage.querySelector('.rd-fold');
     const card = fold.querySelector('.passage-card');
-    fold.querySelector('summary').addEventListener('click', (e) => {
-      if (matchMedia('(prefers-reduced-motion: reduce)').matches || !card.animate) return;
+    // 動畫做在整個 <details> 的高度上（關起來＝只剩標題列那一條的高度），收到底和關起來一樣高，關掉的瞬間不會跳
+    const sum = fold.querySelector('summary');
+    sum.addEventListener('click', (e) => {
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches || !fold.animate) return;
       e.preventDefault();
       const opening = !fold.open;
+      const from = fold.getBoundingClientRect().height;
       if (opening) fold.open = true;
-      const h = card.scrollHeight;
-      const duration = Math.min(520, 240 + h / 8);
+      fold.getAnimations().forEach((x) => x.cancel());
       card.getAnimations().forEach((x) => x.cancel());
-      const anim = card.animate(opening ? [{ height: '0px', opacity: 0 }, { height: `${h}px`, opacity: 1 }] : [{ height: `${h}px`, opacity: 1 }, { height: '0px', opacity: 0 }],
-        { duration, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+      const closed = sum.getBoundingClientRect().height + (fold.offsetHeight - fold.clientHeight); // 標題列＋上下框線
+      const full = fold.scrollHeight + (fold.offsetHeight - fold.clientHeight);
+      const to = opening ? full : closed;
+      const duration = Math.min(520, 240 + Math.abs(to - from) / 8);
+      const anim = fold.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+      card.animate(opening ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }], { duration: duration * .8, easing: 'ease', fill: 'forwards' })
+        .onfinish = function () { this.cancel(); };
       // 收合：動畫結束才真的關起來；另外用計時器保底（分頁在背景、動畫沒播的時候也會關）
       if (!opening) {
         const token = (fold.dataset.t = String(Date.now()));

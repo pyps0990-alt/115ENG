@@ -1106,13 +1106,12 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
    平板、電腦（768px 以上）：文章在左、題目在右；收起後題目移到中間，文章縮成右上角的懸浮按鈕（在導覽列下面）
    兩種狀態之間用 View Transitions：文章卡和按鈕共用 rd-passage、題目區 rd-questions，瀏覽器會補出變形動畫 */
 .reading-quiz { display: grid; gap: 14px; }
-.rd-fold { border: 1.5px solid var(--line); border-radius: 16px; background: var(--white); }
+.rd-fold { border: 1.5px solid var(--line); border-radius: 16px; background: var(--white); overflow: hidden; }
 .rd-fold > summary { cursor: pointer; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 16px; font-weight: 700; color: var(--navy); }
 .rd-fold-note { margin-left: auto; font-size: .8rem; font-weight: 600; color: var(--steel); }
-.rd-fold[open] > summary { border-bottom: 1.5px solid var(--line); }
-.rd-fold .passage-card { position: static; max-height: none; overflow: visible; background-image: none; border-radius: 0 0 14px 14px; }
+/* 分隔線放在文章那一側（不放在標題列）：收合動畫收到只剩標題列時，高度和關起來完全一樣 */
+.rd-fold .passage-card { position: static; max-height: none; overflow: visible; background-image: none; border-radius: 0 0 14px 14px; border-top: 1.5px solid var(--line); }
 /* 手機原地展開：高度平滑展開／收合由 js/modes/reading.js 用 Web Animations 處理（每種瀏覽器都一樣） */
-.rd-fold .passage-card { overflow: hidden; }
 .rd-side, .rd-float, .rd-hint-wide { display: none; }
 
 @media (min-width: 768px) {
