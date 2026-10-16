@@ -1185,10 +1185,12 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 .ann-text .hl-pink { background: #FBCFE8; }
 .ann-text .ul { text-decoration: underline; text-decoration-color: #1D4ED8; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .ann-text .noted { background: #DBEAFE; }
-.ann-text .circ { border-top: 2px solid #DC2626; border-bottom: 2px solid #DC2626; }
-.ann-text .circ.first { border-left: 2px solid #DC2626; border-radius: 999px 0 0 999px; padding-left: 2px; }
-.ann-text .circ.last { border-right: 2px solid #DC2626; border-radius: 0 999px 999px 0; padding-right: 2px; }
-.ann-text .circ.first.last { border-radius: 999px; }
+/* 圈起來：上下兩條線，頭尾是圓弧（用 inset 陰影畫，整段看起來是一個橢圓圈） */
+.ann-text .circ { box-shadow: inset 0 2px 0 #DC2626, inset 0 -2px 0 #DC2626; }
+.ann-text .circ.first { box-shadow: inset 2px 2px 0 #DC2626, inset 2px -2px 0 #DC2626; border-radius: 999px 0 0 999px; padding-left: 3px; }
+.ann-text .circ.last { box-shadow: inset -2px 2px 0 #DC2626, inset -2px -2px 0 #DC2626; border-radius: 0 999px 999px 0; padding-right: 3px; }
+.ann-text .circ.first.last { box-shadow: inset 0 0 0 2px #DC2626; }
+.ann-text .circ.first.last { border-radius: 999px; padding: 0 3px; }
 .ann-text .w.anchor { box-shadow: 0 0 0 2px var(--navy); border-radius: 4px; }
 .note-pin { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-left: 2px; border: 0; border-radius: 6px; background: #3B82F6; color: #fff;
   font: 700 12px/1 system-ui; vertical-align: 2px; cursor: pointer; }
