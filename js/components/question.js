@@ -108,6 +108,16 @@ export function promptText(q) {
 }
 export const answerText = (q) => (q.type === 'mc' ? q.options[q.answer] : q.answer);
 
+// 拼字框依單字分組：放不下一行時在單字之間換行，不會把一個字拆成兩行（keep a watchful eye on）
+function wordGroups(slots) {
+  const groups = [[]];
+  for (const s of slots) {
+    if (s.sep === ' ') { groups.push([]); continue; }
+    groups[groups.length - 1].push(s.letter ? '<span class="lbox"></span>' : `<span class="lsep">${esc(s.sep)}</span>`);
+  }
+  return groups.filter((g) => g.length).map((g) => `<span class="lword">${g.join('')}</span>`).join('');
+}
+
 /* ---------------- 選擇題 ---------------- */
 export function renderMC(host, q, { feedback = true, selected = null, label = '', onAnswer } = {}) {
   const en2zh = q.dir === 'en2zh';
@@ -181,8 +191,7 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   card.innerHTML = `
     <div class="q-head">${head}</div>
     <div class="spell-area">
-      <div class="boxes" style="--n:${Math.max(slots.length, 6)}">${slots.map((s) => (s.letter ? '<span class="lbox"></span>'
-        : `<span class="lsep ${s.sep === ' ' ? 'sp' : ''}">${s.sep === ' ' ? '' : esc(s.sep)}</span>`)).join('')}</div>
+      <div class="boxes" style="--n:${Math.max(slots.length, 6)}">${wordGroups(slots)}</div>
       <input class="spell-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="輸入答案">
     </div>
     ${feedback ? `<div class="q-foot">

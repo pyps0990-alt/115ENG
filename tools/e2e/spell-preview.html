@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拼字框預覽</title>
+<link rel="stylesheet" href="../../css/style.css">
+<style>body { padding: 16px; background: var(--paper); } .case { max-width: 720px; margin: 0 auto 18px; }</style>
+</head>
+<body>
+<div id="out"></div>
+<script type="module">
+// 開發用：不同長度的答案在拼字題裡的框大小與換行
+import { renderSpell } from '../../js/components/question.js';
+const answers = ['soar', 'considerably', 'infrastructure', 'lay out', 'jump to conclusions', 'keep a watchful eye on', 'strike a chord with', 'problem-solving'];
+for (const a of answers) {
+  const host = document.createElement('div'); host.className = 'case'; host.dataset.answer = a;
+  document.getElementById('out').append(host);
+  renderSpell(host, { type: 'spell', variant: 'spell', word: { word: a, zh: '測試', pos: 'phr.' }, answer: a }, { feedback: true });
+}
+</script>
+</body>
+</html>
