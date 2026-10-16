@@ -1,10 +1,10 @@
 import { loadIndex, loadUnit, applyImported, addCustomUnits, loadAnalysis, analysisSig } from './data.js';
-import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow, fmtWhen } from './remote-config.js';
+import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow, fmtWhen, unitCfg } from './remote-config.js';
 import { store } from './storage.js';
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
 import { renderStudentChip, mountInlineForm, historyReady, closeChipPanel } from './student.js';
-import { LEVELS, PASS } from './levels.js';
+import { LEVELS, PASS, levelsFor } from './levels.js';
 import { initNav, updateNav } from './nav.js';
 import { flushOutbox, pendingItems, clearOutbox, outboxStatus, rejectedItems } from './submit.js';
 import { submitStateHTML } from './components/gate.js';
@@ -108,7 +108,8 @@ function syncNav() {
   document.getElementById('nav-menu').hidden = kind === 'teacher' || !store.student() || !visibleUnits().length;
 }
 
-const openLevels = (u) => LEVELS.filter((l) => modeOn(config, u.id, l.id));
+// 這個單元要考的段落：老師有設定出題方式就照設定，否則是預設三段（關掉的段落不考）
+const openLevels = (u) => levelsFor(unitCfg(config, u.id));
 // 還沒有題目的單元不給學生看（老師匯入內容後才出現）
 const hasContent = (id) => !!(config && config.content && config.content[id]);
 const visibleUnits = () => index.units.filter((u) => unitVisible(config, u.id) && hasContent(u.id)
@@ -295,7 +296,7 @@ function vocabMetaHTML(u, levels) {
   const n = Number(u.count) || 0;
   const ph = typeof u.phrases === 'number' ? Math.min(u.phrases, n) : null;
   const counts = ph == null ? `${n} 個單字與片語` : ph ? `${n - ph} 個單字 · ${ph} 個片語` : `${n} 個單字`;
-  const partial = levels.length < LEVELS.length ? ` · 只考${levels.join('、')}` : '';
+  const partial = levels.join('、') !== LEVELS.map((l) => l.name).join('、') ? ` · ${levels.join('、')}` : '';
   return `<div class="tile-meta stack"><span><span class="tile-cat">${typeIcon(u.type)}</span>${TYPES.vocab.tile}</span><span>${counts}${partial}</span></div>`;
 }
 

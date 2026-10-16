@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>出題設定預覽</title>
+</head>
+<body style="padding:16px">
+<table class="cards-table"><tbody id="units"></tbody></table>
+<pre id="log"></pre>
+<script>
+// 開發用：從 admin.html 取出「出題設定」那段程式與樣式，畫出三種模式的面板
+fetch('../../admin.html').then((r) => r.text()).then((html) => {
+  const style = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+  document.head.insertAdjacentHTML('beforeend', `<style>${style}</style>`);
+  const a = html.indexOf('    var QUIZ_TYPE_NAMES');
+  const b = html.indexOf('    function render() {', a);
+  const code = html.slice(a, b);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const MODES = { vocab: [['basic', '基礎'], ['advanced', '進階'], ['mastery', '精熟']] };
+  const api = new Function('esc', 'MODES', `${code}; return { quizPanelHTML, quizSummary, aiPromptFor, quizRead };`)(esc, MODES);
+  const units = [
+    { id: 'a', disabled: [], quiz: '' },
+    { id: 'b', disabled: [], quiz: JSON.stringify({ mode: 'auto', types: ['cloze'] }) },
+    { id: 'c', disabled: [], quiz: JSON.stringify({ mode: 'custom', stages: [{ name: '暖身', types: ['en2zh'] }, { name: '挑戰', types: ['cloze', 'clozeSpell'] }] }) },
+  ];
+  document.getElementById('units').innerHTML = units.map((u, i) => `<tr class="quiz-row"><td colspan="6"><b>${u.id}｜${esc(api.quizSummary(u))}</b>${api.quizPanelHTML(u, i)}</td></tr>`).join('');
+  document.querySelectorAll('details').forEach((d) => { d.open = true; });
+  window.api = api; window.units = units; document.body.dataset.ready = "1";
+});
+</script>
+</body>
+</html>

@@ -133,7 +133,7 @@ export function watchConfig(current) {
   setInterval(check, 30000);
 }
 
-const unitCfg = (c, id) => (c && c.units && c.units[id]) || {};
+export const unitCfg = (c, id) => (c && c.units && c.units[id]) || {};
 
 export const unitVisible = (c, id) => unitCfg(c, id).visible !== false;
 

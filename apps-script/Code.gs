@@ -32,7 +32,7 @@ var SITE_URL = 'https://eng-3385e.web.app/';
 // 不用等 Apps Script 開機（約 2～5 秒）。寫入失敗時學生網站會退回讀 Apps Script，不影響功能。
 var FIRESTORE_DOCS = 'https://firestore.googleapis.com/v1/projects/eng-3385e/databases/(default)/documents/public/';
 
-var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCount', 'openAt', 'closeAt'];
+var SETTINGS_HEADER = ['id', 'title', 'type', 'visible', 'disabled', 'questionCount', 'openAt', 'closeAt', 'quiz'];
 
 // 老師後台「新增單元」建立的全新單元（網站原本沒有的課次），跟 settings（只調整既有單元的顯示/題數）分開存放。
 var SHEET_CUSTOM_UNITS = 'custom_units';
@@ -40,8 +40,8 @@ var SHEET_CUSTOM_UNITS = 'custom_units';
 // 個別學生的補作時間：這些學生在單元截止後，可以做正式測驗到指定時間
 var SHEET_EXTENSIONS = 'extensions';
 var EXTENSIONS_HEADER = ['單元代號', '班級', '座號', '補作到', '備註'];
-var CUSTOM_UNITS_FIELDS = ['id', 'title', 'type', 'lesson', 'topic', 'visible', 'disabled', 'questionCount', 'createdAt', 'openAt', 'closeAt'];
-var CUSTOM_UNITS_HEADER = ['單元代號', '標題', '類型', '課次', '主題', '顯示', '停用的段落', '每段題數', '建立時間', '開放時間', '截止時間'];
+var CUSTOM_UNITS_FIELDS = ['id', 'title', 'type', 'lesson', 'topic', 'visible', 'disabled', 'questionCount', 'createdAt', 'openAt', 'closeAt', 'quiz'];
+var CUSTOM_UNITS_HEADER = ['單元代號', '標題', '類型', '課次', '主題', '顯示', '停用的段落', '每段題數', '建立時間', '開放時間', '截止時間', '出題設定'];
 
 // SCORES_FIELDS／DETAILS_FIELDS：程式內部用的欄位代號，順序要跟 doPost 組 row 的順序一致，不能改。
 // SCORES_HEADER／DETAILS_HEADER：實際寫進試算表第一列的中文欄名，只影響顯示，跟 FIELDS 一一對應。
@@ -793,7 +793,7 @@ function migrateBuiltinUnits_() {
     }
     var m = /^l(\d+)/i.exec(u.id);
     var values = [[u.id, u.title || u.id, normType_(u.type), m ? Number(m[1]) : 1, topic,
-      u.visible !== false, (u.disabled || []).join(','), u.questionCount || 10, '', u.openAt || '', u.closeAt || '']];
+      u.visible !== false, (u.disabled || []).join(','), u.questionCount || 10, '', u.openAt || '', u.closeAt || '', quizCell_(u.quiz)]];
     csh.getRange(csh.getLastRow() + 1, 1, 1, CUSTOM_UNITS_FIELDS.length).setNumberFormat('@').setValues(values);
   });
   var ssh = sheet_(SHEET_SETTINGS, SETTINGS_HEADER);
@@ -876,7 +876,7 @@ function saveSettings(units, skipPublish) {
       u.visible !== false,
       (u.disabled || []).join(','),
       Math.min(100, Math.max(1, Number(u.questionCount) || 10)),
-      timeCell_(u.openAt), timeCell_(u.closeAt),
+      timeCell_(u.openAt), timeCell_(u.closeAt), quizCell_(u.quiz),
     ];
   });
   var last = sh.getLastRow();
@@ -911,6 +911,7 @@ function readCustomUnitsRows_() {
         createdAt: r[8] instanceof Date ? r[8].toISOString() : String(r[8] || ''),
         openAt: timeCell_(r[9]),
         closeAt: timeCell_(r[10]),
+        quiz: quizCell_(r[11]),
         custom: true,
       };
     });
@@ -953,7 +954,7 @@ function saveCustomUnits(units, skipPublish, nowIso) {
         u.visible !== false, (u.disabled || []).join(','),
         Math.min(100, Math.max(1, Number(u.questionCount) || 10)),
         (String(u.id).trim() in created) ? created[String(u.id).trim()] : nowIso,
-        timeCell_(u.openAt), timeCell_(u.closeAt),
+        timeCell_(u.openAt), timeCell_(u.closeAt), quizCell_(u.quiz),
       ];
     });
   // 被刪掉的單元：連同代號一起清除（匯入的題目、Firestore 上的題目），代號可以重新使用。
@@ -2411,6 +2412,7 @@ function readConfigCached_() {
   var cfg = { units: {}, updated: new Date().toISOString() };
   readSettingsRows_().forEach(function (u) {
     cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount, openAt: u.openAt, closeAt: u.closeAt };
+    if (u.quiz) cfg.units[u.id].quiz = u.quiz;
   });
   // 補作時間：{ 單元: { '班級-座號': '補作到' } }（只有班級座號，沒有姓名）
   cfg.ext = {};
@@ -2425,6 +2427,7 @@ function readConfigCached_() {
   });
   customUnits.forEach(function (u) {
     cfg.units[u.id] = { visible: u.visible, disabled: u.disabled, questionCount: u.questionCount, since: u.createdAt || '', openAt: u.openAt, closeAt: u.closeAt };
+    if (u.quiz) cfg.units[u.id].quiz = u.quiz;
   });
   // 題目更新過的單元：重製時間取較晚的一個
   var resets = JSON.parse(PropertiesService.getScriptProperties().getProperty('RESET_AT') || '{}');
@@ -2440,6 +2443,31 @@ function readConfigCached_() {
   });
   cache.put(CONFIG_CACHE_KEY, JSON.stringify(cfg), 60);
   return cfg;
+}
+
+// 單字單元的出題設定（後台「出題設定」）：只留認得的題型、最多 3 段、段名最多 8 個字；格式不對或沒勾任何題型就回空字串（＝預設三段）。
+// 網站 js/levels.js 的 parseQuiz 用同樣的規則讀
+var QUIZ_TYPES = ['en2zh', 'zh2en', 'cloze', 'spell', 'clozeSpell'];
+function quizCell_(v) {
+  var q = v;
+  if (typeof v === 'string') { try { q = v.trim() ? JSON.parse(v) : null; } catch (e) { q = null; } }
+  if (!q || typeof q !== 'object') return '';
+  var types = function (list) {
+    var out = [];
+    (Array.isArray(list) ? list : []).forEach(function (t) { if (QUIZ_TYPES.indexOf(t) >= 0 && out.indexOf(t) < 0) out.push(t); });
+    return out;
+  };
+  if (q.mode === 'auto') {
+    var t = types(q.types);
+    return t.length ? JSON.stringify({ mode: 'auto', types: t }) : '';
+  }
+  if (q.mode === 'custom') {
+    var stages = (Array.isArray(q.stages) ? q.stages : []).map(function (x) {
+      return { name: String((x && x.name) || '').trim().slice(0, 8), types: types(x && x.types) };
+    }).filter(function (x) { return x.types.length; }).slice(0, 3);
+    return stages.length ? JSON.stringify({ mode: 'custom', stages: stages }) : '';
+  }
+  return '';
 }
 
 // 開放時段：存成「2026-10-01T08:00」這種台灣時間字串（空白＝不限制）
@@ -2465,6 +2493,7 @@ function readSettingsRows_() {
         questionCount: Number(r[5]) || 10,
         openAt: timeCell_(r[6]),
         closeAt: timeCell_(r[7]),
+        quiz: quizCell_(r[8]),
       };
     });
 }

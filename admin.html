@@ -94,6 +94,16 @@
     td.window label { display:flex; gap:6px; align-items:center; font-size:.8rem; color:var(--muted); margin:2px 0; }
     td.window input { padding:5px 8px; font-size:.85rem; }
     .modes { display:flex; gap:4px 10px; flex-wrap:wrap; white-space:normal; min-width:240px; }
+    /* 出題設定 */
+    .quiz-sum { white-space:normal; font-size:.82rem; color:var(--muted); margin-bottom:6px; max-width:320px; }
+    .quiz-row td { background:var(--surface); white-space:normal; }
+    .quiz-panel { display:grid; gap:10px; padding:6px 4px; }
+    .quiz-modes { display:flex; gap:6px 16px; flex-wrap:wrap; font-weight:700; }
+    .quiz-modes label, .quiz-panel .modes label { display:inline-flex; gap:6px; align-items:center; }
+    .quiz-stage { display:grid; gap:6px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; }
+    .quiz-stage input[type=text] { max-width:160px; }
+    .quiz-now { margin:0; }
+    .quiz-ai textarea { width:100%; margin:8px 0; font-size:.85rem; line-height:1.5; }
     .modes label { display:inline-flex; gap:4px; align-items:center; font-size:.85rem; }
     input[type=number] { width:68px; }
     input[type=number], input[type=date], input[type=datetime-local], input[type=text], input[type=password], input[type=url], select {
@@ -600,27 +610,156 @@
       var n = c ? Number(c.count) || 0 : 0;
       return n > 30 ? '共 ' + n + ' 個，每次抽 30 個' : n ? '共 ' + n + ' 個，全部各考一次' : '全部單字各考一次';
     }
+    // ----- 單字單元的出題設定（存在單元設定的 quiz 欄，JSON 字串；規則和 js/levels.js 的 parseQuiz、Code.gs 的 quizCell_ 一致） -----
+    var QUIZ_TYPE_NAMES = [['en2zh', '英→中選擇'], ['zh2en', '中→英選擇'], ['cloze', '例句選字（克漏字）'], ['spell', '看中文拼字'], ['clozeSpell', '例句拼寫']];
+    var QUIZ_AUTO = [['基礎', ['en2zh', 'zh2en']], ['進階', ['cloze']], ['精熟', ['spell', 'clozeSpell']]];
+    var quizOpen = -1;
+    function quizOf(u) { try { var q = u.quiz ? JSON.parse(u.quiz) : null; return q && (q.mode === 'auto' || q.mode === 'custom') ? q : null; } catch (e) { return null; } }
+    function typeName(t) { return (QUIZ_TYPE_NAMES.filter(function (x) { return x[0] === t; })[0] || [t, t])[1]; }
+    // 這個單元實際會考的段落：[[段名, [題型...]], ...]
+    function quizStages(u) {
+      var q = quizOf(u);
+      if (!q) return QUIZ_AUTO.filter(function (g, k) { return u.disabled.indexOf(['basic', 'advanced', 'mastery'][k]) === -1; });
+      if (q.mode === 'auto') return QUIZ_AUTO.map(function (g) { return [g[0], g[1].filter(function (t) { return q.types.indexOf(t) >= 0; })]; }).filter(function (g) { return g[1].length; });
+      return (q.stages || []).map(function (st, k) { return [st.name || '第 ' + (k + 1) + ' 段', st.types || []]; }).filter(function (g) { return g[1].length; });
+    }
+    function quizSummary(u) {
+      var st = quizStages(u);
+      return (quizOf(u) ? '' : '預設：') + (st.length ? st.map(function (g) { return g[0] + '（' + g[1].map(typeName).join('、') + '）'; }).join(' → ') : '沒有任何段落（學生看不到）');
+    }
+    function typeBoxes(sel, attrs) {
+      return QUIZ_TYPE_NAMES.map(function (t) {
+        return '<label><input type="checkbox" ' + attrs + ' value="' + t[0] + '"' + (sel.indexOf(t[0]) >= 0 ? ' checked' : '') + '>' + t[1] + '</label>';
+      }).join('');
+    }
+    function quizPanelHTML(u, i) {
+      var q = quizOf(u), mode = q ? q.mode : 'default';
+      var auto = q && q.mode === 'auto' ? q.types : ['en2zh', 'zh2en', 'cloze', 'spell', 'clozeSpell'];
+      var stages = q && q.mode === 'custom' ? q.stages : [{ name: '', types: ['cloze'] }];
+      var body = '';
+      if (mode === 'default') {
+        body = '<p class="muted">基礎（英↔中選擇）→ 進階（例句選字）→ 精熟（拼字、例句拼寫）。可以關掉不考的段落：</p><div class="modes">' +
+          (MODES.vocab).map(function (m) { return '<label><input type="checkbox" data-mode="' + m[0] + '" ' + (u.disabled.indexOf(m[0]) === -1 ? 'checked' : '') + '>' + m[1] + '</label>'; }).join('') + '</div>';
+      } else if (mode === 'auto') {
+        body = '<p class="muted">勾要出的題型，系統自動分段：選擇 → 例句選字 → 拼寫（沒勾的那段不出）。只勾「例句選字」就是純單字填空。</p><div class="modes">' + typeBoxes(auto, 'data-q-auto') + '</div>';
+      } else {
+        body = '<p class="muted">自己決定分幾段、每段考哪些題型（一段勾多種就隨機出現）。最多 3 段，各段分數平均分配。</p>' +
+          '<label>分成 <select data-q-count>' + [1, 2, 3].map(function (n) { return '<option' + (n === stages.length ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select> 段</label>' +
+          stages.map(function (st, k) {
+            return '<div class="quiz-stage"><input type="text" data-q-name="' + k + '" maxlength="8" placeholder="第 ' + (k + 1) + ' 段" value="' + esc(st.name || '') + '">' +
+              '<div class="modes">' + typeBoxes(st.types || [], 'data-q-stage="' + k + '"') + '</div></div>';
+          }).join('');
+      }
+      return '<div class="quiz-panel">' +
+        '<div class="quiz-modes">' + [['default', '預設三段'], ['auto', '勾題型，自動分段'], ['custom', '自訂每一段']].map(function (m) {
+          return '<label><input type="radio" name="qm-' + i + '" data-q-mode value="' + m[0] + '"' + (mode === m[0] ? ' checked' : '') + '>' + m[1] + '</label>';
+        }).join('') + '</div>' + body +
+        '<p class="quiz-now"><b>學生會考：</b>' + esc(quizSummary(u)) + '</p>' +
+        '<details class="quiz-ai"><summary>給 AI 的提示詞（依上面的題型產生，複製後貼到 AI，再把結果貼回「匯入內容」）</summary>' +
+        '<textarea readonly rows="12">' + esc(aiPromptFor(u)) + '</textarea><button class="btn small" type="button" data-q-copy>複製提示詞</button></details>' +
+        '</div>';
+    }
+    // 依勾選的題型產生給 AI 的提示詞；格式就是「匯入內容」能直接讀的格式（英文 | 詞性 | 中文 | 例句 | 例句翻譯）
+    function aiPromptFor(u) {
+      var types = [];
+      quizStages(u).forEach(function (g) { g[1].forEach(function (t) { if (types.indexOf(t) < 0) types.push(t); }); });
+      var cloze = types.indexOf('cloze') >= 0 || types.indexOf('clozeSpell') >= 0;
+      var lines = [
+        '請把下面的英文單字與片語，整理成台灣高中英文測驗用的資料。每個字一行，欄位用 | 分隔，第一行不要放標題：',
+        '英文 | 詞性 | 中文意思 | 例句 | 例句翻譯',
+        '',
+        '規則：',
+        '1. 詞性用 n.、v.、adj.、adv.、prep.、phr.（片語）；有多個詞性用 / 分隔，例如 n. / v.',
+        '2. 中文意思寫 1～2 個最常用的，用「；」分隔，不要加括號說明。',
+      ];
+      if (cloze) {
+        lines.push('3. 例句寫 3 句，用「;」分隔。每句 10～18 個英文字，用 [ ] 框出要考的那個字或片語（照句子需要變化時態、單複數，例如 [shattered]、[fibers]、[laid out]）。');
+        lines.push('4. 這些例句會挖空讓學生選字或拼字：句子的前後文要能清楚指向這個字，換成其他常見的字就說不通；三句用不同的時態或形式、不同情境（學校、家庭、社會）。');
+        lines.push('5. 例句翻譯寫 3 句，依序對應，用「;」分隔，翻譯貼近原句，不要出現 [ ]，也不要在同一處並列兩個同義詞（例如「核心關鍵」）。');
+      } else {
+        lines.push('3. 例句寫 1 句，用 [ ] 框出那個字或片語；例句翻譯寫 1 句（學生檢討時看）。');
+      }
+      if (types.indexOf('en2zh') >= 0 || types.indexOf('zh2en') >= 0) lines.push((cloze ? '6' : '4') + '. 中文意思要和其他字明顯不同，同一個單元不要有兩個字的中文意思一樣（選擇題才不會有兩個答案）。');
+      if (types.indexOf('spell') >= 0 || types.indexOf('clozeSpell') >= 0) lines.push('・這個單元有拼字題：英文請用正確的美式拼法，片語不要加 sth./sb. 這類代號。');
+      lines.push('・內容適合台灣高中生，避免暴力、成人、政治敏感的情境。');
+      lines.push('');
+      lines.push('單字與片語清單：');
+      lines.push('（在這裡貼上單字，一行一個）');
+      return lines.join('\n');
+    }
+    function quizRead(row, u) {
+      var mode = (row.querySelector('[data-q-mode]:checked') || {}).value || 'default';
+      var checked = function (sel) { return Array.prototype.map.call(row.querySelectorAll(sel + ':checked'), function (x) { return x.value; }); };
+      if (mode === 'default') { u.quiz = ''; return; }
+      if (mode === 'auto') {
+        var t = checked('[data-q-auto]');
+        u.quiz = JSON.stringify({ mode: 'auto', types: t.length ? t : (quizOf(u) && quizOf(u).types) || ['cloze'] });
+        return;
+      }
+      var cnt = Number((row.querySelector('[data-q-count]') || {}).value) || 1;
+      var stages = [];
+      for (var k = 0; k < cnt; k++) {
+        var nameEl = row.querySelector('[data-q-name="' + k + '"]');
+        var ty = checked('[data-q-stage="' + k + '"]');
+        stages.push({ name: nameEl ? nameEl.value.trim().slice(0, 8) : '', types: nameEl ? ty : ['cloze'] });
+      }
+      // 跟伺服器（Code.gs 的 quizCell_）同樣的整理：沒勾題型的段落不算，最多 3 段
+      stages = stages.filter(function (st) { return st.types.length; }).slice(0, 3);
+      u.quiz = JSON.stringify({ mode: 'custom', stages: stages.length ? stages : [{ name: '', types: ['cloze'] }] });
+    }
+
     function render() {
       $('units').innerHTML = units.map(function (u, i) {
         var modes = MODES[u.type] || MODES.vocab;
         return '<tr data-i="' + i + '" class="' + (u.visible ? '' : 'off') + '">' +
           '<td class="c-vis"><label class="vis-lbl"><input type="checkbox" data-k="visible" ' + (u.visible ? 'checked' : '') + ' aria-label="顯示"><span>顯示</span></label></td>' +
           '<td class="title">' + titleCellHTML(u) + '</td>' +
-          '<td data-label="包含的階段／測驗"><div class="modes">' + modes.map(function (m) {
-            return '<label><input type="checkbox" data-mode="' + m[0] + '" ' + (u.disabled.indexOf(m[0]) === -1 ? 'checked' : '') + '>' + m[1] + '</label>';
-          }).join('') + '</div></td>' +
+          '<td data-label="包含的階段／測驗">' + (u.type === 'vocab'
+            ? '<div class="quiz-sum">' + esc(quizSummary(u)) + '</div><button class="btn small" type="button" data-quiz-open="' + i + '">' + (quizOpen === i ? '收起出題設定' : '出題設定') + '</button>'
+            : '<div class="modes">' + modes.map(function (m) {
+              return '<label><input type="checkbox" data-mode="' + m[0] + '" ' + (u.disabled.indexOf(m[0]) === -1 ? 'checked' : '') + '>' + m[1] + '</label>';
+            }).join('') + '</div>') + '</td>' +
           '<td data-label="每段題數">' + (u.type === 'vocab' ? '<span class="muted">' + vocabCountText(u) + '</span>' : '<span class="muted">' + (u.type === 'reading' ? '依文章題數' : '依題目數') + '</span>') + '</td>' +
           '<td class="window" data-label="開放時段"><label>開放 <input type="datetime-local" data-k="openAt" value="' + esc(u.openAt || '') + '"></label>' +
             '<label>截止 <input type="datetime-local" data-k="closeAt" value="' + esc(u.closeAt || '') + '"></label></td>' +
-          '<td class="c-act">' + (u.custom ? '<button class="btn" data-del="1" type="button">刪除</button>' : '') + '</td></tr>';
+          '<td class="c-act">' + (u.custom ? '<button class="btn" data-del="1" type="button">刪除</button>' : '') + '</td></tr>' +
+          (u.type === 'vocab' && quizOpen === i ? '<tr class="quiz-row" data-i="' + i + '"><td colspan="6">' + quizPanelHTML(u, i) + '</td></tr>' : '');
       }).join('') || '<tr><td colspan="6" class="muted">settings 分頁沒有資料，請先在編輯器執行 setup()。</td></tr>';
       $('f-unit').innerHTML = '<option value="">全部</option>' + units.map(function (u) { return '<option value="' + esc(u.id) + '">' + esc(u.title || u.id) + '</option>'; }).join('');
     }
 
+    $('units').addEventListener('click', function (e) {
+      var open = e.target.closest('[data-quiz-open]');
+      if (open) { var k = Number(open.dataset.quizOpen); quizOpen = quizOpen === k ? -1 : k; render(); return; }
+      var copy = e.target.closest('[data-q-copy]');
+      if (copy) {
+        var ta = copy.parentNode.querySelector('textarea');
+        var done = function () { copy.textContent = '已複製'; setTimeout(function () { copy.textContent = '複製提示詞'; }, 1500); };
+        if (navigator.clipboard) navigator.clipboard.writeText(ta.value).then(done, function () { ta.select(); document.execCommand('copy'); done(); });
+        else { ta.select(); document.execCommand('copy'); done(); }
+      }
+    });
     $('units').addEventListener('change', function (e) {
       var tr = e.target.closest('tr'); if (!tr) return;
       var u = units[Number(tr.dataset.i)];
       var t = e.target;
+      if (tr.classList.contains('quiz-row') && !t.dataset.mode) {
+        // 出題設定面板：讀回整個面板的設定，重畫（摘要、提示詞、自訂段數都會跟著變）
+        if (t.dataset.qMode !== undefined && t.value === 'default') u.quiz = '';
+        else if (t.dataset.qMode !== undefined && t.value === 'auto') u.quiz = JSON.stringify({ mode: 'auto', types: ['en2zh', 'zh2en', 'cloze', 'spell', 'clozeSpell'] });
+        else if (t.dataset.qMode !== undefined && t.value === 'custom') u.quiz = JSON.stringify({ mode: 'custom', stages: quizStages(u).map(function (g) { return { name: g[0], types: g[1] }; }) });
+        else quizRead(tr, u);
+        render();
+        $('msg').textContent = '尚未儲存'; $('msg').className = 'msg';
+        return;
+      }
+      if (tr.classList.contains('quiz-row') && t.dataset.mode) {
+        u.disabled = u.disabled.filter(function (m) { return m !== t.dataset.mode; });
+        if (!t.checked) u.disabled.push(t.dataset.mode);
+        render();
+        $('msg').textContent = '尚未儲存'; $('msg').className = 'msg';
+        return;
+      }
       if (t.dataset.mode) {
         u.disabled = u.disabled.filter(function (m) { return m !== t.dataset.mode; });
         if (!t.checked) u.disabled.push(t.dataset.mode);
@@ -692,6 +831,7 @@
           questionCount: Math.min(100, Math.max(1, Number(u.questionCount) || 10)),
           openAt: timeOf(u.openAt), closeAt: timeOf(u.closeAt),
         };
+        if (u.quiz) o.quiz = u.quiz;
         if (old.since !== undefined) o.since = old.since; else if (u.custom) o.since = now;
         cfg.units[u.id] = o;
         if (u.custom) cfg.customUnits.push({ id: u.id, title: u.title || u.id, type: normType(u.type), lesson: lessonNum(u.lesson), topic: u.topic || '' });
@@ -2324,7 +2464,7 @@
         customUnits: (cfg.customUnits || []).map(function (u) {
           var s = (cfg.units || {})[u.id] || {};
           return { id: u.id, title: u.title || u.id, type: u.type, lesson: u.lesson, topic: u.topic || '', visible: s.visible !== false, disabled: s.disabled || [],
-            questionCount: s.questionCount || 10, createdAt: '', openAt: s.openAt || '', closeAt: s.closeAt || '', custom: true };
+            questionCount: s.questionCount || 10, createdAt: '', openAt: s.openAt || '', closeAt: s.closeAt || '', quiz: s.quiz || '', custom: true };
         }),
         content: Object.keys(cfg.content || {}).map(function (id) { return { id: id, updated: cfg.content[id].updated, count: cfg.content[id].count, updatedBy: '' }; }),
         extensions: ext, config: cfg, siteUrl: old.siteUrl || '', sheetUrl: old.sheetUrl || '#',

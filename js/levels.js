@@ -27,6 +27,62 @@ export const LEVELS = [
   },
 ];
 
+// ---------------- 出題設定（老師後台每個單字單元可以自訂） ----------------
+// 五種題型；單元設定的 quiz（JSON 字串）：
+//   沒有設定 → 預設三段（上面的 LEVELS，老師關掉的段落不考）
+//   { mode: 'auto', types: [...] } → 依勾選的題型自動分段：選擇（英↔中）→ 例句選字 → 拼寫，沒勾的那段不出
+//   { mode: 'custom', stages: [{ name, types: [...] }, ...] } → 老師逐段指定（最多 3 段，對應成績表的三段欄位）
+// 段落代號固定用 basic／advanced／mastery（第 1／2／3 段），成績表三段的欄位不用改
+export const QUIZ_TYPES = {
+  en2zh: { name: '英→中選擇', build: (w, pool) => buildMC(w, pool, 'en2zh') },
+  zh2en: { name: '中→英選擇', build: (w, pool) => buildMC(w, pool, 'zh2en') },
+  cloze: { name: '例句選字', build: (w, pool, ctx) => buildClozeMC(w, pool, ctx.analysis, ctx.pickEx) },
+  spell: { name: '看中文拼字', build: (w, pool, ctx) => buildSpell(w, 'spell', ctx.pickEx) },
+  clozeSpell: { name: '例句拼寫', build: (w, pool, ctx) => buildSpell(w, 'cloze', ctx.pickEx) },
+};
+const STAGE_IDS = ['basic', 'advanced', 'mastery'];
+const AUTO_GROUPS = [
+  { id: 'basic', name: '基礎', en: 'Basic', types: ['en2zh', 'zh2en'] },
+  { id: 'advanced', name: '進階', en: 'Advanced', types: ['cloze'] },
+  { id: 'mastery', name: '精熟', en: 'Mastery', types: ['spell', 'clozeSpell'] },
+];
+const validTypes = (list) => [...new Set((Array.isArray(list) ? list : []).filter((t) => QUIZ_TYPES[t]))];
+
+export function parseQuiz(raw) {
+  let q = raw;
+  if (typeof raw === 'string') { try { q = raw.trim() ? JSON.parse(raw) : null; } catch { q = null; } }
+  if (!q || typeof q !== 'object') return null;
+  if (q.mode === 'auto') { const types = validTypes(q.types); return types.length ? { mode: 'auto', types } : null; }
+  if (q.mode === 'custom') {
+    const stages = (Array.isArray(q.stages) ? q.stages : []).map((s) => ({ name: String((s && s.name) || '').trim().slice(0, 8), types: validTypes(s && s.types) }))
+      .filter((s) => s.types.length).slice(0, 3);
+    return stages.length ? { mode: 'custom', stages } : null;
+  }
+  return null;
+}
+
+function makeLevel(id, name, en, types) {
+  const names = types.map((t) => QUIZ_TYPES[t].name);
+  const spells = types.some((t) => t === 'spell' || t === 'clozeSpell');
+  return {
+    id, name, en, types,
+    desc: names.length > 1 ? `${names.join('、')}，題型隨機出現` : names[0],
+    items: [...names, ...(spells ? ['提示最多 2 次：第 1 次扣 1 分，第 2 次再扣 3 分'] : [])],
+    build: (words, pool, ctx = {}) => words.map((w) => QUIZ_TYPES[types[Math.floor(Math.random() * types.length)]].build(w, pool, ctx)),
+  };
+}
+
+// 這個單元要考的段落：unit 是 remote-config 的單元設定（{ disabled, quiz }）
+export function levelsFor(unit = {}) {
+  const q = parseQuiz(unit.quiz);
+  if (!q) return LEVELS.filter((l) => !(unit.disabled || []).includes(l.id));
+  if (q.mode === 'auto') {
+    return AUTO_GROUPS.map((g) => ({ ...g, types: g.types.filter((t) => q.types.includes(t)) }))
+      .filter((g) => g.types.length).map((g) => makeLevel(g.id, g.name, g.en, g.types));
+  }
+  return q.stages.map((s, i) => makeLevel(STAGE_IDS[i], s.name || `第 ${i + 1} 段`, `Part ${i + 1}`, s.types));
+}
+
 // 把整個單元的單字與片語分配到各個階段：每個字在一次測驗裡剛好考一次（全部考到）。
 // 各段題數 = 總數平均分配（多出來的給前面的階段），片語平均分散在各段，不會集中在同一段。
 // 之後每次複習都會換一批：上一次在第 k 段的字，這次一定改到別段（整組輪替），
