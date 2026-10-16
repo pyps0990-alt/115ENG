@@ -114,8 +114,14 @@ export function mount(stage, ctx) {
     const setPassage = (open) => {
       const apply = () => { quiz.dataset.passage = open ? 'open' : 'closed'; };
       try { localStorage.setItem('b5p:rd-passage', open ? 'open' : 'closed'); } catch { /* 無痕模式 */ }
-      if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(apply);
-      else apply();
+      if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        // 轉場名稱只在這一下加上，結束就拿掉（平常帶著名稱，Safari 會把題目區畫到導覽列上面）
+        quiz.classList.add('vt');
+        const vt = document.startViewTransition(apply);
+        const done = () => quiz.classList.remove('vt');
+        vt.finished.finally(done);
+        setTimeout(done, 900); // 保底：分頁在背景、動畫沒播完時也會拿掉
+      } else apply();
     };
     stage.querySelector('[data-passage-close]').addEventListener('click', () => {
       setPassage(false);
