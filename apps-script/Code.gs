@@ -2445,7 +2445,7 @@ function readConfigCached_() {
   return cfg;
 }
 
-// 單字單元的出題設定（後台「出題設定」）：只留認得的題型、最多 3 段、段名最多 8 個字；格式不對或沒勾任何題型就回空字串（＝預設三段）。
+// 單字單元的出題設定（後台「出題設定」）：只留認得的題型、最多 3 段、段名最多 8 個字、每次題數 1～100；格式不對或沒勾任何題型就回空字串（＝預設三段）。
 // 網站 js/levels.js 的 parseQuiz 用同樣的規則讀
 var QUIZ_TYPES = ['en2zh', 'zh2en', 'cloze', 'spell', 'clozeSpell'];
 function quizCell_(v) {
@@ -2457,17 +2457,21 @@ function quizCell_(v) {
     (Array.isArray(list) ? list : []).forEach(function (t) { if (QUIZ_TYPES.indexOf(t) >= 0 && out.indexOf(t) < 0) out.push(t); });
     return out;
   };
+  var n = Math.floor(Number(q.count));
+  var out = null;
   if (q.mode === 'auto') {
     var t = types(q.types);
-    return t.length ? JSON.stringify({ mode: 'auto', types: t }) : '';
+    if (t.length) out = { mode: 'auto', types: t };
   }
   if (q.mode === 'custom') {
     var stages = (Array.isArray(q.stages) ? q.stages : []).map(function (x) {
       return { name: String((x && x.name) || '').trim().slice(0, 8), types: types(x && x.types) };
     }).filter(function (x) { return x.types.length; }).slice(0, 3);
-    return stages.length ? JSON.stringify({ mode: 'custom', stages: stages }) : '';
+    if (stages.length) out = { mode: 'custom', stages: stages };
   }
-  return '';
+  if (!out && n >= 1) out = { mode: 'default' };
+  if (out && n >= 1) out.count = Math.min(100, n); // 每次測驗考幾個字
+  return out ? JSON.stringify(out) : '';
 }
 
 // 開放時段：存成「2026-10-01T08:00」這種台灣時間字串（空白＝不限制）

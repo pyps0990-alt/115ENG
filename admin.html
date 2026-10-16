@@ -103,6 +103,9 @@
     .quiz-stage { display:grid; gap:6px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; }
     .quiz-stage input[type=text] { max-width:160px; }
     .quiz-now { margin:0; }
+    .quiz-count { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-weight:700; }
+    .quiz-count input { width:72px; }
+    .quiz-count .muted { font-weight:400; font-size:.82rem; }
     .quiz-ai textarea { width:100%; margin:8px 0; font-size:.85rem; line-height:1.5; }
     .modes label { display:inline-flex; gap:4px; align-items:center; font-size:.85rem; }
     input[type=number] { width:68px; }
@@ -608,24 +611,28 @@
     function vocabCountText(u) {
       var c = content.filter(function (x) { return x.id === u.id; })[0];
       var n = c ? Number(c.count) || 0 : 0;
-      return n > 30 ? '共 ' + n + ' 個，每次抽 30 個' : n ? '共 ' + n + ' 個，全部各考一次' : '全部單字各考一次';
+      var per = quizCount(u) || 30;
+      return n > per ? '共 ' + n + ' 個，每次抽 ' + per + ' 個' : n ? '共 ' + n + ' 個，全部各考一次' : '每次最多 ' + per + ' 個';
     }
     // ----- 單字單元的出題設定（存在單元設定的 quiz 欄，JSON 字串；規則和 js/levels.js 的 parseQuiz、Code.gs 的 quizCell_ 一致） -----
     var QUIZ_TYPE_NAMES = [['en2zh', '英→中選擇'], ['zh2en', '中→英選擇'], ['cloze', '例句選字（克漏字）'], ['spell', '看中文拼字'], ['clozeSpell', '例句拼寫']];
     var QUIZ_AUTO = [['基礎', ['en2zh', 'zh2en']], ['進階', ['cloze']], ['精熟', ['spell', 'clozeSpell']]];
     var quizOpen = -1;
-    function quizOf(u) { try { var q = u.quiz ? JSON.parse(u.quiz) : null; return q && (q.mode === 'auto' || q.mode === 'custom') ? q : null; } catch (e) { return null; } }
+    function quizOf(u) { try { var q = u.quiz ? JSON.parse(u.quiz) : null; return q && (q.mode === 'auto' || q.mode === 'custom' || q.mode === 'default') ? q : null; } catch (e) { return null; } }
+    function quizCount(u) { var q = quizOf(u); var n = q ? Math.floor(Number(q.count)) : 0; return n >= 1 ? Math.min(100, n) : 0; }
     function typeName(t) { return (QUIZ_TYPE_NAMES.filter(function (x) { return x[0] === t; })[0] || [t, t])[1]; }
     // 這個單元實際會考的段落：[[段名, [題型...]], ...]
     function quizStages(u) {
       var q = quizOf(u);
-      if (!q) return QUIZ_AUTO.filter(function (g, k) { return u.disabled.indexOf(['basic', 'advanced', 'mastery'][k]) === -1; });
+      if (!q || q.mode === 'default') return QUIZ_AUTO.filter(function (g, k) { return u.disabled.indexOf(['basic', 'advanced', 'mastery'][k]) === -1; });
       if (q.mode === 'auto') return QUIZ_AUTO.map(function (g) { return [g[0], g[1].filter(function (t) { return q.types.indexOf(t) >= 0; })]; }).filter(function (g) { return g[1].length; });
       return (q.stages || []).map(function (st, k) { return [st.name || '第 ' + (k + 1) + ' 段', st.types || []]; }).filter(function (g) { return g[1].length; });
     }
     function quizSummary(u) {
       var st = quizStages(u);
-      return (quizOf(u) ? '' : '預設：') + (st.length ? st.map(function (g) { return g[0] + '（' + g[1].map(typeName).join('、') + '）'; }).join(' → ') : '沒有任何段落（學生看不到）');
+      var q = quizOf(u), n = quizCount(u);
+      return (!q || q.mode === 'default' ? '預設：' : '') + (st.length ? st.map(function (g) { return g[0] + '（' + g[1].map(typeName).join('、') + '）'; }).join(' → ') : '沒有任何段落（學生看不到）') +
+        '｜每次 ' + (n ? n + ' 個字' : '最多 30 個字');
     }
     function typeBoxes(sel, attrs) {
       return QUIZ_TYPE_NAMES.map(function (t) {
@@ -633,7 +640,7 @@
       }).join('');
     }
     function quizPanelHTML(u, i) {
-      var q = quizOf(u), mode = q ? q.mode : 'default';
+      var q = quizOf(u), mode = q ? q.mode : 'default', n = quizCount(u);
       var auto = q && q.mode === 'auto' ? q.types : ['en2zh', 'zh2en', 'cloze', 'spell', 'clozeSpell'];
       var stages = q && q.mode === 'custom' ? q.stages : [{ name: '', types: ['cloze'] }];
       var body = '';
@@ -653,14 +660,15 @@
       return '<div class="quiz-panel">' +
         '<div class="quiz-modes">' + [['default', '預設三段'], ['auto', '勾題型，自動分段'], ['custom', '自訂每一段']].map(function (m) {
           return '<label><input type="radio" name="qm-' + i + '" data-q-mode value="' + m[0] + '"' + (mode === m[0] ? ' checked' : '') + '>' + m[1] + '</label>';
-        }).join('') + '</div>' + body +
+        }).join('') + '</div>' +
+        '<label class="quiz-count">每次測驗考 <input type="number" min="1" max="100" data-q-words value="' + (n || '') + '" placeholder="30"> 個字<span class="muted">（空白＝最多 30 個；單元的字比較多時每次抽題，下次優先考沒考到的；各段平均分配）</span></label>' + body +
         '<p class="quiz-now"><b>學生會考：</b>' + esc(quizSummary(u)) + '</p>' +
         '<details class="quiz-ai"><summary>給 AI 的提示詞（依上面的題型產生，複製後貼到 AI，再把結果貼回「匯入內容」）</summary>' +
-        '<textarea readonly rows="12">' + esc(aiPromptFor(u)) + '</textarea><button class="btn small" type="button" data-q-copy>複製提示詞</button></details>' +
+        '<textarea readonly rows="12">' + esc(quizPromptFor(u)) + '</textarea><button class="btn small" type="button" data-q-copy>複製提示詞</button></details>' +
         '</div>';
     }
     // 依勾選的題型產生給 AI 的提示詞；格式就是「匯入內容」能直接讀的格式（英文 | 詞性 | 中文 | 例句 | 例句翻譯）
-    function aiPromptFor(u) {
+    function quizPromptFor(u) {
       var types = [];
       quizStages(u).forEach(function (g) { g[1].forEach(function (t) { if (types.indexOf(t) < 0) types.push(t); }); });
       var cloze = types.indexOf('cloze') >= 0 || types.indexOf('clozeSpell') >= 0;
@@ -690,10 +698,14 @@
     function quizRead(row, u) {
       var mode = (row.querySelector('[data-q-mode]:checked') || {}).value || 'default';
       var checked = function (sel) { return Array.prototype.map.call(row.querySelectorAll(sel + ':checked'), function (x) { return x.value; }); };
-      if (mode === 'default') { u.quiz = ''; return; }
+      var nEl = row.querySelector('[data-q-words]');
+      var n = nEl ? Math.floor(Number(nEl.value)) : 0;
+      n = n >= 1 ? Math.min(100, n) : 0;
+      var withCount = function (q) { if (n) q.count = n; return JSON.stringify(q); };
+      if (mode === 'default') { u.quiz = n ? withCount({ mode: 'default' }) : ''; return; }
       if (mode === 'auto') {
         var t = checked('[data-q-auto]');
-        u.quiz = JSON.stringify({ mode: 'auto', types: t.length ? t : (quizOf(u) && quizOf(u).types) || ['cloze'] });
+        u.quiz = withCount({ mode: 'auto', types: t.length ? t : (quizOf(u) && quizOf(u).types) || ['cloze'] });
         return;
       }
       var cnt = Number((row.querySelector('[data-q-count]') || {}).value) || 1;
@@ -705,7 +717,7 @@
       }
       // 跟伺服器（Code.gs 的 quizCell_）同樣的整理：沒勾題型的段落不算，最多 3 段
       stages = stages.filter(function (st) { return st.types.length; }).slice(0, 3);
-      u.quiz = JSON.stringify({ mode: 'custom', stages: stages.length ? stages : [{ name: '', types: ['cloze'] }] });
+      u.quiz = withCount({ mode: 'custom', stages: stages.length ? stages : [{ name: '', types: ['cloze'] }] });
     }
 
     function render() {
@@ -745,9 +757,10 @@
       var t = e.target;
       if (tr.classList.contains('quiz-row') && !t.dataset.mode) {
         // 出題設定面板：讀回整個面板的設定，重畫（摘要、提示詞、自訂段數都會跟著變）
-        if (t.dataset.qMode !== undefined && t.value === 'default') u.quiz = '';
-        else if (t.dataset.qMode !== undefined && t.value === 'auto') u.quiz = JSON.stringify({ mode: 'auto', types: ['en2zh', 'zh2en', 'cloze', 'spell', 'clozeSpell'] });
-        else if (t.dataset.qMode !== undefined && t.value === 'custom') u.quiz = JSON.stringify({ mode: 'custom', stages: quizStages(u).map(function (g) { return { name: g[0], types: g[1] }; }) });
+        var keepN = quizCount(u), cnt = function (q) { if (keepN) q.count = keepN; return JSON.stringify(q); };
+        if (t.dataset.qMode !== undefined && t.value === 'default') u.quiz = keepN ? cnt({ mode: 'default' }) : '';
+        else if (t.dataset.qMode !== undefined && t.value === 'auto') u.quiz = cnt({ mode: 'auto', types: ['en2zh', 'zh2en', 'cloze', 'spell', 'clozeSpell'] });
+        else if (t.dataset.qMode !== undefined && t.value === 'custom') u.quiz = cnt({ mode: 'custom', stages: quizStages(u).map(function (g) { return { name: g[0], types: g[1] }; }) });
         else quizRead(tr, u);
         render();
         $('msg').textContent = '尚未儲存'; $('msg').className = 'msg';

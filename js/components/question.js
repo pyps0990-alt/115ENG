@@ -181,7 +181,7 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   const head = q.variant === 'cloze'
     ? `<div class="q-meta">${esc(label || '依句意拼出空格中的單字')}</div>
        <div class="q-sentence">${esc(q.parts.before)}<span class="blank"></span>${esc(q.parts.after)}</div>
-       <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${n} 個字母</span></div>`
+       <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${n} 個字母・開頭是 ${esc(target[0].toUpperCase())}</span></div>`
     : `<div class="q-meta">${esc(label || '看中文，拼出英文單字')}</div>
        <div class="q-prompt"><span class="zh">${esc(w.zh)}</span></div>
        <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${n} 個字母・開頭是 ${esc(target[0].toUpperCase())}</span></div>`;

@@ -4,7 +4,7 @@ import { store } from './storage.js';
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
 import { renderStudentChip, mountInlineForm, historyReady, closeChipPanel } from './student.js';
-import { LEVELS, PASS, levelsFor } from './levels.js';
+import { LEVELS, PASS, levelsFor, quizCount } from './levels.js';
 import { initNav, updateNav } from './nav.js';
 import { flushOutbox, pendingItems, clearOutbox, outboxStatus, rejectedItems } from './submit.js';
 import { submitStateHTML } from './components/gate.js';
@@ -393,7 +393,7 @@ async function renderUnit(id, sub) {
   document.title = `${meta.title} — B5 Practice`;
   app.innerHTML = `<div class="focus">${headHTML(meta, data)}<section id="stage"></section></div>`;
   cleanup = mod.mount(app.querySelector('#stage'), {
-    unit: meta, data, allWords: data.words || [], config, levels, analysis,
+    unit: meta, data, allWords: data.words || [], config, levels, analysis, perTest: quizCount(unitCfg(config, meta.id)),
     questionCount: questionCount(config, meta.id),
   }) || null;
 }

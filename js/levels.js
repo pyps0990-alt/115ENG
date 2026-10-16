@@ -32,6 +32,8 @@ export const LEVELS = [
 //   沒有設定 → 預設三段（上面的 LEVELS，老師關掉的段落不考）
 //   { mode: 'auto', types: [...] } → 依勾選的題型自動分段：選擇（英↔中）→ 例句選字 → 拼寫，沒勾的那段不出
 //   { mode: 'custom', stages: [{ name, types: [...] }, ...] } → 老師逐段指定（最多 3 段，對應成績表的三段欄位）
+//   { mode: 'default' } → 預設三段（只用來存題數）
+//   每種模式都可以加 count：每次測驗考幾個字（1～100；沒填＝最多 PER_TEST 個）
 // 段落代號固定用 basic／advanced／mastery（第 1／2／3 段），成績表三段的欄位不用改
 export const QUIZ_TYPES = {
   en2zh: { name: '英→中選擇', build: (w, pool) => buildMC(w, pool, 'en2zh') },
@@ -52,14 +54,20 @@ export function parseQuiz(raw) {
   let q = raw;
   if (typeof raw === 'string') { try { q = raw.trim() ? JSON.parse(raw) : null; } catch { q = null; } }
   if (!q || typeof q !== 'object') return null;
-  if (q.mode === 'auto') { const types = validTypes(q.types); return types.length ? { mode: 'auto', types } : null; }
+  const n = Math.floor(Number(q.count));
+  let out = null;
+  if (q.mode === 'auto') { const types = validTypes(q.types); if (types.length) out = { mode: 'auto', types }; }
   if (q.mode === 'custom') {
     const stages = (Array.isArray(q.stages) ? q.stages : []).map((s) => ({ name: String((s && s.name) || '').trim().slice(0, 8), types: validTypes(s && s.types) }))
       .filter((s) => s.types.length).slice(0, 3);
-    return stages.length ? { mode: 'custom', stages } : null;
+    if (stages.length) out = { mode: 'custom', stages };
   }
-  return null;
+  if (!out && n >= 1) out = { mode: 'default' };
+  if (out && n >= 1) out.count = Math.min(100, n);
+  return out;
 }
+// 每次測驗考幾個字（老師設定的；沒設定回傳 null，用 PER_TEST）
+export const quizCount = (unit = {}) => (parseQuiz(unit.quiz) || {}).count || null;
 
 function makeLevel(id, name, en, types) {
   const names = types.map((t) => QUIZ_TYPES[t].name);
@@ -75,7 +83,7 @@ function makeLevel(id, name, en, types) {
 // 這個單元要考的段落：unit 是 remote-config 的單元設定（{ disabled, quiz }）
 export function levelsFor(unit = {}) {
   const q = parseQuiz(unit.quiz);
-  if (!q) return LEVELS.filter((l) => !(unit.disabled || []).includes(l.id));
+  if (!q || q.mode === 'default') return LEVELS.filter((l) => !(unit.disabled || []).includes(l.id));
   if (q.mode === 'auto') {
     return AUTO_GROUPS.map((g) => ({ ...g, types: g.types.filter((t) => q.types.includes(t)) }))
       .filter((g) => g.types.length).map((g) => makeLevel(g.id, g.name, g.en, g.types));

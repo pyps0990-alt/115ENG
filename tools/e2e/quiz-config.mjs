@@ -47,6 +47,13 @@ assert.doesNotMatch(lv[0].items.join(), /提示/);
 lv = L.levelsFor({ quiz: JSON.stringify({ mode: 'custom', stages: [{ name: '一二三四五六七八九十', types: ['cloze'] }, { name: '空', types: [] }, { types: ['spell'] }, { types: ['en2zh'] }, { types: ['zh2en'] }] }) });
 assert.deepEqual(lv.map((l) => [l.id, l.name]), [['basic', '一二三四五六七八'], ['advanced', '第 2 段'], ['mastery', '第 3 段']]);
 
+// 每次題數：任何模式都能設，1～100，預設模式也能只設題數
+assert.equal(L.quizCount({ quiz: JSON.stringify({ mode: 'auto', types: ['cloze'], count: 12 }) }), 12);
+assert.equal(L.quizCount({ quiz: JSON.stringify({ mode: 'default', count: 500 }) }), 100);
+assert.equal(L.quizCount({ quiz: JSON.stringify({ mode: 'default' }) }), null);
+assert.equal(L.quizCount({}), null);
+assert.deepEqual(L.levelsFor({ quiz: JSON.stringify({ mode: 'default', count: 10 }), disabled: ['basic'] }).map((l) => l.id), ['advanced', 'mastery'], '預設模式只設題數，段落照預設');
+
 // 網站和 Apps Script 對同一份設定的整理結果一致
 const inputs = [
   { mode: 'auto', types: ['cloze'] },
@@ -55,6 +62,10 @@ const inputs = [
   { mode: 'custom', stages: [{ name: ' 暖身 ', types: ['en2zh'] }, { name: '空', types: [] }, { name: '挑戰', types: ['cloze', 'x'] }] },
   { mode: 'custom', stages: [] },
   { mode: 'weird' },
+  { mode: 'default', count: 15 },
+  { mode: 'default', count: 0 },
+  { mode: 'auto', types: ['cloze'], count: '20' },
+  { mode: 'custom', stages: [{ types: ['spell'] }], count: 250.7 },
   'not json',
   '',
 ];

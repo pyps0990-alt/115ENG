@@ -19,7 +19,7 @@ export function mount(stage, ctx) {
   const levels = ctx.levels;
   const all = ctx.allWords;
   const unitId = ctx.unit.id;
-  const perTest = Math.min(all.length, PER_TEST); // 一次考幾個字（超過 PER_TEST 個就抽題）
+  const perTest = Math.min(all.length, ctx.perTest || PER_TEST); // 一次考幾個字（老師在出題設定填的，沒填就是 PER_TEST；單元的字比較多就抽題）
   const sizes = stageSizes(perTest, levels.length);
   const nPhrase = all.filter((w) => w.type === 'phrase').length;
   // 例句記憶：記下這位學生每個字考過哪幾句例句（存在這台裝置），下次換一句沒考過的；全部考過才重新開始
@@ -118,7 +118,7 @@ export function mount(stage, ctx) {
 
   // 每次開始（含複習）重新分配：這次要考的字（超過 PER_TEST 個就抽題）分到各階段，每個字只考一次
   const stagesNow = () => {
-    const groups = partitionWords(pickWords(all, unitId), levels.length, unitId);
+    const groups = partitionWords(pickWords(all, unitId, perTest), levels.length, unitId);
     return levels.map((l, i) => ({ level: l, words: groups[i] })).filter((x) => x.words.length);
   };
 
