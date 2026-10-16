@@ -360,13 +360,13 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 
 /* spelling boxes */
 .spell-area { position: relative; display: grid; justify-items: center; gap: 10px; }
-/* 框的大小：一行放得下（每格至少 34px）就排一行；放不下就固定 34px，先在單字之間換行，單一個字還是太長就讓它的字母框接到下一行（框不會再縮小） */
+/* 框的大小：一行放得下（每格至少 34px）就排一行；放不下就用 34px、在單字之間換行（片語）；一個字本身就放不下時，框縮到剛好讓那個字排成一行（字不拆開） */
 .boxes {
-  --n: 8; --avail: calc(min(100vw, 660px) - 76px);
-  --bw: min(46px, max(calc(var(--avail) / var(--n) - 5px), 34px));
+  --n: 8; --long: 8; --avail: calc(min(100vw, 660px) - 76px);
+  --bw: min(46px, max(calc(var(--avail) / var(--n) - 5px), min(34px, calc(var(--avail) / var(--long) - 5px))));
   display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 14px; max-width: 100%; cursor: text;
 }
-.lword { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 5px; flex: 0 0 auto; max-width: 100%; }
+.lword { display: flex; flex-wrap: nowrap; gap: 5px; }
 .lbox {
   width: var(--bw); height: calc(var(--bw) * 1.25); border-radius: calc(var(--bw) / 4); border: 2px solid var(--edge);
   background: var(--white); display: grid; place-items: center; font-family: var(--font-read); font-weight: 900; color: var(--navy);
@@ -619,7 +619,7 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
   .q-sentence { font-size: 1.05rem; line-height: 1.55; }
   .options.two { grid-template-columns: 1fr 1fr; }
   .opt { min-height: 44px; padding-block: 6px; }
-  .boxes { --avail: calc(min(100vw, 680px) - 76px); --bw: min(40px, max(calc(var(--avail) / var(--n) - 5px), 32px)); }
+  .boxes { --avail: calc(min(100vw, 680px) - 76px); --bw: min(40px, max(calc(var(--avail) / var(--n) - 5px), min(32px, calc(var(--avail) / var(--long) - 5px)))); }
   .passage-card { position: static; max-height: none; }
   .stage-card { padding: 16px; gap: 12px; }
 }

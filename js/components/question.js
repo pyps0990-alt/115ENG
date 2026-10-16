@@ -191,7 +191,7 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   card.innerHTML = `
     <div class="q-head">${head}</div>
     <div class="spell-area">
-      <div class="boxes" style="--n:${Math.max(slots.length, 6)}">${wordGroups(slots)}</div>
+      <div class="boxes" style="--n:${Math.max(slots.length, 6)};--long:${Math.max(6, ...String(q.answer).split(/\s+/).map((x) => x.length))}">${wordGroups(slots)}</div>
       <input class="spell-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="輸入答案">
     </div>
     ${feedback ? `<div class="q-foot">
