@@ -506,12 +506,14 @@ function walkthroughHTML(q, chosen, pool) {
   const sl = q.slot;
   const zh = q.exampleZh || '';
   const span = sl && zh && Array.isArray(sl.span) ? sl.span : null;
-  const need = sl && sl.role && NEED_NAME[sl.role] ? sl.role : null;
+  // 空格要的詞性：引擎算好的；沒有分析結果時，答案只有一種詞性（compelling 只當形容詞）就用它，好讓說明和錯誤類型標籤一致
+  const own = rolesOf(q, q.word);
+  const need = sl && sl.role && NEED_NAME[sl.role] ? sl.role : (!sl && own.length === 1 ? own[0] : null);
   const opts = optionsOf(q, chosen, pool).map((o) => ({ ...o, posOut: !o.ok && !!need && o.codes.length > 0 && !o.codes.includes(need) }));
   const steps = [];
   if (sl && zh) steps.push(`這句在說：「${span ? `${zh.slice(0, span[0])}＿＿${zh.slice(span[1])}` : zh}」`);
   if (need) {
-    const role = isPhrase(q.word) ? `空格需要一個${NEED_NAME[need]}片語` : (sl.say || `空格需要${NEED_NAME[need]}`);
+    const role = isPhrase(q.word) ? `空格需要一個${NEED_NAME[need]}片語` : ((sl && sl.say) || `空格需要${NEED_NAME[need]}`);
     const out = opts.filter((o) => o.posOut);
     steps.push(out.length
       ? `${role}。根據詞性，這題可以先排除 ${out.map((o) => `${o.opt}（${roleName(o.codes, isPhrase(o.w))}）`).join('、')}，再看剩下的選項意思合不合`
@@ -567,7 +569,7 @@ export function explainWrong(q, chosen, pool = [], mode = 'brief') {
   // 檢討：解題步驟在前，最後才揭曉答案卡
   if (clozeMC) {
     // 沒有錯誤分析結果時解題步驟只有「逐一看選項」：先用一句話說明錯在哪
-    if (!q.slot && (detail || ERR_TIPS[err])) parts.push(`<p class="xp-tip">${esc(detail || ERR_TIPS[err])}</p>`);
+    if (!q.slot && rolesOf(q, w).length !== 1 && (detail || ERR_TIPS[err])) parts.push(`<p class="xp-tip">${esc(detail || ERR_TIPS[err])}</p>`);
     parts.push(walkthroughHTML(q, chosen, pool));
   }
   else {
@@ -597,8 +599,12 @@ export function questionFromRecord(d, pool = [], analysis = null) {
   const correct = String(d.correct || '');
   const options = Array.isArray(d.options) && d.options.includes(correct) ? d.options.slice() : [...new Set([String(d.yours || ''), correct].filter(Boolean))];
   const q = { type: 'mc', word, dir, options, answer: options.indexOf(correct), parts, exampleZh: d.exampleZh || '', extras: d.extras || [] };
-  if (dir === 'cloze' && analysis && analysis.words && analysis.words[word.word] && Number.isInteger(d.exIdx)) {
-    q.slot = analysis.words[word.word].ex[d.exIdx] || null;
+  // 考的是第幾句：新紀錄有存；舊紀錄用例句比對找回來（才接得上錯誤分析的解題步驟）
+  let exIdx = Number.isInteger(d.exIdx) ? d.exIdx : -1;
+  if (exIdx < 0 && parts) exIdx = exampleList(word).findIndex((e) => plainExample(e.ex) === plainExample(d.exampleEn));
+  if (dir === 'cloze' && analysis && analysis.words && analysis.words[word.word] && exIdx >= 0) {
+    q.slot = analysis.words[word.word].ex[exIdx] || null;
+    q.exIdx = exIdx;
     q.roles = {}; q.rel = {};
     for (const w of pool) {
       const info = analysis.words[w.word];
