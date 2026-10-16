@@ -112,8 +112,6 @@
     .quiz-count .muted { font-weight:400; font-size:.82rem; }
     .quiz-now { margin:0; display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; font-weight:700; color:var(--ink); line-height:1.6; }
     .quiz-now .pill { flex:none; }
-    .quiz-ai { margin-top:0; }
-    .quiz-ai textarea { width:100%; margin:8px 0; font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; border:1px solid var(--line); border-radius:9px; padding:10px; resize:vertical; }
     @media (max-width:720px) {
       .cards-table tr.quiz-open { margin-bottom:0; border-bottom-left-radius:0; border-bottom-right-radius:0; border-bottom-style:dashed; }
       .cards-table tr.quiz-row { display:block; padding:0; margin-top:-1px; border-top:none; border-top-left-radius:0; border-top-right-radius:0; }
@@ -350,9 +348,8 @@
             例句中要考的部分用 <code>[ ]</code> 括起來，例如 <code>The team [bounced back] quickly.</code>（可以是變化後的形態，如 <code>[adapted]</code>）；沒括的話會自動找出來。含空格或詞性寫 <code>phr.</code> 的會當成片語。<br>
             範例（一行）：<code>adapt | v. | 適應 | She [adapted] quickly to her new school. ; We must [adapt] to climate change. ; Animals [adapt] to survive. | 她很快適應了新學校。 ; 我們必須適應氣候變遷。 ; 動物為了生存而適應環境。</code><br>
             <b>單字數量：每個單元 4～100 個（單字與片語合計），片語建議 2～5 個。</b><br>
-            ・<b>30 個以內</b>：每次測驗全部考到，每個字考一次，平均分到基礎、進階、精熟三段。<br>
-            ・<b>31～100 個</b>：每次測驗抽 30 個出題（每段 10 題），上次沒考到的字優先、片語照比例抽，全部輪完才重新開始（例如 50 個做 2 次、100 個做 4 次就輪完）。<br>
-            ・想讓每次測驗都考到全部的字，請控制在 30 個以內；超過 100 個請拆成兩個單元。<br><div id="v-ex"></div><b>用外部 AI 整理單字</b>：按下方「複製『給 AI 的完整提示詞』」貼到 ChatGPT、Gemini 或 Claude，把最後一行改成你的單字，再把回覆整段貼回下面的欄位（Markdown 表格、程式碼框都會自動整理）。
+            ・<b>每次考幾個字、分幾段、考哪些題型</b>：在「單元設定 → 出題設定」調整。預設是每次最多 30 個，平均分到基礎、進階、精熟三段；字比較多時每次抽題，上次沒考到的字優先、片語照比例抽，全部輪完才重新開始。<br>
+            ・超過 100 個請拆成兩個單元。<br><div id="v-ex"></div><details class="ex-box" id="v-prompt-box"><summary>給 AI 的完整提示詞（依這個單元的出題設定）</summary><pre id="v-prompt"></pre></details><b>用外部 AI 整理單字</b>：按下方「複製『給 AI 的完整提示詞』」貼到 ChatGPT、Gemini 或 Claude，把最後一行改成你的單字，再把回覆整段貼回下面的欄位（Markdown 表格、程式碼框都會自動整理）。
           </div>
           <div class="bar">
             <button class="btn ai" id="ai-vocab" type="button">✦ AI 補齊詞性、中文與 3 句例句</button>
@@ -682,38 +679,8 @@
         '<div class="quiz-field"><span class="quiz-label">每次題數</span><div class="quiz-count"><input type="number" min="1" max="100" data-q-words value="' + (n || '') + '" placeholder="30"> 個字' +
           '<span class="muted">空白＝最多 30 個；字比較多時每次抽題，下次優先考沒考到的</span></div></div>' +
         '<p class="quiz-now"><span class="pill on">學生會考</span>' + esc(quizSummary(u)) + '</p>' +
-        '<details class="ex-box quiz-ai"><summary>給 AI 的提示詞</summary>' +
-        '<p class="muted" style="margin:8px 0 0">依上面勾的題型產生。複製後貼到 AI，在最後貼上單字清單，再把 AI 的結果貼回「匯入內容」。</p>' +
-        '<textarea readonly rows="12">' + esc(quizPromptFor(u)) + '</textarea><button class="btn small" type="button" data-q-copy>複製提示詞</button></details>' +
+        '<p class="muted" style="margin:0">給 AI 的提示詞在「匯入內容」頁，會依這裡的設定自動調整。</p>' +
         '</div>';
-    }
-    // 依勾選的題型產生給 AI 的提示詞；格式就是「匯入內容」能直接讀的格式（英文 | 詞性 | 中文 | 例句 | 例句翻譯）
-    function quizPromptFor(u) {
-      var types = [];
-      quizStages(u).forEach(function (g) { g[1].forEach(function (t) { if (types.indexOf(t) < 0) types.push(t); }); });
-      var cloze = types.indexOf('cloze') >= 0 || types.indexOf('clozeSpell') >= 0;
-      var lines = [
-        '請把下面的英文單字與片語，整理成台灣高中英文測驗用的資料。每個字一行，欄位用 | 分隔，第一行不要放標題：',
-        '英文 | 詞性 | 中文意思 | 例句 | 例句翻譯',
-        '',
-        '規則：',
-        '1. 詞性用 n.、v.、adj.、adv.、prep.、phr.（片語）；有多個詞性用 / 分隔，例如 n. / v.',
-        '2. 中文意思寫 1～2 個最常用的，用「；」分隔，不要加括號說明。',
-      ];
-      if (cloze) {
-        lines.push('3. 例句寫 3 句，用「;」分隔。每句 10～18 個英文字，用 [ ] 框出要考的那個字或片語（照句子需要變化時態、單複數，例如 [shattered]、[fibers]、[laid out]）。');
-        lines.push('4. 這些例句會挖空讓學生選字或拼字：句子的前後文要能清楚指向這個字，換成其他常見的字就說不通；三句用不同的時態或形式、不同情境（學校、家庭、社會）。');
-        lines.push('5. 例句翻譯寫 3 句，依序對應，用「;」分隔，翻譯貼近原句，不要出現 [ ]，也不要在同一處並列兩個同義詞（例如「核心關鍵」）。');
-      } else {
-        lines.push('3. 例句寫 1 句，用 [ ] 框出那個字或片語；例句翻譯寫 1 句（學生檢討時看）。');
-      }
-      if (types.indexOf('en2zh') >= 0 || types.indexOf('zh2en') >= 0) lines.push((cloze ? '6' : '4') + '. 中文意思要和其他字明顯不同，同一個單元不要有兩個字的中文意思一樣（選擇題才不會有兩個答案）。');
-      if (types.indexOf('spell') >= 0 || types.indexOf('clozeSpell') >= 0) lines.push('・這個單元有拼字題：英文請用正確的美式拼法，片語不要加 sth./sb. 這類代號。');
-      lines.push('・內容適合台灣高中生，避免暴力、成人、政治敏感的情境。');
-      lines.push('');
-      lines.push('單字與片語清單：');
-      lines.push('（在這裡貼上單字，一行一個）');
-      return lines.join('\n');
     }
     function quizRead(row, u) {
       var mode = (row.querySelector('[data-q-mode]:checked') || {}).value || 'default';
@@ -757,19 +724,13 @@
           '<td class="c-act">' + (u.custom ? '<button class="btn" data-del="1" type="button">刪除</button>' : '') + '</td></tr>' +
           (u.type === 'vocab' && quizOpen === i ? '<tr class="quiz-row" data-i="' + i + '"><td colspan="6">' + quizPanelHTML(u, i) + '</td></tr>' : '');
       }).join('') || '<tr><td colspan="6" class="muted">settings 分頁沒有資料，請先在編輯器執行 setup()。</td></tr>';
+      if (typeof vocabPromptRefresh === 'function') vocabPromptRefresh();
       $('f-unit').innerHTML = '<option value="">全部</option>' + units.map(function (u) { return '<option value="' + esc(u.id) + '">' + esc(u.title || u.id) + '</option>'; }).join('');
     }
 
     $('units').addEventListener('click', function (e) {
       var open = e.target.closest('[data-quiz-open]');
       if (open) { var k = Number(open.dataset.quizOpen); quizOpen = quizOpen === k ? -1 : k; render(); return; }
-      var copy = e.target.closest('[data-q-copy]');
-      if (copy) {
-        var ta = copy.parentNode.querySelector('textarea');
-        var done = function () { copy.textContent = '已複製'; setTimeout(function () { copy.textContent = '複製提示詞'; }, 1500); };
-        if (navigator.clipboard) navigator.clipboard.writeText(ta.value).then(done, function () { ta.select(); document.execCommand('copy'); done(); });
-        else { ta.select(); document.execCommand('copy'); done(); }
-      }
     });
     $('units').addEventListener('change', function (e) {
       var tr = e.target.closest('tr'); if (!tr) return;
@@ -1190,6 +1151,9 @@
       impStatus(); impDirty();
     }
     $('imp-unit').addEventListener('change', impShow);
+    // 單字提示詞預覽：上方選的單元或它的出題設定改了就重新產生
+    function vocabPromptRefresh() { var u = impUnit(); if ($('v-prompt')) $('v-prompt').textContent = aiPromptFor('vocab', u && u.type === 'vocab' ? u : null); }
+    $('imp-unit').addEventListener('change', vocabPromptRefresh);
     ['imp-vocab', 'imp-reading', 'imp-text'].forEach(function (id) { $(id).addEventListener('input', impDirty); $(id).addEventListener('change', impDirty); });
 
     // ----- 閱讀題目表單 -----
@@ -2052,21 +2016,38 @@
       '8. 答案必須只有一個正確選項；錯誤選項要合理但明確錯誤，不要用 All of the above / None of the above。',
     ].join('\n');
     var PROMPT_HEAD = '你是臺灣高中英文老師，為高二學生出題。';
-    function aiPromptFor(type) {
+    // u：上方選的單元（單字單元會依它的出題設定調整提示詞：有沒有例句題、選擇題、拼字題）
+    function aiPromptFor(type, u) {
       if (type === 'vocab') {
-        return [PROMPT_HEAD + '請依照下面的格式，幫我整理一份單字片語清單。', '',
-          '【格式】每行一個單字或片語，共 5 個欄位，欄位之間用 Tab 或「 | 」隔開（整份請統一一種）：',
-          '英文 | 詞性 | 中文 | 例句（3 句，句與句之間用「 ; 」隔開） | 例句翻譯（3 句，同樣用「 ; 」隔開，順序要和例句一一對應）', '',
-          '【規則】',
+        var types = [];
+        (u ? quizStages(u) : QUIZ_AUTO).forEach(function (g) { g[1].forEach(function (t) { if (types.indexOf(t) < 0) types.push(t); }); });
+        var has = function (t) { return types.indexOf(t) >= 0; };
+        var cloze = has('cloze') || has('clozeSpell'), choice = has('en2zh') || has('zh2en'), spell = has('spell') || has('clozeSpell');
+        var rules = [
           '1. 詞性用 n. / v. / adj. / adv. / prep. / conj.；片語詞性寫 phr.。一個字有兩種常見用法時寫成 n. / v.。',
           '2. 中文寫最常見的意思，用繁體中文（臺灣用語），最多兩個意思，之間用「；」隔開。',
-          '3. 每個字剛好 3 句例句，三句要用不同情境（學校、家庭、社會）；每句 8–16 個英文字，程度 CEFR B1–B2。',
-          '4. 每一句例句裡，要考的字或片語用方括號 [ ] 括起來，且只括一次，例如 She [adapted] quickly to her new school.（括號裡可以是變化後的形態：過去式、複數、-ing）。',
-          '5. 例句翻譯要自然通順，並且和例句完全對應（學生會把它當成提示）。',
-          '6. 保留老師提供的每一個字，不要增加或刪減；總數（單字與片語合計）不超過 100 個，不要重複。',
-          '7. 第一行不要寫欄位標題。', PROMPT_COMMON.split('\n').filter(function (l, i) { return i === 0 || /^(1|2|7)\./.test(l); }).join('\n'), '',
+        ];
+        if (cloze) {
+          rules.push('3. 每個字剛好 3 句例句，三句要用不同情境（學校、家庭、社會），也盡量用不同的形態（原形、過去式、-ing、複數）；每句 8–16 個英文字，程度 CEFR B1–B2。');
+          rules.push('4. 每一句例句裡，要考的字或片語用方括號 [ ] 括起來，且只括一次，例如 She [adapted] quickly to her new school.（括號裡可以是變化後的形態：過去式、複數、-ing）。');
+          rules.push('5. 這些例句會挖空讓學生' + (has('cloze') && has('clozeSpell') ? '選字或拼字' : has('cloze') ? '選字' : '拼字') + '：前後文要能清楚指向這個字，換成同一份清單裡的其他字就說不通。');
+          rules.push('6. 例句翻譯要自然通順，並且和例句完全對應；不要在同一處並列兩個同義詞（例如「核心關鍵」），不然挖空後等於寫出答案。');
+        } else {
+          rules.push('3. 每個字 1 句例句（這個單元不考例句題，例句只在學生檢討時看），8–16 個英文字，程度 CEFR B1–B2；要考的字用方括號 [ ] 括起來。');
+          rules.push('4. 例句翻譯要自然通順，並且和例句完全對應。');
+        }
+        if (choice) rules.push(rules.length + 1 + '. 這個單元有英↔中選擇題：每個字的中文意思要明顯不同，同一份清單裡不要有兩個字的中文一樣或重疊，不然會有兩個正確答案。');
+        if (spell) rules.push(rules.length + 1 + '. 這個單元有拼字題：英文用正確的拼法，片語寫成固定的樣子，不要加 sth. / sb. 這類代號。');
+        rules.push(rules.length + 1 + '. 保留老師提供的每一個字，不要增加或刪減；總數（單字與片語合計）不超過 100 個，不要重複。');
+        rules.push(rules.length + 1 + '. 第一行不要寫欄位標題。');
+        var nEx = cloze ? '3 句' : '1 句';
+        return [PROMPT_HEAD + '請依照下面的格式，幫我整理一份單字片語清單。', '',
+          '【這個單元的考法】' + (u ? quizSummary(u) : '基礎 → 進階 → 精熟（預設三段）'), '',
+          '【格式】每行一個單字或片語，共 5 個欄位，欄位之間用 Tab 或「 | 」隔開（整份請統一一種）：',
+          '英文 | 詞性 | 中文 | 例句（' + nEx + (cloze ? '，句與句之間用「 ; 」隔開' : '') + '） | 例句翻譯（' + nEx + (cloze ? '，同樣用「 ; 」隔開，順序要和例句一一對應' : '') + '）', '',
+          '【規則】'].concat(rules, [PROMPT_COMMON.split('\n').filter(function (l, i) { return i === 0 || /^(1|2|7)\./.test(l); }).join('\n'), '',
           '【範例（兩行）】', VOCAB_EX, '',
-          '【我要的範圍】請在這裡填：單字或主題（例如：Lesson 5 的單字清單如下…）'].join('\n');
+          '【我要的範圍】請在這裡填：單字或主題（例如：Lesson 5 的單字清單如下…）']).join('\n');
       }
       if (type === 'reading') {
         return [PROMPT_HEAD + '請寫一篇英文文章，並依照下面格式出閱讀測驗題。', '',
@@ -2097,7 +2078,7 @@
     function copyAiPrompt(btn) {
       var u = impUnit(); if (!u) return;
       var type = btn.dataset.copyPrompt === 'auto' ? u.type : btn.dataset.copyPrompt;
-      var text = aiPromptFor(type), label = btn.textContent;
+      var text = aiPromptFor(type, u), label = btn.textContent;
       copyText(text, function (ok) {
         btn.textContent = ok ? '✓ 已複製，貼到 AI 對話裡' : '複製失敗，請手動選取';
         if (!ok) { $('imp-report').innerHTML = '<textarea readonly rows="14" style="width:100%">' + esc(text) + '</textarea>'; }

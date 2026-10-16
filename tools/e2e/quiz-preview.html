@@ -18,7 +18,7 @@ fetch('../../admin.html').then((r) => r.text()).then((html) => {
   const code = html.slice(a, b);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const MODES = { vocab: [['basic', '基礎'], ['advanced', '進階'], ['mastery', '精熟']] };
-  const api = new Function('esc', 'MODES', `${code}; return { quizPanelHTML, quizSummary, aiPromptFor, quizRead };`)(esc, MODES);
+  const api = new Function("esc", "MODES", `${code}; return { quizPanelHTML, quizSummary, quizRead };`)(esc, MODES);
   const units = [
     { id: 'a', disabled: [], quiz: '' },
     { id: 'b', disabled: [], quiz: JSON.stringify({ mode: 'auto', types: ['cloze'] }) },
