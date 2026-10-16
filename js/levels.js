@@ -34,6 +34,7 @@ export const LEVELS = [
 //   { mode: 'custom', stages: [{ name, types: [...] }, ...] } → 老師逐段指定（最多 3 段，對應成績表的三段欄位）
 //   { mode: 'default' } → 預設三段（只用來存題數）
 //   每種模式都可以加 count：每次測驗考幾個字（1～100；沒填＝最多 PER_TEST 個）
+//   課文理解單元用同一欄存 annotate: true（開放文章劃記，不計分）
 // 段落代號固定用 basic／advanced／mastery（第 1／2／3 段），成績表三段的欄位不用改
 export const QUIZ_TYPES = {
   en2zh: { name: '英→中選擇', build: (w, pool) => buildMC(w, pool, 'en2zh') },
@@ -62,8 +63,9 @@ export function parseQuiz(raw) {
       .filter((s) => s.types.length).slice(0, 3);
     if (stages.length) out = { mode: 'custom', stages };
   }
-  if (!out && n >= 1) out = { mode: 'default' };
+  if (!out && (n >= 1 || q.annotate === true)) out = { mode: 'default' };
   if (out && n >= 1) out.count = Math.min(100, n);
+  if (out && q.annotate === true) out.annotate = true; // 課文理解：開放文章劃記（不計分）
   return out;
 }
 // 每次測驗考幾個字（老師設定的；沒設定回傳 null，用 PER_TEST）

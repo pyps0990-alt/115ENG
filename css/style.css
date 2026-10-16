@@ -1170,3 +1170,77 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 .me-alert ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
 .me-alert li { display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--white); color: var(--ink); font-size: .9rem; }
 .me-alert li .muted { font-size: .8rem; font-variant-numeric: tabular-nums; }
+
+/* ===== 課文理解：文章劃記（老師在後台開啟；不計分）與檢討 ===== */
+/* 文章拆成一個個字（.w）與字間空白（.sp），劃記範圍內的空白一起上色，看起來是一整條 */
+.ann-text .w, .ann-text .sp { transition: background-color .15s; }
+.ann-text.tool-on .w { cursor: pointer; }
+.ann-text.tool-on { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } /* 長按要用來劃記，不要跳出選字放大鏡 */
+.ann-text .pending { background: rgba(30, 58, 138, .12); }
+.ann-text .hl-yellow { background: #FDE68A; }
+.ann-text .hl-green { background: #BBF7D0; }
+.ann-text .hl-pink { background: #FBCFE8; }
+.ann-text .ul { text-decoration: underline; text-decoration-color: #1D4ED8; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.ann-text .noted { background: #DBEAFE; }
+.ann-text .circ { border-top: 2px solid #DC2626; border-bottom: 2px solid #DC2626; }
+.ann-text .circ.first { border-left: 2px solid #DC2626; border-radius: 999px 0 0 999px; padding-left: 2px; }
+.ann-text .circ.last { border-right: 2px solid #DC2626; border-radius: 0 999px 999px 0; padding-right: 2px; }
+.ann-text .circ.first.last { border-radius: 999px; }
+.ann-text .w.anchor { box-shadow: 0 0 0 2px var(--navy); border-radius: 4px; }
+.note-pin { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-left: 2px; border: 0; border-radius: 6px; background: #3B82F6; color: #fff;
+  font: 700 12px/1 system-ui; vertical-align: 2px; cursor: pointer; }
+/* 答案依據：綠筆劃線（淡綠底＋綠色粗底線，整句一條） */
+.ann-text .ev { -webkit-box-decoration-break: clone; box-decoration-break: clone; background: linear-gradient(transparent 58%, rgba(34, 197, 94, .3) 58%); border-bottom: 2.5px solid var(--good); padding: 0 1px; }
+/* 題目關鍵字：深藍虛線 */
+.ann-text .w.kw { text-decoration: underline dashed var(--navy); text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
+
+/* 圓形工具按鈕（可拖動、跟著畫面）與展開的工具盤 */
+.ann-fab { position: fixed; z-index: 30; width: 56px; height: 56px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--white);
+  box-shadow: 0 10px 24px -8px rgba(30, 58, 138, .35), 0 2px 6px rgba(30, 58, 138, .12); display: grid; place-items: center; cursor: grab;
+  touch-action: none; -webkit-user-select: none; user-select: none; transition: transform .18s var(--ease), box-shadow .18s var(--ease); }
+.ann-fab:active { cursor: grabbing; }
+.ann-fab.dragging { transform: scale(1.06); box-shadow: 0 16px 30px -10px rgba(30, 58, 138, .45); transition: none; }
+.ann-fab.has-tool { border: 3px solid var(--navy); }
+.ann-fab.open { border-color: var(--navy); background: var(--navy-soft); }
+.ann-fab > * { transition: transform .28s cubic-bezier(.3, 1.4, .5, 1); }
+.ann-fab.open > * { transform: rotate(-12deg) scale(.88); }
+.ann-fab .fab-ic { display: grid; place-items: center; width: 30px; height: 30px; font-size: 1.1rem; color: var(--navy); }
+.ann-fab .fab-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(0, 0, 0, .08); }
+.ann-pop { position: fixed; z-index: 31; width: 244px; padding: 10px; border-radius: 16px; background: var(--white); border: 1.5px solid var(--line);
+  box-shadow: var(--shadow); display: grid; gap: 4px; will-change: clip-path, opacity; }
+.ann-pop .row { display: flex; gap: 6px; flex-wrap: wrap; }
+.ann-tool { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 12px; border: 1.5px solid transparent; border-radius: 10px;
+  background: none; font: inherit; font-weight: 700; font-size: .9rem; color: var(--navy); cursor: pointer; text-align: left; }
+.ann-tool:hover { background: var(--wash); }
+.ann-tool[aria-pressed="true"] { border-color: var(--navy); background: var(--navy-soft); }
+.ann-tool.wide { width: 100%; }
+.ann-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(0, 0, 0, .08); }
+.ann-pop hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+.ann-pop .hint { margin: 2px 4px 0; font-size: .78rem; color: var(--steel); }
+.ann-tip { position: fixed; z-index: 29; max-width: 230px; padding: 6px 10px; border-radius: 10px; background: var(--navy); color: var(--white);
+  font-size: .8rem; font-weight: 600; pointer-events: none; animation: fade-up .15s var(--ease) both; }
+.mk-ic-ul { font-weight: 800; text-decoration: underline; text-decoration-color: #1D4ED8; text-decoration-thickness: 2px; }
+.mk-ic-circ { display: inline-grid; place-items: center; width: 22px; height: 22px; border: 2px solid #DC2626; border-radius: 50%; font-size: .72rem; font-weight: 800; }
+.mk-ic-note { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: #3B82F6; color: #fff; font-size: .75rem; }
+.mk-ic-erase, .mk-ic-hand { font-size: 1.05rem; }
+/* 便利貼 */
+.note-pop { position: absolute; z-index: 40; width: min(300px, calc(100vw - 32px)); padding: 12px; border-radius: 14px; background: var(--white);
+  border: 1.5px solid var(--line); box-shadow: var(--shadow); display: grid; gap: 8px; }
+.note-pop textarea { width: 100%; min-height: 80px; resize: vertical; border: 1.5px solid var(--line); border-radius: 10px; padding: 8px; font: inherit; }
+.note-pop .row { display: flex; gap: 8px; justify-content: flex-end; }
+.note-pop .q { font-size: .82rem; color: var(--steel); }
+
+/* 檢討：答錯的解題步驟 */
+.rd-steps { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 12px; }
+.rd-steps > li { display: flex; gap: 10px; align-items: flex-start; }
+.rd-steps .wt-n { margin-top: 2px; }
+.rd-step-t { display: block; font-size: .85rem; color: var(--navy); margin-bottom: 2px; }
+.rd-step-b { font-size: .92rem; line-height: 1.65; color: var(--text); }
+.rd-sub { margin-top: 6px; }
+.trap-tag, .rd-diag { display: inline-block; margin-right: 6px; padding: 0 8px; border-radius: 999px; background: var(--bad-soft); color: var(--bad-ink); font-size: .76rem; font-weight: 800; }
+.rd-diag.ok { background: var(--amber-soft); color: var(--amber-ink); }
+.rd-diag.muted { background: var(--wash); color: var(--steel); }
+.rd-pairs { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
+.rd-pairs li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding: 6px 10px; border-radius: 10px; background: var(--wash); }
+.rd-arrow { color: var(--steel); font-weight: 800; }
+@media (prefers-reduced-motion: reduce) { .ann-tip { animation: none; } }

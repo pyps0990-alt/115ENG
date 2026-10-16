@@ -2063,8 +2063,11 @@ function aiGenerateReading(passage, count, title) {
             explain: { type: 'STRING' },
             ref: { type: 'STRING' },
             key: { type: 'STRING' },
+            traps: TRAPS_SCHEMA_,
+            kw: { type: 'ARRAY', items: { type: 'STRING' } },
+            pairs: PAIRS_SCHEMA_,
           },
-          required: ['skill', 'q', 'options', 'answer', 'explain', 'ref', 'key'],
+          required: ['skill', 'q', 'options', 'answer', 'explain', 'ref', 'key', 'traps', 'kw', 'pairs'],
         },
       },
     },
@@ -2078,6 +2081,7 @@ function aiGenerateReading(passage, count, title) {
     '- Every sentence in the passage is labelled [paragraph-sentence], e.g. [2-3] is paragraph 2, sentence 3.',
     '- "ref" is the label (without brackets, e.g. "2-3") of the ONE sentence that best supports the correct answer. EVERY question must have a ref, including 主旨 questions (use the sentence that states the main idea).',
     '- "key" is the exact words copied from the passage (3–25 words, within one paragraph, may cross a sentence boundary, without the [x-y] labels) that directly prove the correct answer — the precise clue a teacher would underline, not the whole sentence if only part of it matters. This is the ONLY field that must be copied verbatim. EVERY question must have a key, including 主旨 questions.',
+    READING_ANALYSIS_RULES_,
     '',
     'Passage:',
     text,
@@ -2324,8 +2328,74 @@ function cleanQuestions_(qs, refs, paras) {
     // AI 給的關鍵字句必須真的出現在文章裡（同一段），找不到就不要
     var key = String(q.key || '').replace(/\[\d+-\d+\]\s*/g, '').replace(/\s+/g, ' ').trim();
     if (key && normParas.some(function (p) { return p.indexOf(normQ_(key)) >= 0; })) out.key = key;
+    var an = cleanAnalysis_(q, options.length, out.answer, normParas);
+    if (an.traps) out.traps = an.traps;
+    if (an.kw) out.kw = an.kw;
+    if (an.pairs) out.pairs = an.pairs;
     return out;
   }).filter(function (q) { return q.q && q.options.length >= 2 && q.answer >= 0; });
+}
+
+// ----- 課文理解的錯誤分析（檢討時給學生看）：每個錯誤選項的干擾類型與理由、題目關鍵字、同義改寫 -----
+var READING_TRAPS = ['沒提到', '相反', '只對一半', '範圍不對', '照抄陷阱', '推論過頭'];
+var TRAPS_SCHEMA_ = { type: 'ARRAY', items: { type: 'OBJECT', properties: { option: { type: 'INTEGER' }, type: { type: 'STRING', enum: READING_TRAPS }, why: { type: 'STRING' } }, required: ['option', 'type', 'why'] } };
+var PAIRS_SCHEMA_ = { type: 'ARRAY', items: { type: 'OBJECT', properties: { a: { type: 'STRING' }, b: { type: 'STRING' } }, required: ['a', 'b'] } };
+var READING_ANALYSIS_RULES_ = [
+  '- "traps": for EVERY wrong option (not the correct one), give "option" (0-based index), "type" — exactly one of 沒提到 (not mentioned), 相反 (contradicts the passage), 只對一半 (half right), 範圍不對 (too broad / too narrow, for main-idea questions), 照抄陷阱 (reuses passage words but means something different), 推論過頭 (goes beyond what the passage says) — and "why": ONE short sentence in Traditional Chinese (Taiwan) saying which paragraph says what, e.g. 「第 2 段說少數知心朋友更快樂，和這個選項相反。」',
+  '- "kw": 1–3 English keywords from the QUESTION that a student can use to locate the answer in the passage (each must appear in the passage).',
+  '- "pairs": 1–3 pairs where "a" is a phrase copied verbatim from the evidence ("key") and "b" is the matching phrase in the CORRECT option that says the same thing in different words (a paraphrase). Use [] if the correct option does not paraphrase anything.',
+].join('\n');
+function cleanAnalysis_(q, nOpts, answer, normParas) {
+  var out = {};
+  var traps = [];
+  for (var k = 0; k < nOpts; k++) traps.push(null);
+  (q.traps || []).forEach(function (t) {
+    var j = Number(t && t.option);
+    var type = String(t && t.type || '').trim();
+    if (j >= 0 && j < nOpts && j !== answer && READING_TRAPS.indexOf(type) >= 0) traps[j] = { t: type, why: String(t.why || '').trim().slice(0, 200) };
+  });
+  if (traps.some(function (x) { return x; })) out.traps = traps;
+  var whole = normParas.join(' ');
+  var kw = (q.kw || []).map(function (k) { return String(k || '').trim(); }).filter(function (k) { return k && whole.indexOf(normQ_(k).replace(/(es|s|ed|ing)$/, '')) >= 0; }).slice(0, 5);
+  if (kw.length) out.kw = kw;
+  var pairs = (q.pairs || []).map(function (x) { return { a: String(x && x.a || '').trim(), b: String(x && x.b || '').trim() }; })
+    .filter(function (x) { return x.a && x.b && normParas.some(function (p) { return p.indexOf(normQ_(x.a)) >= 0; }); }).slice(0, 5);
+  if (pairs.length) out.pairs = pairs;
+  return out;
+}
+
+// 老師後台「AI 補上錯誤分析」：已經有的題目，請 AI 補上干擾類型、題目關鍵字、同義改寫（不改題目、選項、答案）
+// questions: [{ q, options, answer, key }]；回傳 [{ traps, kw, pairs }]（順序同 questions）
+function aiAnalyzeReading(passage, questions) {
+  assertTeacher_();
+  passage = (passage || []).map(String).filter(function (p) { return p.trim(); });
+  questions = (questions || []).slice(0, 20);
+  if (!passage.length || !questions.length) throw new Error('請先貼上文章和題目');
+  var schema = {
+    type: 'OBJECT',
+    properties: { items: { type: 'ARRAY', items: { type: 'OBJECT', properties: { n: { type: 'INTEGER' }, traps: TRAPS_SCHEMA_, kw: { type: 'ARRAY', items: { type: 'STRING' } }, pairs: PAIRS_SCHEMA_ }, required: ['n', 'traps', 'kw', 'pairs'] } } },
+    required: ['items'],
+  };
+  var prompt = [
+    'You are an experienced English teacher at a senior high school in Taiwan. For each reading-comprehension question below, explain to students why each wrong option is wrong.',
+    'Do NOT change the questions, options or answers. "n" is the question number (1-based).',
+    READING_ANALYSIS_RULES_,
+    '',
+    'Passage:',
+    passage.map(function (p, i) { return '[Paragraph ' + (i + 1) + '] ' + p; }).join('\n\n'),
+    '',
+    'Questions:',
+    questions.map(function (q, i) {
+      return (i + 1) + '. ' + q.q + '\n' + (q.options || []).map(function (o, j) { return '   ' + j + ') ' + o; }).join('\n') +
+        '\n   Correct option: ' + q.answer + (q.key ? '\n   Evidence ("key"): ' + q.key : '');
+    }).join('\n\n'),
+  ].join('\n');
+  var normParas = passage.map(normQ_);
+  var res = aiCall_(prompt, schema);
+  var byN = {};
+  (res.items || []).forEach(function (x) { byN[Number(x.n)] = x; });
+  audit_('AI 補上課文理解錯誤分析', '', questions.length + ' 題');
+  return questions.map(function (q, i) { return cleanAnalysis_(byN[i + 1] || {}, (q.options || []).length, Number(q.answer), normParas); });
 }
 
 // 跟網站 js/util.js 的 splitSentences 同一套切句規則，課文題目的 ref（段-句）才對得上
@@ -2469,8 +2539,9 @@ function quizCell_(v) {
     }).filter(function (x) { return x.types.length; }).slice(0, 3);
     if (stages.length) out = { mode: 'custom', stages: stages };
   }
-  if (!out && n >= 1) out = { mode: 'default' };
+  if (!out && (n >= 1 || q.annotate === true)) out = { mode: 'default' };
   if (out && n >= 1) out.count = Math.min(100, n); // 每次測驗考幾個字
+  if (out && q.annotate === true) out.annotate = true; // 課文理解：開放文章劃記（不計分）
   return out ? JSON.stringify(out) : '';
 }
 

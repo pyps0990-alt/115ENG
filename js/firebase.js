@@ -92,7 +92,17 @@ function cleanDetails(list) {
     err: clean(x.err, 20),
     exampleEn: clean(x.exampleEn, 200),
     exampleZh: clean(x.exampleZh, 200),
+    // 單字例句選字題：當時的選項、考第幾句、課外選項（逐題檢討重跑解題步驟要用；換裝置讀回來也要有）
+    ...(Array.isArray(x.options) ? { options: x.options.slice(0, 6).map((o) => clean(o, 200)) } : {}),
+    ...(Number.isInteger(x.exIdx) ? { exIdx: x.exIdx } : {}),
+    ...(Array.isArray(x.extras) ? { extras: x.extras.slice(0, 3).map((e) => ({ form: clean(e.form, 60), word: clean(e.word, 60), zh: clean(e.zh, 60), pos: clean(e.pos, 20) })) } : {}),
   }));
+}
+// 課文理解的文章劃記（不計分）：{ p 第幾段, f 起, t 迄（第幾個字）, k 工具, n 便利貼文字 }，最多 300 個
+function cleanMarks(list) {
+  if (!Array.isArray(list)) return null;
+  const tools = ['hl-yellow', 'hl-green', 'hl-pink', 'ul', 'circ', 'note'];
+  return list.slice(0, 300).map((m) => ({ p: Math.max(0, Math.floor(Number(m.p) || 0)), f: Math.max(0, Math.floor(Number(m.f) || 0)), t: Math.max(0, Math.floor(Number(m.t) || 0)), k: tools.includes(m.k) ? m.k : 'hl-yellow', ...(m.n ? { n: clean(m.n, 200) } : {}) }));
 }
 
 // 同時寫進學生帳本（讓學生讀回）與班級路徑（老師瀏覽）。attemptId 當文件 ID，重複送出不會多一筆。
@@ -121,6 +131,8 @@ export async function saveScoreToFirestore(payload, key) {
     details: cleanDetails(payload.details),
     createdAt: serverTimestamp(),
   };
+  const marks = cleanMarks(payload.marks);
+  if (marks && marks.length) record.marks = marks;
   // 兩份一起寫（要嘛都成功、要嘛都失敗）。Promise 在伺服器確認後才完成；離線時先存在裝置上，連上網再送
   const classRef = doc(db, 'classes', cls, 'seats', seat, 'units', unit, 'attempts', attemptId);
   const batch = writeBatch(db);

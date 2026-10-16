@@ -158,6 +158,12 @@
     .rate-bar { display:inline-block; width:70px; height:8px; border-radius:99px; background:var(--line); overflow:hidden; vertical-align:middle; }
     .rate-bar > span { display:block; height:100%; background:var(--bad); border-radius:inherit; }
     .qcard .q-ref { font-size:.85rem; color:var(--muted); }
+    .q-more { border:1px solid var(--line); border-radius:10px; padding:8px 12px; background:var(--surface); }
+    .q-more summary { cursor:pointer; font-weight:700; font-size:.85rem; color:var(--ink); }
+    .q-traps { display:grid; gap:6px; margin:8px 0; }
+    .q-trap-row { display:grid; grid-template-columns:auto minmax(120px, 160px) 1fr; gap:6px; align-items:center; font-weight:400; }
+    .q-more input[type=text] { width:100%; margin-top:6px; }
+    @media (max-width:720px) { .q-trap-row { grid-template-columns:auto 1fr; } .q-trap-row .q-why { grid-column:1 / -1; } }
     /* 匯入內容 */
     .imp-grid { display:grid; gap:14px; margin-top:16px; }
     .imp-grid label { display:grid; gap:6px; font-weight:700; font-size:.9rem; }
@@ -383,12 +389,12 @@
           <details class="ai-box" id="r-bulk-box">
             <summary>批次貼上文字格式（整篇一次填入表單）</summary>
             <div class="imp-grid">
-              <div class="help">格式：不用寫 <code>[閱讀]</code>，直接寫 <code>標題：</code>、<code>文章：</code>（段落之間空一行）、<code>Q1：</code>題目、<code>Q1選項：</code>（用 <code>|</code> 隔開）、<code>Q1答案：</code>（A–D）、<code>Q1解析：</code>、<code>Q1依據：</code>（必填，從文章複製的關鍵字句）、<code>Q1技巧：</code>（主旨／細節／字義／推論／態度）。按「填入表單」後可以再逐題調整。</div>
+              <div class="help">格式：不用寫 <code>[閱讀]</code>，直接寫 <code>標題：</code>、<code>文章：</code>（段落之間空一行）、<code>Q1：</code>題目、<code>Q1選項：</code>（用 <code>|</code> 隔開）、<code>Q1答案：</code>（A–D）、<code>Q1解析：</code>、<code>Q1依據：</code>（必填，從文章複製的關鍵字句）、<code>Q1技巧：</code>（主旨／細節／字義／推論／態度）。錯誤分析（選填，學生檢討時看）：<code>Q1干擾：</code>每個錯誤選項的類型與理由，例如 <code>B=相反：第 2 段說… | C=沒提到：…</code>（類型：沒提到、相反、只對一半、範圍不對、照抄陷阱、推論過頭）；<code>Q1關鍵字：</code>題目關鍵字，用逗號隔開；<code>Q1改寫：</code><code>原文 = 選項的說法</code>，多組用 <code>|</code> 隔開。按「填入表單」後可以再逐題調整。</div>
               <label>文字<textarea id="r-bulk" spellcheck="false" style="min-height:180px"></textarea></label>
               <div class="bar"><button class="btn" id="r-bulk-go" type="button">填入表單</button><button class="btn" type="button" data-copy-prompt="reading">複製「給 AI 的完整提示詞」</button><span class="msg" id="r-bulk-msg"></span></div>
             </div>
           </details>
-          <div class="bar"><button class="btn ai" id="ai-reading" type="button">✦ AI 產生題目</button>
+          <div class="bar"><button class="btn ai" id="ai-reading" type="button">✦ AI 產生題目</button><button class="btn ai" id="ai-reading-an" type="button" title="不改題目，只補上每個錯誤選項的干擾類型、題目關鍵字、同義改寫（學生檢討時看）">✦ AI 補上錯誤分析</button>
             <label style="display:flex;align-items:center;gap:6px;font-weight:400">題數 <select id="ai-count"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>8</option><option>10</option></select></label>
             <span class="muted">會取代下方目前的題目；產生後請逐題確認再儲存。</span></div>
           <div id="r-qs" class="imp-grid" style="margin-top:0"></div>
@@ -725,7 +731,10 @@
             ? '<div class="quiz-sum">' + esc(quizSummary(u)) + '</div><button class="btn small" type="button" data-quiz-open="' + i + '">' + (quizOpen === i ? '收起出題設定' : '出題設定') + '</button>'
             : '<div class="modes">' + modes.map(function (m) {
               return '<label><input type="checkbox" data-mode="' + m[0] + '" ' + (u.disabled.indexOf(m[0]) === -1 ? 'checked' : '') + '>' + m[1] + '</label>';
-            }).join('') + '</div>') + '</td>' +
+            }).join('') +
+            // 課文理解：文章劃記（螢光筆、底線、便利貼…）不計分，老師決定要不要開放
+            (u.type === 'reading' ? '<label title="學生作答時可以在文章上劃記，檢討時對照答案依據；不計分"><input type="checkbox" data-annotate ' + ((quizOf(u) || {}).annotate ? 'checked' : '') + '>開放文章劃記（不計分）</label>' : '') +
+            '</div>') + '</td>' +
           '<td data-label="每段題數">' + (u.type === 'vocab' ? '<span class="muted">' + vocabCountText(u) + '</span>' : '<span class="muted">' + (u.type === 'reading' ? '依文章題數' : '依題目數') + '</span>') + '</td>' +
           '<td class="window" data-label="開放時段"><label>開放 <input type="datetime-local" data-k="openAt" value="' + esc(u.openAt || '') + '"></label>' +
             '<label>截止 <input type="datetime-local" data-k="closeAt" value="' + esc(u.closeAt || '') + '"></label></td>' +
@@ -752,6 +761,13 @@
         else if (t.dataset.qMode !== undefined && t.value === 'custom') u.quiz = cnt({ mode: 'custom', stages: quizStages(u).map(function (g) { return { name: g[0], types: g[1] }; }) });
         else quizRead(tr, u);
         render();
+        $('msg').textContent = '尚未儲存'; $('msg').className = 'msg';
+        return;
+      }
+      if (t.dataset.annotate !== undefined) {
+        var q0 = quizOf(u) || { mode: 'default' };
+        if (t.checked) q0.annotate = true; else delete q0.annotate;
+        u.quiz = q0.mode === 'default' && !q0.annotate && !q0.count ? '' : JSON.stringify(q0);
         $('msg').textContent = '尚未儲存'; $('msg').className = 'msg';
         return;
       }
@@ -1208,15 +1224,56 @@
         }).join('') + '</div>' +
         '<textarea class="q-explain" rows="2" placeholder="中文解析（交卷後顯示給學生）"></textarea>' +
         '<input type="text" class="q-key" placeholder="關鍵字句：從文章直接複製最能證明答案的那一段（可以是半句），學生檢討時會精準標亮">' +
-        '<select class="q-ref" title="沒有填關鍵字句時，改標亮這整句">' + refOptionsHTML(q.ref || '') + '</select>';
+        '<select class="q-ref" title="沒有填關鍵字句時，改標亮這整句">' + refOptionsHTML(q.ref || '') + '</select>' +
+        '<details class="q-more"' + ((q.traps && q.traps.some(Boolean)) || (q.kw && q.kw.length) ? ' open' : '') + '><summary>錯誤分析（檢討時給學生看）：干擾類型、題目關鍵字、同義改寫</summary>' +
+          '<div class="q-traps">' + [0, 1, 2, 3].map(function (j) {
+            return '<label class="q-trap-row"><b>' + 'ABCD'[j] + '</b><select class="q-trap"><option value="">（正確答案或不填）</option>' + TRAPS.map(function (t) { return '<option>' + t + '</option>'; }).join('') + '</select>' +
+              '<input type="text" class="q-why" placeholder="為什麼錯，例如：第 2 段說的剛好相反"></label>';
+          }).join('') + '</div>' +
+          '<input type="text" class="q-kw" placeholder="題目關鍵字（用逗號隔開，例如 friends, happiness）：學生檢討時會在文章裡標出來">' +
+          '<input type="text" class="q-pairs" placeholder="同義改寫：原文 = 選項的說法，多組用 | 隔開（例如 a few close friends = a small number of good friends）">' +
+        '</details>';
       box.querySelector('.q-text').value = q.q || '';
       box.querySelector('.q-key').value = q.key || '';
       box.querySelectorAll('.q-opt').forEach(function (el, j) { el.value = (q.options || [])[j] || ''; });
       box.querySelector('.q-explain').value = q.explain || '';
+      box.querySelectorAll('.q-trap').forEach(function (el, j) { var x = (q.traps || [])[j]; el.value = x && x.t ? x.t : ''; });
+      box.querySelectorAll('.q-why').forEach(function (el, j) { var x = (q.traps || [])[j]; el.value = x && x.why ? x.why : ''; });
+      box.querySelector('.q-kw').value = (q.kw || []).join(', ');
+      box.querySelector('.q-pairs').value = serPairs(q.pairs);
       box.querySelector('.del').onclick = function () { box.remove(); numberQs(); impDirty(); };
       $('r-qs').appendChild(box);
       numberQs();
     }
+    // ----- 課文理解的錯誤分析資料（檢討時給學生看）：每個錯誤選項的干擾類型與理由、題目關鍵字、同義改寫 -----
+    var TRAPS = ['沒提到', '相反', '只對一半', '範圍不對', '照抄陷阱', '推論過頭'];
+    var TRAP_ALIAS = { '文章沒提到': '沒提到', '沒有提到': '沒提到', '和文章相反': '相反', '與文章相反': '相反', '一半': '只對一半', '範圍太大': '範圍不對', '範圍太小': '範圍不對', '照抄': '照抄陷阱', '過度推論': '推論過頭' };
+    function trapName(t) { t = String(t || '').trim(); return TRAPS.indexOf(t) >= 0 ? t : TRAP_ALIAS[t] || ''; }
+    // 「B=相反：理由 | C=沒提到：理由」→ [null, {t, why}, {t, why}, null]
+    function parseTraps(v, n) {
+      var out = [];
+      for (var k = 0; k < n; k++) out.push(null);
+      String(v || '').split(/\s*[|｜]\s*|\n/).forEach(function (part) {
+        var m = /^\s*\(?([A-Ja-j])\)?\s*[=＝:：.、]?\s*([^：:]+?)\s*[：:]\s*(.*)$/.exec(part);
+        if (!m) return;
+        var j = m[1].toUpperCase().charCodeAt(0) - 65, t = trapName(m[2]);
+        if (j >= 0 && j < n && t) out[j] = { t: t, why: m[3].trim() };
+      });
+      return out;
+    }
+    function serTraps(traps) {
+      return (traps || []).map(function (x, j) { return x && x.t ? 'ABCDEFGHIJ'[j] + '=' + x.t + '：' + (x.why || '') : ''; }).filter(String).join(' | ');
+    }
+    function parseKw(v) { return String(v || '').split(/[,，、;；|\n]+/).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 8); }
+    // 「原文 = 選項的說法 | …」→ [{a, b}]
+    function parsePairs(v) {
+      return String(v || '').split(/\s*[|｜]\s*|\n/).map(function (x) {
+        var m = /^(.+?)\s*(?:=|＝|→|->|⇒)\s*(.+)$/.exec(x.trim());
+        return m ? { a: m[1].trim(), b: m[2].trim() } : null;
+      }).filter(Boolean).slice(0, 6);
+    }
+    function serPairs(pairs) { return (pairs || []).map(function (x) { return x.a + ' = ' + x.b; }).join(' | '); }
+
     function numberQs() { [].forEach.call($('r-qs').children, function (c, i) { c.querySelector('.qn').textContent = (i + 1) + '.'; }); }
     $('r-add').onclick = function () { addQ(); impDirty(); };
 
@@ -1238,6 +1295,9 @@
         if (q.key) o.push(pre + '依據：' + q.key);
         else if (q.ref) o.push(pre + '依據句：' + q.ref);
         if (q.skill) o.push(pre + '技巧：' + q.skill);
+        if (q.traps && q.traps.some(Boolean)) o.push(pre + '干擾：' + serTraps(q.traps));
+        if (q.kw && q.kw.length) o.push(pre + '關鍵字：' + q.kw.join(', '));
+        if (q.pairs && q.pairs.length) o.push(pre + '改寫：' + serPairs(q.pairs));
       });
       return o.join('\n');
     }
@@ -1597,6 +1657,23 @@
         } else if (!ref) {
           issues.push(['err', tag + '：每一題都要有原文依據：填「關鍵字句」，或在下拉選單選一個原文句子']);
         }
+        var traps = [].map.call(box.querySelectorAll('.q-trap-row'), function (row, j) {
+          var t = row.querySelector('.q-trap').value, why = row.querySelector('.q-why').value.trim();
+          return j < opts.length && j !== ans && t ? { t: t, why: why } : null;
+        }).slice(0, opts.length);
+        if (traps.some(Boolean)) q.traps = traps;
+        else if (ans >= 0) issues.push(['warn', tag + '：沒有干擾類型，答錯的學生檢討時只看得到解析（可以按「AI 補上錯誤分析」）']);
+        var kw = parseKw(box.querySelector('.q-kw').value);
+        if (kw.length) {
+          q.kw = kw;
+          var lowP = passage.join(' ').toLowerCase();
+          kw.forEach(function (k) { if (lowP.indexOf(k.toLowerCase().replace(/(es|s|ed|ing)$/, '')) < 0) issues.push(['warn', tag + '：關鍵字「' + k + '」在文章裡找不到']); });
+        }
+        var pairs = parsePairs(box.querySelector('.q-pairs').value);
+        if (pairs.length) {
+          q.pairs = pairs;
+          pairs.forEach(function (x) { if (!inPassage(x.a, passage)) issues.push(['warn', tag + '：改寫的原文「' + x.a + '」在文章裡找不到（請從文章複製）']); });
+        }
         qs.push(q);
       });
       if (!qs.length) issues.push(['err', '至少要 1 題']);
@@ -1661,8 +1738,8 @@
         var l = line.replace(/^\s*(?:#{1,6}\s+|>\s+|[-*•●○▪‧]\s+|\d{1,2}[.)、]\s+(?=[\[【]))/, ''); // 標題井字號、引用、項目符號、「1. [選擇]」的編號
         l = l.replace(new RegExp('^\\s*[\\[【〔「]\\s*(' + aliasKind + ')\\s*[\\]】〕」](.*)$'), function (m, k, rest) { return '[' + (KIND_ALIAS[k] || k) + ']' + rest; });
         l = l.replace(new RegExp('^\\s*(' + aliasKey + ')\\s*[:：]'), function (m, k) { return KEY_ALIAS[k] + '：'; });
-        l = l.replace(/^(\s*(?:Q\d+|\(\d+\)))\s*(選項|答案|解析|技巧|依據句|依據)\s*[:：]/, '$1$2：').replace(/^(\s*Q\d+)\s*[.．)]\s*/, '$1：').replace(/^(\s*Q\d+)\s*[:：]/, '$1：');
-        l = l.replace(/^(\s*(?:Q\d+|\(\d+\))(?:選項|答案|解析|技巧|依據句|依據)?)\s*:/, '$1：');
+        l = l.replace(/^(\s*(?:Q\d+|\(\d+\)))\s*(選項|答案|解析|技巧|依據句|依據|干擾|關鍵字|改寫)\s*[:：]/, '$1$2：').replace(/^(\s*Q\d+)\s*[.．)]\s*/, '$1：').replace(/^(\s*Q\d+)\s*[:：]/, '$1：');
+        l = l.replace(/^(\s*(?:Q\d+|\(\d+\))(?:選項|答案|解析|技巧|依據句|依據|干擾|關鍵字|改寫)?)\s*:/, '$1：');
         return l;
       }).join('\n').replace(/\n[ \t]*-{3,}[ \t]*(?=\n)/g, '\n');
     }
@@ -1686,7 +1763,7 @@
         var h = /^\s*\[(選擇|填空|應用|閱讀)\]\s*(.*)$/.exec(line);
         if (h) { cur = { kind: KIND[h[1]], f: {}, order: [] }; blocks.push(cur); key = null; line = h[2]; if (!line) return; }
         if (!cur) return;
-        var m = /^\s*(Q\d+(?:選項|答案|解析|技巧|依據句|依據)?|句型|題目|選項|答案|解析|提示|中文|單字|文章|標題)\s*[:：]\s*(.*)$/.exec(line);
+        var m = /^\s*(Q\d+(?:選項|答案|解析|技巧|依據句|依據|干擾|關鍵字|改寫)?|句型|題目|選項|答案|解析|提示|中文|單字|文章|標題)\s*[:：]\s*(.*)$/.exec(line);
         if (m) { key = m[1]; cur.f[key] = m[2]; cur.order.push(key); }
         else if (key) cur.f[key] += '\n' + line;
       });
@@ -1955,7 +2032,8 @@
       for (var n = 1; ('Q' + n) in f || ('Q' + n + '選項') in f || ('Q' + n + '答案') in f; n++) {
         var pre = 'Q' + n, o = splitOpts(f[pre + '選項']), a = ansIndex(f[pre + '答案'], o);
         if (a < 0 || a >= o.length) issues.push('第 ' + n + ' 題的答案要寫 A–' + 'ABCDEFGHIJ'[Math.max(o.length - 1, 0)]);
-        qs.push({ skill: SKILLS.indexOf(f[pre + '技巧']) >= 0 ? f[pre + '技巧'] : '細節', q: f[pre] || '', options: o.slice(0, 4).concat(['', '', '', '']).slice(0, 4), answer: a, explain: f[pre + '解析'] || '', key: f[pre + '依據'] || '', ref: f[pre + '依據句'] || '' });
+        qs.push({ skill: SKILLS.indexOf(f[pre + '技巧']) >= 0 ? f[pre + '技巧'] : '細節', q: f[pre] || '', options: o.slice(0, 4).concat(['', '', '', '']).slice(0, 4), answer: a, explain: f[pre + '解析'] || '', key: f[pre + '依據'] || '', ref: f[pre + '依據句'] || '',
+          traps: parseTraps(f[pre + '干擾'], 4), kw: parseKw(f[pre + '關鍵字']), pairs: parsePairs(f[pre + '改寫']) });
       }
       if (!qs.length) { msg.textContent = '沒有讀到題目（要有 Q1：、Q1選項：、Q1答案：）'; msg.className = 'msg err'; return; }
       if (f['標題']) $('r-title').value = f['標題'];
@@ -2066,12 +2144,15 @@
           '【格式】欄位名稱固定如下（第一題用 Q1，第二題用 Q2…）：',
           '標題：文章標題', '文章：整篇文章（段落之間空一行；不要在段落中間換行）',
           'Q1：題目（英文）', 'Q1選項：選項A | 選項B | 選項C | 選項D', 'Q1答案：B', 'Q1解析：中文解析', 'Q1依據：從文章直接複製的關鍵字句', 'Q1技巧：細節',
+          'Q1干擾：A=相反：中文理由 | C=沒提到：中文理由 | D=只對一半：中文理由', 'Q1關鍵字：題目裡用來回文章定位的英文關鍵字，用逗號隔開', 'Q1改寫：從文章逐字複製的片語 = 正確選項裡對應的說法（多組用 | 隔開）',
           '（Q2、Q3… 同樣的欄位）', '',
           '【規則】',
           '1. 文章約 200–260 字，3–4 段，CEFR B1–B2，內容完整有主題。',
           '2. 題數依我的要求；題型（Q?技巧）從 主旨 / 細節 / 字義 / 推論 / 態度 選一個，主旨題最多一題。',
           '3. 每題 4 個選項，只有一個正確；題目與選項要用自己的話改寫，不可連續 6 個英文字以上和文章相同。',
           '4. 「Q?依據」每一題都必填，包含主旨題：從文章裡逐字複製 3–25 個英文字（同一段內，一個字都不能改），是最能證明答案的那段話。',
+          '4-1. 「Q?干擾」：每個錯誤選項寫一個干擾類型（只能用：沒提到、相反、只對一半、範圍不對、照抄陷阱、推論過頭）和一句中文理由，理由要指出文章哪一段怎麼說；正確答案不要寫。',
+          '4-2. 「Q?關鍵字」：題目裡 1–3 個能回文章找到答案位置的英文關鍵字（文章裡要出現）。「Q?改寫」：依據句裡的片語（逐字複製）和正確選項裡意思相同、說法不同的部分，1–3 組。',
           '5. 解析寫明答案在哪一段、為什麼對，並簡短說明其他選項為什麼錯。', PROMPT_COMMON.split('\n').filter(function (l, i) { return i === 0 || /^(1|2|3|5|7)\./.test(l); }).join('\n'), '',
           '【範例】', READING_EX, '', '【我要的主題與題數】請在這裡填：例如「關於友誼的文章，5 題」'].join('\n');
       }
@@ -2220,6 +2301,37 @@
       }).withFailureHandler(function (err) {
         aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
       }).aiGenerateReading(passage, Number($('ai-count').value), $('r-title').value.trim());
+    };
+
+    // 已經有的題目：請 AI 補上錯誤分析（干擾類型、題目關鍵字、同義改寫），不改題目與答案；已經填的會被取代
+    $('ai-reading-an').onclick = function () {
+      if (!needAi()) return;
+      var passage = $('r-passage').value.split(/\n\s*\n/).map(function (p) { return p.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean);
+      var boxes = [].slice.call($('r-qs').children);
+      var qsNow = boxes.map(function (box) {
+        var checked = box.querySelector('input[type=radio]:checked');
+        return { q: box.querySelector('.q-text').value.trim(), options: [].map.call(box.querySelectorAll('.q-opt'), function (el) { return el.value.trim(); }).filter(String),
+          answer: checked ? Number(checked.value) : -1, key: box.querySelector('.q-key').value.trim() };
+      });
+      if (!passage.length || !qsNow.length || qsNow.some(function (q) { return !q.q || q.answer < 0; })) { $('imp-msg').textContent = '請先貼上文章，並把每一題的題目與正確答案填好'; $('imp-msg').className = 'msg err'; return; }
+      if (boxes.some(function (b) { return b.querySelector('.q-trap') && [].some.call(b.querySelectorAll('.q-trap'), function (x) { return x.value; }); }) && !confirm('已經填的錯誤分析會被 AI 的結果取代，確定嗎？')) return;
+      var btn = $('ai-reading-an'), label = btn.textContent;
+      aiBusy(btn, true, label); impDirty();
+      google.script.run.withSuccessHandler(function (list) {
+        aiBusy(btn, false, label);
+        list.forEach(function (an, i) {
+          var box = boxes[i]; if (!box) return;
+          box.querySelectorAll('.q-trap').forEach(function (el, j) { var x = (an.traps || [])[j]; el.value = x && x.t ? x.t : ''; });
+          box.querySelectorAll('.q-why').forEach(function (el, j) { var x = (an.traps || [])[j]; el.value = x && x.why ? x.why : ''; });
+          box.querySelector('.q-kw').value = (an.kw || []).join(', ');
+          box.querySelector('.q-pairs').value = serPairs(an.pairs);
+          box.querySelector('.q-more').open = true;
+        });
+        $('imp-check').click();
+        $('imp-msg').textContent = 'AI 補上了 ' + list.length + ' 題的錯誤分析，請確認後再儲存'; $('imp-msg').className = 'msg ok';
+      }).withFailureHandler(function (err) {
+        aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
+      }).aiAnalyzeReading(passage, qsNow);
     };
 
     $('ai-vocab').onclick = function () {

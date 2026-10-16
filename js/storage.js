@@ -119,7 +119,7 @@ export const store = {
       const better = !cur || (cur.review && !a.review) || (!!cur.review === !!a.review && String(a.clientTs) > String(cur.clientTs));
       if (better) firsts[a.unit] = a;
     });
-    Object.entries(firsts).forEach(([unit, a]) => this.setFirst(unit, { mode: a.mode, details: a.details || [] }));
+    Object.entries(firsts).forEach(([unit, a]) => this.setFirst(unit, { mode: a.mode, details: a.details || [], ...(Array.isArray(a.marks) ? { marks: a.marks } : {}) }));
     const pctOf = (s) => {
       const m = /^'?(\d+(?:\.\d+)?)\s*\/\s*(\d+)/.exec(String(s || ''));
       return m && Number(m[2]) ? Math.round((Number(m[1]) / Number(m[2])) * 100) : null;

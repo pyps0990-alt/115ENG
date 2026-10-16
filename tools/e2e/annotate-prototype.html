@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文章劃記原型</title>
+<link rel="stylesheet" href="../../css/style.css">
+<style>
+  /* ===== 原型專用樣式（確定後才搬進 css/style.css） ===== */
+  body { background: var(--paper); }
+  .proto-note { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: var(--amber-soft); color: var(--amber-ink); font-size: .88rem; }
+  .proto-modes { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .pill-btn { border: 1.5px solid var(--line); background: var(--white); border-radius: 999px; padding: 6px 14px; font: inherit; font-weight: 700; color: var(--navy); cursor: pointer; }
+  .pill-btn[aria-pressed="true"] { border-color: var(--navy); background: var(--navy); color: var(--white); }
+
+  /* ---------- 懸浮的劃記按鈕（收起時是圓形，只顯示目前的工具；可以拖動，跟著畫面走） ---------- */
+  .ann-fab { position: fixed; z-index: 30; width: 56px; height: 56px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--white);
+    box-shadow: 0 10px 24px -8px rgba(30, 58, 138, .35), 0 2px 6px rgba(30, 58, 138, .12); display: grid; place-items: center; cursor: grab;
+    touch-action: none; user-select: none; -webkit-user-select: none; transition: transform .18s var(--ease), box-shadow .18s var(--ease); }
+  .ann-fab:active { cursor: grabbing; }
+  .ann-fab.dragging { transform: scale(1.06); box-shadow: 0 16px 30px -10px rgba(30, 58, 138, .45); transition: none; }
+  .ann-fab.has-tool { border: 3px solid var(--navy); }
+  .ann-fab.open { border-color: var(--navy); background: var(--navy-soft); }
+  .ann-fab > * { transition: transform .28s cubic-bezier(.3, 1.4, .5, 1); }
+  .ann-fab.open > * { transform: rotate(-12deg) scale(.88); }
+  /* 拿著工具時，文章上不要跳出系統的選字放大鏡／選單（長按要用來劃記） */
+  .ann-text.tool-on { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .ann-fab .fab-ic { display: grid; place-items: center; width: 30px; height: 30px; font-size: 1.1rem; color: var(--navy); }
+  .ann-fab .fab-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(0,0,0,.08); }
+  /* 展開的工具盤：出現在按鈕旁邊（依按鈕在畫面的哪一側決定往哪邊展開） */
+  .ann-pop { position: fixed; z-index: 31; width: 244px; padding: 10px; border-radius: 16px; background: var(--white); border: 1.5px solid var(--line);
+    box-shadow: var(--shadow); display: grid; gap: 4px; will-change: clip-path, opacity; }
+  @keyframes pop-in { from { opacity: 0; transform: scale(.92); } }
+  .ann-pop .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ann-tool { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 12px; border: 1.5px solid transparent; border-radius: 10px;
+    background: none; font: inherit; font-weight: 700; font-size: .9rem; color: var(--navy); cursor: pointer; text-align: left; }
+  .ann-tool:hover { background: var(--wash); }
+  .ann-tool[aria-pressed="true"] { border-color: var(--navy); background: var(--navy-soft); }
+  .ann-tool.wide { width: 100%; }
+  .ann-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(0,0,0,.08); }
+  .ann-pop hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+  .ann-pop .hint { margin: 2px 4px 0; font-size: .78rem; color: var(--steel); }
+  /* 按鈕旁的小提示（例如手機「再點最後一個字」） */
+  .ann-tip { position: fixed; z-index: 29; max-width: 220px; padding: 6px 10px; border-radius: 10px; background: var(--navy); color: var(--white);
+    font-size: .8rem; font-weight: 600; pointer-events: none; animation: pop-in .15s var(--ease) both; }
+
+  /* ---------- 文章裡的字與劃記 ---------- */
+  .ann-text .w, .ann-text .sp { transition: background .15s; }
+  .ann-text.tool-on .w { cursor: pointer; }
+  .pending { background: rgba(30, 58, 138, .12); }
+  .hl-yellow { background: #FDE68A; } .hl-green { background: #BBF7D0; } .hl-pink { background: #FBCFE8; }
+  .ul { text-decoration: underline; text-decoration-color: #1D4ED8; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+  .noted { background: #DBEAFE; }
+  .circ { border-top: 2px solid #DC2626; border-bottom: 2px solid #DC2626; }
+  .circ.first { border-left: 2px solid #DC2626; border-radius: 999px 0 0 999px; padding-left: 2px; }
+  .circ.last { border-right: 2px solid #DC2626; border-radius: 0 999px 999px 0; padding-right: 2px; }
+  .circ.first.last { border-radius: 999px; }
+  .w.anchor { box-shadow: 0 0 0 2px var(--navy); border-radius: 4px; }
+  .note-pin { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-left: 2px; border-radius: 6px; background: #3B82F6; color: #fff;
+    font: 700 12px/1 system-ui; vertical-align: 2px; cursor: pointer; border: 0; }
+
+  /* ---------- 檢討：答案依據（整句一起標，三種樣式比較） ---------- */
+  .ev { position: relative; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  /* A. 綠色外框：整句一個框，換行時每行頭尾都是圓角 */
+  .ev-frame { border: 2px solid var(--good); border-radius: 8px; padding: 1px 3px; }
+  /* B. 淡綠底＋綠色粗底線：像老師用綠筆劃過 */
+  .ev-band { background: linear-gradient(transparent 58%, rgba(34, 197, 94, .28) 58%); border-bottom: 2.5px solid var(--good); padding: 0 1px; }
+  /* C. 句子前面一個「依據」小標籤＋綠色虛線底線（不改變文字的底色，和自己的螢光筆不會混在一起） */
+  .ev-tag { text-decoration: underline dashed var(--good); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+  .ev-tag::before { content: "依據"; display: inline-block; margin-right: 4px; padding: 0 6px; border-radius: 6px; background: var(--good); color: #fff;
+    font: 700 .68rem/1.6 system-ui; vertical-align: 2px; text-decoration: none; }
+
+  /* 便利貼 */
+  .note-pop { position: absolute; z-index: 40; width: min(300px, calc(100vw - 32px)); padding: 12px; border-radius: 14px; background: var(--white);
+    border: 1.5px solid var(--line); box-shadow: var(--shadow); display: grid; gap: 8px; }
+  .note-pop textarea { width: 100%; min-height: 80px; resize: vertical; border: 1.5px solid var(--line); border-radius: 10px; padding: 8px; font: inherit; }
+  .note-pop .row { display: flex; gap: 8px; justify-content: flex-end; }
+  .note-pop .q { font-size: .82rem; color: var(--steel); }
+
+  .rv-q { padding: 14px 16px; border-radius: 14px; background: var(--white); border: 1.5px solid var(--line); display: grid; gap: 10px; }
+  .rv-styles { display: flex; gap: 6px; flex-wrap: wrap; }
+  .rv-styles .pill-btn { font-size: .82rem; padding: 4px 12px; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner"><b>B5 Practice（劃記原型）</b></div></header>
+<main id="app" class="container">
+  <div class="focus" style="max-width:1200px">
+    <div class="proto-note">操作原型，不會存到任何地方（重新整理就清空）。右下角的圓形按鈕是劃記工具：點一下展開、可以拖到別的位置。</div>
+    <div class="proto-modes" role="group" aria-label="原型模式">
+      <button class="pill-btn" type="button" data-mode="quiz" aria-pressed="true">作答時</button>
+      <button class="pill-btn" type="button" data-mode="review" aria-pressed="false">檢討時</button>
+    </div>
+    <div id="stage"></div>
+  </div>
+</main>
+<script type="module">
+const passage = [
+  'Friendship is one of the most valuable things in life. Good friends support us when we face difficulties, and they celebrate with us when we succeed. However, true friendship takes time to build.',
+  'Many teenagers believe that having a large number of friends is important. In fact, research shows that a few close friends bring more happiness than many casual ones.',
+  'To keep a friendship strong, both people need to listen carefully and respect each other. Small actions, such as remembering a birthday, can make a big difference.',
+];
+const question = { q: 'According to the passage, what brings more happiness?', options: ['Having many friends', 'A few close friends', 'Remembering birthdays', 'Celebrating success'], answer: 1, evidence: { p: 1, from: 13, to: 27 } };
+const TOOLS = [
+  { id: 'hl-yellow', label: '黃色螢光筆', dot: '#FDE68A' },
+  { id: 'hl-green', label: '綠色螢光筆', dot: '#BBF7D0' },
+  { id: 'hl-pink', label: '粉紅螢光筆', dot: '#FBCFE8' },
+  { id: 'ul', label: '底線', icon: '<span style="font-weight:800;text-decoration:underline;text-decoration-color:#1D4ED8;text-decoration-thickness:2px">A</span>' },
+  { id: 'circ', label: '圈起來', icon: '<span style="display:inline-grid;place-items:center;width:22px;height:22px;border:2px solid #DC2626;border-radius:50%;font-size:.72rem;font-weight:800">A</span>' },
+  { id: 'note', label: '便利貼', icon: '<span style="display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;background:#3B82F6;color:#fff;font-size:.75rem">✎</span>' },
+  { id: 'erase', label: '橡皮擦', icon: '<span style="font-size:1.05rem">⌫</span>' },
+];
+const toolOf = (id) => TOOLS.find((t) => t.id === id);
+const toolIcon = (t) => (t.dot ? `<span class="${t === null ? '' : 'ann-swatch'}" style="background:${t.dot}"></span>` : t.icon);
+let mode = 'quiz';
+let tool = null;          // 目前拿著的工具（null＝一般閱讀，不劃記）
+let anns = [];            // { id, p, from, to, tool, note }
+let anchor = null;        // 手機：第一下點的字 { p, i }
+let drag = null;          // 電腦：拖曳中 { p, from, to }
+const evStyle = 'band';   // 答案依據：綠筆劃線（老師選定 A）
+const touchMode = () => matchMedia('(pointer: coarse), (max-width: 767px)').matches;
+const stage = document.getElementById('stage');
+
+// 每個字一個元素；字與字之間的空白也是一個元素（.sp，跟在第 i 個字後面），劃記範圍內的空白一起上色，看起來是一整條
+// 檢討時答案依據那一段整句包在一個 .ev 裡（一個框或一條底線，不是每個字各自一個）
+function wordsHTML(p, text) {
+  const ev = mode === 'review' && question.evidence.p === p ? question.evidence : null;
+  return text.split(' ').map((w, i, all) => {
+    const open = ev && i === ev.from ? `<span class="ev ev-${evStyle}">` : '';
+    const close = ev && i === ev.to ? '</span>' : '';
+    const sp = i < all.length - 1 ? `<span class="sp" data-p="${p}" data-i="${i}"> </span>` : '';
+    return `${open}<span class="w" data-p="${p}" data-i="${i}">${w}</span>${ev && i >= ev.from && i < ev.to ? sp : ''}${close}${ev && i >= ev.from && i < ev.to ? '' : sp}`;
+  }).join('');
+}
+function render() {
+  const article = `<article class="passage-card">
+      <div class="eyebrow">Passage</div>
+      <h2 class="passage-title en">The Value of Friendship</h2>
+      <div class="ann-text ${tool ? 'tool-on' : ''}">${passage.map((t, p) => `<p data-p="${p}"><span class="pnum">${p + 1}</span><span class="ptext">${wordsHTML(p, t)}</span></p>`).join('')}</div>
+    </article>`;
+  const right = mode === 'quiz'
+    ? `<section class="pq-list"><div class="pq-intro"><span class="eyebrow">Questions</span><span class="muted">劃記會跟著作答紀錄存起來，檢討時看得到</span></div>
+        <div class="pq"><div class="pq-head"><span class="pq-num">1</span><div><span class="skill">細節</span><div class="pq-q">${question.q}</div></div></div>
+        <div class="options">${question.options.map((o, j) => `<button class="opt" type="button"><span class="opt-key">${'ABCD'[j]}</span><span class="opt-text en">${o}</span></button>`).join('')}</div></div></section>`
+    : `<section class="pq-list"><div class="rv-q"><div class="pq-head"><span class="pq-num">1</span><div><span class="skill">細節</span><div class="pq-q">${question.q}</div></div></div>
+        <p style="margin:0">正確答案：<b>B. ${question.options[1]}</b></p>
+        <p class="muted" style="margin:0">文章裡綠色標出的是答案依據。對照看看：你劃的重點有沒有包含它？</p>
+      </div></section>`;
+  stage.innerHTML = `<div class="passage-layout">${article}${right}</div>`;
+  paint();
+  fab();
+}
+function paint() {
+  stage.querySelectorAll('.w').forEach((w) => { w.className = 'w'; });
+  stage.querySelectorAll('.sp').forEach((w) => { w.className = 'sp'; });
+  stage.querySelectorAll('.note-pin').forEach((n) => n.remove());
+  const mark = (p, i, cls, withGap) => {
+    stage.querySelector(`.w[data-p="${p}"][data-i="${i}"]`)?.classList.add(...cls);
+    if (withGap) stage.querySelector(`.sp[data-p="${p}"][data-i="${i}"]`)?.classList.add(...cls.filter((c) => !['first', 'last'].includes(c)));
+  };
+  for (const a of anns) {
+    for (let i = a.from; i <= a.to; i++) {
+      const cls = [a.tool === 'note' ? 'noted' : a.tool];
+      if (a.tool === 'circ') { if (i === a.from) cls.push('first'); if (i === a.to) cls.push('last'); }
+      mark(a.p, i, cls, i < a.to);
+    }
+    if (a.tool === 'note') stage.querySelector(`.w[data-p="${a.p}"][data-i="${a.to}"]`)?.insertAdjacentHTML('afterend', `<button class="note-pin" type="button" data-note="${a.id}" aria-label="看便利貼">✎</button>`);
+  }
+  if (anchor) stage.querySelector(`.w[data-p="${anchor.p}"][data-i="${anchor.i}"]`)?.classList.add('anchor');
+  if (drag) { const [a, b] = [Math.min(drag.from, drag.to), Math.max(drag.from, drag.to)]; for (let i = a; i <= b; i++) mark(drag.p, i, ['pending'], i < b); }
+}
+
+/* ---------- 懸浮工具按鈕 ---------- */
+let fabEl = null, popEl = null, tipEl = null, tipTimer = null;
+const POS_KEY = 'b5p:ann-fab';
+// 位置存成畫面的比例（0～1）：視窗大小改變、換裝置時，按鈕留在相同的相對位置；沒拖過就在右下角
+function fabPos() {
+  let f = null;
+  try { f = JSON.parse(localStorage.getItem(POS_KEY)); } catch { /* 沒有 */ }
+  if (f && typeof f.fx === 'number') return { x: f.fx * (innerWidth - 56), y: f.fy * (innerHeight - 56) };
+  return { x: innerWidth - 56 - 20, y: innerHeight - 56 - 96 };
+}
+// 限制在畫面內，而且不能跑到導覽列上（導覽列下方留 8px）
+function clamp(x, y) {
+  const top = (document.querySelector('.topbar')?.getBoundingClientRect().bottom || 62) + 8;
+  return { x: Math.min(Math.max(8, x), innerWidth - 56 - 8), y: Math.min(Math.max(top, y), innerHeight - 56 - 8) };
+}
+function placeFab(pos) { const c = clamp(pos.x, pos.y); fabEl.style.left = `${c.x}px`; fabEl.style.top = `${c.y}px`; return c; }
+function fab() {
+  if (mode !== 'quiz') { fabEl?.remove(); fabEl = null; closePop(); return; }
+  if (!fabEl) {
+    fabEl = document.createElement('button');
+    fabEl.type = 'button';
+    fabEl.className = 'ann-fab';
+    document.body.append(fabEl);
+    placeFab(fabPos());
+    // 拖動：移動超過 6px 才算拖；放開時記住位置。沒拖動就是點一下（展開／收起工具盤）
+    let start = null;
+    fabEl.addEventListener('pointerdown', (e) => {
+      try { fabEl.setPointerCapture(e.pointerId); } catch { /* 模擬的事件沒有真的指標 */ }
+      const r = fabEl.getBoundingClientRect();
+      start = { x: e.clientX, y: e.clientY, dx: e.clientX - r.left, dy: e.clientY - r.top, moved: false };
+    });
+    fabEl.addEventListener('pointermove', (e) => {
+      if (!start) return;
+      if (!start.moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6) return;
+      if (!start.moved) { start.moved = true; fabEl.classList.add('dragging'); closePop(); hideTip(); }
+      placeFab({ x: e.clientX - start.dx, y: e.clientY - start.dy });
+    });
+    fabEl.addEventListener('pointerup', () => {
+      if (!start) return;
+      const moved = start.moved; start = null;
+      fabEl.classList.remove('dragging');
+      if (moved) { const r = fabEl.getBoundingClientRect(); try { localStorage.setItem(POS_KEY, JSON.stringify({ fx: r.left / (innerWidth - 56), fy: r.top / (innerHeight - 56) })); } catch { /* 無痕 */ } return; }
+      popEl ? closePop() : openPop();
+    });
+    addEventListener('resize', () => { if (fabEl) placeFab(fabPos()); closePop(); hideTip(); });
+  }
+  const t = tool && toolOf(tool);
+  fabEl.classList.toggle('has-tool', !!t);
+  fabEl.setAttribute('aria-label', t ? `劃記工具：${t.label}（點一下換工具）` : '劃記工具（點一下展開）');
+  fabEl.innerHTML = t ? (t.dot ? `<span class="fab-dot" style="background:${t.dot}"></span>` : `<span class="fab-ic">${t.icon}</span>`)
+    : '<span class="fab-ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h3l6-6"/><path d="M22 6l-4-4-9 9 4 4z"/></svg></span>';
+}
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function openPop() {
+  closePop(false);
+  popEl = document.createElement('div');
+  popEl.className = 'ann-pop';
+  popEl.setAttribute('role', 'toolbar');
+  popEl.innerHTML = `<div class="row">${TOOLS.slice(0, 3).map((t) => `<button class="ann-tool" type="button" data-tool="${t.id}" aria-pressed="${tool === t.id}" aria-label="${t.label}"><span class="ann-swatch" style="background:${t.dot}"></span></button>`).join('')}</div>
+    ${TOOLS.slice(3).map((t) => `<button class="ann-tool wide" type="button" data-tool="${t.id}" aria-pressed="${tool === t.id}">${t.icon}<span>${t.label}</span></button>`).join('')}
+    <hr><button class="ann-tool wide" type="button" data-tool="" aria-pressed="${!tool}"><span style="font-size:1.05rem">✋</span><span>放下工具（一般閱讀）</span></button>
+    <p class="hint">${touchMode() ? '劃記：長按一個字再滑過去；或點第一個字、再點最後一個字' : '劃記：在文字上拖曳；點一下只標一個字'}</p>`;
+  document.body.append(popEl);
+  // 往畫面比較空的一側展開
+  const f = fabEl.getBoundingClientRect();
+  const w = popEl.offsetWidth, h = popEl.offsetHeight;
+  const right = f.left + f.width / 2 > innerWidth / 2, below = f.top + f.height / 2 < innerHeight / 2;
+  popEl.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, right ? f.right - w : f.left))}px`;
+  popEl.style.top = `${Math.max(8, Math.min(innerHeight - h - 8, below ? f.bottom + 8 : f.top - h - 8))}px`;
+  fabEl.classList.add('open');
+  if (!reduced() && popEl.animate) {
+    // 圓形從按鈕中心長大成整個工具盤
+    const pr = popEl.getBoundingClientRect();
+    const cx = f.left + f.width / 2 - pr.left, cy = f.top + f.height / 2 - pr.top;
+    const far = Math.hypot(Math.max(cx, pr.width - cx), Math.max(cy, pr.height - cy));
+    popEl.animate([{ clipPath: `circle(26px at ${cx}px ${cy}px)`, opacity: .6 }, { clipPath: `circle(${far}px at ${cx}px ${cy}px)`, opacity: 1 }],
+      { duration: 360, easing: 'cubic-bezier(.2, .9, .25, 1)' });
+    // 工具一個接一個浮出來（從按鈕那一側）
+    [...popEl.querySelectorAll('.ann-tool, hr, .hint')].forEach((el, k) => el.animate(
+      [{ opacity: 0, transform: `translateY(${below ? -8 : 8}px)` }, { opacity: 1, transform: 'none' }],
+      { duration: 260, delay: 70 + k * 28, easing: 'cubic-bezier(.2, .8, .2, 1)', fill: 'backwards' }));
+  }
+  popEl.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tool]'); if (!b) return;
+    tool = b.dataset.tool || null; anchor = null;
+    closePop(); render();
+    if (tool) showTip(tool === 'erase' ? '點要清掉的劃記' : touchMode() ? '長按一個字再滑過去，或點頭尾兩個字' : '在文字上拖曳來劃記');
+  });
+}
+// 收回：圓形縮回按鈕中心（animate=false 時直接移除，例如換模式）
+function closePop(animate = true) {
+  const el = popEl;
+  popEl = null;
+  fabEl?.classList.remove('open');
+  if (!el) return;
+  if (!animate || reduced() || !el.animate || !fabEl) { el.remove(); return; }
+  const f = fabEl.getBoundingClientRect(), pr = el.getBoundingClientRect();
+  const cx = f.left + f.width / 2 - pr.left, cy = f.top + f.height / 2 - pr.top;
+  const far = Math.hypot(Math.max(cx, pr.width - cx), Math.max(cy, pr.height - cy));
+  el.style.pointerEvents = 'none';
+  el.animate([{ clipPath: `circle(${far}px at ${cx}px ${cy}px)`, opacity: 1 }, { clipPath: `circle(24px at ${cx}px ${cy}px)`, opacity: 0 }],
+    { duration: 240, easing: 'cubic-bezier(.4, 0, .6, 1)' }).onfinish = () => el.remove();
+  setTimeout(() => el.remove(), 320);
+}
+// 畫面一捲動，展開的工具盤就收回成圓形按鈕
+addEventListener('scroll', () => { if (popEl) closePop(true); hideTip(); }, { passive: true });
+function showTip(text) {
+  hideTip();
+  if (!fabEl) return;
+  tipEl = document.createElement('div');
+  tipEl.className = 'ann-tip';
+  tipEl.textContent = text;
+  document.body.append(tipEl);
+  const f = fabEl.getBoundingClientRect();
+  const right = f.left + f.width / 2 > innerWidth / 2;
+  tipEl.style.top = `${f.top + f.height / 2 - tipEl.offsetHeight / 2}px`;
+  tipEl.style.left = right ? `${f.left - tipEl.offsetWidth - 10}px` : `${f.right + 10}px`;
+  tipTimer = setTimeout(hideTip, 2600);
+}
+function hideTip() { clearTimeout(tipTimer); tipEl?.remove(); tipEl = null; }
+document.addEventListener('pointerdown', (e) => { if (popEl && !popEl.contains(e.target) && !fabEl?.contains(e.target)) closePop(); });
+
+/* ---------- 劃記 ---------- */
+function apply(p, from, to) {
+  const [a, b] = from <= to ? [from, to] : [to, from];
+  if (tool === 'note') { openNote({ id: Date.now(), p, from: a, to: b, tool: 'note', note: '' }, true); return; }
+  // 同一種工具重疊的部分合併；不同工具可以疊（例如螢光筆＋底線）
+  anns = anns.filter((x) => !(x.p === p && x.tool === tool && x.from <= b && x.to >= a));
+  anns.push({ id: Date.now(), p, from: a, to: b, tool });
+  paint();
+}
+function erase(p, i) {
+  const hit = anns.filter((x) => x.p === p && x.from <= i && x.to >= i);
+  if (!hit.length) { showTip('這個字沒有劃記'); return; }
+  anns = anns.filter((x) => x !== hit[hit.length - 1]); // 點一下清掉最上面那一層
+  paint();
+}
+function openNote(a, isNew) {
+  document.querySelector('.note-pop')?.remove();
+  const end = stage.querySelector(`.w[data-p="${a.p}"][data-i="${a.to}"]`);
+  const r = end.getBoundingClientRect();
+  const pop = document.createElement('div');
+  pop.className = 'note-pop';
+  const quote = passage[a.p].split(' ').slice(a.from, a.to + 1).join(' ');
+  pop.innerHTML = `<div class="q">「${quote.length > 60 ? quote.slice(0, 60) + '…' : quote}」</div>
+    <textarea maxlength="200" placeholder="寫下想法，例如：這段在說…">${a.note || ''}</textarea>
+    <div class="row">${isNew || mode === 'review' ? '' : '<button class="btn small ghost" type="button" data-del>刪除</button>'}${mode === 'review' ? '' : '<button class="btn small ghost" type="button" data-cancel>取消</button>'}<button class="btn small primary" type="button" data-ok>${mode === 'review' ? '關閉' : '貼上'}</button></div>`;
+  document.body.append(pop);
+  pop.style.left = `${Math.max(16, Math.min(scrollX + r.left, scrollX + innerWidth - pop.offsetWidth - 16))}px`;
+  pop.style.top = `${scrollY + r.bottom + 8}px`;
+  const ta = pop.querySelector('textarea');
+  if (mode === 'review') ta.readOnly = true; else ta.focus();
+  pop.querySelector('[data-cancel]')?.addEventListener('click', () => pop.remove());
+  pop.querySelector('[data-ok]').onclick = () => {
+    if (mode === 'quiz') { a.note = ta.value.trim(); if (!a.note) anns = anns.filter((x) => x.id !== a.id); else if (isNew) anns.push(a); }
+    pop.remove(); paint();
+  };
+  pop.querySelector('[data-del]')?.addEventListener('click', () => { anns = anns.filter((x) => x.id !== a.id); pop.remove(); paint(); });
+}
+
+stage.addEventListener('click', (e) => {
+  const pin = e.target.closest('[data-note]');
+  if (pin) { const a = anns.find((x) => String(x.id) === pin.dataset.note); if (a) openNote(a, false); return; }
+  // 手機：點兩下決定範圍（剛用滑動劃完的那一下不算）
+  if (skipClick) { skipClick = false; return; }
+  const w = e.target.closest('.w');
+  if (!w || !tool || mode !== 'quiz' || !touchMode()) return;
+  const p = Number(w.dataset.p), i = Number(w.dataset.i);
+  if (tool === 'erase') { erase(p, i); return; }
+  if (!anchor) { anchor = { p, i }; paint(); showTip('再點最後一個字（同一個字點兩下＝只標這個字）'); return; }
+  if (anchor.p !== p) { anchor = { p, i }; paint(); showTip('劃記要在同一段裡：改成從這個字開始'); return; }
+  const from = anchor.i; anchor = null; hideTip(); apply(p, from, i);
+});
+// 電腦：直接拖曳選範圍。手機：長按一個字 0.3 秒後才開始拖曳（之前手指一移動就當作捲動畫面）
+let press = null;          // 手機長按中 { p, i, x, y, timer }
+let skipClick = false;     // 剛用滑動劃完，接下來那一下 click 不要再當成「點字」
+stage.addEventListener('pointerdown', (e) => {
+  const w = e.target.closest('.w');
+  if (!w || !tool || mode !== 'quiz') return;
+  const p = Number(w.dataset.p), i = Number(w.dataset.i);
+  if (!touchMode()) {
+    e.preventDefault();
+    if (tool === 'erase') { erase(p, i); return; }
+    drag = { p, from: i, to: i }; paint();
+    return;
+  }
+  if (tool === 'erase') return; // 手機的橡皮擦用點的
+  press = { p, i, x: e.clientX, y: e.clientY, timer: setTimeout(() => {
+    if (!press) return;
+    navigator.vibrate?.(12);
+    drag = { p, from: i, to: i, touch: true };
+    anchor = null; paint();
+    showTip('滑過要劃的字，放開就完成');
+  }, 300) };
+});
+stage.addEventListener('pointermove', (e) => {
+  if (press && !drag && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 8) { clearTimeout(press.timer); press = null; return; } // 在捲動
+  if (!drag) return;
+  const w = document.elementFromPoint(e.clientX, e.clientY)?.closest('.w');
+  if (w && Number(w.dataset.p) === drag.p) { drag.to = Number(w.dataset.i); paint(); }
+});
+// 長按進入劃記後，手指移動不要捲動畫面
+stage.addEventListener('touchmove', (e) => { if (drag) e.preventDefault(); }, { passive: false });
+const endPress = () => {
+  if (press) { clearTimeout(press.timer); press = null; }
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.touch) { skipClick = true; setTimeout(() => { skipClick = false; }, 400); hideTip(); }
+  apply(d.p, d.from, d.to);
+};
+addEventListener('pointerup', endPress);
+addEventListener('pointercancel', () => { if (press) { clearTimeout(press.timer); press = null; } if (drag) { drag = null; paint(); } });
+
+document.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => {
+  mode = b.dataset.mode; tool = null; anchor = null;
+  document.querySelectorAll('[data-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  document.querySelector('.note-pop')?.remove(); hideTip(); closePop(false);
+  render();
+}));
+
+// 預先放幾個劃記當示範
+anns = [
+  { id: 1, p: 0, from: 0, to: 9, tool: 'hl-yellow' },
+  { id: 2, p: 1, from: 13, to: 17, tool: 'hl-pink' },
+  { id: 3, p: 1, from: 18, to: 21, tool: 'ul' },
+  { id: 4, p: 0, from: 22, to: 22, tool: 'circ' },
+  { id: 5, p: 2, from: 21, to: 26, tool: 'note', note: '小動作也很重要，例如記得生日' },
+];
+render();
+window.__proto = { get anns() { return anns; }, setTool(t) { tool = t; render(); }, get fab() { return fabEl; }, openPop, setMode(m) { document.querySelector(`[data-mode="${m}"]`).click(); } };
+</script>
+</body>
+</html>

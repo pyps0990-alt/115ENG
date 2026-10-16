@@ -9,19 +9,37 @@
 <body>
 <header class="topbar"><div class="topbar-inner"><b>B5 Practice（預覽）</b></div></header>
 <main id="app" class="container"><div class="focus"><section id="stage"></section></div></main>
+<script>
+// 預覽不能送出真的成績：擋掉 Apps Script 與 Firebase 的寫入（成績會留在這個 localhost 網址的裝置暫存，不影響正式網站）
+const realFetch = window.fetch;
+window.fetch = (url, opt) => (/script\.google|googleapis|firebase/.test(String(url)) ? Promise.reject(new Error('預覽不送出')) : realFetch(url, opt));
+</script>
 <script type="module">
-// 開發用：用假文章直接進入課文理解作答畫面，檢查文章在手機、平板、電腦的顯示與收起／展開
+// 開發用：用假文章直接進入課文理解作答畫面；?annotate=1 開啟文章劃記
 import { mount } from '../../js/modes/reading.js';
 try { localStorage.setItem('b5p:student', JSON.stringify({ cls: '201', seat: '1', name: '預覽', key: 'preview' })); } catch {}
-const para = 'Friendship is one of the most valuable things in life. Good friends support us when we face difficulties, and they celebrate with us when we succeed. ';
 const data = {
   title: 'The Value of Friendship',
-  passage: [para.repeat(3), para.repeat(2), para.repeat(3), para.repeat(2)],
-  questions: Array.from({ length: 5 }, (_, i) => ({ q: `Question ${i + 1}: What does the passage mainly say about friends?`, options: ['They are rare.', 'They support us.', 'They compete with us.', 'They are teachers.'], answer: 1, skill: '細節' })),
+  passage: [
+    'Friendship is one of the most valuable things in life. Good friends support us when we face difficulties, and they celebrate with us when we succeed. However, true friendship takes time to build.',
+    'Many teenagers believe that having a large number of friends is important. In fact, research shows that a few close friends bring more happiness than many casual ones.',
+    'To keep a friendship strong, both people need to listen carefully and respect each other. Small actions, such as remembering a birthday, can make a big difference.',
+  ],
+  questions: [
+    { skill: '細節', q: 'According to the passage, what brings people more happiness?', options: ['Having as many friends as possible', 'A small number of good friends', 'Remembering every birthday', 'Celebrating success together'], answer: 1,
+      explain: '第 2 段說少數知心朋友比很多普通朋友帶來更多快樂。', key: 'a few close friends bring more happiness than many casual ones',
+      traps: [{ t: '相反', why: '第 2 段說朋友多不一定更快樂，和這個選項相反。' }, null, { t: '只對一半', why: '記得生日是第 3 段維持友誼的例子，不是帶來更多快樂的原因。' }, { t: '照抄陷阱', why: '用了第 1 段 celebrate、succeed 的字，但不是在回答哪一種帶來更多快樂。' }],
+      kw: ['happiness'], pairs: [{ a: 'a few close friends', b: 'A small number of good friends' }] },
+    { skill: '主旨', q: 'What is the passage mainly about?', options: ['How to make many friends quickly', 'Why friendship matters and how to keep it', 'The history of birthdays', 'Problems of teenagers at school'], answer: 1,
+      explain: '三段分別說友誼的價值、少數知心朋友的重要、以及如何維持友誼。', ref: '1-1',
+      traps: [{ t: '相反', why: '第 1 段說真正的友誼需要時間建立，不是很快交到很多朋友。' }, null, { t: '範圍不對', why: '生日只是第 3 段的一個例子，範圍太小。' }, { t: '沒提到', why: '文章沒有談到學校裡的問題。' }],
+      kw: ['friendship'] },
+  ],
 };
-const ctx = { unit: { id: 'preview-rd', title: '預覽' }, data, config: {} };
+const annotate = new URLSearchParams(location.search).get('annotate') === '1';
+const ctx = { unit: { id: 'preview-rd', title: '預覽' }, data, config: { units: { 'preview-rd': annotate ? { quiz: JSON.stringify({ mode: 'default', annotate: true }) } : {} } } };
 mount(document.getElementById('stage'), ctx);
-setTimeout(() => { const b = document.querySelector('[data-start]'); if (b) b.click(); document.body.dataset.ready = '1'; }, 300);
+if (!new URLSearchParams(location.search).has('nostart')) setTimeout(() => { const b = document.querySelector('[data-start]'); if (b) b.click(); document.body.dataset.ready = '1'; }, 300);
 </script>
 </body>
 </html>
