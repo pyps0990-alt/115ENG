@@ -199,6 +199,23 @@
     .ex-box summary { cursor:pointer; font-weight:700; }
     .ex-box pre { margin:8px 0; white-space:pre-wrap; word-break:break-word; font:12.5px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; max-height:300px; overflow:auto; }
     .seg { display:flex; flex-wrap:wrap; gap:8px; }
+    /* 匯入內容的工具列：左邊選單元與狀態，右邊動作；少用的收在「更多」選單 */
+    .imp-bar { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; justify-content:space-between; }
+    .imp-pick { display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; min-width:0; }
+    .imp-pick label { display:flex; gap:8px; align-items:center; font-weight:700; }
+    .imp-acts { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .menu { position:relative; }
+    .menu > summary { list-style:none; }
+    .menu > summary::-webkit-details-marker { display:none; }
+    .menu > summary::after { content:'▾'; margin-left:6px; font-size:.8em; }
+    .menu-list { position:absolute; right:0; top:calc(100% + 6px); z-index:30; min-width:230px; padding:6px; background:#fff; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); display:grid; }
+    .menu-list button { text-align:left; border:0; background:none; padding:9px 12px; border-radius:8px; font:inherit; font-weight:600; color:var(--ink); cursor:pointer; }
+    .menu-list button:hover, .menu-list button:focus-visible { background:var(--surface); outline:none; }
+    .menu-list button.danger { color:var(--bad); }
+    .menu-list button:disabled { opacity:.4; cursor:not-allowed; background:none; }
+    .menu-list hr { border:0; border-top:1px solid var(--line); margin:4px 6px; }
+    .menu-note { margin:2px 12px 6px; font-size:.78rem; color:var(--muted); }
+    @media (max-width:720px) { .imp-bar { justify-content:flex-start; } .menu-list { left:0; right:auto; } }
     .seg label { display:flex; align-items:center; gap:6px; padding:8px 14px; border:1px solid var(--line); border-radius:999px; cursor:pointer; font-weight:600; transition:background .2s, border-color .2s; }
     .seg label:has(input:checked) { border-color:var(--navy, #1e3a5f); background:rgba(30,58,95,.08); }
     .ai-box summary { cursor:pointer; font-weight:700; display:flex; align-items:center; gap:10px; }
@@ -288,18 +305,27 @@
 
     <section id="tab-import" hidden>
       <div class="card">
-        <div class="bar">
-          <label>單元 <select id="imp-unit"></select></label>
-          <span id="imp-status" class="pill"></span>
-          <button class="btn" id="imp-load" type="button">載入目前內容</button>
-          <button class="btn" id="imp-reset" type="button">清除這個單元的題目</button>
-        </div>
-        <div class="bar">
-          <label class="btn" style="cursor:pointer">從檔案匯入<input type="file" id="imp-file" accept=".csv,.tsv,.txt,.md,.json,text/*" hidden></label>
-          <button class="btn" id="imp-copy" type="button">複製目前題目（文字）</button>
-          <button class="btn" id="imp-dl" type="button">下載題目（文字檔）</button>
-          <button class="btn" id="imp-dljson" type="button">下載 JSON 備份</button>
-          <span class="muted">檔案支援 CSV（Excel 另存新檔）、TSV、TXT、JSON；複製、下載的是已儲存的題目，可以貼到別的單元。</span>
+        <!-- 常用的放外面（選單元、載入、從檔案匯入），少用的收進「更多」；清除放最下面、紅字 -->
+        <div class="imp-bar">
+          <div class="imp-pick">
+            <label>單元 <select id="imp-unit"></select></label>
+            <span id="imp-status" class="pill"></span>
+          </div>
+          <div class="imp-acts">
+            <button class="btn" id="imp-load" type="button">載入目前內容</button>
+            <label class="btn" style="cursor:pointer" title="支援 CSV（Excel 另存新檔）、TSV、TXT、JSON">從檔案匯入<input type="file" id="imp-file" accept=".csv,.tsv,.txt,.md,.json,text/*" hidden></label>
+            <details class="menu" id="imp-more">
+              <summary class="btn">更多</summary>
+              <div class="menu-list" role="menu">
+                <button type="button" id="imp-copy" role="menuitem">複製目前題目（文字）</button>
+                <button type="button" id="imp-dl" role="menuitem">下載題目（文字檔）</button>
+                <button type="button" id="imp-dljson" role="menuitem">下載 JSON 備份</button>
+                <p class="menu-note">複製、下載的是已儲存的題目，可以貼到別的單元。</p>
+                <hr>
+                <button type="button" id="imp-reset" role="menuitem" class="danger">清除這個單元的題目</button>
+              </div>
+            </details>
+          </div>
         </div>
 
         <details class="ai-box" id="ai-box">
@@ -1151,6 +1177,10 @@
       impStatus(); impDirty();
     }
     $('imp-unit').addEventListener('change', impShow);
+    document.addEventListener('click', function (e) {
+      var m = $('imp-more'); if (!m || !m.open) return;
+      if (!m.contains(e.target) || e.target.closest('.menu-list button')) m.open = false;
+    });
     // 單字提示詞預覽：上方選的單元或它的出題設定改了就重新產生
     function vocabPromptRefresh() { var u = impUnit(); if ($('v-prompt')) $('v-prompt').textContent = aiPromptFor('vocab', u && u.type === 'vocab' ? u : null); }
     $('imp-unit').addEventListener('change', vocabPromptRefresh);
