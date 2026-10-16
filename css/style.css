@@ -1202,7 +1202,7 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 .ann-fab.dragging { transform: scale(1.06); box-shadow: 0 16px 30px -10px rgba(30, 58, 138, .45); transition: none; }
 .ann-fab.has-tool { border: 3px solid var(--navy); }
 .ann-fab.open { border-color: var(--navy); background: var(--navy-soft); }
-.ann-fab > * { transition: transform .28s cubic-bezier(.3, 1.4, .5, 1); }
+.ann-fab > * { transition: transform .28s cubic-bezier(.22, 1, .36, 1); }
 .ann-fab.open > * { transform: rotate(-12deg) scale(.88); }
 .ann-fab .fab-ic { display: grid; place-items: center; width: 30px; height: 30px; font-size: 1.1rem; color: var(--navy); }
 .ann-fab .fab-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(0, 0, 0, .08); }
