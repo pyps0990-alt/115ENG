@@ -131,7 +131,7 @@ export function openNote(root, paras, mark, { readOnly = false, isNew = false, o
 /* ---------------- 作答時的劃記工具 ---------------- */
 // root：作答畫面；paras：文章各段；marks：劃記陣列（會直接修改）；onChange：劃記改了（存進度用）；nQ：題數
 // 對照題目（選填）：選了題號，之後的劃記都帶這個題號（m.q，從 0 起算），檢討那一題時拿來判斷；
-// 學生點了別題的題目卡（換題）就改回「不對照」
+// 學生點了別題的題目卡（換題）就跟著換成那一題；選「不對照」時維持不對照
 export function mountAnnotator(root, paras, marks, onChange, { nQ = 0 } = {}) {
   let tool = null, anchor = null, drag = null, press = null, skipClick = false, qSel = null, lastQ = null;
   let fab = null, pop = null, tip = null, tipTimer = null;
@@ -299,9 +299,9 @@ export function mountAnnotator(root, paras, marks, onChange, { nQ = 0 } = {}) {
   };
   const onDown = (e) => {
     const card = e.target.closest?.('.pq[data-q]');
-    if (card) { // 換題：對照題目改回「不對照」
+    if (card) { // 換題：有在對照題目的話，跟著換成點到的這一題
       const i = Number(card.dataset.q);
-      if (qSel != null && i !== qSel) { qSel = null; drawFab(); showTip(`換到第 ${i + 1} 題：對照題目改回「不對照」`); }
+      if (qSel != null && i !== qSel) { qSel = i; drawFab(); showTip(`換到第 ${i + 1} 題：之後的劃記對照 Q${i + 1}`); }
       lastQ = i;
       return;
     }
