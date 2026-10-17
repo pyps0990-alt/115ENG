@@ -111,17 +111,45 @@ export function mount(stage, ctx) {
     stopAnnotator = annotateOn ? mountAnnotator(stage.querySelector('.reading-quiz'), paras, marks, persist, { nQ: qs.length }) : null;
     // 收起／展開文章（平板、電腦）：有 View Transitions 就讓文章卡和懸浮按鈕互相變形，題目滑到新位置
     const quiz = stage.querySelector('.reading-quiz');
+    // 動畫直接做在畫面上的元素（不用 View Transitions：截圖層會蓋過導覽列，按鈕放大成文章卡時字會糊掉）：
+    //   展開：文章從「文章」按鈕的位置以圓形擴散出來，題目區滑到右邊
+    //   收起：文章以圓形縮回按鈕的位置，題目區滑到中間，按鈕彈出來
+    const EASE = 'cubic-bezier(.22, .8, .24, 1)';
+    let moving = false;
     const setPassage = (open) => {
-      const apply = () => { quiz.dataset.passage = open ? 'open' : 'closed'; };
       try { localStorage.setItem('b5p:rd-passage', open ? 'open' : 'closed'); } catch { /* 無痕模式 */ }
-      if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        // 轉場名稱只在這一下加上，結束就拿掉（平常帶著名稱，Safari 會把題目區畫到導覽列上面）
-        quiz.classList.add('vt');
-        const vt = document.startViewTransition(apply);
-        const done = () => quiz.classList.remove('vt');
-        vt.finished.finally(done);
-        setTimeout(done, 900); // 保底：分頁在背景、動畫沒播完時也會拿掉
-      } else apply();
+      const apply = () => { quiz.dataset.passage = open ? 'open' : 'closed'; };
+      const list = quiz.querySelector('.pq-list'), side = quiz.querySelector('.rd-side'), btn = stage.querySelector('.rd-float');
+      if (moving || matchMedia('(prefers-reduced-motion: reduce)').matches || !side.animate) { apply(); return; }
+      moving = true;
+      const slideList = () => { // 題目區從舊位置滑到新位置
+        const a = list.getBoundingClientRect(); apply(); const b = list.getBoundingClientRect();
+        list.animate([{ transform: `translate(${a.left - b.left}px, ${a.top - b.top}px)` }, { transform: 'none' }], { duration: 460, easing: EASE });
+      };
+      const circle = (sr, br) => {
+        const cx = br.left + br.width / 2 - sr.left, cy = br.top + br.height / 2 - sr.top;
+        return { at: `${cx}px ${cy}px`, far: Math.hypot(Math.max(cx, sr.width - cx), Math.max(cy, sr.height - cy)) };
+      };
+      if (open) {
+        const br = btn.getBoundingClientRect();
+        slideList();
+        const c = circle(side.getBoundingClientRect(), br);
+        side.animate([{ clipPath: `circle(22px at ${c.at})`, opacity: 0.5 }, { clipPath: `circle(${c.far}px at ${c.at})`, opacity: 1 }], { duration: 520, easing: EASE })
+          .finished.finally(() => { moving = false; });
+        return;
+      }
+      // 收起：先量出按鈕會出現的位置，文章縮過去，再換版面
+      btn.style.cssText = 'display:inline-flex;visibility:hidden';
+      const br = btn.getBoundingClientRect();
+      btn.style.cssText = '';
+      const c = circle(side.getBoundingClientRect(), br);
+      side.animate([{ clipPath: `circle(${c.far}px at ${c.at})`, opacity: 1 }, { clipPath: `circle(22px at ${c.at})`, opacity: 0.4 }], { duration: 300, easing: 'cubic-bezier(.4, 0, .7, .2)', fill: 'forwards' })
+        .finished.finally(() => {
+          side.getAnimations().forEach((x) => x.cancel());
+          slideList();
+          btn.animate([{ transform: 'scale(.6)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 300, delay: 120, easing: EASE, fill: 'backwards' });
+          moving = false;
+        });
     };
     stage.querySelector('[data-passage-close]').addEventListener('click', () => {
       setPassage(false);

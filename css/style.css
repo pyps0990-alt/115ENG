@@ -1122,9 +1122,6 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
   .rd-side { display: grid; gap: 8px; position: sticky; top: 76px; }
   .rd-side-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; font-size: .85rem; }
   .rd-side .passage-card { position: static; top: auto; max-height: calc(100vh - 76px - 150px); max-height: calc(100dvh - 76px - 150px); overflow: auto; overscroll-behavior: contain; }
-  /* 轉場名稱只在切換的那一下加上（.vt）：平常帶著名稱，Safari 會把它畫到導覽列與交卷列上面 */
-  .reading-quiz.vt .rd-side { view-transition-name: rd-passage; }
-  .reading-quiz.vt .pq-list { view-transition-name: rd-questions; }
   /* 收起：只剩題目，置中；文章變成右上角的懸浮按鈕（導覽列高 62px，再留一點距離，不會壓到導覽列） */
   .reading-quiz[data-passage="closed"] { grid-template-columns: minmax(0, 760px); justify-content: center; }
   .reading-quiz[data-passage="closed"] .rd-side { display: none; }
@@ -1137,20 +1134,8 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
   .rd-float .ic { width: 20px; height: 20px; }
   .rd-float:hover { transform: translateY(-1px); }
   .reading-quiz[data-passage="closed"] ~ .rd-float { display: inline-flex; }
-  .reading-quiz.vt[data-passage="closed"] ~ .rd-float { view-transition-name: rd-passage; }
 }
 
-/* 變形動畫：外框（位置、大小）平滑過去；文章卡淡出、按鈕淡入，題目區照原比例滑到新位置不拉伸 */
-::view-transition-group(rd-passage), ::view-transition-group(rd-questions) { animation-duration: .52s; animation-timing-function: cubic-bezier(.22, .8, .24, 1); }
-::view-transition-old(rd-passage) { animation: rd-vt-out .24s ease both; }
-::view-transition-new(rd-passage) { animation: rd-vt-in .3s .16s ease both; }
-::view-transition-old(rd-passage), ::view-transition-new(rd-passage) { height: 100%; width: 100%; object-fit: cover; object-position: 0 0; }
-::view-transition-old(rd-questions), ::view-transition-new(rd-questions) { height: 100%; width: 100%; object-fit: none; object-position: 50% 0; }
-::view-transition-old(rd-questions) { animation: rd-vt-out .26s ease both; }
-::view-transition-new(rd-questions) { animation: rd-vt-in .34s .12s ease both; }
-::view-transition-old(root), ::view-transition-new(root) { animation-duration: .3s; }
-@keyframes rd-vt-out { to { opacity: 0; } }
-@keyframes rd-vt-in { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
