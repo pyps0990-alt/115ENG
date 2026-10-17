@@ -109,11 +109,9 @@ export function mount(stage, ctx) {
     // 文章劃記（老師開啟才有）：工具在右下角的圓形按鈕，劃記跟著進度存起來
     stopAnnotator?.();
     stopAnnotator = annotateOn ? mountAnnotator(stage.querySelector('.reading-quiz'), paras, marks, persist, { nQ: qs.length }) : null;
-    // 收起／展開文章（平板、電腦）：有 View Transitions 就讓文章卡和懸浮按鈕互相變形，題目滑到新位置
+    // 收起／展開文章（平板、電腦）：動畫直接做在畫面上的元素
+    // （不用 View Transitions：截圖層會蓋過導覽列，按鈕放大成文章卡時字會糊掉）
     const quiz = stage.querySelector('.reading-quiz');
-    // 動畫直接做在畫面上的元素（不用 View Transitions：截圖層會蓋過導覽列，按鈕放大成文章卡時字會糊掉）：
-    //   展開：文章從「文章」按鈕的位置以圓形擴散出來，題目區滑到右邊
-    //   收起：文章以圓形縮回按鈕的位置，題目區滑到中間，按鈕彈出來
     const EASE = 'cubic-bezier(.22, .8, .24, 1)';
     let moving = false;
     const setPassage = (open) => {
@@ -122,33 +120,24 @@ export function mount(stage, ctx) {
       const list = quiz.querySelector('.pq-list'), side = quiz.querySelector('.rd-side'), btn = stage.querySelector('.rd-float');
       if (moving || matchMedia('(prefers-reduced-motion: reduce)').matches || !side.animate) { apply(); return; }
       moving = true;
-      const slideList = () => { // 題目區從舊位置滑到新位置
+      // 題目區：寬度和位置一起平滑變過去（字跟著重新排，不會拉伸，也不會先跳成新寬度）
+      const morphList = () => {
         const a = list.getBoundingClientRect(); apply(); const b = list.getBoundingClientRect();
-        list.animate([{ transform: `translate(${a.left - b.left}px, ${a.top - b.top}px)` }, { transform: 'none' }], { duration: 460, easing: EASE });
+        return list.animate([{ transform: `translate(${a.left - b.left}px, ${a.top - b.top}px)`, width: `${a.width}px` }, { transform: 'none', width: `${b.width}px` }],
+          { duration: 480, easing: EASE }).finished.catch(() => {});
       };
-      const circle = (sr, br) => {
-        const cx = br.left + br.width / 2 - sr.left, cy = br.top + br.height / 2 - sr.top;
-        return { at: `${cx}px ${cy}px`, far: Math.hypot(Math.max(cx, sr.width - cx), Math.max(cy, sr.height - cy)) };
-      };
-      if (open) {
-        const br = btn.getBoundingClientRect();
-        slideList();
-        const c = circle(side.getBoundingClientRect(), br);
-        side.animate([{ clipPath: `circle(22px at ${c.at})`, opacity: 0.5 }, { clipPath: `circle(${c.far}px at ${c.at})`, opacity: 1 }], { duration: 520, easing: EASE })
-          .finished.finally(() => { moving = false; });
+      if (open) { // 題目區變窄滑到右邊，文章從左邊淡入滑進來
+        const done = morphList();
+        side.animate([{ opacity: 0, transform: 'translateX(-28px)' }, { opacity: 1, transform: 'none' }], { duration: 420, delay: 140, easing: EASE, fill: 'backwards' });
+        done.finally(() => { moving = false; });
         return;
       }
-      // 收起：先量出按鈕會出現的位置，文章縮過去，再換版面
-      btn.style.cssText = 'display:inline-flex;visibility:hidden';
-      const br = btn.getBoundingClientRect();
-      btn.style.cssText = '';
-      const c = circle(side.getBoundingClientRect(), br);
-      side.animate([{ clipPath: `circle(${c.far}px at ${c.at})`, opacity: 1 }, { clipPath: `circle(22px at ${c.at})`, opacity: 0.4 }], { duration: 300, easing: 'cubic-bezier(.4, 0, .7, .2)', fill: 'forwards' })
-        .finished.finally(() => {
+      // 收起：文章往左淡出，接著題目區變寬滑到中間，右上角的「文章」按鈕淡入
+      side.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(-28px)' }], { duration: 220, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' })
+        .finished.catch(() => {}).finally(() => {
           side.getAnimations().forEach((x) => x.cancel());
-          slideList();
-          btn.animate([{ transform: 'scale(.6)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 300, delay: 120, easing: EASE, fill: 'backwards' });
-          moving = false;
+          morphList().finally(() => { moving = false; });
+          btn.animate([{ opacity: 0, transform: 'scale(.85)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: 200, easing: EASE, fill: 'backwards' });
         });
     };
     stage.querySelector('[data-passage-close]').addEventListener('click', () => {
