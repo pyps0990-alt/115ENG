@@ -1183,7 +1183,7 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 .ann-text .hl-yellow { background: #FDE68A; }
 .ann-text .hl-green { background: #BBF7D0; }
 .ann-text .hl-pink { background: #FBCFE8; }
-.ann-text .ul { text-decoration: underline; text-decoration-color: #1D4ED8; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.ann-text .ul { text-decoration: underline; text-decoration-color: #1D4ED8; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-skip-ink: none; }
 .ann-text .noted { background: #DBEAFE; }
 /* 圈起來：上下兩條線，頭尾是圓弧（用 inset 陰影畫，整段看起來是一個橢圓圈） */
 .ann-text .circ { box-shadow: inset 0 2px 0 #DC2626, inset 0 -2px 0 #DC2626; }
@@ -1197,7 +1197,7 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 /* 答案依據：綠筆劃線（淡綠底＋綠色粗底線，整句一條） */
 .ann-text .ev { -webkit-box-decoration-break: clone; box-decoration-break: clone; background: linear-gradient(transparent 58%, rgba(34, 197, 94, .3) 58%); border-bottom: 2.5px solid var(--good); padding: 0 1px; }
 /* 題目關鍵字：深藍虛線 */
-.ann-text .w.kw { text-decoration: underline dashed var(--navy); text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
+.ann-text .w.kw { text-decoration: underline dashed var(--navy); text-decoration-thickness: 1.5px; text-underline-offset: 4px; text-decoration-skip-ink: none; }
 
 /* 圓形工具按鈕（可拖動、跟著畫面）與展開的工具盤 */
 .ann-fab { position: fixed; z-index: 30; width: 56px; height: 56px; border-radius: 50%; border: 1.5px solid var(--line); background: var(--white);
