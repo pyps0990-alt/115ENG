@@ -102,7 +102,7 @@ function cleanDetails(list) {
 function cleanMarks(list) {
   if (!Array.isArray(list)) return null;
   const tools = ['hl-yellow', 'hl-green', 'hl-pink', 'ul', 'circ', 'note'];
-  return list.slice(0, 300).map((m) => ({ p: Math.max(0, Math.floor(Number(m.p) || 0)), f: Math.max(0, Math.floor(Number(m.f) || 0)), t: Math.max(0, Math.floor(Number(m.t) || 0)), k: tools.includes(m.k) ? m.k : 'hl-yellow', ...(m.n ? { n: clean(m.n, 200) } : {}) }));
+  return list.slice(0, 300).map((m) => ({ p: Math.max(0, Math.floor(Number(m.p) || 0)), f: Math.max(0, Math.floor(Number(m.f) || 0)), t: Math.max(0, Math.floor(Number(m.t) || 0)), k: tools.includes(m.k) ? m.k : 'hl-yellow', ...(m.n ? { n: clean(m.n, 200) } : {}), ...(Number.isInteger(m.q) && m.q >= 0 && m.q < 50 ? { q: m.q } : {}) }));
 }
 
 // 同時寫進學生帳本（讓學生讀回）與班級路徑（老師瀏覽）。attemptId 當文件 ID，重複送出不會多一筆。

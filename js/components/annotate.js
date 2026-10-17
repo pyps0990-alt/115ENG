@@ -77,11 +77,12 @@ export function keywordHits(paras, kws) {
 
 /* ---------------- 畫出劃記 ---------------- */
 // root 裡可能有兩份文章（手機收合版與平板電腦的左欄），同一個位置的字都要上色
-export function paintMarks(root, marks, { pending = null, anchor = null } = {}) {
+// tagQ：只標這一題的小題號（檢討時用）；沒給＝每一筆都標
+export function paintMarks(root, marks, { pending = null, anchor = null, tagQ = null } = {}) {
   root.querySelectorAll('.ann-text .w, .ann-text .sp').forEach((el) => {
     el.classList.remove('hl-yellow', 'hl-green', 'hl-pink', 'ul', 'circ', 'noted', 'first', 'last', 'pending', 'anchor');
   });
-  root.querySelectorAll('.ann-text .note-pin').forEach((n) => n.remove());
+  root.querySelectorAll('.ann-text .note-pin, .ann-text .q-tag').forEach((n) => n.remove());
   const cls = (p, i, list, gap) => {
     root.querySelectorAll(`.ann-text .w[data-p="${p}"][data-i="${i}"]`).forEach((el) => el.classList.add(...list));
     if (gap) root.querySelectorAll(`.ann-text .sp[data-p="${p}"][data-i="${i}"]`).forEach((el) => el.classList.add(...list.filter((c) => c !== 'first' && c !== 'last')));
@@ -95,6 +96,9 @@ export function paintMarks(root, marks, { pending = null, anchor = null } = {}) 
     if (m.k === 'note') {
       root.querySelectorAll(`.ann-text .w[data-p="${m.p}"][data-i="${m.t}"]`).forEach((el) => el.insertAdjacentHTML('afterend',
         `<button class="note-pin" type="button" data-note="${idx}" aria-label="看便利貼">✎</button>`));
+    } else if (Number.isInteger(m.q) && (tagQ == null || m.q === tagQ)) { // 有對照題目：最後一個字後面標小題號
+      root.querySelectorAll(`.ann-text .w[data-p="${m.p}"][data-i="${m.t}"]`).forEach((el) => el.insertAdjacentHTML('afterend',
+        `<span class="q-tag" aria-label="對照第 ${m.q + 1} 題">Q${m.q + 1}</span>`));
     }
   });
   if (pending) { const [a, b] = [Math.min(pending.f, pending.t), Math.max(pending.f, pending.t)]; for (let i = a; i <= b; i++) cls(pending.p, i, ['pending'], i < b); }
@@ -125,9 +129,11 @@ export function openNote(root, paras, mark, { readOnly = false, isNew = false, o
 }
 
 /* ---------------- 作答時的劃記工具 ---------------- */
-// root：作答畫面；paras：文章各段；marks：劃記陣列（會直接修改）；onChange：劃記改了（存進度用）
-export function mountAnnotator(root, paras, marks, onChange) {
-  let tool = null, anchor = null, drag = null, press = null, skipClick = false;
+// root：作答畫面；paras：文章各段；marks：劃記陣列（會直接修改）；onChange：劃記改了（存進度用）；nQ：題數
+// 對照題目（選填）：選了題號，之後的劃記都帶這個題號（m.q，從 0 起算），檢討那一題時拿來判斷；
+// 學生點了別題的題目卡（換題）就改回「不對照」
+export function mountAnnotator(root, paras, marks, onChange, { nQ = 0 } = {}) {
+  let tool = null, anchor = null, drag = null, press = null, skipClick = false, qSel = null, lastQ = null;
   let fab = null, pop = null, tip = null, tipTimer = null;
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const touchMode = () => matchMedia('(pointer: coarse), (max-width: 767px)').matches;
@@ -136,15 +142,16 @@ export function mountAnnotator(root, paras, marks, onChange) {
   const changed = () => { repaint(); onChange?.(); };
 
   function apply(p, from, to) {
-    const [f, t] = from <= to ? [from, to] : [to, from];
+    let [f, t] = from <= to ? [from, to] : [to, from];
     if (tool === 'note') {
       const m = { p, f, t, k: 'note', n: '' };
       openNote(root, paras, m, { isNew: true, onSave: (n) => { if (n) { m.n = n; marks.push(m); changed(); } } });
       return;
     }
-    // 同一種工具重疊的部分合併；不同工具可以疊（例如螢光筆＋底線）
-    for (let k = marks.length - 1; k >= 0; k--) { const x = marks[k]; if (x.p === p && x.k === tool && x.f <= t && x.t >= f) marks.splice(k, 1); }
-    marks.push({ p, f, t, k: tool });
+    // 同一種工具、同一個對照題目重疊或相連的部分合併成一筆；不同工具可以疊（例如螢光筆＋底線）
+    const q = qSel == null ? undefined : qSel;
+    for (let k = marks.length - 1; k >= 0; k--) { const x = marks[k]; if (x.p === p && x.k === tool && x.q === q && x.f <= t + 1 && x.t >= f - 1) { f = Math.min(f, x.f); t = Math.max(t, x.t); marks.splice(k, 1); } }
+    marks.push({ p, f, t, k: tool, ...(q != null ? { q } : {}) });
     changed();
   }
   function erase(p, i) {
@@ -169,8 +176,10 @@ export function mountAnnotator(root, paras, marks, onChange) {
     const t = tool && toolOf(tool);
     fab.classList.toggle('has-tool', !!t);
     fab.setAttribute('aria-label', t ? `劃記工具：${t.label}（點一下換工具）` : '劃記工具（點一下展開）');
-    fab.innerHTML = t ? (t.dot ? `<span class="fab-dot" style="background:${t.dot}"></span>` : `<span class="fab-ic">${t.icon}</span>`)
-      : '<span class="fab-ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l-6 6v3h3l6-6"/><path d="M22 6l-4-4-9 9 4 4z"/></svg></span>';
+    fab.innerHTML = (t ? (t.dot ? `<span class="fab-dot" style="background:${t.dot}"></span>` : `<span class="fab-ic">${t.icon}</span>`)
+      : '<span class="fab-ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l-6 6v3h3l6-6"/><path d="M22 6l-4-4-9 9 4 4z"/></svg></span>')
+      + (qSel != null ? `<span class="fab-q" aria-hidden="true">Q${qSel + 1}</span>` : '');
+    if (qSel != null) fab.setAttribute('aria-label', `${fab.getAttribute('aria-label')}，對照第 ${qSel + 1} 題`);
     texts().forEach((el) => el.classList.toggle('tool-on', !!t));
   }
   fab = document.createElement('button');
@@ -213,6 +222,9 @@ export function mountAnnotator(root, paras, marks, onChange) {
     pop.setAttribute('aria-label', '劃記工具');
     pop.innerHTML = `<div class="row">${MARK_TOOLS.slice(0, 3).map((t) => `<button class="ann-tool" type="button" data-tool="${t.id}" aria-pressed="${tool === t.id}" aria-label="${t.label}"><span class="ann-swatch" style="background:${t.dot}"></span></button>`).join('')}</div>
       ${MARK_TOOLS.slice(3).map((t) => `<button class="ann-tool wide" type="button" data-tool="${t.id}" aria-pressed="${tool === t.id}">${t.icon}<span>${t.label}</span></button>`).join('')}
+      ${nQ ? `<hr><div class="ann-q-label">對照題目（選填）</div><div class="row ann-qs">
+        <button class="ann-q" type="button" data-q="" aria-pressed="${qSel == null}">不對照</button>
+        ${Array.from({ length: nQ }, (_, i) => `<button class="ann-q" type="button" data-q="${i}" aria-pressed="${qSel === i}" aria-label="對照第 ${i + 1} 題">Q${i + 1}</button>`).join('')}</div>` : ''}
       <hr><button class="ann-tool wide" type="button" data-tool="" aria-pressed="${!tool}"><span class="mk-ic-hand">✋</span><span>放下工具（一般閱讀）</span></button>
       <p class="hint">${touchMode() ? '劃記：長按一個字再滑過去；或點第一個字、再點最後一個字' : '劃記：在文字上拖曳；點一下只標一個字'}・不計分</p>`;
     document.body.append(pop);
@@ -228,6 +240,14 @@ export function mountAnnotator(root, paras, marks, onChange) {
         { duration: 260, delay: 70 + k * 28, easing: 'cubic-bezier(.2, .8, .2, 1)', fill: 'backwards' }));
     }
     pop.addEventListener('click', (e) => {
+      const qb = e.target.closest('[data-q]');
+      if (qb) { // 選對照題目：工具盤不關，可以接著選筆
+        qSel = qb.dataset.q === '' ? null : Number(qb.dataset.q);
+        if (qSel != null) lastQ = qSel;
+        pop.querySelectorAll('[data-q]').forEach((x) => x.setAttribute('aria-pressed', String(x === qb)));
+        drawFab();
+        return;
+      }
       const b = e.target.closest('[data-tool]'); if (!b) return;
       tool = b.dataset.tool || null; anchor = null;
       closePop(); drawFab(); repaint();
@@ -278,6 +298,13 @@ export function mountAnnotator(root, paras, marks, onChange) {
     const from = anchor.i; anchor = null; hideTip(); apply(p, from, i);
   };
   const onDown = (e) => {
+    const card = e.target.closest?.('.pq[data-q]');
+    if (card) { // 換題：對照題目改回「不對照」
+      const i = Number(card.dataset.q);
+      if (qSel != null && i !== qSel) { qSel = null; drawFab(); showTip(`換到第 ${i + 1} 題：對照題目改回「不對照」`); }
+      lastQ = i;
+      return;
+    }
     const w = wordAt(e);
     if (!w || !tool) return;
     const p = Number(w.dataset.p), i = Number(w.dataset.i);

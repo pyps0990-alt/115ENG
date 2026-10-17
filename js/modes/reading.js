@@ -5,7 +5,7 @@ import { icon } from '../icons.js';
 import { renderResult } from '../components/result.js';
 import { unitWindow, unitCfg } from '../remote-config.js';
 import { parseQuiz } from '../levels.js';
-import { paraHTML, rangeOfKey, rangeOfRef, keywordHits, paintMarks, openNote, mountAnnotator } from '../components/annotate.js';
+import { wordsOf, paraHTML, rangeOfKey, rangeOfRef, keywordHits, paintMarks, openNote, mountAnnotator } from '../components/annotate.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore } from '../submit.js';
@@ -108,7 +108,7 @@ export function mount(stage, ctx) {
     centerInView(stage.querySelector('.reading-quiz'), 'start');
     // 文章劃記（老師開啟才有）：工具在右下角的圓形按鈕，劃記跟著進度存起來
     stopAnnotator?.();
-    stopAnnotator = annotateOn ? mountAnnotator(stage.querySelector('.reading-quiz'), paras, marks, persist) : null;
+    stopAnnotator = annotateOn ? mountAnnotator(stage.querySelector('.reading-quiz'), paras, marks, persist, { nQ: qs.length }) : null;
     // 收起／展開文章（平板、電腦）：有 View Transitions 就讓文章卡和懸浮按鈕互相變形，題目滑到新位置
     const quiz = stage.querySelector('.reading-quiz');
     const setPassage = (open) => {
@@ -209,7 +209,7 @@ export function mount(stage, ctx) {
       ok: answers[i] === q.answer, points: answers[i] === q.answer ? 1 : 0, hints: 0,
     }));
     const firstTest = !review;
-    const keepMarks = annotateOn ? marks.map((m) => ({ p: m.p, f: m.f, t: m.t, k: m.k, ...(m.n ? { n: m.n } : {}) })) : null;
+    const keepMarks = annotateOn ? marks.map((m) => ({ p: m.p, f: m.f, t: m.t, k: m.k, ...(m.n ? { n: m.n } : {}), ...(Number.isInteger(m.q) ? { q: m.q } : {}) })) : null;
     if (firstTest) store.setFirst(unitId, { mode: 'reading', details, ...(keepMarks ? { marks: keepMarks } : {}) });
 
     stage.innerHTML = '';
@@ -262,6 +262,29 @@ export function mount(stage, ctx) {
     ? `<ul class="rd-pairs">${q.pairs.map((x) => `<li><span class="en">${esc(x.a)}</span><span class="rd-arrow" aria-label="換成">→</span><span class="en">${esc(x.b)}</span></li>`).join('')}</ul>` : '');
   const paraList = (list) => list.map((p) => `第 ${p + 1} 段`).join('、');
 
+  // 依「對照這一題」的劃記判斷錯在哪個環節（只看學生選了題號的劃記，便利貼不算；樣式不影響）
+  function diagnose(q, i, ev, kw, marks) {
+    const mine = marks.filter((m) => m.q === i && m.k !== 'note');
+    if (!mine.length) {
+      return marks.some((m) => m.k !== 'note')
+        ? '<span class="rd-diag muted">沒有對照這題</span>你有劃記，但沒有一筆選了「對照第 ' + (i + 1) + ' 題」。劃記時在工具盤選題號，檢討時就能告訴你錯在哪個環節。'
+        : '<span class="rd-diag muted">沒有劃記</span>這題你沒有劃記。下次可以先把題目關鍵字和找到的依據句劃起來，並選「對照第 ' + (i + 1) + ' 題」（劃記不計分）。';
+    }
+    const where = (m) => `第 ${m.p + 1} 段「<span class="en">${esc(wordsOf(paras[m.p]).slice(m.f, m.t + 1).join(' '))}</span>」`;
+    if (!ev) return `<span class="rd-diag muted">無法比對</span>這題沒有設定答案依據，你劃的是${where(mine[0])}。`;
+    const evLen = ev.t - ev.f + 1;
+    const covered = new Set();
+    mine.forEach((m) => { if (m.p === ev.p) for (let k = Math.max(m.f, ev.f); k <= Math.min(m.t, ev.t); k++) covered.add(k); });
+    const cover = covered.size / evLen;
+    if (cover >= 0.6) return `<span class="rd-diag ok">改寫沒看懂</span>你劃的地方就是答案依據，位置找對了！問題出在選項把原文換了說法：${pairsHTML(q) || '對照依據句和正確選項，找出意思相同、說法不同的地方。'}`;
+    if (cover > 0) return `<span class="rd-diag">只抓到一部分</span>你只劃到答案依據的一部分（約 ${Math.round(cover * 100)}%），關鍵的部分漏掉了。把綠筆那整句讀完，答案常在後半句。`;
+    const samePara = mine.filter((m) => m.p === ev.p);
+    if (samePara.length) return `<span class="rd-diag">句子抓錯</span>段落找對了（第 ${ev.p + 1} 段），但你劃的是${where(samePara[0])}，答案在同一段的綠筆那句。找到段落後，要確認那一句真的在回答題目。`;
+    const hitKw = mine.some((m) => kw[m.p] && [...kw[m.p]].some((k) => k >= m.f && k <= m.t));
+    if (hitKw) return `<span class="rd-diag">找到關鍵字，答案在別處</span>你劃到了題目的關鍵字（${where(mine.find((m) => kw[m.p]))}），但答案在第 ${ev.p + 1} 段。同一個關鍵字可能出現好幾次，要找跟題目問的事情一樣的那一次。`;
+    return `<span class="rd-diag">定位錯誤</span>你劃的是${where(mine[0])}，但答案在第 ${ev.p + 1} 段。下次先用題目的關鍵字回文章定位，再確認那一句是不是在回答這個問題。`;
+  }
+
   // 一題的檢討：答錯時依序是 1 這題在考什麼 → 2 答案在哪裡 → 3 你錯在哪個環節（有劃記才有）→ 4 你選的選項為什麼錯
   function reviewItem(q, i, a, marks) {
     const ok = a === q.answer;
@@ -275,15 +298,7 @@ export function mount(stage, ctx) {
       const kwText = kwParas.length && Array.isArray(q.kw) && q.kw.length
         ? `題目的關鍵字 ${q.kw.map((k) => `<b class="en">${esc(k)}</b>`).join('、')} 出現在${paraList(kwParas)}（虛線標出），用它們就能找到答案的位置。` : '';
       if (where || kwText) steps.push(['答案在哪裡', where + kwText]);
-      if (Array.isArray(marks)) {
-        const hit = ev && marks.some((m) => m.p === ev.p && m.f <= ev.t && m.t >= ev.f);
-        const marked = [...new Set(marks.map((m) => m.p))].sort((x, y) => x - y);
-        let diag;
-        if (hit) diag = `<span class="rd-diag ok">改寫沒看懂</span>你有劃到答案依據，地方找對了！問題出在選項把原文換了說法：${pairsHTML(q) || '對照依據句和正確選項，找出意思相同、說法不同的地方。'}`;
-        else if (marked.length) diag = `<span class="rd-diag">定位錯誤</span>你劃的重點在${paraList(marked)}，但答案在第 ${ev ? ev.p + 1 : '?'} 段。下次先用題目的關鍵字回文章定位，再確認那一句是不是在回答這個問題。`;
-        else diag = '<span class="rd-diag muted">沒有劃記</span>這題你沒有劃記。下次可以先把題目關鍵字和找到的依據句劃起來，比較不會找錯地方（劃記不計分）。';
-        steps.push(['你錯在哪個環節', diag]);
-      }
+      if (Array.isArray(marks)) steps.push(['你錯在哪個環節', diagnose(q, i, ev, kw, marks)]);
       const trap = a != null && Array.isArray(q.traps) ? q.traps[a] : null;
       const mine = a == null ? '這題沒有作答。'
         : trap && trap.t ? `你選的 <b>${KEYS[a]}</b>：<span class="trap-tag">${esc(trap.t)}</span>${esc(trap.why || '')}`
@@ -311,7 +326,7 @@ export function mount(stage, ctx) {
         const card = stage.querySelector('.review-layout .passage-card');
         if (card) card.outerHTML = passageHTML({ ev, kw: ok ? null : kw });
         const root = stage.querySelector('.review-layout');
-        if (Array.isArray(marks)) paintMarks(root, marks);
+        if (Array.isArray(marks)) paintMarks(root, marks, { tagQ: i });
         root.querySelector('.passage-card')?.addEventListener('click', (e) => {
           const pin = e.target.closest('.note-pin'); if (!pin) return;
           const m = marks[Number(pin.dataset.note)]; if (m) openNote(root, paras, m, { readOnly: true });

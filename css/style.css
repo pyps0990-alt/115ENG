@@ -1228,6 +1228,13 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 .mk-ic-circ { display: inline-grid; place-items: center; width: 22px; height: 22px; border: 2px solid #DC2626; border-radius: 50%; font-size: .72rem; font-weight: 800; }
 .mk-ic-note { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: #3B82F6; color: #fff; font-size: .75rem; }
 .mk-ic-erase, .mk-ic-hand { font-size: 1.05rem; }
+/* 對照題目：劃記尾端的小題號、工具盤的題號、圓形按鈕上的題號 */
+.ann-text .q-tag { display: inline-block; margin-left: 2px; padding: 0 4px; border-radius: 5px; background: var(--navy); color: var(--white); font: 700 10px/16px system-ui; vertical-align: 6px; }
+.ann-q-label { margin: 0 4px; font-size: .78rem; font-weight: 700; color: var(--steel); }
+.ann-qs { gap: 4px; }
+.ann-q { min-width: 40px; min-height: 36px; padding: 0 10px; border: 1.5px solid var(--line); border-radius: 999px; background: none; font: inherit; font-size: .85rem; font-weight: 700; color: var(--navy); cursor: pointer; }
+.ann-q[aria-pressed="true"] { border-color: var(--navy); background: var(--navy); color: var(--white); }
+.ann-fab .fab-q { position: absolute; top: -6px; right: -6px; min-width: 24px; padding: 0 5px; border-radius: 999px; background: var(--navy); color: var(--white); font: 700 11px/20px system-ui; border: 2px solid var(--white); }
 /* 便利貼 */
 .note-pop { position: absolute; z-index: 40; width: min(300px, calc(100vw - 32px)); padding: 12px; border-radius: 14px; background: var(--white);
   border: 1.5px solid var(--line); box-shadow: var(--shadow); display: grid; gap: 8px; }
