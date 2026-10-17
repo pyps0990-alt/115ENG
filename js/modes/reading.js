@@ -76,7 +76,7 @@ export function mount(stage, ctx) {
 
     // 文章怎麼顯示：
     //   手機：文章收在題目上方，建議搭配課本，需要時原地展開
-    //   平板、電腦：文章預設在左邊、題目在右邊；按「收起文章」→ 題目移到中間，文章縮成右上角的懸浮按鈕（在導覽列下面），按它再展開。
+    //   平板、電腦：文章預設在左邊、題目在右邊；按「收起文章」→ 題目移到中間，文章縮成左邊的懸浮按鈕，按它再展開。
     //   切換用 View Transitions 讓文章和按鈕之間直接變形（不支援的瀏覽器就直接切換）。收起或展開記在這台裝置
     //   （檢討時文章與題目並排，見 startReview）
     let shut = false;
@@ -132,7 +132,7 @@ export function mount(stage, ctx) {
         done.finally(() => { moving = false; });
         return;
       }
-      // 收起：文章往左淡出，接著題目區變寬滑到中間，右上角的「文章」按鈕淡入
+      // 收起：文章往左淡出，接著題目區變寬滑到中間，左邊的「文章」按鈕淡入
       side.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(-28px)' }], { duration: 220, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' })
         .finished.catch(() => {}).finally(() => {
           side.getAnimations().forEach((x) => x.cancel());

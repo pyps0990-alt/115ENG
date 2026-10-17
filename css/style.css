@@ -1103,7 +1103,7 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 
 /* 課文理解作答
    手機：單欄，文章收在題目上方（建議搭配課本），點一下原地展開
-   平板、電腦（768px 以上）：文章在左、題目在右；收起後題目移到中間，文章縮成右上角的懸浮按鈕（在導覽列下面）
+   平板、電腦（768px 以上）：文章在左、題目在右；收起後題目移到中間，文章縮成左邊的懸浮按鈕（畫面垂直置中，不會擋到單元標題）
    兩種狀態之間用 View Transitions：文章卡和按鈕共用 rd-passage、題目區 rd-questions，瀏覽器會補出變形動畫 */
 .reading-quiz { display: grid; gap: 14px; }
 .rd-fold { border: 1.5px solid var(--line); border-radius: 16px; background: var(--white); overflow: hidden; }
@@ -1122,11 +1122,11 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
   .rd-side { display: grid; gap: 8px; position: sticky; top: 76px; }
   .rd-side-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px; font-size: .85rem; }
   .rd-side .passage-card { position: static; top: auto; max-height: calc(100vh - 76px - 150px); max-height: calc(100dvh - 76px - 150px); overflow: auto; overscroll-behavior: contain; }
-  /* 收起：只剩題目，置中；文章變成右上角的懸浮按鈕（導覽列高 62px，再留一點距離，不會壓到導覽列） */
+  /* 收起：只剩題目，置中；文章變成左邊的懸浮按鈕（垂直置中，文章也是從左邊滑進來） */
   .reading-quiz[data-passage="closed"] { grid-template-columns: minmax(0, 760px); justify-content: center; }
   .reading-quiz[data-passage="closed"] .rd-side { display: none; }
   .rd-float {
-    position: fixed; z-index: 15; top: calc(env(safe-area-inset-top, 0px) + 62px + 16px); right: max(16px, calc((100vw - 1200px) / 2 + 16px));
+    position: fixed; z-index: 15; top: calc(50% - 24px); left: max(16px, calc((100vw - 1200px) / 2 + 16px));
     align-items: center; gap: 8px; min-height: 48px; padding: 0 18px 0 14px; border-radius: 999px; border: 1.5px solid var(--line);
     background: var(--white); color: var(--navy); font: inherit; font-weight: 800; cursor: pointer; box-shadow: var(--shadow);
     transition: transform .18s var(--ease), box-shadow .18s var(--ease);
@@ -1134,6 +1134,12 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
   .rd-float .ic { width: 20px; height: 20px; }
   .rd-float:hover { transform: translateY(-1px); }
   .reading-quiz[data-passage="closed"] ~ .rd-float { display: inline-flex; }
+}
+/* 比較窄的平板：左邊空間不夠放整顆按鈕，改成只有圖示的圓形按鈕，題目區往右讓出位置 */
+@media (min-width: 768px) and (max-width: 1059px) {
+  .reading-quiz[data-passage="closed"] { padding-left: 60px; }
+  .rd-float { left: 12px; width: 48px; padding: 0; justify-content: center; }
+  .rd-float span { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
