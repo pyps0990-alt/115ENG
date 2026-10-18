@@ -29,7 +29,13 @@
 **加新的外部服務（字型、圖表程式庫、API）時，要同時改 `firebase.json` 的 `Content-Security-Policy`，否則會被瀏覽器擋掉。**
 不要加 `upgrade-insecure-requests`：會讓本機錯誤分析引擎（http://127.0.0.1）連不到。
 
-## App Check（程式已經寫好，等金鑰）
+## App Check（2026-10-18 啟用，尚未強制執行）
+
+目前狀態：網站金鑰 `6LcJ1fQtAAAAAKLB3e-tO1aRJ2wGkJu9RJaa40oL`（Fraud Defense，分數制）、權杖存留時間 24 小時、分數門檻 0.5；Firestore、Realtime Database、Authentication 都還是「未強制執行」。
+預定 2026-11-01 前後看 App Check 指標，已驗證比例很高再強制執行。
+
+踩過的坑：App Check 設定頁要貼「網站金鑰」，不是金鑰的舊版密鑰（legacy secret key）；貼錯時每個請求都回 403。Fraud Defense 金鑰頁的「後端」整合不用設定（由 App Check 代為評分）。
+可以用 gcloud 檢查：`gcloud recaptcha keys list --project eng-3385e`，App Check 這邊的設定在 REST API `firebaseappcheck.googleapis.com/v1/projects/eng-3385e/apps/{appId}/recaptchaEnterpriseConfig`。
 
 作用：確認連到 Firestore／Realtime Database 的請求真的來自這個網站，擋掉有人寫程式直接灌資料。
 Apps Script 用專案擁有者權限讀寫 Firestore，不受影響。
