@@ -34,9 +34,9 @@
 作用：確認連到 Firestore／Realtime Database 的請求真的來自這個網站，擋掉有人寫程式直接灌資料。
 Apps Script 用專案擁有者權限讀寫 Firestore，不受影響。
 
-1. 到 https://www.google.com/recaptcha/admin/create 建立 **reCAPTCHA v3** 金鑰，網域填 `eng-3385e.web.app` 和 `eng-3385e.firebaseapp.com`。
-2. Firebase 主控台 → App Check → 應用程式 → 網頁應用程式 → 選 reCAPTCHA v3，貼上「密鑰（secret key）」。
-3. 把「網站金鑰（site key）」貼到 `js/config.js` 的 `APP_CHECK_SITE_KEY`，部署網站。
+1. 在 Google Cloud 主控台的 **Fraud Defense**（舊稱 reCAPTCHA Enterprise）建立網站金鑰（類型：網站），網域填 `eng-3385e.web.app` 和 `eng-3385e.firebaseapp.com`。
+2. Firebase 主控台 → App Check → 應用程式 → 網頁應用程式 → 選 **reCAPTCHA Enterprise**，貼上網站金鑰（不需要密鑰），權杖存留時間用預設 1 小時。
+3. 網站金鑰放在 `js/config.js` 的 `APP_CHECK_SITE_KEY`（程式用 `ReCaptchaEnterpriseProvider`），部署網站。
 4. **先不要按「強制執行」**。觀察主控台 App Check 的指標 1～2 週，確認幾乎所有請求都是「已驗證」（學校網路有沒有擋 reCAPTCHA）。
 5. 確認沒問題後，Firestore 與 Realtime Database 再各自按「強制執行」。
 

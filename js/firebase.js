@@ -24,7 +24,7 @@ const app = initializeApp({
 if (APP_CHECK_SITE_KEY) {
   try {
     const ac = await import('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check.js');
-    ac.initializeAppCheck(app, { provider: new ac.ReCaptchaV3Provider(APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true });
+    ac.initializeAppCheck(app, { provider: new ac.ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true });
   } catch (e) { console.warn('App Check 無法啟用', e); }
 }
 // 學校網路（代理伺服器、防火牆）有時會擋掉即時連線：自動偵測，擋掉時改用長輪詢，即時同步才不會斷

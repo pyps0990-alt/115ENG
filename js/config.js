@@ -13,7 +13,7 @@ export const CJK_WEBFONT = true;
 
 // 即時在線人數與交卷健康度（老師的 monitor.html）用的 Firebase Realtime Database 網址。
 // 在 Firebase 主控台建立 Realtime Database 後，把「資料」頁上方的網址貼在這裡；留空字串＝不啟用（網站照常運作）。
-// Firebase App Check（reCAPTCHA v3 網站金鑰，公開的、可以放在這裡）：確認連到 Firebase 的請求真的來自這個網站，
+// Firebase App Check（Fraud Defense／reCAPTCHA Enterprise 網站金鑰，公開的、可以放在這裡）：確認連到 Firebase 的請求真的來自這個網站，
 // 擋掉有人寫程式直接灌資料。留空字串＝不啟用。啟用步驟見 docs/security.md
 export const APP_CHECK_SITE_KEY = '6LcJ1fQtAAAAAKLB3e-tO1aRJ2wGkJu9RJaa40oL';
 
