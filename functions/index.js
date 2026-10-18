@@ -156,12 +156,12 @@ export const submit = onRequest({ region: 'asia-east1', cors: ORIGINS, maxInstan
       throw e;
     }
 
-    // 轉送 Apps Script（試算表馬上有）；失敗沒關係，Apps Script 每 10 分鐘會從 Firestore 補同步
+    // 轉送 Apps Script（試算表馬上有）：最多等 3 秒；沒等到或失敗都沒關係，Apps Script 每 10 分鐘會從 Firestore 補同步
     try {
       const secret = await fnSecret();
       if (secret) {
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 8000);
+        const timer = setTimeout(() => ctrl.abort(), 3000); // 不等試算表整理完：Apps Script 收到後會自己做完，學生不用多等
         const { createdAt, ...plain } = rec; // eslint-disable-line no-unused-vars
         await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...plain, sig: secret, serverCheck: rec.check }), signal: ctrl.signal, redirect: 'follow' })
           .then((r) => r.text()).catch(() => '').finally(() => clearTimeout(timer));
