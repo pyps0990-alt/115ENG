@@ -4,7 +4,7 @@
 //   classes/{cls}/seats/{seat}/units/{unit}/attempts/{attemptId}   老師在主控台依班級瀏覽用
 //   admins/{email}                      老師／管理員名單（在 Firebase 主控台手動新增）
 // 名單上沒有的班級/座號/姓名組合算不出存在的 key，所以進不去；規則也不允許列出 vault。
-import { SCRIPT_URL } from './config.js';
+import { SCRIPT_URL, APP_CHECK_SITE_KEY } from './config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
 import {
   initializeFirestore, doc, getDoc, onSnapshot, getDocs, setDoc, collection, writeBatch, serverTimestamp,
@@ -19,6 +19,14 @@ const app = initializeApp({
   messagingSenderId: '396514115433',
   appId: '1:396514115433:web:2bbe5d62c272bb69fa87f8',
 });
+// App Check：要在 Firestore、Realtime Database 第一次連線前啟用，之後的請求才會自動帶上憑證。
+// 載入失敗（例如網路擋掉 reCAPTCHA）不影響網站：主控台還沒「強制執行」前，沒有憑證的請求照樣放行
+if (APP_CHECK_SITE_KEY) {
+  try {
+    const ac = await import('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check.js');
+    ac.initializeAppCheck(app, { provider: new ac.ReCaptchaV3Provider(APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true });
+  } catch (e) { console.warn('App Check 無法啟用', e); }
+}
 // 學校網路（代理伺服器、防火牆）有時會擋掉即時連線：自動偵測，擋掉時改用長輪詢，即時同步才不會斷
 // 寫入先存在裝置上（IndexedDB）：沒網路、重新整理、關掉再開都還在，連上網自動補送；不支援時 SDK 自動改用記憶體
 const db = initializeFirestore(app, {
