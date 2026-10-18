@@ -184,6 +184,8 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
       }
       if (/\/documents\/admins\?/.test(url)) return resp(200, JSON.stringify({ documents: [...admins].map((e) => ({ name: 'projects/x/databases/(default)/documents/admins/' + e })) }));
       if (url.includes('/documents/admins/')) return admins.has(decodeURIComponent(url.split('/documents/admins/')[1])) ? resp(200, '{"name":"x"}') : resp(404, '{}');
+      // 伺服器計分轉送用的通關密語（global.__fnSecret）
+      if (url.includes('/documents/private/fn')) return global.__fnSecret ? resp(200, JSON.stringify({ name: 'x', fields: { secret: { stringValue: global.__fnSecret } } })) : resp(404, '{}');
       if (url.includes('/documents/vault/') && (opts.method || 'get') === 'get') {
         // 學生帳本：rosterKeys 沒給＝每個人都在名單上；rosterKeys === 'down'＝Firestore 暫時出錯
         const k = url.split('/documents/vault/')[1].split(/[?/]/)[0];

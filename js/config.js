@@ -1,10 +1,8 @@
 // 部署 Apps Script（apps-script/ 資料夾）後，把 Web App 網址貼在這裡（結尾是 /exec）。
 // 留空字串時：網站使用 data/config.default.json 的設定，正式測驗只顯示成績單、不回傳。
-// 成績怎麼送：
-//   'both'      Firestore 與 Apps Script 同時送（試算表即時更新；Apps Script 另外每 10 分鐘從 Firestore 補同步）
-//   'firestore' 先送 Firestore（正本，離線也先存在裝置上）；5 秒內沒確認或被拒才改走 Apps Script 當備援。
-//               試算表由 Apps Script 每 10 分鐘從 Firestore 同步（要先在 Apps Script 執行一次 installSyncTrigger）
-export const SCORE_TRANSPORT = 'both';
+// 成績怎麼送：交卷送到伺服器計分（Cloud Function functions/index.js）：伺服器依題庫重算分數、寫進 Firestore、轉送 Apps Script 試算表。
+// 學生的瀏覽器不能直接寫成績（firestore.rules）。伺服器連不到時（重試 3 次）才改送 Apps Script 當備援，試算表會標記「未經伺服器計分」。
+export const SUBMIT_URL = 'https://asia-east1-eng-3385e.cloudfunctions.net/submit';
 
 export const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw1KgAc6VsJkFM-ADUJY3NHWt4Y4KYDlUjppRlzKB__HRHEwPzgxfK0GXkMKaF9x1Ny/exec';
 

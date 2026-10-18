@@ -165,7 +165,10 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   okc(g2.api('saveContent', ['r1', { title: 'T', topic: 't', passage: ['Tea is good.'], questions: [
     { ref: '1-1', skill: '細節', q: 'Q1?', options: ['Leaves', 'Rocks'], answer: 0, explain: 'x' }, { ref: '1-1', skill: '細節', q: 'Q2?', options: ['a', 'b'], answer: 1, explain: 'x' }] }, true]));
   const send = (o) => g2.postScore(Object.assign({ cls: '306', seat: '1', name: '王小明', clientTs: '2026-10-01 10:00:00' }, o));
-  const lastCheck = () => { const sh = g2.sheets.get('scores'); return String(sh.rows[sh.getLastRow() - 1][18] || ''); };
+  // 學生端直接送來的（沒經過伺服器計分）一律多一句標記；下面先拿掉這句，再看題庫核對的結果
+  const UNSIGNED = '未經伺服器計分（學生端直接送出）';
+  const rawCheck = () => { const sh = g2.sheets.get('scores'); return String(sh.rows[sh.getLastRow() - 1][18] || ''); };
+  const lastCheck = () => { const c = rawCheck(); assert.ok(c.includes(UNSIGNED), '學生端直接送出要標記：' + c); return c.replace(UNSIGNED, '').replace(/^；|；$/g, ''); };
   // 課文：正確的成績
   send({ attemptId: 'a1', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 1, total: 2, pct: 50, durationSec: 30,
     details: [{ n: 1, correct: 'A. Leaves', yours: 'A. Leaves', ok: true, points: 1 }, { n: 2, correct: 'B. b', yours: 'A. a', ok: false, points: 0 }] });
@@ -203,9 +206,20 @@ console.log('Code.gs 儲存邏輯測試全部通過');
   send({ attemptId: 'v1b', unit: 'v1', unitTitle: 'V', mode: 'vocab', score: 2, total: 2, pct: 100, durationSec: 40,
     details: [{ stage: '基礎', n: 1, kind: '英→中', correct: '中0', yours: '中3', ok: true, points: 1, word: 'apple' }, { stage: '基礎', n: 2, kind: '中→英', correct: 'zebra', yours: 'zebra', ok: true, points: 1, word: 'zebra' }] });
   assert.match(lastCheck(), /2 題答案與題庫不符/);
+  // 伺服器計分轉送的（帶通關密語）：直接採用伺服器的核對說明，不再標記；密語不對就拒收
+  global.__fnSecret = 's'.repeat(64);
+  g2.cacheMap.clear();
+  send({ attemptId: 'sv1', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 1, total: 2, pct: 50, durationSec: 30, sig: 's'.repeat(64), serverCheck: '',
+    details: [{ n: 1, correct: 'A. Leaves', yours: 'A. Leaves', ok: true, points: 1 }, { n: 2, correct: 'B. b', yours: 'A. a', ok: false, points: 0 }] });
+  assert.equal(rawCheck(), '', '伺服器計分的成績不標記');
+  send({ attemptId: 'sv2', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 1, total: 2, pct: 50, durationSec: 30, sig: 's'.repeat(64), serverCheck: '離開作答畫面 1 次（共 5 秒）', details: [] });
+  assert.equal(rawCheck(), '離開作答畫面 1 次（共 5 秒）', '採用伺服器的核對說明');
+  const bad = send({ attemptId: 'sv3', unit: 'r1', unitTitle: 'R', mode: 'reading', score: 2, total: 2, pct: 100, durationSec: 30, sig: 'wrong', details: [] });
+  assert.equal(bad.ok, false, '通關密語不對就拒收');
+  global.__fnSecret = '';
   // 管理後台看得到驗證欄
   const rows = okc(g2.api('getScores', [{}]));
-  assert.ok(rows.some((r) => /時間過短/.test(r.check)) && rows.some((r) => r.check === ''));
+  assert.ok(rows.some((r) => /時間過短/.test(r.check)) && rows.some((r) => !/時間過短|不符|百分比/.test(r.check)));
   // 去重：超過 500 筆之後，很久以前的編號還是能認出來（快取清空模擬過期）
   const sh = g2.sheets.get('scores');
   for (let i = 0; i < 700; i++) sh.rows.push(['t', '306', '1', 'x', 'r1', '', '', '', 0, 0, 0, '', '', '', '', 0, '', 'old' + i, '']);

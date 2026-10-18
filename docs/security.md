@@ -8,7 +8,9 @@
 |---|---|
 | Firestore 規則：欄位白名單、型別長度、作答紀錄只能新增、時間用伺服器時間 | `firestore.rules` |
 | 老師權限：已驗證的 Google 帳號＋老師名單（名單只由 Apps Script 同步） | `firestore.rules` `isStaff`、`Code.gs` `assertTeacher_` |
-| 交卷次數計數器：每筆成績同一批加 1，整學期上限 3000 | `firestore.rules` `bumpsQuota`、`js/firebase.js` |
+| **伺服器計分**：學生交卷只送作答內容，伺服器依題庫重新判斷對錯、重算分數後寫入；學生的瀏覽器不能寫成績 | `functions/index.js`（Cloud Function）、`js/grade.js`（和網站同一套判斷）、`firestore.rules` |
+| 交卷限頻：同一位學生 10 分鐘最多 20 筆 | `functions/index.js` |
+| 作答誠信：禁止翻譯、複製貼上；默默記錄離開作答畫面 | `js/integrity.js` |
 | 成績核對：同步到試算表時用題庫核對，課文理解以伺服器重算為準；後台成績頁顯示核對結果 | `Code.gs` `checkAttempt_`、`getChecks` |
 | 試算表公式注入防護 | `Code.gs` `cell_` |
 | 內容安全政策（CSP，強制執行） | `firebase.json` |
@@ -51,15 +53,20 @@ Apps Script 用專案擁有者權限讀寫 Firestore，不受影響。
 ## 已知、尚未處理的風險
 
 - **冒名**：學生身分只靠班級＋座號＋姓名，同學可以冒充別人（看紀錄、代交卷）。解法：老師發個人密碼。
-- **偽造分數**：分數由瀏覽器計算。試算表那份有核對與標記，但 Firestore 那份照存學生送來的分數。根本解法：伺服器計分。
-- **答案公開**：題目與答案在公開設定裡，開發者工具看得到。根本解法：伺服器計分、答案不送到學生端。
+- **看答案**：題目與答案在公開設定裡，開發者工具看得到（伺服器計分擋得住改分數，擋不住先看答案再作答）。課文理解、句型可以改成交卷後才給答案。
 - **即時在線統計可以被灌**：Realtime Database 的 presence／stats 不需登入就能寫，只影響監控頁的數字。
 
 ## 2026-10-18 的決定
 
-老師決定**目前選擇相信學生**，冒名與偽造分數兩項先不處理（成績會列入學期成績，所以保留以下做法備用）。
+老師決定**冒名目前選擇相信學生**，先不處理（成績會列入學期成績，所以保留以下做法備用）；偽造分數改用伺服器計分處理（見下一節）。
 
 - 學生都有學校 Google 帳號：之後要防冒名，首選「用學校 Google 帳號登入」（Firebase Auth 的 Google 登入，規則比對帳號 email 與名單），不用另發代碼。
   搬家時 L1-2 等既有成績只能原樣複製，不能改分數。
-- 偽造分數：先靠伺服器核對（課文理解伺服器重算、單字與句型標記可疑紀錄），後台成績頁看驗證欄。
-  要完全杜絕只能改成伺服器出題、計分（三種測驗模式都要改寫，且失去離線作答）。
+
+## 伺服器計分（2026-10-18 上線）
+
+- 交卷路線：網站 → Cloud Function `submit`（asia-east1）→ Firestore（班級路徑、學生帳本兩份）→ 轉送 Apps Script 試算表（帶 Firestore `private/fn` 的通關密語）。
+- 伺服器連續 3 次連不上（例如學校網路擋掉）才改送 Apps Script 備援；試算表會標記「未經伺服器計分（學生端直接送出）」，Firestore 不會有這筆。
+- 改判斷規則（題型、拼字比對、計分）時，`js/grade.js` 跟網站用同一套程式；先跑 `node tools/e2e/grade.mjs`。
+- 部署：`npx firebase deploy --only functions`（predeploy 會把 `js/` 複製到 `functions/site/`）。改了 `js/` 裡的出題或判斷程式，網站和 functions 都要重新部署。
+- 測試：`node tools/e2e/grade.mjs`（計分和網站一致、竄改無效）、`tools/e2e/submit-fn.mjs`（模擬器整合測試，檔頭有執行方式）、`node tools/e2e/submit-route.mjs`（交卷路線）。

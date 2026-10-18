@@ -1,6 +1,6 @@
 // 作答誠信：作答中（body[data-busy]）阻擋翻譯、複製貼上，記錄離開作答畫面；交卷時把紀錄附在成績裡給老師看。
 // 能擋的：瀏覽器內建翻譯（整頁 translate="no"）、翻譯擴充功能（偵測到就遮住題目）、選取／複製／右鍵／拖曳、貼上答案。
-// 擋不住、只能記錄的：切到別的 App 或分頁查資料（記錄次數與秒數）。擋不住也偵測不到的：用另一台裝置拍照翻譯。
+// 擋不住、只能記錄的：切到別的 App 或分頁查資料（默默記錄次數與秒數）。擋不住也偵測不到的：用另一台裝置拍照翻譯。
 // 由 js/app.js 在 data-busy 出現／消失時呼叫 start／stop；js/submit.js 交卷時用 take() 取走這次的紀錄。
 
 const KEY = 'b5p:integrity';
@@ -37,8 +37,7 @@ export function start(unit, { onNotice } = {}) {
   const awayBack = (since, min) => {
     const ms = Date.now() - since;
     if (ms < min) return;
-    rec.away += 1; rec.awaySec += Math.round(ms / 1000); save();
-    notify(`你離開了作答畫面（第 ${rec.away} 次），會記錄給老師`, 'wait');
+    rec.away += 1; rec.awaySec += Math.round(ms / 1000); save(); // 默默記錄，不跳提示打擾學生
   };
   const onVis = () => {
     if (document.hidden) { hiddenAt = Date.now(); blurAt = 0; return; }

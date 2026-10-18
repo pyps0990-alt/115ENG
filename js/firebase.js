@@ -8,7 +8,7 @@ import { SCRIPT_URL, APP_CHECK_SITE_KEY } from './config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
 import {
   initializeFirestore, doc, getDoc, onSnapshot, getDocs, setDoc, collection, writeBatch, serverTimestamp,
-  persistentLocalCache, persistentMultipleTabManager, collectionGroup, increment, query, where, orderBy, limit, Timestamp,
+  persistentLocalCache, persistentMultipleTabManager, collectionGroup, query, where, orderBy, limit, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
 
 const app = initializeApp({
@@ -83,92 +83,7 @@ export async function markReviewed(key, unit) {
   await setDoc(doc(db, 'vault', key, 'reviews', clean(unit, 60)), { unit: clean(unit, 60), at: serverTimestamp() });
 }
 
-function cleanDetails(list) {
-  if (!Array.isArray(list)) return [];
-  return list.slice(0, 150).map((x) => ({
-    stage: clean(x.stage, 20),
-    kind: clean(x.kind, 20),
-    n: Number(x.n) || 0,
-    question: clean(x.q, 300),
-    correct: clean(x.correct, x.open ? 800 : 200),
-    yours: clean(x.yours, x.open ? 3000 : 200),
-    ok: !!x.ok,
-    open: !!x.open,
-    points: Number(x.points) || 0,
-    hints: Number(x.hints) || 0,
-    word: clean(x.word, 80),
-    err: clean(x.err, 20),
-    exampleEn: clean(x.exampleEn, 200),
-    exampleZh: clean(x.exampleZh, 200),
-    // 單字例句選字題：當時的選項、考第幾句、課外選項（逐題檢討重跑解題步驟要用；換裝置讀回來也要有）
-    ...(Array.isArray(x.options) ? { options: x.options.slice(0, 6).map((o) => clean(o, 200)) } : {}),
-    ...(Number.isInteger(x.exIdx) ? { exIdx: x.exIdx } : {}),
-    ...(Array.isArray(x.extras) ? { extras: x.extras.slice(0, 3).map((e) => ({ form: clean(e.form, 60), word: clean(e.word, 60), zh: clean(e.zh, 60), pos: clean(e.pos, 20) })) } : {}),
-  }));
-}
-// 課文理解的文章劃記（不計分）：{ p 第幾段, f 起, t 迄（第幾個字）, k 工具, n 便利貼文字 }，最多 300 個
-function cleanMarks(list) {
-  if (!Array.isArray(list)) return null;
-  const tools = ['hl-yellow', 'hl-green', 'hl-pink', 'ul', 'circ', 'note'];
-  return list.slice(0, 300).map((m) => ({ p: Math.max(0, Math.floor(Number(m.p) || 0)), f: Math.max(0, Math.floor(Number(m.f) || 0)), t: Math.max(0, Math.floor(Number(m.t) || 0)), k: tools.includes(m.k) ? m.k : 'hl-yellow', ...(m.n ? { n: clean(m.n, 200) } : {}), ...(Number.isInteger(m.q) && m.q >= 0 && m.q < 50 ? { q: m.q } : {}) }));
-}
-
-// 同時寫進學生帳本（讓學生讀回）與班級路徑（老師瀏覽）。attemptId 當文件 ID，重複送出不會多一筆。
-export async function saveScoreToFirestore(payload, key) {
-  const cls = clean(payload.cls, 8);
-  const seat = clean(payload.seat, 4);
-  const unit = clean(payload.unit, 60);
-  const attemptId = clean(payload.attemptId, 64);
-  if (!cls || !seat || !unit || !attemptId || !key) return 'nokey'; // 沒登入（沒有帳本 key）的成績規則不收，只送老師試算表
-  const record = {
-    cls, seat, unit, attemptId, key,
-    name: clean(payload.name, 40),
-    unitTitle: clean(payload.unitTitle, 80),
-    level: clean(payload.level, 40),
-    mode: clean(payload.mode, 30),
-    review: !!payload.review,
-    score: Number(payload.score) || 0,
-    total: Number(payload.total) || 0,
-    pct: Math.min(100, Math.max(0, Number(payload.pct) || 0)),
-    basic: clean(payload.basic, 12),
-    advanced: clean(payload.advanced, 12),
-    mastery: clean(payload.mastery, 12),
-    wrong: Array.isArray(payload.wrong) ? payload.wrong.slice(0, 60).map((w) => clean(w, 60)) : [],
-    durationSec: Number(payload.durationSec) || 0,
-    clientTs: clean(payload.clientTs, 30),
-    details: cleanDetails(payload.details),
-    createdAt: serverTimestamp(),
-  };
-  // 作答誠信紀錄（js/integrity.js）：離開畫面次數與秒數、偵測到翻譯、貼上、複製的次數
-  const ig = payload.integrity;
-  if (ig && typeof ig === 'object') {
-    const n = (v) => Math.max(0, Math.min(100000, Math.floor(Number(v) || 0)));
-    record.integrity = { away: n(ig.away), awaySec: n(ig.awaySec), translate: n(ig.translate), paste: n(ig.paste), copy: n(ig.copy) };
-  }
-  const marks = cleanMarks(payload.marks);
-  if (marks && marks.length) record.marks = marks;
-  // 兩份一起寫（要嘛都成功、要嘛都失敗）。Promise 在伺服器確認後才完成；離線時先存在裝置上，連上網再送
-  const classRef = doc(db, 'classes', cls, 'seats', seat, 'units', unit, 'attempts', attemptId);
-  const batch = writeBatch(db);
-  batch.set(classRef, record);
-  batch.set(doc(db, 'vault', key, 'attempts', attemptId), record);
-  // 交卷次數計數器：規則要求每一筆成績都要把它加 1，而且有上限（防止有人繞過網站大量灌假紀錄）。
-  // 用 increment：離線時排隊的好幾筆會依序累加，不會互相衝突
-  batch.set(doc(db, 'vault', key, 'meta', 'quota'), { n: increment(1) }, { merge: true });
-  try {
-    await batch.commit();
-    return 'ok';
-  } catch (err) {
-    // 規則只允許新增：同一筆再寫一次會被拒，確認已經存在就當成功
-    if (err && err.code === 'permission-denied') {
-      try { if ((await getDoc(classRef)).exists()) return 'ok'; } catch { /* 讀不到就當失敗 */ }
-      console.warn('Firestore 拒絕這筆成績', err);
-      return 'denied';
-    }
-    console.warn('Firestore 成績寫入失敗', err);
-    return 'error';
-  }
-}
+// 成績不再由瀏覽器直接寫入：交卷送到伺服器計分（functions/index.js），由伺服器寫進 Firestore
 
 // 老師後台「成績」：最近 days 天的成績（可指定班級），新的在前。只取 classes 底下那一份（vault 底下是同一筆）
 export async function listAttempts({ cls = '', days = 14, max = 500 } = {}) {

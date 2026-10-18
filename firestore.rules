@@ -9,43 +9,10 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/admins/$(request.auth.token.email.lower()));
     }
 
-    // 一筆測驗紀錄（js/firebase.js saveScoreToFirestore）：只能有這些欄位，型別與長度都要對。
-    // key 是學生帳本的 key，寫進班級路徑時用來確認這個學生真的在名單上。
-    function validAttempt(d, attemptId) {
-      return d.keys().hasOnly(['cls', 'seat', 'unit', 'attemptId', 'key', 'name', 'unitTitle', 'level', 'mode', 'review',
-          'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTs', 'details', 'marks', 'integrity', 'createdAt'])
-        && d.keys().hasAll(['cls', 'seat', 'unit', 'attemptId', 'key', 'score', 'total', 'pct', 'details', 'createdAt'])
-        && d.attemptId == attemptId
-        && d.key is string && d.key.size() == 64
-        && d.cls is string && d.cls.size() <= 8
-        && d.seat is string && d.seat.size() <= 4
-        && d.unit is string && d.unit.size() <= 60
-        && d.get('name', '') is string && d.get('name', '').size() <= 40
-        && d.get('unitTitle', '') is string && d.get('unitTitle', '').size() <= 80
-        && d.get('level', '') is string && d.get('level', '').size() <= 40
-        && d.get('mode', '') is string && d.get('mode', '').size() <= 30
-        && d.get('review', false) is bool
-        && d.score is number && d.total is number
-        && d.total > 0 && d.total <= 200 && d.score >= 0 && d.score <= d.total
-        && d.pct is number && d.pct >= 0 && d.pct <= 100
-        && d.get('wrong', []) is list && d.get('wrong', []).size() <= 60
-        && d.get('durationSec', 0) is number
-        && d.get('clientTs', '') is string && d.get('clientTs', '').size() <= 30
-        && d.details is list && d.details.size() <= 150
-        && d.get('marks', []) is list && d.get('marks', []).size() <= 300
-        && d.get('integrity', {}) is map && d.get('integrity', {}).size() <= 8
-        && d.createdAt == request.time;
-    }
+    // 作答紀錄（attempts）只能由伺服器計分寫入：Cloud Function functions/index.js 用管理員權限寫，不經過這份規則。
+    // 學生的瀏覽器不能新增、修改、刪除任何作答紀錄（以前可以直接寫，學生能改分數）。
 
-    // 老師後台「成績」直接讀 Firestore：用 collection group 查詢所有 attempts（寫入規則仍在各自的路徑底下）
-    // 交卷次數計數器 vault/{key}/meta/quota：每寫一筆成績，同一批要把 n 加 1，最多 QUOTA 筆（整學期）。
-    // 正常學生一學期遠低於這個數字；有人繞過網站直接灌資料時，到上限就寫不進去。學期結算清除作答紀錄時一起歸零
-    function quotaPath(key) { return /databases/$(database)/documents/vault/$(key)/meta/quota; }
-    function bumpsQuota(key) {
-      let before = exists(quotaPath(key)) ? get(quotaPath(key)).data.n : 0;
-      return getAfter(quotaPath(key)).data.n == before + 1;
-    }
-
+    // 老師後台「成績」直接讀 Firestore：用 collection group 查詢所有 attempts
     match /{path=**}/attempts/{attemptId} {
       allow read: if isStaff();
     }
@@ -78,26 +45,15 @@ service cloud.firestore {
         && request.resource.data.name is string && request.resource.data.name.size() <= 40;
       allow delete: if isStaff();
 
-      // 學生自己的測驗紀錄：帳本存在才能寫入；只能新增，不能改或刪
+      // 學生自己的測驗紀錄：伺服器計分後寫入；學生登入後讀回（確認做過哪些單元）
       match /attempts/{attemptId} {
         allow read: if true;
-        allow create: if exists(/databases/$(database)/documents/vault/$(key))
-          && validAttempt(request.resource.data, attemptId)
-          && request.resource.data.key == key
-          && request.resource.data.cls == get(/databases/$(database)/documents/vault/$(key)).data.cls
-          && request.resource.data.seat == get(/databases/$(database)/documents/vault/$(key)).data.seat
-          && bumpsQuota(key);
-        allow update, delete: if false;
+        allow write: if false;
       }
 
-      // 交卷次數計數器（見上面 bumpsQuota）：只能是 { n: 數字 }，每次加 1，上限 3000；學生讀不到也不能刪
+      // meta：伺服器計分的限頻紀錄（只有伺服器讀寫）
       match /meta/{doc} {
-        allow read, delete: if false;
-        allow create: if doc == 'quota' && exists(/databases/$(database)/documents/vault/$(key))
-          && request.resource.data.keys().hasOnly(['n']) && request.resource.data.n == 1;
-        allow update: if doc == 'quota'
-          && request.resource.data.keys().hasOnly(['n']) && request.resource.data.n == resource.data.n + 1
-          && request.resource.data.n <= 3000;
+        allow read, write: if false;
       }
 
       // 已完成檢討的單元（文件 ID 是單元 id）；完成檢討後才能開始複習
@@ -118,16 +74,16 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['cls', 'seat', 'name', 'updatedAt']);
       allow delete: if isStaff();
 
-      // 只有名單上的學生能寫，而且只能寫到自己的班級、座號、單元底下
+      // 作答紀錄由伺服器計分後寫入，只有老師能讀
       match /units/{unitId}/attempts/{attemptId} {
         allow read: if isStaff();
-        allow create: if validAttempt(request.resource.data, attemptId)
-          && request.resource.data.cls == cls && request.resource.data.seat == seat && request.resource.data.unit == unitId
-          && get(/databases/$(database)/documents/vault/$(request.resource.data.key)).data.cls == cls
-          && get(/databases/$(database)/documents/vault/$(request.resource.data.key)).data.seat == seat
-          && bumpsQuota(request.resource.data.key);
-        allow update, delete: if false;
+        allow write: if false;
       }
+    }
+
+    // private：伺服器之間用的設定（例如轉送試算表的通關密語），任何人都不能讀寫
+    match /private/{doc} {
+      allow read, write: if false;
     }
   }
 }

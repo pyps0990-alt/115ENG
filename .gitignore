@@ -15,3 +15,7 @@ tools/brain/space_dist/
 tools/brain/review_dump*.txt
 tools/brain/cloudrun_dist/
 tools/brain/.brain_key
+
+# Cloud Functions：套件與部署前複製的網站程式
+functions/node_modules/
+functions/site/

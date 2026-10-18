@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const require = createRequire(path.join(process.env.RULES_DEPS || ROOT, 'noop.js'));
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require('@firebase/rules-unit-testing');
-const { doc, getDoc, setDoc, updateDoc, getDocs, collection, serverTimestamp, writeBatch, increment } = require('firebase/firestore');
+const { doc, getDoc, setDoc, updateDoc, getDocs, collection, serverTimestamp } = require('firebase/firestore');
 
 const env = await initializeTestEnvironment({
   projectId: 'demo-b5p',
@@ -31,64 +31,34 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'public', 'config'), { json: '{}' });
 });
 
-// 跟 js/firebase.js saveScoreToFirestore 寫的一樣
+// 伺服器計分（functions/index.js）寫入的作答紀錄長這樣
 const record = (o = {}) => ({
   cls: '306', seat: '7', unit: 'u1', attemptId: 'a1', key: KEY, name: '王小明', unitTitle: 'U', level: '', mode: 'vocab', review: false,
-  score: 3, total: 4, pct: 75, basic: '1/1', advanced: '1/1', mastery: '1/2', wrong: ['x'], durationSec: 60, clientTs: '2026-10-01 10:00:00',
-  details: [{ stage: '基礎', kind: '英→中', n: 1, question: '', correct: 'a', yours: 'a', ok: true, open: false, points: 1, hints: 0, word: 'a', err: '', exampleEn: '', exampleZh: '' }],
+  score: 3, total: 4, pct: 75, wrong: ['x'], durationSec: 60, clientTs: '2026-10-01 10:00:00', details: [], serverGraded: true, check: '',
   createdAt: serverTimestamp(), ...o,
 });
 const anon = env.unauthenticatedContext().firestore();
-const vaultAtt = (key, id) => doc(anon, 'vault', key, 'attempts', id);
+const vaultAtt = (key, id, db = anon) => doc(db, 'vault', key, 'attempts', id);
 const classAtt = (cls, seat, unit, id, db = anon) => doc(db, 'classes', cls, 'seats', seat, 'units', unit, 'attempts', id);
+// 伺服器（管理員權限）寫入一筆
+await env.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(vaultAtt(KEY, 'a1', ctx.firestore()), record());
+  await setDoc(classAtt('306', '7', 'u1', 'a1', ctx.firestore()), record());
+});
 
-// 交卷：跟 js/firebase.js saveScoreToFirestore 一樣，同一批寫班級路徑、學生帳本、交卷次數計數器（加 1）
-const quota = (key, db = anon) => doc(db, 'vault', key, 'meta', 'quota');
-function submit(rec, { cls = true, vault = true, bump = 1, path = null } = {}) {
-  const batch = writeBatch(anon);
-  if (cls) batch.set(path || classAtt(rec.cls, rec.seat, rec.unit, rec.attemptId), rec);
-  if (vault) batch.set(vaultAtt(rec.key, rec.attemptId), rec);
-  if (bump) batch.set(quota(rec.key), { n: increment(bump) }, { merge: true });
-  return batch.commit();
-}
-
-// 學生帳本＋班級路徑：自己的紀錄
-await assertSucceeds(submit(record()));
-await assertFails(submit(record({ pct: 100 })), '不能改已經送出的紀錄');
-await assertFails(submit(record({ attemptId: 'a2' }), { bump: 0 }), '沒有把計數器加 1');
-await assertFails(submit(record({ attemptId: 'a2' }), { bump: 2 }), '計數器一次只能加 1');
-await assertFails(setDoc(vaultAtt(KEY, 'a2'), record({ attemptId: 'a2' })), '只寫帳本、沒加計數器');
-await assertSucceeds(submit(record({ attemptId: 'a2' })));
-await assertFails(getDoc(quota(KEY)), '學生讀不到計數器');
-await assertFails(setDoc(quota(KEY), { n: 1 }), '不能把計數器改回去');
-await assertFails(submit(record({ attemptId: 'a3', key: OTHER })), 'key 要跟帳本一致（帳本的班級座號不同）');
-await assertFails(submit(record({ attemptId: 'a3', key: keyOf('999', '1', '不存在') }), { cls: false }), '名單上沒有的人不能寫');
-await assertFails(submit(record({ attemptId: 'a3', cls: '307' }), { cls: false }), '帳本路徑的班級要跟名單一致');
-await assertFails(submit(record({ attemptId: 'a4', hacked: true })), '多出來的欄位');
-await assertSucceeds(submit(record({ attemptId: 'i1', integrity: { away: 2, awaySec: 30, translate: 0, paste: 1, copy: 0 } })));
-await assertFails(submit(record({ attemptId: 'i2', integrity: 'x' })), '作答誠信紀錄要是物件');
-await assertFails(submit(record({ attemptId: 'a5', pct: 150 })), '百分比超出範圍');
-await assertFails(submit(record({ attemptId: 'a6', createdAt: new Date('2020-01-01') })), '時間要用伺服器時間');
-await assertFails(submit(record({ attemptId: 'a7', details: Array(151).fill({}) })), '明細最多 150 筆');
-await assertFails(submit(record({ attemptId: 'a8', name: 'x'.repeat(41) })), '姓名太長');
-await assertFails(submit(record({ attemptId: 'a9', score: '3' })), '分數要是數字');
-await assertSucceeds(getDocs(collection(anon, 'vault', KEY, 'attempts')));
+// 學生的瀏覽器不能寫作答紀錄（任何路徑、任何內容都不行）：只能交給伺服器計分
+await assertFails(setDoc(vaultAtt(KEY, 'a2'), record({ attemptId: 'a2' })), '不能直接寫帳本裡的成績');
+await assertFails(setDoc(classAtt('306', '7', 'u1', 'a2'), record({ attemptId: 'a2' })), '不能直接寫班級路徑的成績');
+await assertFails(updateDoc(vaultAtt(KEY, 'a1'), { pct: 100 }), '不能改分數');
+await assertSucceeds(getDocs(collection(anon, 'vault', KEY, 'attempts')), '學生讀得回自己的紀錄');
 await assertFails(getDocs(collection(anon, 'vault')), '不能列出名單');
-// 交卷次數上限 3000
-await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'vault', KEY, 'meta', 'quota'), { n: 2999 }); });
-await assertSucceeds(submit(record({ attemptId: 'q1' })));
-await assertFails(submit(record({ attemptId: 'q2' })), '超過上限就寫不進去');
-await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'vault', KEY, 'meta', 'quota'), { n: 2 }); });
+await assertFails(setDoc(doc(anon, 'vault', KEY, 'meta', 'rate'), { t: 0, n: 0 }), '不能動限頻紀錄');
+await assertFails(getDoc(doc(anon, 'private', 'fn')), '讀不到伺服器的通關密語');
 // 檢討紀錄
 await assertSucceeds(setDoc(doc(anon, 'vault', KEY, 'reviews', 'u1'), { unit: 'u1', at: serverTimestamp() }));
 await assertFails(setDoc(doc(anon, 'vault', KEY, 'reviews', 'u2'), { unit: 'u2', at: new Date() }));
 
-// 班級路徑：名單上的學生、自己的班級座號才能寫
-await assertFails(submit((() => { const r = record({ attemptId: 'b1' }); delete r.key; return r; })(), { vault: false, bump: 0 }), '沒有 key');
-await assertFails(submit(record({ attemptId: 'b2', key: keyOf('306', '7', '冒名') }), { vault: false }), '名單上沒有的 key');
-await assertFails(submit(record({ attemptId: 'b3', seat: '8' }), { vault: false }), '不能寫到別人的座號');
-await assertFails(submit(record({ attemptId: 'b4', cls: '307' }), { vault: false }), '不能寫到別的班');
-await assertFails(submit(record({ attemptId: 'b5' }), { vault: false, path: classAtt('306', '7', 'u2', 'b5') }), '單元要跟路徑一致');
+// 班級路徑：學生讀不到
 await assertFails(getDoc(classAtt('306', '7', 'u1', 'a1')), '學生不能讀班級資料');
 
 // 公開設定：大家能讀，只有老師能寫
@@ -99,6 +69,7 @@ const teacher = env.authenticatedContext('t1', { email: 'teacher@example.com', e
 await assertSucceeds(setDoc(doc(teacher, 'public', 'config'), { json: '{}' }));
 await assertSucceeds(getDoc(classAtt('306', '7', 'u1', 'a1', teacher)));
 await assertFails(updateDoc(doc(teacher, 'vault', KEY, 'attempts', 'a1'), { pct: 100 }), '老師也不能改學生的作答紀錄');
+await assertFails(setDoc(doc(teacher, 'vault', KEY, 'attempts', 't1'), record({ attemptId: 't1' })), '老師的瀏覽器也不能新增作答紀錄');
 const stranger = env.authenticatedContext('s1', { email: 'someone@gmail.com', email_verified: true }).firestore();
 await assertFails(setDoc(doc(stranger, 'public', 'config'), { json: '{}' }), '不在老師名單的帳號');
 await assertFails(getDoc(doc(stranger, 'admins', 'teacher@example.com')), '不能查別人是不是老師');

@@ -175,8 +175,29 @@ function doPost(e) {
   return json_(res);
 }
 
+// 伺服器計分（Cloud Function functions/index.js）轉送來的成績帶通關密語 sig：分數已依題庫重算，直接採用伺服器的核對說明。
+// 沒帶 sig 的是學生端直接送來的（伺服器計分連不到時的備援、或更新前的舊網頁）：照收，但標記「未經伺服器計分」給老師看
+function fnSecret_() {
+  var cache = CacheService.getScriptCache();
+  var hit = cache.get('fn-secret');
+  if (hit) return hit;
+  var doc = firestoreRequest_('get', FIRESTORE_ROOT + '/private/fn');
+  var secret = doc ? String(fsDoc_(doc).secret || '') : '';
+  if (secret) cache.put('fn-secret', secret, 21600);
+  return secret;
+}
+
 function receiveScore_(d) {
   if (!d.name || !d.cls || !d.unit) return { ok: false, error: 'missing fields' };
+  var trusted = false;
+  if (d.sig) {
+    var secret = '';
+    try { secret = fnSecret_(); } catch (err) { secret = ''; }
+    if (!secret) return { ok: false, busy: true, error: 'secret unavailable' }; // 讀不到密語：先回忙碌，伺服器那邊交給定時同步
+    if (String(d.sig) !== secret) return { ok: false, error: 'bad signature' };
+    trusted = true;
+  }
+  delete d.sig;
   var attemptId = String(d.attemptId || '').slice(0, 64);
   // 限頻：同一位學生、同一單元 10 分鐘內最多 8 筆（正常使用遠低於這個數字）。超過就回「忙碌」，學生端會稍後重試，不會丟掉
   if (!allowSubmit_(d)) return { ok: false, busy: true, error: 'rate' };
@@ -184,9 +205,10 @@ function receiveScore_(d) {
     // 學生端網路不穩時會補送，同一筆成績只收一次
     if (attemptId && seenAttempt_(attemptId)) return { ok: true, duplicate: true };
     // 名單確認：不在名單上的（有人直接對網址亂送）不收
-    var roster = rosterCheck_(d);
+    var roster = trusted ? '' : rosterCheck_(d); // 伺服器計分已經確認過名單
     if (roster === 'bad') return { ok: false, error: 'not on roster' };
-    var check = checkAttempt_(d); // 伺服器用題庫核對這筆成績：空白＝核對通過；否則寫下哪裡對不起來（不拒收，只標記，避免誤傷學生的成績）
+    var check = trusted ? String(d.serverCheck || '') : checkAttempt_(d); // 學生端直接送來的：用題庫核對並標記（不拒收，避免誤傷學生的成績）
+    if (!trusted) check = (check ? check + '；' : '') + '未經伺服器計分（學生端直接送出）';
     if (roster === 'nokey') check = (check ? check + '；' : '') + '未附名單憑證（舊版網頁送出）';
     toInboxRow_(d, check);
     return { ok: true };
@@ -225,7 +247,7 @@ function toInboxRow_(d, check) {
   var det = details.map(function (x) {
     x = x || {};
     return [
-      cell_(x.stage, 20), cell_(x.kind, 20), num_(x.n), cell_(x.q, 300), cell_(x.correct, x.open ? 800 : 200), cell_(x.yours, x.open ? 3000 : 200),
+      cell_(x.stage, 20), cell_(x.kind, 20), num_(x.n), cell_(x.q || x.question, 300), cell_(x.correct, x.open ? 800 : 200), cell_(x.yours, x.open ? 3000 : 200),
       x.open ? '—' : (x.ok ? '✓' : '✗'), num_(x.points), num_(x.hints), cell_(x.word, 80), cell_(x.err, 20),
     ];
   });
@@ -1431,7 +1453,7 @@ function syncFromFirestore_(budgetMs) {
         out.read++;
         var id = String(d.attemptId || '');
         if (!id || seenAttempt_(id)) return;
-        var check = checkAttempt_(d);
+        var check = d.serverGraded ? String(d.check || '') : checkAttempt_(d); // 伺服器計分寫入的已經核對過
         toInboxRow_(d, check);
         out.queued++;
       });
@@ -1908,12 +1930,14 @@ function testLocalAi() {
 /* ------------------------------------------------------------------ */
 /* 四種題型各自的 AI 出題提示詞（老師可在後台修改，留空＝還原預設）          */
 /* ------------------------------------------------------------------ */
+// 學生作答時不能查字典、不能翻譯（js/integrity.js）：例句、句型、題目除了要考的字，其他都要是學生看得懂的常用字
+var EASY_EN_ = 'Students cannot use a dictionary or translator during the test, so apart from the target word/pattern use only very common words (roughly the 2,000 most frequent English words, Taiwan junior-high level): no rare names or places, no idioms, no long or nested clauses. A student who knows the target word must understand the whole sentence.';
 var AI_PROMPT_DEFAULTS = {
   vocab: [
     '- "word": exactly as given',
     '- "pos": one of n. / v. / adj. / adv. / prep. / conj. / phr. (use "phr." for multi-word phrases; for words with two common uses write e.g. "n. / v.")',
     '- "zh": the most common meaning in Traditional Chinese (Taiwan usage), short, with ； between senses, at most two senses',
-    '- "examples": EXACTLY 3 natural example sentences, each at CEFR B1–B2 level, 8–16 words, each in a clearly different situation/context (e.g. school, family, society). In every sentence the target word or phrase appears once and is wrapped in square brackets, e.g. "The team [bounced back] after the loss." The bracketed text may be an inflected form (past tense, plural, -ing).',
+    '- "examples": EXACTLY 3 natural example sentences, each at CEFR A2–B1 level, 8–14 words, each in a clearly different situation/context (e.g. school, family, society). In every sentence the target word or phrase appears once and is wrapped in square brackets, e.g. "The team [bounced back] after the loss." The bracketed text may be an inflected form (past tense, plural, -ing). ' + EASY_EN_,
     '- "exampleZh" of each example: a natural Traditional Chinese translation of that sentence (students read it as a hint, so it must match the sentence exactly)',
   ].join('\n'),
   reading: [
@@ -1923,7 +1947,7 @@ var AI_PROMPT_DEFAULTS = {
     '- Paraphrase. Never copy {{copy}} or more consecutive words from the passage into a question or an option. Students must understand the passage, not match words.',
     '- For 字義 questions you may quote the single target word or short phrase in quotation marks.',
     '- "explain" is a short explanation in Traditional Chinese (Taiwan usage), saying which paragraph supports the answer and why.',
-    '- Keep the English at a CEFR B1–B2 level.',
+    '- Keep questions and options short and plain (CEFR A2–B1, options at most 15 words). The difficulty must come from understanding the passage, not from hard words in the question. ' + EASY_EN_,
   ].join('\n'),
   pattern: [
     '- Mostly mix "mc" (multiple choice) and "fill" (fill in the blank). Add an occasional "apply" item (about 1 in 6) — never more than a quarter of the set.',
@@ -1932,7 +1956,7 @@ var AI_PROMPT_DEFAULTS = {
     '- "fill": a sentence with one blank ____ in "q"; "answerText" lists EVERY wording that is grammatically correct and natural in that exact sentence, separated by | (e.g. "has been|’s been"); use ( ) for words that may be left out (e.g. "look forward to (the)"). Never list a wording that would be wrong in the sentence (tense, agreement, word form, preposition). Put a hint such as the base word or a Chinese cue in "hint", e.g. "(succeed)" or "（完成）".',
     '- "apply": "zh" is a natural Traditional Chinese sentence; "words" is the English sentence split into words/short chunks in SHUFFLED order (6–12 pieces); "answerText" is the complete correct English sentence (capitalise the first word, keep punctuation; pieces must exactly form the sentence). Only use one correct order.',
     '- Every item needs "explain": a short explanation in Traditional Chinese (Taiwan usage) of the rule and why the answer is right.',
-    '- Sentences must be natural, CEFR B1–B2, 8–20 words, about school life, daily life or social topics. Do not repeat the same sentence frame.',
+    '- Sentences must be natural, CEFR A2–B1, 8–16 words, about school life, daily life or social topics. Do not repeat the same sentence frame. ' + EASY_EN_,
   ].join('\n'),
 };
 var AI_PROMPT_LABELS = { vocab: '單字片語', reading: '課文理解', pattern: '句型練習' };
@@ -2157,7 +2181,7 @@ function aiAddExamples(items) {
   var prompt = [
     'You are an English teacher preparing extra practice sentences for 11th-grade students in Taiwan.',
     'For each word or phrase below, its Chinese meaning and an EXISTING example sentence are given.',
-    'Write the requested number of NEW example sentences for it. Every new sentence must be in a clearly different context/situation than the existing one and than each other, CEFR B1–B2, 8–16 words,',
+    'Write the requested number of NEW example sentences for it. Every new sentence must be in a clearly different context/situation than the existing one and than each other, CEFR A2–B1, 8–14 words, ' + EASY_EN_ + '',
     'with the target word or phrase (an inflected form is fine — past tense, plural, -ing, etc.) wrapped exactly once in square brackets,',
     'e.g. "She [adapted] quickly to her new school." Also give a natural Traditional Chinese translation of each sentence (students use the translation as a hint).',
     '',

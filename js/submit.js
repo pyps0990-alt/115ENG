@@ -1,9 +1,9 @@
-import { SCRIPT_URL, SCORE_TRANSPORT } from './config.js';
+import { SCRIPT_URL, SUBMIT_URL } from './config.js';
 import { take } from './integrity.js';
 import { PASS } from './types.js';
 import { store } from './storage.js';
 
-// 成績先放進這台裝置的等待清單，再送到 Apps Script；網路失敗時留在清單裡，
+// 成績先放進這台裝置的等待清單，再送到伺服器計分（SUBMIT_URL；連不到才送 Apps Script）；網路失敗時留在清單裡，
 // 之後開站、恢復連線或下次送成績時自動補送。每筆有 attemptId，伺服器會去除重複。
 const OUTBOX = 'b5p:outbox';
 const REJECTED = 'b5p:rejected';
@@ -89,6 +89,42 @@ async function post(payload) {
   return 'retry';
 }
 
+// 伺服器計分（Cloud Function）：回應有 CORS，每種瀏覽器都讀得到。
+// 'ok'＝收到（或判定重複）；'retry'＝忙碌或暫時出錯；'drop:原因'＝拒收（不在名單、題型不符），重送也沒用；'unreachable'＝連不上
+async function postServer(payload) {
+  let r;
+  try {
+    r = await fetchTimeout(SUBMIT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload), credentials: 'omit', cache: 'no-store' }, TIMEOUT_MS);
+  } catch {
+    // 逾時或網路不通：伺服器可能其實已經收到，先確認
+    try {
+      const c = await fetchTimeout(`${SUBMIT_URL}?check=${encodeURIComponent(payload.attemptId)}&key=${encodeURIComponent(payload.key || '')}`, { cache: 'no-store', credentials: 'omit' }, 15000);
+      if ((await c.json()).seen) return 'ok';
+    } catch { /* 也連不上 */ }
+    return 'unreachable';
+  }
+  let j = null;
+  try { j = await r.json(); } catch { j = null; }
+  if (j && (j.ok || j.duplicate)) return 'ok';
+  if (j && j.busy) return 'retry';
+  if (j && j.ok === false) { console.warn('成績被伺服器拒絕，不再重送', j, payload); return `drop:${j.error || ''}`; }
+  return 'retry';
+}
+// 一筆成績送哪裡：先送伺服器計分；連續 3 次連不上（例如學校網路擋掉）才改送 Apps Script 備援
+const FALLBACK_AFTER = 3;
+async function send(item) {
+  if (SUBMIT_URL) {
+    const r = await postServer(item);
+    if (r !== 'unreachable') return r;
+    const fails = (Number(item.fnFails) || 0) + 1;
+    writeBox(readBox().map((x) => (x.attemptId === item.attemptId ? { ...x, fnFails: fails } : x)));
+    if (fails < FALLBACK_AFTER || !SCRIPT_URL) return 'retry';
+  }
+  if (!SCRIPT_URL) return 'retry';
+  const { fnFails, ...plain } = item; // eslint-disable-line no-unused-vars
+  return post(plain);
+}
+
 // 排隊中的成績：每隔一段時間自動重送（約 8 秒起、每次加倍，最多 2 分鐘），恢復連線、重新開站時也會重送
 let flushing = null;
 let retryTimer = null;
@@ -111,12 +147,12 @@ function withKey(item) {
 }
 
 export function flushOutbox() {
-  if (!SCRIPT_URL) return Promise.resolve(0);
+  if (!SCRIPT_URL && !SUBMIT_URL) return Promise.resolve(0);
   if (flushing) return flushing;
   flushing = (async () => {
     let sent = 0;
     for (const item of readBox()) {
-      const res = await post(withKey(item));
+      const res = await send(withKey(item));
       if (res === 'retry') break; // 伺服器忙或網路不穩：這筆跟後面的都留著，稍後再送
       // 送出期間可能被標記為排隊中（交卷畫面等太久先放行），以最新的狀態為準
       const cur = readBox().find((x) => x.attemptId === item.attemptId) || item;
@@ -137,8 +173,8 @@ export function flushOutbox() {
   return flushing;
 }
 
-// 交卷畫面最多等這麼久；還沒確認就先讓學生離開，背景繼續送，送到時右下角通知
-const SCREEN_WAIT_MS = 5000;
+// 交卷畫面最多等這麼久（伺服器要重算分數、寫入、轉送試算表，通常 2～5 秒）；還沒確認就先讓學生離開，背景繼續送，送到時右下角通知
+const SCREEN_WAIT_MS = 9000;
 
 // 交卷健康度統計（給老師的即時監控頁）：動態載入，不拖慢交卷；失敗也不影響送成績
 const track = (field) => { import('./presence.js').then((p) => p.track(field)).catch(() => {}); };
@@ -146,27 +182,9 @@ const track = (field) => { import('./presence.js').then((p) => p.track(field)).c
 export async function submitScore(payload) {
   const integ = take(payload.unit); // 作答中離開畫面、翻譯、貼上的次數（沒有就不附）
   const item = withKey({ ...payload, ...(integ ? { integrity: integ } : {}), attemptId: payload.attemptId || newAttemptId() });
-  // Firestore 是成績正本：伺服器確認後回 'ok'；離線時先存在裝置上，連上網自動補送（Promise 晚一點才完成）
-  const fs = import('./firebase.js').then((fb) => fb.saveScoreToFirestore(item, item.key)).catch((e) => { console.warn(e); return 'error'; });
-  // 通過（或複習）才算完成；沒通過要補考
+  // 通過（或複習）才算完成；沒通過要補考（伺服器重算的分數只會跟誠實作答一樣，不會比較高）
   if (item.unit) { if (item.review || Number(item.pct) >= PASS) store.setDone(item.unit); else store.setTried(item.unit); }
-  if (!SCRIPT_URL) return { status: 'disabled' };
-  // Firestore 確認寫入：試算表由 Apps Script 定時同步，不必再走 Apps Script；這筆若還在待送清單就拿掉（兩邊都到也只會記一次）
-  let fsOk = false;
-  const dropFromBox = () => writeBox(readBox().filter((x) => x.attemptId !== item.attemptId));
-  if (SCORE_TRANSPORT === 'firestore') {
-    const first = await Promise.race([fs, sleep(SCREEN_WAIT_MS).then(() => 'pending')]);
-    if (first === 'ok') { track('sent'); return { status: 'sent', attemptId: item.attemptId }; }
-    // 5 秒內沒確認（離線、學校網路擋掉）或被拒：改走 Apps Script 待送清單當備援；Firestore 之後送到了就從清單拿掉
-    fs.then((r) => {
-      if (r !== 'ok') return;
-      const was = readBox().find((x) => x.attemptId === item.attemptId);
-      dropFromBox();
-      if (was && was.queuedAt) { window.dispatchEvent(new CustomEvent('score-sent', { detail: was })); track('late'); }
-    });
-  } else {
-    fs.then((r) => { if (r === 'ok') fsOk = true; });
-  }
+  if (!SUBMIT_URL && !SCRIPT_URL) return { status: 'disabled' };
   writeBox([...readBox().filter((x) => x.attemptId !== item.attemptId), item]);
   const inBox = () => readBox().some((x) => x.attemptId === item.attemptId);
   const done = (async () => {
@@ -177,9 +195,6 @@ export async function submitScore(payload) {
     done.then(() => false),
     new Promise((r) => setTimeout(() => r(true), SCREEN_WAIT_MS)),
   ]);
-  // 兩邊都送（both）：Apps Script 還沒確認，但 Firestore 已經確認了，也算送出。
-  // 這筆仍留在待送清單繼續送 Apps Script（試算表馬上有），不另外跳通知；兩邊都到也只會記一次
-  if (inBox() && fsOk) { track('sent'); return { status: 'sent', attemptId: item.attemptId }; }
   if (inBox()) {
     // 還沒確認：標記為排隊中，之後送出時右下角會通知
     writeBox(readBox().map((x) => (x.attemptId === item.attemptId ? { ...x, queuedAt: Date.now() } : x)));
