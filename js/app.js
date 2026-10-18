@@ -535,7 +535,7 @@ function renderPrivacy() {
     </section>`;
 }
 
-/* ---------------- 即時在線（老師的 monitor.html 看得到人數與所在畫面，匿名） ---------------- */
+/* ---------------- 即時在線（老師後台的「即時」頁看得到人數與所在畫面，匿名） ---------------- */
 const presence = () => import('./presence.js');
 function reportView() {
   const [, kind, id] = location.hash.split('/').map(decodeURIComponent);
@@ -584,7 +584,7 @@ function renderTeacher() {
         <p class="muted">單元設定、匯入內容與 AI 出題、學生名單、成績、學期結算都在老師後台。建議用電腦開啟，版面比較寬。</p>
         <div class="btn-row">
           <a class="btn primary" href="admin.html">進入老師後台 ${icon.arrowR}</a>
-          <a class="btn" href="monitor.html">即時監控</a>
+          <a class="btn" href="admin.html#live">即時監控</a>
           <button class="btn ghost" type="button" data-out>登出</button>
         </div>
       </section>`;

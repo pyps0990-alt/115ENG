@@ -2,7 +2,7 @@
 //   - 現在在線人數、作答中／其他畫面、裝置
 //   - 在哪個畫面、正在做的單元
 //   - 過去 24 小時每小時使用人次、交卷健康度
-// 資料來自 Firebase Realtime Database（學生端 js/presence.js 寫入，匿名，不含姓名、班級、座號），規則與 monitor.js 相同。
+// 資料來自 Firebase Realtime Database（學生端 js/presence.js 寫入，匿名，不含姓名、班級、座號）。
 // mountLive(el, { titles, demo })：titles 是 { 單元代號: 名稱 }；demo 為 true 時用示範資料（本機預覽用，不連資料庫）
 import { firebaseApp, watchStaff } from './firebase.js';
 import { RTDB_URL } from './config.js';

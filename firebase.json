@@ -85,6 +85,7 @@
         ]
       }
     ],
+    "redirects": [{ "source": "/monitor.html", "destination": "/admin.html#live", "type": 301 }],
     "rewrites": [
       {
         "source": "**",

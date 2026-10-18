@@ -9,7 +9,7 @@ export const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw1KgAc6VsJkF
 // 中文網頁字型（Noto Sans TC，Google Fonts）：頁面載完後才在背景載入。想完全不下載中文字型、只用裝置內建字型，改成 false。
 export const CJK_WEBFONT = true;
 
-// 即時在線人數與交卷健康度（老師的 monitor.html）用的 Firebase Realtime Database 網址。
+// 即時在線人數與交卷健康度（老師後台的「即時」頁，js/admin-live.js）用的 Firebase Realtime Database 網址。
 // 在 Firebase 主控台建立 Realtime Database 後，把「資料」頁上方的網址貼在這裡；留空字串＝不啟用（網站照常運作）。
 // Firebase App Check（Fraud Defense／reCAPTCHA Enterprise 網站金鑰，公開的、可以放在這裡）：確認連到 Firebase 的請求真的來自這個網站，
 // 擋掉有人寫程式直接灌資料。留空字串＝不啟用。啟用步驟見 docs/security.md
