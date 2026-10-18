@@ -53,7 +53,7 @@ Apps Script 用專案擁有者權限讀寫 Firestore，不受影響。
 ## 已知、尚未處理的風險
 
 - **冒名**：學生身分只靠班級＋座號＋姓名，同學可以冒充別人（看紀錄、代交卷）。解法：老師發個人密碼。
-- **看答案**：題目與答案在公開設定裡，開發者工具看得到（伺服器計分擋得住改分數，擋不住先看答案再作答）。課文理解、句型可以改成交卷後才給答案。
+- **看答案（只剩單字片語）**：單字表本身就是答案，開發者工具看得到；要擋只能改成伺服器出題（改動大，暫不做）。課文理解、句型練習已改成交卷後才給答案（見下方）。
 - **即時在線統計可以被灌**：Realtime Database 的 presence／stats 不需登入就能寫，只影響監控頁的數字。
 
 ## 2026-10-18 的決定
@@ -70,3 +70,12 @@ Apps Script 用專案擁有者權限讀寫 Firestore，不受影響。
 - 改判斷規則（題型、拼字比對、計分）時，`js/grade.js` 跟網站用同一套程式；先跑 `node tools/e2e/grade.mjs`。
 - 部署：`npx firebase deploy --only functions`（predeploy 會把 `js/` 複製到 `functions/site/`）。改了 `js/` 裡的出題或判斷程式，網站和 functions 都要重新部署。
 - 測試：`node tools/e2e/grade.mjs`（計分和網站一致、竄改無效）、`tools/e2e/submit-fn.mjs`（模擬器整合測試，檔頭有執行方式）、`node tools/e2e/submit-route.mjs`（交卷路線）。
+
+## 課文理解、句型練習的答案不公開（2026-10-18 上線）
+
+- 題目分兩份：`public/content_<單元>`（學生下載，拿掉答案、解析、依據、錯誤分析）與 `secure/content_<單元>`（完整，只有老師和伺服器讀得到）。規則在 `js/answers.js`，Apps Script 的 `stripContent_` 要保持一樣。
+- 老師後台存題目時兩份一起寫（網站版 `publishPublic`、Apps Script `publishDocs_`）；讀題目先讀完整版。
+- 課文理解：作答時沒有答案；交卷後伺服器計分，回傳答案與解析給這位學生檢討（存在學生裝置 `b5p:key:<單元>`）。
+- 句型練習：正式測驗每題作答時送伺服器判斷（`op: 'answer'`），第一次作答就鎖定，回傳這一題的答案與解析；交卷時伺服器用逐題紀錄計分。複習、錯題重練、檢討用完整題目（`op: 'key'`，交過這個單元才給）。
+- 單字片語照舊公開（答案就是單字表）。
+- 預覽頁：`tools/e2e/reading-preview.html?locked=1`、`tools/e2e/pattern-preview.html`（假的伺服器計分）。

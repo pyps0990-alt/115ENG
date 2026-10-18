@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>句型練習預覽</title>
+<link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner"><b>B5 Practice（預覽）</b></div></header>
+<main id="app" class="container"><div class="focus"><section id="stage"></section></div></main>
+<div id="fx"></div>
+<script>
+// 預覽不能送出真的成績：擋掉 Apps Script 與 Firebase；伺服器計分（cloudfunctions）改用下面的假伺服器
+const realFetch = window.fetch;
+window.fetch = (url, opt) => {
+  if (/cloudfunctions\.net/.test(String(url)) && window.__fakeServer) return window.__fakeServer(url, opt);
+  return /script\.google|googleapis|firebase|cloudfunctions/.test(String(url)) ? Promise.reject(new Error('預覽不送出')) : realFetch(url, opt);
+};
+</script>
+<script type="module">
+// 開發用：句型練習正式測驗（答案不公開）。網站只拿到題目；每題作答送「假的伺服器計分」判斷、鎖定，回傳這一題的答案與解析
+import { mount } from '../../js/modes/pattern.js';
+import { stripContent } from '../../js/answers.js';
+import { flattenPattern, judge, applyScore } from '../../js/components/items.js';
+try { localStorage.setItem('b5p:student', JSON.stringify({ cls: '201', seat: '1', name: '預覽', key: 'a'.repeat(64) })); } catch {}
+const data = { items: [
+  { type: 'mc', q: 'He ____ here every day.', options: ['comes', 'come', 'coming', 'came'], answer: 0, explain: '主詞 he 第三人稱單數，現在式動詞加 s。', tag: '主詞動詞一致' },
+  { type: 'fill', q: 'I ____ (go) to school yesterday.', answer: 'went', hint: '(go)', explain: 'yesterday 用過去式 went。' },
+  { type: 'apply', zh: '我喜歡蘋果', words: ['apples', 'I', 'like'], answer: 'I like apples.', explain: '主詞＋動詞＋受詞。' },
+] };
+const flat = flattenPattern(data.items);
+const sessions = {};
+window.__calls = [];
+window.__fakeServer = async (url, opt) => {
+  const body = JSON.parse(opt.body);
+  window.__calls.push(body.op || 'submit');
+  await new Promise((r) => setTimeout(r, 150));
+  if (body.op === 'answer') {
+    const q = flat.find((x) => x.id === body.qid);
+    const s = (sessions[body.session] ||= {});
+    if (!s[body.qid]) s[body.qid] = { yours: body.yours, got: q.kind === 'apply' ? applyScore(q, body.yours) : (judge(q, body.yours) ? 1 : 0) };
+    if (window.__failNext) { window.__failNext = false; throw new TypeError('Failed to fetch'); }
+    return new Response(JSON.stringify({ ok: true, got: s[body.qid].got, q }));
+  }
+  if (body.op === 'key') return new Response(JSON.stringify(window.__submitted ? { ok: true, v: '', data } : { ok: false, error: '交卷後才能看答案' }), { status: window.__submitted ? 200 : 403 });
+  window.__submitted = true;
+  const s = sessions[body.attemptId] || {};
+  const score = Object.values(s).reduce((a, x) => a + x.got, 0);
+  window.__sub = { claimedPct: body.pct, session: body.attemptId, server: s };
+  return new Response(JSON.stringify({ ok: true, score, total: 3, pct: Math.round(score / 3 * 100), details: body.details, data, v: '' }));
+};
+const ctx = { unit: { id: 'preview-pt', title: '句型預覽' }, data: stripContent(data), config: { units: {} }, questionCount: 3 };
+mount(document.getElementById('stage'), ctx);
+document.body.dataset.ready = '1';
+</script>
+</body>
+</html>

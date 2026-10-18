@@ -77,11 +77,25 @@ export function judge(q, yours) {
 }
 
 /* ---------------- 一次一題的畫面（句型練習）---------------- */
+// reveal(yours)：正式測驗時題目沒有答案，先送伺服器判斷並取得這一題的答案與解析（會補進 q），再在畫面上判斷對錯。
+// 連線失敗：顯示說明，讓學生再按一次（伺服器第一次收到的作答就鎖定，重按不會改答案）
+async function askServer(card, reveal, yours) {
+  if (!reveal) return true;
+  card.classList.add('checking');
+  card.querySelector('.q-err')?.remove();
+  try {
+    await reveal(yours);
+    return true;
+  } catch (e) {
+    card.insertAdjacentHTML('beforeend', `<p class="q-err" role="alert">${esc(e && e.status === 409 ? '這次測驗已經交卷。' : '連線不穩，答案還沒送出，請再按一次。')}</p>`);
+    return false;
+  } finally { card.classList.remove('checking'); }
+}
 function head(q, meta, sentence) {
   return `<div class="q-head"><div class="q-meta">${esc(meta)}</div>${q.tag ? `<span class="tagchip">${esc(q.tag)}</span>` : ''}${sentence}</div>`;
 }
 
-export function renderChoiceCard(host, q, { meta = '選出最適合的答案', onAnswer } = {}) {
+export function renderChoiceCard(host, q, { meta = '選出最適合的答案', onAnswer, reveal = null } = {}) {
   const card = document.createElement('div');
   card.className = 'q-card slide-in';
   card.innerHTML = `${head(q, meta, `<div class="q-sentence en">${blankHTML(q.stem)}</div>`)}
@@ -91,9 +105,10 @@ export function renderChoiceCard(host, q, { meta = '選出最適合的答案', o
   if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   const opts = [...card.querySelectorAll('.opt')];
   let done = false;
-  const choose = (i) => {
+  const choose = async (i) => {
     if (done || i < 0 || i >= opts.length) return;
     done = true;
+    if (!(await askServer(card, reveal, `${KEYS[i]}. ${q.options[i]}`))) { done = false; return; }
     const ok = i === q.answer;
     opts.forEach((o, j) => {
       o.disabled = true;
@@ -107,7 +122,7 @@ export function renderChoiceCard(host, q, { meta = '選出最適合的答案', o
   return { choose, el: card };
 }
 
-export function renderFillCard(host, q, { meta = '填入空格中的單字或片語', onAnswer } = {}) {
+export function renderFillCard(host, q, { meta = '填入空格中的單字或片語', onAnswer, reveal = null } = {}) {
   const card = document.createElement('div');
   card.className = 'q-card slide-in';
   card.innerHTML = `${head(q, meta, `<div class="q-sentence en">${blankHTML(q.stem)}</div>${q.hint ? `<div class="q-sub"><span>${esc(q.hint)}</span></div>` : ''}`)}
@@ -118,11 +133,13 @@ export function renderFillCard(host, q, { meta = '填入空格中的單字或片
   const input = card.querySelector('.fill-input');
   const btn = card.querySelector('[data-check]');
   let done = false;
-  const check = () => {
+  const check = async () => {
     if (done) return;
     const typed = input.value.trim();
     if (!typed) { input.focus(); return; }
     done = true;
+    input.disabled = true; btn.disabled = true;
+    if (!(await askServer(card, reveal, typed))) { done = false; input.disabled = false; btn.disabled = false; return; }
     const ok = fillOk(q, typed);
     input.disabled = true; btn.disabled = true;
     input.classList.add(ok ? 'ok' : 'no');
@@ -136,7 +153,7 @@ export function renderFillCard(host, q, { meta = '填入空格中的單字或片
   return { el: card };
 }
 
-export function renderApplyCard(host, q, { meta = '應用：把單字排成正確的句子', onAnswer } = {}) {
+export function renderApplyCard(host, q, { meta = '應用：把單字排成正確的句子', onAnswer, reveal = null } = {}) {
   const card = document.createElement('div');
   card.className = 'q-card slide-in';
   const order = shuffle(q.words.map((w, i) => i));
@@ -228,10 +245,11 @@ export function renderApplyCard(host, q, { meta = '應用：把單字排成正�
     window.addEventListener('pointercancel', end);
   });
   card.querySelector('[data-clear]').addEventListener('click', () => { if (done) return; picked = []; paint(); });
-  card.querySelector('[data-check]').addEventListener('click', () => {
+  card.querySelector('[data-check]').addEventListener('click', async () => {
     if (done || !picked.length) return;
     done = true;
     const built = picked.map((i) => q.words[i]).join(' ');
+    if (!(await askServer(card, reveal, built))) { done = false; return; }
     const score = applyScore(q, built);
     const ok = score === 1;
     line.classList.add(ok ? 'ok' : 'no');

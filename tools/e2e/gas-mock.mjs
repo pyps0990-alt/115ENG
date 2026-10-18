@@ -15,6 +15,7 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
   const calls = { commit: [], sheetReads: 0, urlFetch: 0 };
   const admins = new Set(fsAdmins); // Firestore admins/{email}
   const rtdb = { staff: rtdbStaff }; // Realtime Database；rtdb.down = true 模擬資料庫還沒建立
+  const secureDocs = new Map(); // secure/：課文理解、句型練習含答案的完整題目
   const publicDocs = new Map(); // Firestore 的 public/ 文件（題目只存在這裡）；global.__commitFail = true 模擬寫入失敗
 
   class Range {
@@ -153,6 +154,7 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
         calls.commit.push(body);
         body.writes.forEach((w) => {
           if (w.update && w.update.name.includes('/documents/public/')) publicDocs.set(w.update.name.split('/documents/public/')[1], w.update.fields);
+          if (w.update && w.update.name.includes('/documents/secure/')) secureDocs.set(w.update.name.split('/documents/secure/')[1], w.update.fields);
           if (w.update && w.update.name.includes('/documents/admins/')) admins.add(w.update.name.split('/documents/admins/')[1]);
           if (w.delete && w.delete.includes('/documents/admins/')) admins.delete(w.delete.split('/documents/admins/')[1]);
         });
@@ -197,6 +199,11 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
         const id = decodeURIComponent(url.split('/documents/public/')[1].split('?')[0]);
         return publicDocs.has(id) ? resp(200, JSON.stringify({ name: id, fields: publicDocs.get(id) })) : resp(404, '{}');
       }
+      if (url.includes('/documents/secure/') && (opts.method || 'get') === 'get') {
+        const id = decodeURIComponent(url.split('/documents/secure/')[1].split('?')[0]);
+        return secureDocs.has(id) ? resp(200, JSON.stringify({ name: id, fields: secureDocs.get(id) })) : resp(404, '{}');
+      }
+      if (opts.method === 'delete' && url.includes('/documents/secure/')) secureDocs.delete(decodeURIComponent(url.split('/documents/secure/')[1]));
       if (opts.method === 'delete' && url.includes('/documents/public/')) publicDocs.delete(decodeURIComponent(url.split('/documents/public/')[1]));
       if (opts.method === 'delete') { calls.deleted = (calls.deleted || []).concat(url); return resp(200, '{}'); }
       return resp(500, '{"error":{"message":"unmocked ' + url + '"}}');

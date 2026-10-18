@@ -5,6 +5,7 @@
 //   admins/{email}                      老師／管理員名單（在 Firebase 主控台手動新增）
 // 名單上沒有的班級/座號/姓名組合算不出存在的 key，所以進不去；規則也不允許列出 vault。
 import { SCRIPT_URL, APP_CHECK_SITE_KEY } from './config.js';
+import { hasSecret, stripContent } from './answers.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
 import {
   initializeFirestore, doc, getDoc, onSnapshot, getDocs, setDoc, collection, writeBatch, serverTimestamp,
@@ -100,6 +101,13 @@ export async function listAttempts({ cls = '', days = 14, max = 500 } = {}) {
 
 // 老師後台直接讀 Firestore 的公開文件（設定 config、題目 content_<單元>）：約 0.1 秒，不用等 Apps Script 的 1～3 秒。沒有這份文件回傳 null
 export async function readPublic(id) {
+  // 題目：先讀只有老師讀得到的完整版（含答案、解析）；讀不到（還沒分開存的舊題目）才讀公開版
+  if (/^content_/.test(id)) {
+    try {
+      const full = await getDoc(doc(db, 'secure', id));
+      if (full.exists()) return JSON.parse(full.data().json);
+    } catch { /* 改讀公開版 */ }
+  }
   const snap = await getDoc(doc(db, 'public', id));
   if (!snap.exists()) return null;
   return JSON.parse(snap.data().json);
@@ -190,9 +198,12 @@ export async function publishPublic(docs, ms = 8000) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
       body: JSON.stringify({
-        writes: Object.entries(docs).map(([id, obj]) => ({
-          update: { name: `${root}/public/${id}`, fields: { json: { stringValue: JSON.stringify(obj) } } },
-        })),
+        // 課文理解、句型練習的題目：完整版寫進 secure（只有老師、伺服器讀得到），公開版拿掉答案（js/answers.js）
+        writes: Object.entries(docs).flatMap(([id, obj]) => {
+          const put = (col, o) => ({ update: { name: `${root}/${col}/${id}`, fields: { json: { stringValue: JSON.stringify(o) } } } });
+          if (/^content_/.test(id) && obj && hasSecret(obj.data)) return [put('secure', obj), put('public', { ...obj, data: stripContent(obj.data) })];
+          return [put('public', obj)];
+        }),
       }),
       signal: ctrl.signal,
     });

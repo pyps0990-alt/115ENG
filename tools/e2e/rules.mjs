@@ -54,6 +54,8 @@ await assertSucceeds(getDocs(collection(anon, 'vault', KEY, 'attempts')), '學�
 await assertFails(getDocs(collection(anon, 'vault')), '不能列出名單');
 await assertFails(setDoc(doc(anon, 'vault', KEY, 'meta', 'rate'), { t: 0, n: 0 }), '不能動限頻紀錄');
 await assertFails(getDoc(doc(anon, 'private', 'fn')), '讀不到伺服器的通關密語');
+await assertFails(getDoc(doc(anon, 'secure', 'content_r1')), '學生讀不到含答案的完整題目');
+await assertFails(setDoc(doc(anon, 'vault', KEY, 'sessions', 's1'), { answers: {} }), '不能動逐題作答紀錄');
 // 檢討紀錄
 await assertSucceeds(setDoc(doc(anon, 'vault', KEY, 'reviews', 'u1'), { unit: 'u1', at: serverTimestamp() }));
 await assertFails(setDoc(doc(anon, 'vault', KEY, 'reviews', 'u2'), { unit: 'u2', at: new Date() }));
@@ -67,11 +69,14 @@ await assertFails(setDoc(doc(anon, 'public', 'config'), { json: '{"hacked":1}' }
 await assertFails(setDoc(doc(anon, 'vault', keyOf('306', '9', '假學生')), { cls: '306', seat: '9', name: '假學生' }), '學生不能自己加入名單');
 const teacher = env.authenticatedContext('t1', { email: 'teacher@example.com', email_verified: true }).firestore();
 await assertSucceeds(setDoc(doc(teacher, 'public', 'config'), { json: '{}' }));
+await assertSucceeds(setDoc(doc(teacher, 'secure', 'content_r1'), { json: '{}' }), '老師可以存完整題目');
+await assertSucceeds(getDoc(doc(teacher, 'secure', 'content_r1')), '老師讀得到完整題目');
 await assertSucceeds(getDoc(classAtt('306', '7', 'u1', 'a1', teacher)));
 await assertFails(updateDoc(doc(teacher, 'vault', KEY, 'attempts', 'a1'), { pct: 100 }), '老師也不能改學生的作答紀錄');
 await assertFails(setDoc(doc(teacher, 'vault', KEY, 'attempts', 't1'), record({ attemptId: 't1' })), '老師的瀏覽器也不能新增作答紀錄');
 const stranger = env.authenticatedContext('s1', { email: 'someone@gmail.com', email_verified: true }).firestore();
 await assertFails(setDoc(doc(stranger, 'public', 'config'), { json: '{}' }), '不在老師名單的帳號');
+await assertFails(getDoc(doc(stranger, 'secure', 'content_r1')), '不在老師名單的帳號讀不到完整題目');
 await assertFails(getDoc(doc(stranger, 'admins', 'teacher@example.com')), '不能查別人是不是老師');
 
 await env.cleanup();

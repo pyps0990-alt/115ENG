@@ -1,4 +1,6 @@
 // 句型練習：一次一題，選擇、填空、應用（重組句子）混合出現，作答後立刻看到解析；做完逐題檢討錯題
+// 答案不公開（js/answers.js）：正式測驗每題作答時送伺服器判斷（第一次作答就鎖定），伺服器回傳這一題的答案與解析；
+// 複習、錯題重練、檢討用完整題目（交過這個單元才拿得到，存在這台裝置）
 import { typeLabel } from '../types.js';
 import { store } from '../storage.js';
 import { esc, nowStamp, wait, shuffle, centerInView } from '../util.js';
@@ -7,7 +9,7 @@ import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
-import { submitScore } from '../submit.js';
+import { submitScore, fetchKey, cachedKey, checkAnswer, newAttemptId } from '../submit.js';
 import { progress } from '../resume.js';
 import { PASS } from '../levels.js';
 import { flattenPattern, renderChoiceCard, renderFillCard, renderApplyCard, explainHTML, reviewCardHTML, correctText, KIND_LABEL } from '../components/items.js';
@@ -15,8 +17,31 @@ import { flattenPattern, renderChoiceCard, renderFillCard, renderApplyCard, expl
 const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ''));
 
 export function mount(stage, ctx) {
-  const all = flattenPattern((ctx.data || {}).items);
+  let all = flattenPattern((ctx.data || {}).items);
   const unitId = ctx.unit.id;
+  const version = ((ctx.config && ctx.config.content && ctx.config.content[unitId]) || {}).updated || '';
+  let keyed = !(ctx.data || {}).locked;
+  const useKey = (full) => {
+    const list = full && Array.isArray(full.items) ? flattenPattern(full.items) : null;
+    if (!list || list.length !== all.length) return false;
+    all = list; keyed = true; return true;
+  };
+  if (!keyed) useKey(cachedKey(unitId, version));
+  // 需要完整題目時（複習、錯題重練、檢討）：還沒有就跟伺服器拿，拿不到就顯示說明、回到單元頁
+  async function withKey(then) {
+    if (!keyed) {
+      stage.innerHTML = '<div class="loading"><span class="spinner"></span>讀取題目與解析…</div>';
+      let ok = false;
+      try { ok = useKey(await fetchKey(unitId, version)); } catch { ok = false; }
+      if (!alive) return;
+      if (!ok) {
+        stage.innerHTML = '<div class="card gate-card"><p class="gate-lead">讀不到答案與解析：成績可能還在排隊送出，或網路不穩，請稍後再試。</p><div class="btn-row"><button class="btn primary" type="button" data-back>返回</button></div></div>';
+        stage.querySelector('[data-back]').addEventListener('click', () => { gate.redraw(); window.scrollTo(0, 0); });
+        return;
+      }
+    }
+    then();
+  }
   const n = Math.min(ctx.questionCount, all.length);
   let alive = true;
   let onKey = null;
@@ -29,6 +54,7 @@ export function mount(stage, ctx) {
   const kindsIn = [...new Set(all.map((q) => KIND_LABEL[q.kind]))].join('、');
 
   function startReview(details) {
+    if (!keyed) { withKey(() => startReview(details)); return; }
     document.getElementById('fx').replaceChildren();
     const firstTime = !store.reviewed(unitId);
     const wrong = (details || []).filter((d) => !d.ok);
@@ -67,13 +93,17 @@ export function mount(stage, ctx) {
 
   // redo：只重練指定的題目（錯題重練），不計成績、不送出
   function play(student, review = false, redo = null, saved = null) {
+    const official = !review && !redo;
+    if (!official && !keyed) { withKey(() => play(student, review, redo, saved)); return; }
+    // 正式測驗：這次作答的編號（也是成績的記錄編號），每題送伺服器判斷時帶著
+    const session = official ? (saved && saved.session) || newAttemptId() : null;
     const qs = saved ? saved.qs : redo ? shuffle(all.filter((q) => redo.includes(q.id))) : shuffle(all).slice(0, n);
     let qi = saved ? saved.qi : 0; let streak = saved ? saved.streak : 0; let bestStreak = saved ? saved.bestStreak : 0; let points = saved ? saved.points : 0;
     const details = saved ? saved.details : [];
     let current = null;
     const t0 = Date.now() - (saved ? saved.elapsed : 0);
     // 正式測驗與複習每換一題就存一次進度（錯題重練不存）
-    const persist = () => { if (!redo) progress.save(unitId, 'pattern', { review, qs, qi, streak, bestStreak, points, details, elapsed: Date.now() - t0 }); };
+    const persist = () => { if (!redo) progress.save(unitId, 'pattern', { review, qs, qi, streak, bestStreak, points, details, elapsed: Date.now() - t0, ...(session ? { session } : {}) }); };
     document.body.dataset.busy = '1';
     document.getElementById('fx').replaceChildren();
     window.addEventListener('beforeunload', unload);
@@ -102,9 +132,11 @@ export function mount(stage, ctx) {
       const host = stage.querySelector('[data-q]');
       host.innerHTML = '';
       const done = (ok, yours, score) => answered(q, ok, yours, score);
-      if (q.kind === 'mc') current = renderChoiceCard(host, q, { meta: `第 ${qi + 1} 題・選擇`, onAnswer: done });
-      else if (q.kind === 'fill') current = renderFillCard(host, q, { meta: `第 ${qi + 1} 題・填空`, onAnswer: done });
-      else current = renderApplyCard(host, q, { meta: `第 ${qi + 1} 題・應用`, onAnswer: done });
+      // 正式測驗：先送伺服器判斷並記下，拿到這一題的答案與解析再顯示對錯（題卡用同一套判斷，結果跟伺服器一樣）
+      const reveal = official ? async (yours) => { const j = await checkAnswer({ unit: unitId, session, qid: q.id, yours }); Object.assign(q, j.q); } : null;
+      if (q.kind === 'mc') current = renderChoiceCard(host, q, { meta: `第 ${qi + 1} 題・選擇`, onAnswer: done, reveal });
+      else if (q.kind === 'fill') current = renderFillCard(host, q, { meta: `第 ${qi + 1} 題・填空`, onAnswer: done, reveal });
+      else current = renderApplyCard(host, q, { meta: `第 ${qi + 1} 題・應用`, onAnswer: done, reveal });
       centerInView(host.querySelector('.q-card'));
     }
 
@@ -195,7 +227,7 @@ export function mount(stage, ctx) {
       }
       const res = await submitScore({
         clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
-        unit: unitId, unitTitle: ctx.unit.title, mode: 'pattern', review,
+        unit: unitId, unitTitle: ctx.unit.title, mode: 'pattern', review, ...(session ? { attemptId: session } : {}), // 正式測驗：伺服器用這個編號找到逐題作答的紀錄
         level: `${review ? '複習 · ' : wasTried ? '補考 · ' : ''}句型練習 ${per}`.slice(0, 60),
         score: points, total: qs.length, pct, durationSec,
         wrong: details.filter((d) => !d.ok).map((d) => d.word),

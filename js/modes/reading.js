@@ -8,7 +8,7 @@ import { parseQuiz } from '../levels.js';
 import { wordsOf, paraHTML, rangeOfKey, rangeOfRef, keywordHits, paintMarks, openNote, mountAnnotator } from '../components/annotate.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
-import { submitScore } from '../submit.js';
+import { submitScore, fetchKey, cachedKey } from '../submit.js';
 import { progress } from '../resume.js';
 import { PASS, typeLabel } from '../types.js';
 
@@ -16,7 +16,16 @@ const KEYS = ['A', 'B', 'C', 'D', 'E'];
 
 export function mount(stage, ctx) {
   const data = ctx.data;
-  const qs = data.questions || [];
+  // 答案不公開（js/answers.js）：作答時只有題目和選項；交卷後伺服器才把完整題目（答案、解析、依據）給這位學生
+  const version = ((ctx.config && ctx.config.content && ctx.config.content[ctx.unit.id]) || {}).updated || '';
+  let qs = data.questions || [];
+  let keyed = !data.locked;
+  const useKey = (full) => {
+    const list = full && Array.isArray(full.questions) ? full.questions : null;
+    if (!list || list.length !== qs.length) return false;
+    qs = list; keyed = true; return true;
+  };
+  if (!keyed) useKey(cachedKey(ctx.unit.id, version));
   const paras = data.passage || [];
   const unitId = ctx.unit.id;
   let alive = true;
@@ -45,7 +54,7 @@ export function mount(stage, ctx) {
     reviewed: () => store.reviewed(unitId),
     retake: () => store.tried(unitId) && !store.done(unitId),
     onStart: (s, review) => run(s, review),
-    onReview: () => { const first = store.first(unitId) || {}; startReview(answersFromDetails(first.details), Array.isArray(first.marks) ? first.marks : null); },
+    onReview: () => { const first = store.first(unitId) || {}; openReview(answersFromDetails(first.details), Array.isArray(first.marks) ? first.marks : null); },
     resume: () => {
       const r = progress.load(unitId, 'reading');
       if (!r || !Array.isArray(r.answers) || r.answers.length !== qs.length) return null;
@@ -210,51 +219,71 @@ export function mount(stage, ctx) {
     progress.clear(unitId);
     window.removeEventListener('beforeunload', unload);
     delete document.body.dataset.busy;
-    const score = answers.filter((a, i) => a === qs[i].answer).length;
     const stamp = nowStamp();
     const durationSec = Math.round((Date.now() - t0) / 1000);
-    const pct = Math.round((score / qs.length) * 100);
-    store.setBest(unitId, 'reading', pct);
     const official = !review;
     const wasTried = official && store.tried(unitId);
-    const passed = pct >= PASS;
-    if (official) { if (passed) store.setDone(unitId); else store.setTried(unitId); }
-    const details = qs.map((q, i) => ({
-      stage: '課文理解', n: i + 1, kind: q.skill || '', q: q.q || '', word: `Q${i + 1} ${String(q.q || '').slice(0, 50)}`,
-      correct: `${KEYS[q.answer]}. ${q.options[q.answer]}`,
-      yours: answers[i] == null ? '' : `${KEYS[answers[i]]}. ${q.options[answers[i]]}`,
-      ok: answers[i] === q.answer, points: answers[i] === q.answer ? 1 : 0, hints: 0,
-    }));
     const firstTest = !review;
     const keepMarks = annotateOn ? marks.map((m) => ({ p: m.p, f: m.f, t: m.t, k: m.k, ...(m.n ? { n: m.n } : {}), ...(Number.isInteger(m.q) ? { q: m.q } : {}) })) : null;
-    if (firstTest) store.setFirst(unitId, { mode: 'reading', details, ...(keepMarks ? { marks: keepMarks } : {}) });
-
-    stage.innerHTML = '';
+    // 作答內容：網站看不到答案時，對錯、分數交給伺服器
+    const judgeAt = (i) => (keyed ? { correct: `${KEYS[qs[i].answer]}. ${qs[i].options[qs[i].answer]}`, ok: answers[i] === qs[i].answer, points: answers[i] === qs[i].answer ? 1 : 0 } : { correct: '', ok: false, points: 0 });
+    const mine = qs.map((q, i) => ({
+      stage: '課文理解', n: i + 1, kind: q.skill || '', q: q.q || '', word: `Q${i + 1} ${String(q.q || '').slice(0, 50)}`,
+      yours: answers[i] == null ? '' : `${KEYS[answers[i]]}. ${q.options[answers[i]]}`, hints: 0, ...judgeAt(i),
+    }));
+    const local = keyed ? mine.filter((d) => d.ok).length : null;
+    stage.innerHTML = '<div class="loading"><span class="spinner"></span>交卷中，伺服器正在計分…</div>';
     window.scrollTo(0, 0);
+    const res = await submitScore({
+      clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
+      unit: unitId, unitTitle: ctx.unit.title, mode: 'reading', review, level: review ? '複習 · 課文理解' : wasTried ? '補考 · 課文理解' : '課文理解',
+      score: local, total: qs.length, pct: local == null ? null : Math.round((local / qs.length) * 100), durationSec,
+      wrong: keyed ? answers.map((x, i) => (x === qs[i].answer ? null : `Q${i + 1}`)).filter(Boolean) : [],
+      details: mine,
+      ...(keepMarks && keepMarks.length ? { marks: keepMarks } : {}),
+    });
+    if (!alive) return;
+    const result = res.result || null;
+    if (result && result.data) useKey(result.data);
+    const graded = !!result && typeof result.pct === 'number';
+    let details;
+    if (graded && Array.isArray(result.details) && result.details.length === qs.length) {
+      details = result.details.map((d, i) => ({ ...mine[i], correct: d.correct, ok: !!d.ok, points: Number(d.points) || 0 }));
+    } else details = qs.map((q, i) => ({ ...mine[i], ...judgeAt(i) }));
+    if (firstTest) store.setFirst(unitId, { mode: 'reading', details, ...(keepMarks ? { marks: keepMarks } : {}) });
+    stage.innerHTML = '';
+
+    // 還沒拿到分數（離線、伺服器忙）：成績在這台裝置排隊，送出後會通知；這時還不能檢討
+    if (!graded && !keyed) {
+      if (official) store.setTried(unitId);
+      const box = document.createElement('div');
+      box.className = 'card gate-card';
+      box.innerHTML = `<h2>已交卷</h2><p class="gate-lead">成績會在送到伺服器後算出來（右下角會通知）。送出後回到這個單元，就能逐題檢討。</p>
+        ${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML(res.status)}</div>
+        <div class="btn-row"><button class="btn primary" type="button" data-home>${icon.home} 返回首頁</button></div>`;
+      box.querySelector('[data-home]').addEventListener('click', () => { location.hash = '#/'; });
+      stage.append(box);
+      return;
+    }
+    const score = graded ? result.score : local;
+    const pct = graded ? result.pct : Math.round((local / qs.length) * 100);
+    store.setBest(unitId, 'reading', pct);
+    const passed = pct >= PASS;
+    if (official) { if (passed) store.setDone(unitId); else store.setTried(unitId); }
     const perfect = firstTest && details.every((d) => d.ok);
     // 全部答對：沒有要檢討的，直接視為檢討完成（才能開始複習），按鈕改成返回首頁
     if (perfect) completeReview(unitId);
-    const actions = [perfect ? { label: '返回首頁', icon: icon.home, primary: true, onClick: () => { location.hash = '#/'; } } : { label: firstTest ? '開始檢討' : '逐題檢討', icon: icon.bulb, primary: true, onClick: () => startReview(answers, keepMarks) }];
+    const actions = [perfect ? { label: '返回首頁', icon: icon.home, primary: true, onClick: () => { location.hash = '#/'; } } : { label: firstTest ? '開始檢討' : '逐題檢討', icon: icon.bulb, primary: true, onClick: () => openReview(answers, keepMarks) }];
     if (!firstTest) actions.push({ label: '再複習一次', icon: icon.redo, onClick: () => run(student, true) });
-    const box = renderResult(stage, {
+    renderResult(stage, {
       title: review ? '複習完成' : passed ? '通過！' : '未通過',
       pct,
       scoreText: `${score} / ${qs.length}`,
       pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, official && !passed ? '' : firstTest ? '接著逐題檢討，完成後才能複習' : '可以逐題檢討這次的作答'].filter(Boolean),
       passLine: official,
-      extraHTML: `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`,
+      extraHTML: `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML(res.status)}</div>`,
       actions,
     });
-    const res = await submitScore({
-      clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
-      unit: unitId, unitTitle: ctx.unit.title, mode: 'reading', review, level: review ? '複習 · 課文理解' : wasTried ? '補考 · 課文理解' : '課文理解',
-      score, total: qs.length, pct, durationSec,
-      wrong: answers.map((a, i) => (a === qs[i].answer ? null : `Q${i + 1}`)).filter(Boolean),
-      details,
-      ...(keepMarks && keepMarks.length ? { marks: keepMarks } : {}),
-    });
-    const s = box.querySelector('[data-submit]');
-    if (s) s.innerHTML = submitStateHTML(res.status);
   }
 
   /* ---------------- 逐題檢討 ---------------- */
@@ -352,6 +381,22 @@ export function mount(stage, ctx) {
         el.querySelector('.ref-btn')?.addEventListener('click', go);
       },
     };
+  }
+
+  // 檢討要用完整題目：還沒拿到就先跟伺服器拿（交過這個單元才給；這台裝置存過就不用再問）
+  async function openReview(answers, marks = null) {
+    if (!keyed) {
+      stage.innerHTML = '<div class="loading"><span class="spinner"></span>讀取答案與解析…</div>';
+      let ok = false;
+      try { ok = useKey(await fetchKey(unitId, version)); } catch { ok = false; }
+      if (!alive) return;
+      if (!ok) {
+        stage.innerHTML = '<div class="card gate-card"><p class="gate-lead">讀不到答案與解析：成績可能還在排隊送出，或網路不穩，請稍後再試。</p><div class="btn-row"><button class="btn primary" type="button" data-back>返回</button></div></div>';
+        stage.querySelector('[data-back]').addEventListener('click', () => { gate.redraw(); window.scrollTo(0, 0); });
+        return;
+      }
+    }
+    startReview(answers, marks);
   }
 
   function startReview(answers, marks = null) {

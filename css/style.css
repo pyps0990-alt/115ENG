@@ -1259,3 +1259,7 @@ body.integrity-block::after {
   padding: 20px 22px; border-radius: 16px; background: var(--white); color: var(--navy); border: 1.5px solid var(--line);
   box-shadow: var(--shadow); font-weight: 700; line-height: 1.6; text-align: center;
 }
+
+/* 句型練習正式測驗：作答後等伺服器判斷的那一下 */
+.q-card.checking { opacity: .7; pointer-events: none; transition: opacity .15s; }
+.q-err { margin: 10px 0 0; color: var(--bad, #B91C1C); font-weight: 700; font-size: .9rem; }

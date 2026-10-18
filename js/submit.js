@@ -91,6 +91,41 @@ async function post(payload) {
 
 // 伺服器計分（Cloud Function）：回應有 CORS，每種瀏覽器都讀得到。
 // 'ok'＝收到（或判定重複）；'retry'＝忙碌或暫時出錯；'drop:原因'＝拒收（不在名單、題型不符），重送也沒用；'unreachable'＝連不上
+// 伺服器計分的結果（分數、明細；課文理解與句型練習還有完整題目）：交卷畫面與檢討要用
+const results = new Map();
+export const serverResult = (attemptId) => results.get(attemptId) || null;
+// 完整題目（答案、解析）存在這台裝置：之後檢討、複習、錯題重練不用再問伺服器。v＝題目版本（老師改過題目就失效）
+const KEYS_PREFIX = 'b5p:key:';
+export function cachedKey(unit, v) {
+  try { const k = JSON.parse(localStorage.getItem(KEYS_PREFIX + unit) || 'null'); return k && k.data && (!v || String(k.v) === String(v)) ? k.data : null; } catch { return null; }
+}
+function saveKey(unit, v, data) { try { localStorage.setItem(KEYS_PREFIX + unit, JSON.stringify({ v, data })); } catch { /* 空間不足就不存 */ } }
+// 伺服器回覆成功：記下結果；用伺服器算的分數決定這個單元算不算完成（課文理解交卷時網站還不知道分數）
+function applyResult(item, j) {
+  results.set(item.attemptId, j);
+  if (j.data && item.unit) saveKey(item.unit, j.v, j.data);
+  if (item.unit && typeof j.pct === 'number') { if (item.review || j.pct >= PASS) store.setDone(item.unit); else store.setTried(item.unit); }
+  window.dispatchEvent(new CustomEvent('score-graded', { detail: { attemptId: item.attemptId, unit: item.unit, result: j } }));
+}
+const who = () => { const s = store.student() || {}; return { cls: s.cls, seat: s.seat, name: s.name, key: s.key }; };
+async function callServer(body, ms = 20000) {
+  const r = await fetchTimeout(SUBMIT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...who(), ...body }), credentials: 'omit', cache: 'no-store' }, ms);
+  let j = null;
+  try { j = await r.json(); } catch { j = null; }
+  if (!j || !j.ok) { const e = new Error((j && j.error) || '連線失敗'); e.status = r.status; throw e; }
+  return j;
+}
+// 課文理解、句型練習的完整題目（只給交過這個單元的學生）
+export async function fetchKey(unit, v) {
+  const hit = cachedKey(unit, v);
+  if (hit) return hit;
+  const j = await callServer({ op: 'key', unit });
+  saveKey(unit, j.v, j.data);
+  return j.data;
+}
+// 句型練習正式測驗的一題：伺服器判斷並記下，回傳 { got, q（這一題的答案與解析）}
+export const checkAnswer = ({ unit, session, qid, yours }) => callServer({ op: 'answer', unit, session, qid, yours }, 15000);
+
 async function postServer(payload) {
   let r;
   try {
@@ -105,7 +140,7 @@ async function postServer(payload) {
   }
   let j = null;
   try { j = await r.json(); } catch { j = null; }
-  if (j && (j.ok || j.duplicate)) return 'ok';
+  if (j && (j.ok || j.duplicate)) { applyResult(payload, j); return 'ok'; }
   if (j && j.busy) return 'retry';
   if (j && j.ok === false) { console.warn('成績被伺服器拒絕，不再重送', j, payload); return `drop:${j.error || ''}`; }
   return 'retry';
@@ -182,8 +217,9 @@ const track = (field) => { import('./presence.js').then((p) => p.track(field)).c
 export async function submitScore(payload) {
   const integ = take(payload.unit); // 作答中離開畫面、翻譯、貼上的次數（沒有就不附）
   const item = withKey({ ...payload, ...(integ ? { integrity: integ } : {}), attemptId: payload.attemptId || newAttemptId() });
-  // 通過（或複習）才算完成；沒通過要補考（伺服器重算的分數只會跟誠實作答一樣，不會比較高）
-  if (item.unit) { if (item.review || Number(item.pct) >= PASS) store.setDone(item.unit); else store.setTried(item.unit); }
+  // 通過（或複習）才算完成；沒通過要補考（伺服器重算的分數只會跟誠實作答一樣，不會比較高）。
+  // 網站還不知道分數的（課文理解）等伺服器回覆再決定（applyResult）
+  if (item.unit && item.pct != null) { if (item.review || Number(item.pct) >= PASS) store.setDone(item.unit); else store.setTried(item.unit); }
   if (!SUBMIT_URL && !SCRIPT_URL) return { status: 'disabled' };
   writeBox([...readBox().filter((x) => x.attemptId !== item.attemptId), item]);
   const inBox = () => readBox().some((x) => x.attemptId === item.attemptId);
@@ -206,7 +242,7 @@ export async function submitScore(payload) {
   }
   if (rejectedItems().some((x) => x.attemptId === item.attemptId)) return { status: 'rejected', attemptId: item.attemptId };
   track('sent');
-  return { status: 'sent', attemptId: item.attemptId };
+  return { status: 'sent', attemptId: item.attemptId, result: serverResult(item.attemptId) };
 }
 
 export const pendingCount = () => readBox().length;

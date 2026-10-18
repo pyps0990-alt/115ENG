@@ -29,6 +29,17 @@ service cloud.firestore {
         && request.resource.data.json.size() < 900000;
     }
 
+    // 課文理解、句型練習的完整題目（含答案、解析）：只有老師讀寫（後台編輯）；公開版在 public/content_<單元>（拿掉答案，js/answers.js）。
+    // 伺服器計分用管理員權限讀；學生交卷後由伺服器把完整內容給這位學生檢討
+    match /secure/{doc} {
+      allow read: if isStaff();
+      allow delete: if isStaff();
+      allow create, update: if isStaff()
+        && request.resource.data.keys().hasOnly(['json'])
+        && request.resource.data.json is string
+        && request.resource.data.json.size() < 900000;
+    }
+
     // 名單由 Apps Script 從試算表 teachers 分頁自動同步（syncStaff_），不要在主控台手動改；登入的人只能讀自己那一筆（用來判斷是不是老師）
     match /admins/{email} {
       allow get: if request.auth != null && request.auth.token.email.lower() == email;
@@ -51,8 +62,11 @@ service cloud.firestore {
         allow write: if false;
       }
 
-      // meta：伺服器計分的限頻紀錄（只有伺服器讀寫）
+      // meta：伺服器計分的限頻紀錄；sessions：句型練習正式測驗每題作答的紀錄（第一次作答就鎖定）。只有伺服器讀寫
       match /meta/{doc} {
+        allow read, write: if false;
+      }
+      match /sessions/{doc} {
         allow read, write: if false;
       }
 

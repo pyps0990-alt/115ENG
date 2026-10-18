@@ -12,12 +12,16 @@
 <script>
 // 預覽不能送出真的成績：擋掉 Apps Script 與 Firebase 的寫入（成績會留在這個 localhost 網址的裝置暫存，不影響正式網站）
 const realFetch = window.fetch;
-window.fetch = (url, opt) => (/script\.google|googleapis|firebase/.test(String(url)) ? Promise.reject(new Error('預覽不送出')) : realFetch(url, opt));
+// ?locked=1：模擬「答案不公開」，網站只拿到題目和選項；假的伺服器計分（cloudfunctions）用完整題目算分、回傳答案
+window.fetch = (url, opt) => {
+  if (/cloudfunctions\.net/.test(String(url)) && window.__fakeServer) return window.__fakeServer(url, opt);
+  return /script\.google|googleapis|firebase|cloudfunctions/.test(String(url)) ? Promise.reject(new Error('預覽不送出')) : realFetch(url, opt);
+};
 </script>
 <script type="module">
 // 開發用：用假文章直接進入課文理解作答畫面；?annotate=1 開啟文章劃記
 import { mount } from '../../js/modes/reading.js';
-try { localStorage.setItem('b5p:student', JSON.stringify({ cls: '201', seat: '1', name: '預覽', key: 'preview' })); } catch {}
+try { localStorage.setItem('b5p:student', JSON.stringify({ cls: '201', seat: '1', name: '預覽', key: 'a'.repeat(64) })); } catch {}
 const data = {
   title: 'The Value of Friendship',
   passage: [
@@ -37,8 +41,22 @@ const data = {
   ],
 };
 const annotate = new URLSearchParams(location.search).get('annotate') === '1';
+const locked = new URLSearchParams(location.search).get('locked') === '1';
+const { stripContent } = await import('../../js/answers.js');
+window.__fullData = data;
+window.__fakeServer = async (url, opt) => {
+  const body = JSON.parse(opt.body);
+  window.__calls = (window.__calls || []).concat(body.op || 'submit');
+  const K = ['A', 'B', 'C', 'D'];
+  if (body.op === 'key') return new Response(JSON.stringify(window.__submitted ? { ok: true, v: '', data } : { ok: false, error: '交卷後才能看答案' }), { status: window.__submitted ? 200 : 403 });
+  window.__submitted = true;
+  const details = data.questions.map((q, i) => { const d = body.details[i] || {}; const correct = K[q.answer] + '. ' + q.options[q.answer]; return { ...d, correct, ok: d.yours === correct, points: d.yours === correct ? 1 : 0 }; });
+  const score = details.filter((d) => d.ok).length;
+  window.__claimed = body.pct;
+  return new Response(JSON.stringify({ ok: true, score, total: details.length, pct: Math.round(score / details.length * 100), details, data, v: '' }));
+};
 const ctx = { unit: { id: 'preview-rd', title: '預覽' }, data, config: { units: { 'preview-rd': annotate ? { quiz: JSON.stringify({ mode: 'default', annotate: true }) } : {} } } };
-mount(document.getElementById('stage'), ctx);
+mount(document.getElementById('stage'), locked ? { ...ctx, data: stripContent(data) } : ctx);
 if (!new URLSearchParams(location.search).has('nostart')) setTimeout(() => { const b = document.querySelector('[data-start]'); if (b) b.click(); document.body.dataset.ready = '1'; }, 300);
 </script>
 </body>

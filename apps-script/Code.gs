@@ -70,7 +70,9 @@ function doGet(e) {
     return json_(readConfigCached_());
   }
   if (action === 'content') {
-    return json_(readContentCached_(String(e.parameter.unit || '')));
+    // 學生網站的備援讀法：課文理解、句型練習拿掉答案（跟 Firestore 的公開版一樣）
+    var c = readContentCached_(String(e.parameter.unit || ''));
+    return json_(c && c.ok ? { ok: true, updated: c.updated, data: stripContent_(c.data) } : c);
   }
   var email = currentEmail_();
   if (!isTeacher_(email)) {
@@ -1164,7 +1166,7 @@ function deleteContent(unitId, reset, fast) {
   LAST_SYNC_ERROR = '';
   var cfg = publishConfig_();
   // 設定已經不指向這份題目了，才刪掉 Firestore 裡的題目（順序反過來，學生可能讀到設定說有、題目卻不見）
-  if (!LAST_SYNC_ERROR) firestoreRequest_('delete', FIRESTORE_DOCS + encodeURIComponent('content_' + unitId));
+  if (!LAST_SYNC_ERROR) deleteContentDocs_(unitId);
   audit_('刪除題目', unitId, reset !== false ? '重製學生進度' : '');
   return { ok: true, updated: cfg.updated, config: cfg, syncError: LAST_SYNC_ERROR };
 }
@@ -1181,7 +1183,7 @@ function purgeUnit_(unitId) {
   var row = findContentMeta_(unitId);
   if (row) sheet_(SHEET_CONTENT, CONTENT_HEADER).deleteRow(row.index);
   clearContentCache_(unitId);
-  firestoreRequest_('delete', FIRESTORE_DOCS + encodeURIComponent('content_' + unitId));
+  deleteContentDocs_(unitId);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1701,9 +1703,33 @@ function readContentJson_(sh, m) {
   return JSON.stringify(JSON.parse(str).data);
 }
 
+// 先讀完整版（secure，含答案）；還沒分開存的舊題目才讀公開版
 function readContentDoc_(unitId) {
+  var full = firestoreRequest_('get', FIRESTORE_ROOT + '/secure/' + encodeURIComponent('content_' + unitId));
+  if (full && full.fields && full.fields.json && full.fields.json.stringValue) return full.fields.json.stringValue;
   var doc = firestoreRequest_('get', FIRESTORE_DOCS + encodeURIComponent('content_' + unitId));
   return (doc && doc.fields && doc.fields.json && doc.fields.json.stringValue) || '';
+}
+// 刪掉一個單元的題目（公開版與完整版）
+function deleteContentDocs_(unitId) {
+  firestoreRequest_('delete', FIRESTORE_DOCS + encodeURIComponent('content_' + unitId));
+  try { firestoreRequest_('delete', FIRESTORE_ROOT + '/secure/' + encodeURIComponent('content_' + unitId)); } catch (err) { /* 本來就沒有 */ }
+}
+
+// 課文理解、句型練習的答案不公開（網站 js/answers.js 有同一套規則，改這裡要一起改）：
+// 公開版拿掉答案、解析、依據、錯誤分析；完整版另存 secure/content_<單元>，只有老師和伺服器計分讀得到
+var READING_SECRET_ = ['answer', 'explain', 'key', 'ref', 'traps', 'kw', 'pairs'];
+var PATTERN_SECRET_ = ['answer', 'explain'];
+function hasSecret_(data) { return !!data && (Array.isArray(data.questions) || Array.isArray(data.items)); }
+function stripContent_(data) {
+  if (!hasSecret_(data)) return data;
+  var omit = function (o, keys) { var r = {}; Object.keys(o || {}).forEach(function (k) { if (keys.indexOf(k) < 0) r[k] = o[k]; }); return r; };
+  var out = {};
+  Object.keys(data).forEach(function (k) { out[k] = data[k]; });
+  if (Array.isArray(data.questions)) out.questions = data.questions.map(function (q) { return omit(q, READING_SECRET_); });
+  if (Array.isArray(data.items)) out.items = data.items.map(function (it) { return omit(it, PATTERN_SECRET_); });
+  out.locked = true;
+  return out;
 }
 
 // 要寫進 Firestore 的題目文件
@@ -2486,9 +2512,16 @@ function publishDocs_(docs) {
       contentType: 'application/json',
       headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
       payload: JSON.stringify({
-        writes: ids.map(function (id) {
-          return { update: { name: 'projects/eng-3385e/databases/(default)/documents/public/' + id, fields: { json: { stringValue: docs[id] } } } };
-        }),
+        writes: [].concat.apply([], ids.map(function (id) {
+          var put = function (col, str) { return { update: { name: 'projects/eng-3385e/databases/(default)/documents/' + col + '/' + id, fields: { json: { stringValue: str } } } }; };
+          // 課文理解、句型練習的題目：完整版寫 secure，公開版拿掉答案
+          if (/^content_/.test(id)) {
+            var obj = null;
+            try { obj = JSON.parse(docs[id]); } catch (err) { obj = null; }
+            if (obj && hasSecret_(obj.data)) return [put('secure', docs[id]), put('public', JSON.stringify({ v: obj.v, data: stripContent_(obj.data) }))];
+          }
+          return [put('public', docs[id])];
+        })),
       }),
       muteHttpExceptions: true,
     });
