@@ -143,7 +143,7 @@ export function watchStaff(cb) {
           reason += `；後台確認失敗（${e.message}）`;
         }
       }
-      cb({ email, role, reason });
+      cb({ email, role, reason, name: user.displayName || '', photo: user.photoURL || '' });
     });
   }).catch((e) => { cb({ email: '', role: null, reason: `無法載入登入元件（${e.message}）` }); });
   return () => { dead = true; unsub(); };
@@ -153,6 +153,13 @@ export function watchStaff(cb) {
 export const staffSignIn = async () => {
   const { m, auth } = await authKit();
   return m.signInWithPopup(auth, new m.GoogleAuthProvider());
+};
+// 切換帳號：跳出 Google 的選擇帳號畫面（不會自動用上一次的帳號）
+export const staffSwitchAccount = async () => {
+  const { m, auth } = await authKit();
+  const p = new m.GoogleAuthProvider();
+  p.setCustomParameters({ prompt: 'select_account' });
+  return m.signInWithPopup(auth, p);
 };
 export const staffSignOut = async () => { const { m, auth } = await authKit(); return m.signOut(auth); };
 // 老師後台呼叫 Apps Script 時附上的登入憑證（伺服器端會再驗證一次身分）

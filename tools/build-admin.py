@@ -29,7 +29,9 @@ out = sub1('  <meta charset="utf-8">\n', '''  <meta charset="utf-8">
   <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://script.google.com">
 ''', out)
-out = sub1('<?= email ?>', '<span id="who-email"></span><a href="#" id="sign-out">登出</a>', out)
+out = sub1('<?= email ?>', '<button type="button" class="avatar" id="who-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="who-menu" title="帳號"><span id="who-av" aria-hidden="true"></span><span class="sr">帳號選單</span></button>'
+           '<div class="who-menu" id="who-menu" role="menu" hidden><div class="who-id"><b id="who-name"></b><span id="who-email"></span></div>'
+           '<button type="button" role="menuitem" id="switch-acct">切換帳號</button><button type="button" role="menuitem" id="sign-out">登出</button></div>', out)
 
 # 登入確認畫面；後台本體先藏起來
 out = sub1('<body>\n', '''<body>
@@ -158,7 +160,12 @@ bootstrap = r'''
       if (started) return;
       started = true;
       $('who-email').textContent = staff.email;
+      $('who-name').textContent = staff.name || staff.email.split('@')[0];
+      const av = $('who-av');
+      if (staff.photo) { const img = new Image(); img.alt = ''; img.referrerPolicy = 'no-referrer'; img.src = staff.photo; img.onerror = () => { av.textContent = (staff.name || staff.email).trim().charAt(0).toUpperCase(); }; av.appendChild(img); }
+      else av.textContent = (staff.name || staff.email).trim().charAt(0).toUpperCase();
       $('sign-out').onclick = (e) => { e.preventDefault(); fb.staffSignOut(); };
+      $('switch-acct').onclick = () => { fb.staffSwitchAccount().then(() => location.reload()).catch(() => {}); };
       window.google = { script: { run: runner(null, null) } };
       // 快速同步：儲存時瀏覽器直接把設定寫進 Firestore，學生不用等 Apps Script（見 Admin.html 的 syncSave）
       window.fastPublish = (docs) => fb.publishPublic(docs);

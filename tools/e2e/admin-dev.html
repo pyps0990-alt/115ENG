@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>後台即時預覽</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #F6F8FB; }
+  iframe { border: 0; width: 100%; height: 100%; display: block; }
+  #bar { position: fixed; right: 12px; bottom: 12px; z-index: 9; font: 700 12px system-ui; background: #1E3A8A; color: #fff; padding: 6px 10px; border-radius: 8px; opacity: .85; }
+</style>
+</head>
+<body>
+<!-- 本機即時預覽：用假資料、假登入打開 /admin.html；admin.html 重建後自動重新整理，停在同一頁。只在本機用，不連正式資料 -->
+<iframe id="f" title="後台"></iframe>
+<div id="bar">示範資料・自動更新</div>
+<script>
+const f = document.getElementById('f');
+const mk = (id, title, type, lesson, extra) => Object.assign({ id, title, type, lesson, topic: '', visible: true, disabled: [], questionCount: 10, createdAt: 's', openAt: '', closeAt: '', custom: true }, extra || {});
+const DATA = {
+  getAdminData: {
+    units: [], customUnits: [
+      mk('L1-2VOC', 'L1-2 單字片語', 'vocab', 1, { openAt: '2026-10-13T08:00', closeAt: '2026-10-24T23:59' }),
+      mk('L1R', 'L1 課文理解', 'reading', 1, { closeAt: '2026-10-20T23:59' }),
+      mk('L2P', 'L2 句型練習', 'pattern', 2),
+      mk('L3VOC', 'L3 單字片語', 'vocab', 3, { visible: false }),
+    ],
+    content: [{ id: 'L1-2VOC', updated: 't1', updatedBy: 'a@b', count: 25 }, { id: 'L1R', updated: 't1', updatedBy: 'a@b', count: 10 }],
+    extensions: [{ unit: 'L1-2VOC', cls: '305', seat: '16', until: '2026-10-28T23:59', note: '病假' }],
+    config: { updated: 'x', units: {} }, siteUrl: 'https://site/', sheetUrl: '#',
+  },
+  getAiPrompts: { vocab: { text: '' }, reading: { text: '' }, pattern: { text: '' } }, getBrainConfig: {},
+  listRoster: ['301', '302', '303', '304'].flatMap((c) => Array.from({ length: 32 }, (_, i) => ({ cls: c, seat: String(i + 1), name: '學生' + (i + 1) }))),
+};
+const W = [['accept', 'v.', '接受'], ['achieve', 'v.', '達成'], ['advice', 'n.', '建議'], ['afford', 'v.', '負擔得起'], ['amazing', 'adj.', '令人驚奇的'], ['anxious', 'adj.', '焦慮的'], ['appear', 'v.', '出現'], ['attend', 'v.', '參加'], ['avoid', 'v.', '避免'], ['aware', 'adj.', '察覺的'], ['give up', 'phr.', '放棄'], ['look forward to', 'phr.', '期待']];
+const SAMPLE = {
+  'content_L1-2VOC': { v: 't1', data: { topic: '校園生活', words: W.map(([word, pos, zh], i) => ({ word, pos, zh, examples: i % 5 === 3 ? [] : [{ ex: 'I [' + word + '] it.', zh: '' }] })) } },
+  content_L1R: { v: 't1', data: { title: "Mia's Second Try", passage: ['Mia failed her first driving test. She felt ashamed, but she decided to try again.', 'A month later she practiced every day and passed. Her father was proud of her.', 'Now she drives her little brother to school every morning.'], questions: [{ q: 'What is the passage mainly about?', skill: 'main' }, { q: 'How did Mia feel after the first test?', skill: 'detail' }, { q: 'What can we learn from Mia?', skill: 'inference' }] } },
+};
+const now = Date.now();
+const ATT = [];
+['301', '302', '303', '304'].forEach((c, ci) => { for (let s = 1; s <= 30; s++) if ((s * 7 + ci) % 5) ATT.push({ unit: 'L1-2VOC', cls: c, seat: s, name: '學生' + s, pct: 40 + ((s * 13 + ci * 7) % 61), at: now - ((s * 37) % 1440) * 60000, serverGraded: true, check: s % 11 === 3 ? '作答時間過短' : s % 13 === 5 ? '離開作答畫面 3 次（共 74 秒）' : '—', wrong: ['anxious', 'afford', 'look forward to', 'avoid', 'aware'].filter((w, i) => (s + i + ci) % 3 === 0) }); });
+let last = '';
+function boot() {
+  const w = f.contentWindow, d = f.contentDocument;
+  const runner = (s, fl) => new Proxy({}, { get: (t, k) => k === 'withSuccessHandler' ? (h) => runner(h, fl) : k === 'withFailureHandler' ? (h) => runner(s, h) : () => setTimeout(() => { try { s && s(DATA[k] !== undefined ? JSON.parse(JSON.stringify(DATA[k])) : []); } catch (e) { w.console.warn('示範資料', k, e); } }, 30) });
+  w.google = { script: { run: runner() } };
+  w.fbAttempts = async () => ATT; w.liveDemo = true; w.fbPublic = async (id) => SAMPLE[id] || null; w.fastPublish = async () => {};
+  d.getElementById('who-email').textContent = 'teacher@demo.edu.tw'; if (d.getElementById('who-name')) { d.getElementById('who-name').textContent = '陳老師'; d.getElementById('who-av').textContent = '陳'; d.getElementById('sign-out').onclick = d.getElementById('switch-acct').onclick = () => alert('示範：這裡會登出／切換帳號'); }
+  d.getElementById('gate').hidden = true; d.getElementById('app-root').hidden = false;
+  const s = d.createElement('script'); s.textContent = d.getElementById('admin-main').textContent; d.body.appendChild(s);
+}
+f.onload = boot;
+const hash = () => { try { return f.contentWindow.location.hash; } catch (e) { return ''; } };
+const load = () => { f.src = '/admin.html?dev=' + Date.now() + (hash() || location.hash || '#overview'); };
+async function poll() {
+  try {
+    const t = await fetch('/admin.html', { cache: 'no-store' }).then((r) => r.text());
+    const k = t.length + ':' + t.slice(-400);
+    if (last && k !== last) load();
+    last = k;
+  } catch (e) {}
+  setTimeout(poll, 1000);
+}
+load(); poll();
+</script>
+</body>
+</html>
