@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>老師後台（原型）</title>
+<style>
+@font-face { font-family: "Nunito"; font-style: normal; font-weight: 500 900; font-display: swap; src: url(../../fonts/nunito-500-900-normal.woff2) format("woff2"); }
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 400; font-display: swap; src: url(../../fonts/atkinson-hyperlegible-400-normal.woff2) format("woff2"); }
+@font-face { font-family: "Atkinson Hyperlegible"; font-weight: 700; font-display: swap; src: url(../../fonts/atkinson-hyperlegible-700-normal.woff2) format("woff2"); }
+:root {
+  --navy: #1E3A8A; --navy-deep: #172E6E; --navy-ink: #C9D5F2; --navy-soft: #E8EDF8;
+  --amber: #F59E0B; --amber-soft: #FEF3C7; --amber-ink: #92400E;
+  --paper: #F6F8FB; --wash: #ECF0F6; --white: #FFFFFF;
+  --ink: #1E3A8A; --text: #475569; --steel: #586880; --line: #DCE2EB; --line-strong: #C7CFDB; --edge: #788396;
+  --good: #15803D; --good-soft: #DCFCE7; --good-ink: #166534;
+  --bad: #DC2626; --bad-soft: #FEE2E2; --bad-ink: #B91C1C;
+  --font: "Nunito", system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --font-en: "Atkinson Hyperlegible", "Nunito", system-ui, sans-serif;
+  --ease: cubic-bezier(.16, 1, .3, 1);
+  --rail: 76px; --list: 296px;
+  color-scheme: light;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font-family: var(--font); color: var(--text); background: var(--paper); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+::selection { background: var(--amber-soft); color: var(--navy); }
+:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; border-radius: 8px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h1, h2, h3 { color: var(--ink); line-height: 1.25; margin: 0; letter-spacing: -.01em; }
+.num { font-variant-numeric: tabular-nums; }
+.en { font-family: var(--font-en); }
+.ic { width: 20px; height: 20px; flex: none; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+
+/* ---------- 外框：導覽 ｜ 單元清單 ｜ 工作區 ---------- */
+.shell { display: grid; grid-template-columns: var(--rail) var(--list) minmax(0, 1fr); height: 100dvh; transition: grid-template-columns .34s var(--ease); }
+.shell.list-off { grid-template-columns: var(--rail) 0 minmax(0, 1fr); }
+.shell.wide { grid-template-columns: var(--rail) 0 minmax(0, 1fr); }
+
+.rail { background: var(--navy); color: var(--navy-ink); display: flex; flex-direction: column; align-items: center; padding: 14px 0; gap: 4px; }
+.brand { width: 44px; height: 44px; border-radius: 14px; background: var(--amber); color: var(--navy); font-weight: 900; display: grid; place-items: center; margin-bottom: 14px; font-size: 1.05rem; }
+.rail a { width: 62px; padding: 9px 0 7px; border-radius: 14px; display: grid; justify-items: center; gap: 3px; color: var(--navy-ink); text-decoration: none; font-size: .72rem; font-weight: 800; letter-spacing: .02em; transition: background .2s, color .2s; }
+.rail a:hover { background: rgba(255,255,255,.08); color: #fff; }
+.rail a[aria-current="page"] { background: rgba(255,255,255,.14); color: #fff; }
+.rail a[aria-current="page"] .ic { color: var(--amber); }
+.rail .badge-dot { position: relative; }
+.rail .badge-dot::after { content: attr(data-n); position: absolute; top: -6px; right: -12px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--amber); color: var(--navy); font-size: .68rem; font-weight: 900; display: grid; place-items: center; }
+.rail .who { margin-top: auto; width: 40px; height: 40px; border-radius: 50%; background: var(--navy-deep); color: #fff; display: grid; place-items: center; font-weight: 900; font-size: .85rem; border: 2px solid rgba(255,255,255,.18); }
+
+/* 單元清單 */
+.units { background: var(--wash); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.units-head { padding: 18px 16px 10px; display: grid; gap: 10px; }
+.units-head .row { display: flex; align-items: center; gap: 8px; }
+.units-head h2 { font-size: 1.05rem; flex: 1; }
+.search { position: relative; }
+.search input { width: 100%; height: 38px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--white); padding: 0 12px 0 36px; color: var(--ink); }
+.search input::placeholder { color: var(--steel); }
+.search .ic { position: absolute; left: 11px; top: 9px; width: 18px; height: 18px; color: var(--steel); }
+.icon-btn { width: 36px; height: 36px; border-radius: 10px; border: 1px solid transparent; background: none; display: grid; place-items: center; color: var(--steel); }
+.icon-btn:hover { background: var(--white); border-color: var(--line); color: var(--navy); }
+.units-scroll { overflow: auto; padding: 4px 10px 12px; flex: 1; }
+.u-group { margin-top: 12px; }
+.u-group > h3 { font-size: .76rem; color: var(--steel); font-weight: 800; padding: 0 8px 6px; letter-spacing: .04em; }
+.u-row { width: 100%; text-align: left; border: 1px solid transparent; background: none; border-radius: 14px; padding: 10px 10px 9px; display: grid; grid-template-columns: 12px 1fr auto; gap: 2px 9px; align-items: center; color: var(--ink); transition: background .18s, border-color .18s; }
+.u-row:hover { background: rgba(255,255,255,.65); }
+.u-row[aria-current="true"] { background: var(--white); border-color: var(--line-strong); box-shadow: 0 1px 2px rgba(30,58,138,.06), 0 6px 18px rgba(30,58,138,.07); }
+.u-row .t { font-weight: 800; font-size: .93rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.u-row .pct { font-size: .82rem; font-weight: 800; color: var(--steel); }
+.u-row .meta { grid-column: 2 / 4; display: flex; align-items: center; gap: 8px; font-size: .74rem; color: var(--steel); font-weight: 700; }
+.u-row .strip { grid-column: 2 / 4; }
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.dot.open { background: var(--good); box-shadow: 0 0 0 3px var(--good-soft); }
+.dot.soon { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); }
+.dot.later { background: var(--white); border: 2px solid var(--navy); }
+.dot.closed { background: var(--edge); }
+.dot.hidden { background: transparent; border: 2px dashed var(--edge); }
+.overview-row { width: 100%; display: flex; align-items: center; gap: 10px; border: 1px solid transparent; background: none; border-radius: 14px; padding: 11px 12px; color: var(--ink); font-weight: 900; text-align: left; }
+.overview-row:hover { background: rgba(255,255,255,.65); }
+.overview-row[aria-current="true"] { background: var(--navy); color: #fff; }
+.overview-row .count { margin-left: auto; background: var(--amber); color: var(--navy); border-radius: 999px; font-size: .75rem; padding: 1px 9px; font-weight: 900; }
+.add-unit { margin: 6px 10px 14px; height: 42px; border-radius: 12px; border: 1.5px dashed var(--edge); background: none; color: var(--navy); font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.add-unit:hover { border-style: solid; background: var(--white); }
+
+/* 招牌：每班一段的完成度條（每段的填滿＝這班通過率） */
+.strip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; height: 6px; margin-top: 4px; }
+.strip i { position: relative; border-radius: 3px; background: #D6DDEA; overflow: hidden; }
+.strip i::after { content: ""; position: absolute; inset: 0; width: var(--p); background: var(--navy); border-radius: 3px; }
+.strip i.full::after { background: var(--good); }
+.strip.big { height: 14px; gap: 6px; }
+.strip.big i { border-radius: 5px; }
+
+/* 工作區 */
+.work { overflow: auto; position: relative; background: var(--paper); }
+.work-inner { max-width: 1120px; margin: 0 auto; padding: 26px 34px 120px; }
+.w-head { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+.w-head h1 { font-size: 1.6rem; font-weight: 900; }
+.w-head .sub { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: .86rem; font-weight: 700; }
+.w-head .acts { margin-left: auto; display: flex; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; font-size: .78rem; font-weight: 800; background: var(--navy-soft); color: var(--navy); }
+.pill.good { background: var(--good-soft); color: var(--good-ink); }
+.pill.warn { background: var(--amber-soft); color: var(--amber-ink); }
+.pill.bad { background: var(--bad-soft); color: var(--bad-ink); }
+.pill.muted { background: var(--wash); color: var(--steel); }
+.btn { height: 40px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--white); color: var(--navy); font-weight: 800; display: inline-flex; align-items: center; gap: 7px; transition: background .18s, border-color .18s, transform .12s; white-space: nowrap; }
+.btn:hover { border-color: var(--navy); }
+.btn:active { transform: scale(.97); }
+.btn.primary { background: var(--amber); border-color: var(--amber); color: var(--navy); }
+.btn.primary:hover { background: #E8930A; }
+.btn.navy { background: var(--navy); border-color: var(--navy); color: #fff; }
+.btn.ghost { border-color: transparent; background: none; }
+.btn.ghost:hover { background: var(--wash); }
+.btn.danger { color: var(--bad-ink); border-color: #F3B4B4; }
+.btn.danger:hover { border-color: var(--bad); background: var(--bad-soft); }
+.btn.sm { height: 34px; padding: 0 12px; font-size: .85rem; border-radius: 10px; }
+.btn .ic { width: 18px; height: 18px; }
+
+.tabs { display: flex; gap: 4px; margin: 22px 0 22px; border-bottom: 1px solid var(--line); }
+.tabs button { border: 0; background: none; padding: 11px 14px 12px; font-weight: 800; color: var(--steel); position: relative; border-radius: 10px 10px 0 0; }
+.tabs button:hover { color: var(--navy); background: var(--wash); }
+.tabs button[aria-selected="true"] { color: var(--navy); }
+.tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--amber); }
+.tabs .count { margin-left: 6px; font-size: .74rem; background: var(--amber-soft); color: var(--amber-ink); border-radius: 999px; padding: 1px 7px; }
+
+.panel { background: var(--white); border: 1px solid var(--line); border-radius: 18px; padding: 20px 22px; }
+.panel + .panel { margin-top: 16px; }
+.panel-h { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.panel-h h2 { font-size: 1.05rem; }
+.panel-h .r { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.muted { color: var(--steel); }
+.small { font-size: .82rem; }
+
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th { text-align: left; font-size: .76rem; color: var(--steel); font-weight: 800; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 10px; border-bottom: 1px solid #EEF1F6; color: var(--ink); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: #FAFBFD; }
+td.r, th.r { text-align: right; }
+.flag { display: inline-flex; align-items: center; gap: 5px; color: var(--amber-ink); font-weight: 800; font-size: .8rem; }
+.flag .ic { width: 16px; height: 16px; }
+
+/* 總覽 */
+.att { display: grid; gap: 0; }
+.att-row { display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center; padding: 12px 4px; border-bottom: 1px solid #EEF1F6; }
+.att-row:last-child { border-bottom: 0; }
+.att-ic { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; background: var(--amber-soft); color: var(--amber-ink); }
+.att-ic.bad { background: var(--bad-soft); color: var(--bad-ink); }
+.att-ic.navy { background: var(--navy-soft); color: var(--navy); }
+.att-row b { color: var(--ink); }
+.live { display: flex; align-items: baseline; gap: 6px; }
+.live b { font-size: 1.9rem; color: var(--navy); font-weight: 900; line-height: 1; }
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--good); display: inline-block; margin-right: 6px; animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(21,128,61,.45); } 60% { box-shadow: 0 0 0 7px rgba(21,128,61,0); } }
+.stream { display: grid; }
+.stream-row { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid #EEF1F6; font-size: .88rem; }
+.stream-row:last-child { border-bottom: 0; }
+.stream-row.new { animation: rowin .7s var(--ease); }
+@keyframes rowin { from { background: var(--amber-soft); transform: translateY(-6px); opacity: 0; } to { background: transparent; } }
+.score { font-weight: 900; }
+.score.ok { color: var(--good-ink); }
+.score.no { color: var(--bad-ink); }
+.bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; align-items: end; height: 120px; margin-top: 8px; }
+.bars div { display: grid; gap: 5px; justify-items: center; height: 100%; align-content: end; font-size: .74rem; color: var(--steel); font-weight: 700; }
+.bars span { width: 100%; max-width: 34px; background: var(--navy); border-radius: 6px 6px 3px 3px; position: relative; }
+.bars div.today span { background: var(--amber); }
+.bars em { font-style: normal; color: var(--ink); font-weight: 800; }
+
+/* 表單 */
+.field { display: grid; gap: 6px; }
+.field > span { font-weight: 800; color: var(--ink); font-size: .9rem; }
+.field small { color: var(--steel); font-size: .8rem; }
+.input, select.input, textarea.input { height: 40px; border: 1px solid var(--edge); border-radius: 11px; padding: 0 12px; background: var(--white); color: var(--ink); width: 100%; }
+textarea.input { height: auto; min-height: 120px; padding: 10px 12px; font-family: var(--font-en); }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 12px; padding: 3px; background: var(--wash); gap: 3px; flex-wrap: wrap; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.seg span { display: block; padding: 7px 14px; border-radius: 9px; font-weight: 800; color: var(--steel); font-size: .88rem; }
+.seg input:checked + span { background: var(--white); color: var(--navy); box-shadow: 0 1px 2px rgba(30,58,138,.12); }
+.seg input:focus-visible + span { outline: 3px solid var(--amber); }
+.switch { display: flex; align-items: center; gap: 12px; }
+.switch input { appearance: none; width: 44px; height: 26px; border-radius: 13px; background: var(--line-strong); position: relative; cursor: pointer; transition: background .2s; margin: 0; flex: none; }
+.switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .25s var(--ease); }
+.switch input:checked { background: var(--good); }
+.switch input:checked::after { transform: translateX(18px); }
+.switch b { color: var(--ink); }
+details.help { margin-top: 6px; }
+details.help summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; color: var(--steel); font-size: .82rem; font-weight: 800; }
+details.help summary::before { content: "?"; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--edge); display: grid; place-items: center; font-size: .7rem; }
+details.help[open] summary { color: var(--navy); }
+details.help p { margin: 8px 0 0; font-size: .85rem; max-width: 70ch; }
+.danger-zone { border: 1.5px solid #F3B4B4; background: #FFFBFB; }
+.danger-zone h2 { color: var(--bad-ink); }
+
+/* 儲存列：有改動才出現 */
+.savebar { position: sticky; bottom: 18px; margin: 18px auto 0; max-width: 680px; display: flex; align-items: center; gap: 12px; background: var(--navy); color: #fff; border-radius: 16px; padding: 10px 10px 10px 18px; box-shadow: 0 10px 30px rgba(15,23,42,.28); transform: translateY(140%); opacity: 0; transition: transform .45s var(--ease), opacity .3s; pointer-events: none; }
+.savebar.on { transform: none; opacity: 1; pointer-events: auto; }
+.savebar span { flex: 1; font-weight: 800; }
+.savebar .btn.ghost { color: #fff; }
+.savebar .btn.ghost:hover { background: rgba(255,255,255,.1); }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 30px); opacity: 0; background: var(--good); color: #fff; font-weight: 800; padding: 10px 18px; border-radius: 12px; transition: transform .4s var(--ease), opacity .3s; z-index: 50; pointer-events: none; }
+.toast.on { transform: translate(-50%, 0); opacity: 1; }
+.demo-note { font-size: .74rem; color: var(--amber-ink); background: var(--amber-soft); border-radius: 8px; padding: 2px 8px; font-weight: 800; }
+
+/* 切換單元：工作區內容淡入（唯一的轉場） */
+.enter { animation: enter .42s var(--ease); }
+@keyframes enter { from { opacity: 0; transform: translateY(8px); } }
+
+.word-tbl td:first-child { font-weight: 800; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { padding: 4px 10px; border-radius: 999px; background: var(--wash); color: var(--ink); font-size: .82rem; font-weight: 700; }
+.chip.bad { background: var(--bad-soft); color: var(--bad-ink); }
+.class-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) 150px; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid #EEF1F6; }
+.class-row:last-child { border-bottom: 0; }
+.class-row b { color: var(--ink); }
+.split-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #D6DDEA; }
+.split-bar i:nth-child(1) { background: var(--good); }
+.split-bar i:nth-child(2) { background: var(--bad); opacity: .8; }
+.legend { display: flex; gap: 14px; font-size: .78rem; font-weight: 700; color: var(--steel); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.mobile-back { display: none; }
+
+@media (max-width: 900px) {
+  .shell, .shell.list-off, .shell.wide { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .rail { flex-direction: row; padding: 8px 10px; gap: 2px; overflow-x: auto; }
+  .brand { margin: 0 8px 0 0; width: 38px; height: 38px; }
+  .rail a { width: auto; padding: 6px 10px; grid-auto-flow: column; gap: 6px; font-size: .8rem; }
+  .rail .who { display: none; }
+  .rail .badge-dot { margin-right: 8px; }
+  .rail .badge-dot::after { top: -9px; right: -10px; min-width: 16px; height: 16px; font-size: .62rem; }
+  .units, .work { grid-row: 2; grid-column: 1; }
+  .shell[data-pane="work"] .units { display: none; }
+  .shell[data-pane="list"] .work { display: none; }
+  .units { border-right: 0; }
+  .work-inner { padding: 18px 16px 110px; }
+  .mobile-back { display: inline-flex; }
+  .grid2, .form-grid { grid-template-columns: 1fr; }
+  .w-head .acts { margin-left: 0; }
+  .tabs { overflow-x: auto; }
+  .tabs button { white-space: nowrap; }
+  .hide-sm { display: none; }
+  .class-row { grid-template-columns: 48px minmax(0, 1fr); }
+  .class-row .legend-n { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="shell" id="shell" data-pane="list">
+  <nav class="rail" aria-label="後台主選單">
+    <div class="brand" aria-hidden="true">B5</div>
+    <a href="#overview" data-nav="overview"><span class="badge-dot" data-n="4" data-ic="home"></span>總覽</a>
+    <a href="#units" data-nav="units" data-ic-only><span data-ic="layers"></span>單元</a>
+    <a href="#students" data-nav="students"><span data-ic="users"></span>學生</a>
+    <a href="#scores" data-nav="scores"><span data-ic="table"></span>成績</a>
+    <a href="#settings" data-nav="settings"><span data-ic="gear"></span>設定</a>
+    <div class="who" title="pyps0990@gmail.com">陳</div>
+  </nav>
+
+  <aside class="units" aria-label="單元">
+    <div class="units-head">
+      <div class="row"><h2>單元</h2><span class="demo-note">示範資料</span><button class="icon-btn" type="button" data-collapse aria-label="收起單元清單"><span data-ic="panel"></span></button></div>
+      <label class="search"><span data-ic="search"></span><span class="sr">搜尋單元</span><input type="search" placeholder="搜尋單元" data-usearch></label>
+    </div>
+    <div class="units-scroll">
+      <button class="overview-row" type="button" data-unit="__overview"><span data-ic="home"></span>總覽<span class="count">4</span></button>
+      <div data-ulist></div>
+    </div>
+    <button class="add-unit" type="button" data-add><span data-ic="plus"></span>新增單元</button>
+  </aside>
+
+  <main class="work" id="work" tabindex="-1"><div class="work-inner" data-work></div></main>
+</div>
+<div class="toast" role="status" aria-live="polite" data-toast></div>
+
+<script type="module">
+/* 圖示：跟網站 js/icons.js 同一種線條（24 格、2.2 粗、圓角端點），補上後台需要的幾個 */
+import { icon as base } from '../../js/icons.js';
+const svg = (p) => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const icon = { ...base,
+  layers: svg('<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/>'),
+  users: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M16 4.5a3.5 3.5 0 010 7"/><path d="M18 14a6 6 0 013.5 6"/>'),
+  table: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/>'),
+  gear: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/>'),
+  search: svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>'),
+  plus: svg('<path d="M12 5v14M5 12h14"/>'),
+  panel: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>'),
+  spark: svg('<path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'),
+  upload: svg('<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/>'),
+  download: svg('<path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3"/>'),
+  eye: svg('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+  cpu: svg('<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>'),
+  sync: svg('<path d="M21 12a9 9 0 01-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0115.5-6.2L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/>'),
+  calendar: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
+  trash: svg('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'),
+};
+document.querySelectorAll('[data-ic]').forEach((el) => { const s = icon[el.dataset.ic]; if (s) el.insertAdjacentHTML('afterbegin', s); });
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------------- 示範資料（不是真的成績） ---------------- */
+const CLASSES = ['301', '302', '303', '304', '305', '306'];
+const TYPE = { vocab: '單字片語', reading: '課文理解', pattern: '句型練習' };
+const units = [
+  { id: 'L1-2VOC', title: 'L1–2 單字片語', lesson: '第 1–2 課', type: 'vocab', state: 'closed', window: '9/15 – 10/3', count: '30 個字', pass: [96, 92, 100, 88, 94, 90], analyzed: true },
+  { id: 'L3VOC', title: 'L3 單字片語', lesson: '第 3 課', type: 'vocab', state: 'open', window: '10/6 – 10/31', count: '25 個字', pass: [84, 76, 90, 70, 81, 66], analyzed: true },
+  { id: 'L4VOC', title: 'L4 單字片語', lesson: '第 4 課', type: 'vocab', state: 'soon', window: '10/13 – 10/24（週五截止）', count: '25 個字', pass: [62, 48, 71, 40, 55, 38], analyzed: false },
+  { id: 'L4Reading', title: 'L4 課文理解', lesson: '第 4 課', type: 'reading', state: 'open', window: '10/13 – 11/7', count: '10 題', pass: [45, 30, 52, 22, 41, 18], analyzed: null },
+  { id: 'L4Pattern', title: 'L4 句型練習', lesson: '第 4 課', type: 'pattern', state: 'later', window: '10/27 開放', count: '題庫 24 題、每次 10 題', pass: [0, 0, 0, 0, 0, 0], analyzed: null },
+  { id: 'read-1', title: '課外閱讀 1', lesson: '課外閱讀', type: 'reading', state: 'hidden', window: '學生看不到', count: '5 題', pass: [0, 0, 0, 0, 0, 0], analyzed: null },
+];
+const STATE = { open: ['開放中', 'good'], soon: ['即將截止', 'warn'], later: ['尚未開放', ''], closed: ['已截止', 'muted'], hidden: ['隱藏', 'muted'] };
+const attention = [
+  { ic: 'alert', tone: '', text: '<b>3 筆成績</b>需要確認：離開作答畫面多次、作答時間過短', unit: 'L4VOC', tab: 'scores', act: '查看' },
+  { ic: 'clock', tone: '', text: '<b>L4 單字片語</b>週五 23:59 截止，還有 <b>41 人</b>沒通過', unit: 'L4VOC', tab: 'scores', act: '看名單' },
+  { ic: 'cpu', tone: 'navy', text: '<b>L4 單字片語</b>題目改過，錯誤分析還沒重新跑', unit: 'L4VOC', tab: 'content', act: '分析' },
+  { ic: 'calendar', tone: 'navy', text: '<b>L4 句型練習</b> 10/27 開放，題庫 24 題已就緒', unit: 'L4Pattern', tab: 'settings', act: '檢查設定' },
+];
+const names = ['王小明', '李小華', '陳怡君', '林冠宇', '張家豪', '黃詩涵', '吳承恩', '劉子晴', '蔡宗翰', '鄭雅婷'];
+const stream = [
+  ['14:32', '306', 12, '陳怡君', 'L4VOC', 88, ''], ['14:29', '304', 7, '林冠宇', 'L4Reading', 60, ''], ['14:21', '302', 3, '張家豪', 'L4VOC', 42, '離開作答畫面 4 次'],
+  ['14:18', '306', 20, '黃詩涵', 'L3VOC', 96, ''], ['14:05', '301', 15, '吳承恩', 'L4Reading', 80, ''], ['13:58', '303', 9, '劉子晴', 'L4VOC', 71, ''],
+];
+const words = [
+  ['resilient', 'adj.', '有韌性的', 3], ['bounce back', 'phr.', '恢復；重新振作', 3], ['adapt', 'v.', '適應', 3], ['obstacle', 'n.', '障礙', 3],
+  ['persevere', 'v.', '堅持不懈', 2], ['setback', 'n.', '挫折', 3], ['optimistic', 'adj.', '樂觀的', 3], ['give up', 'phr.', '放棄', 3],
+];
+const missWords = [['persevere', 41], ['obstacle', 33], ['resilient', 27], ['setback', 19], ['bounce back', 14]];
+
+/* ---------------- 狀態 ---------------- */
+const shell = document.getElementById('shell');
+const work = document.querySelector('[data-work]');
+let cur = { view: 'overview', unit: null, tab: 'content' };
+let dirty = false;
+
+const strip = (pass, big = false) => `<span class="strip${big ? ' big' : ''}" aria-hidden="true">${pass.map((p) => `<i class="${p >= 100 ? 'full' : ''}" style="--p:${p}%"></i>`).join('')}</span>`;
+const avg = (a) => Math.round(a.reduce((x, y) => x + y, 0) / a.length);
+
+function drawList(q = '') {
+  const host = document.querySelector('[data-ulist]');
+  const groups = [...new Set(units.map((u) => u.lesson))];
+  host.innerHTML = groups.map((g) => {
+    const list = units.filter((u) => u.lesson === g && (!q || (u.title + u.id).toLowerCase().includes(q.toLowerCase())));
+    if (!list.length) return '';
+    return `<div class="u-group"><h3>${esc(g)}</h3>${list.map((u) => `
+      <button class="u-row" type="button" data-unit="${u.id}" aria-current="${cur.view === 'unit' && cur.unit === u.id}">
+        <span class="dot ${u.state}" aria-hidden="true"></span><span class="t">${esc(u.title)}</span>
+        <span class="pct num">${['later', 'hidden'].includes(u.state) ? '' : `${avg(u.pass)}%`}</span>
+        <span class="meta">${TYPE[u.type]}・${STATE[u.state][0]}</span>
+        ${['later', 'hidden'].includes(u.state) ? '' : strip(u.pass)}
+      </button>`).join('')}</div>`;
+  }).join('') || '<p class="muted small" style="padding:8px">找不到單元</p>';
+  document.querySelector('.overview-row').setAttribute('aria-current', String(cur.view === 'overview'));
+}
+
+function setNav() {
+  const v = cur.view === 'unit' ? 'units' : cur.view;
+  document.querySelectorAll('[data-nav]').forEach((a) => a.setAttribute('aria-current', a.dataset.nav === v || (v === 'units' && a.dataset.nav === 'units') ? 'page' : 'false'));
+  // 總覽、學生、成績、設定：工作區用整個寬度（單元清單只在「單元」顯示）
+  shell.classList.toggle('wide', !['unit', 'units', 'overview'].includes(cur.view));
+}
+
+/* ---------------- 畫面 ---------------- */
+function viewOverview() {
+  return `<div class="w-head"><div><h1>總覽</h1><div class="sub muted">10 月 18 日（六）・第 7 週</div></div></div>
+  <div class="grid2" style="margin-top:22px">
+    <section class="panel"><div class="panel-h"><h2>需要處理</h2><span class="pill warn num">${attention.length}</span></div>
+      <div class="att">${attention.map((a, i) => `<div class="att-row"><span class="att-ic ${a.tone}">${icon[a.ic]}</span><div>${a.text}</div><button class="btn sm" type="button" data-jump="${i}">${a.act}${icon.arrowR}</button></div>`).join('')}</div>
+    </section>
+    <section class="panel"><div class="panel-h"><h2>現在</h2><span class="r small muted"><span class="live-dot"></span>即時</span></div>
+      <div class="live"><b class="num" data-online>23</b><span>人在線</span><span class="muted small">・9 人作答中</span></div>
+      <p class="small muted" style="margin:6px 0 14px">交卷健康度：今天 46 筆全部送達，0 筆排隊</p>
+      <div class="panel-h" style="margin:0 0 4px"><h2 style="font-size:.95rem">剛交卷</h2></div>
+      <div class="stream" data-stream>${stream.map(streamRow).join('')}</div>
+    </section>
+  </div>
+  <section class="panel" style="margin-top:16px"><div class="panel-h"><h2>這週交卷</h2><span class="r small muted num">共 312 筆</span></div>
+    <div class="bars">${[['一', 38], ['二', 71], ['三', 54], ['四', 88], ['五', 61], ['六', 46, 1], ['日', 0]].map(([d, n, t]) => `<div class="${t ? 'today' : ''}"><em class="num">${n || ''}</em><span style="height:${Math.max(2, (n / 88) * 82)}px"></span>${d}</div>`).join('')}</div>
+  </section>`;
+}
+function streamRow([t, cls, seat, name, unit, pct, flag], fresh) {
+  return `<div class="stream-row${fresh ? ' new' : ''}"><span class="num muted">${t}</span><span><b style="color:var(--ink)">${cls}-${seat} ${esc(name)}</b> <span class="muted small">${unit}</span>${flag ? `<br><span class="flag">${icon.alert}${esc(flag)}</span>` : ''}</span><span class="score num ${pct >= 65 ? 'ok' : 'no'}">${pct}</span></div>`;
+}
+
+function viewUnit(u) {
+  const [label, tone] = STATE[u.state];
+  const tabs = [['content', '題目'], ['settings', '出題設定'], ['scores', '成績與錯題', u.id === 'L4VOC' ? 3 : 0], ['makeup', '補作']];
+  return `<div class="w-head">
+    <button class="btn ghost sm mobile-back" type="button" data-back>${icon.back}單元</button>
+    <div><h1>${esc(u.title)}</h1><div class="sub"><span class="pill ${tone}"><span class="dot ${u.state}"></span>${label}</span><span class="muted">${TYPE[u.type]}・${esc(u.count)}</span><span class="muted">${icon.calendar.replace('class="ic"', 'class="ic" style="width:16px;height:16px;vertical-align:-3px"')} ${esc(u.window)}</span></div></div>
+    <div class="acts"><button class="btn sm" type="button">${icon.eye}學生畫面</button></div>
+  </div>
+  <div class="tabs" role="tablist">${tabs.map(([k, t, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${cur.tab === k}">${t}${n ? `<span class="count num">${n}</span>` : ''}</button>`).join('')}</div>
+  <div data-tabbody>${tabBody(u)}</div>
+  <div class="savebar" data-savebar><span>有未儲存的變更</span><button class="btn ghost sm" type="button" data-discard>復原</button><button class="btn primary sm" type="button" data-save>${icon.check}儲存</button></div>`;
+}
+
+function tabBody(u) {
+  if (cur.tab === 'content') return u.type === 'vocab' ? `
+    <section class="panel"><div class="panel-h"><h2>單字片語 <span class="muted small num">25 個（片語 2）</span></h2>
+      <div class="r"><button class="btn sm" type="button">${icon.upload}匯入檔案</button><button class="btn sm" type="button">${icon.spark}AI 補齊例句</button><button class="btn sm ghost" type="button">更多</button></div></div>
+      <table class="word-tbl"><thead><tr><th>英文</th><th>詞性</th><th>中文</th><th class="r">例句</th></tr></thead>
+      <tbody>${words.map(([w, p, z, n]) => `<tr><td class="en">${w}</td><td class="muted">${p}</td><td>${z}</td><td class="r num">${n === 3 ? '3' : `<span class="flag">${icon.alert}${n}</span>`}</td></tr>`).join('')}</tbody></table>
+      <p class="small muted" style="margin:12px 0 0">顯示 8 / 25 個・<a href="#" style="color:var(--navy);font-weight:800">全部編輯</a></p>
+    </section>
+    <section class="panel"><div class="panel-h"><h2>錯誤分析</h2>${u.analyzed ? '<span class="pill good">已分析・10/16 14:20</span>' : '<span class="pill warn">題目改過，還沒重新分析</span>'}
+      <div class="r"><div class="seg" role="radiogroup" aria-label="在哪裡分析"><label><input type="radio" name="an" checked><span>這台電腦</span></label><label><input type="radio" name="an"><span>雲端</span></label></div><button class="btn sm navy" type="button">${icon.cpu}開始分析</button></div></div>
+      <p class="small muted" style="margin:0">分析後，例句選字題會避開「放進句子也說得通」的選項，並加入課外干擾選項；不會改題目和成績。引擎網址與金鑰在「設定」。</p>
+    </section>` : u.type === 'reading' ? `
+    <section class="panel"><div class="panel-h"><h2>文章與題目 <span class="muted small num">10 題</span></h2><div class="r"><button class="btn sm" type="button">${icon.spark}AI 補上錯誤分析</button><button class="btn sm" type="button">${icon.pencil}編輯</button></div></div>
+      <p class="en" style="color:var(--ink);margin:0 0 6px;font-weight:700">Transforming Tainan's Transportation Network</p>
+      <p class="en small muted" style="margin:0 0 14px;max-width:72ch">The Tainan Urban District Railway Underground Project is one of the most essential transportation developments in southern Taiwan…</p>
+      <table><thead><tr><th>#</th><th>題目</th><th>題型</th><th class="r">干擾分析</th></tr></thead><tbody>
+      ${['What is the primary focus of the reading selection?', 'According to the second paragraph, why did officials decide to change the rail system?', 'What will be done with the surface space after trains move below ground?'].map((q, i) => `<tr><td class="num muted">${i + 1}</td><td class="en">${q}</td><td>${['主旨', '細節', '推論'][i]}</td><td class="r">${i === 2 ? `<span class="flag">${icon.alert}未填</span>` : '<span class="pill good">完整</span>'}</td></tr>`).join('')}
+      </tbody></table><p class="small muted" style="margin:12px 0 0">答案與解析只存在伺服器，學生交卷後才看得到。</p></section>` : `
+    <section class="panel"><div class="panel-h"><h2>題庫 <span class="muted small num">24 題（選擇 12、填空 9、應用 3）</span></h2><div class="r"><button class="btn sm" type="button">${icon.spark}AI 產生題目</button><button class="btn sm" type="button">${icon.pencil}編輯</button></div></div>
+      <p class="small muted" style="margin:0">每次從題庫抽 10 題；正式測驗每題送伺服器判斷，第一次作答就鎖定。</p></section>`;
+  if (cur.tab === 'settings') return `
+    <section class="panel"><div class="form-grid">
+      <label class="field"><span>開放時間</span><input class="input" type="datetime-local" value="2026-10-13T08:00" data-dirty></label>
+      <label class="field"><span>截止時間</span><input class="input" type="datetime-local" value="2026-10-24T23:59" data-dirty><small>截止後不能做正式測驗；做過的人仍可檢討與複習</small></label>
+      <div class="field"><span>學生看得到</span><label class="switch"><input type="checkbox" ${u.state === 'hidden' ? '' : 'checked'} data-dirty><b>${u.state === 'hidden' ? '隱藏中' : '顯示在學生首頁'}</b></label></div>
+      ${u.type === 'vocab' ? `<label class="field"><span>每次考幾個字</span><input class="input num" type="number" value="25" min="1" max="100" data-dirty><small>單元有 25 個字；超過時每次抽題，沒考過的優先</small></label>` : u.type === 'reading' ? `<div class="field"><span>文章劃記工具</span><label class="switch"><input type="checkbox" checked data-dirty><b>開放（不計分）</b></label></div>` : `<label class="field"><span>每次抽幾題</span><input class="input num" type="number" value="10" data-dirty></label>`}
+    </div>
+    ${u.type === 'vocab' ? `<div class="field" style="margin-top:20px"><span>出題方式</span><div class="seg" role="radiogroup"><label><input type="radio" name="mode" checked data-dirty><span>預設三段</span></label><label><input type="radio" name="mode" data-dirty><span>依題型自動分段</span></label><label><input type="radio" name="mode" data-dirty><span>自訂每一段</span></label></div>
+      <details class="help"><summary>三種方式有什麼不同</summary><p>預設三段：基礎（英↔中選擇）、進階（例句選字）、精熟（拼字）。依題型自動分段：勾選要考的題型，系統依難度排成段。自訂：每一段自己指定題型與名稱（最多三段）。</p></details></div>` : ''}
+    </section>`;
+  if (cur.tab === 'scores') return `
+    <section class="panel"><div class="panel-h"><h2>各班完成情形</h2><div class="r legend"><span><i style="background:var(--good)"></i>通過</span><span><i style="background:var(--bad);opacity:.8"></i>未通過</span><span><i style="background:#D6DDEA"></i>未作答</span></div></div>
+      ${CLASSES.map((c, i) => { const p = u.pass[i]; const f = Math.round((100 - p) * .45); return `<div class="class-row"><b class="num">${c}</b><div class="split-bar" role="img" aria-label="${c} 班通過 ${p}%、未通過 ${f}%"><i style="width:${p}%"></i><i style="width:${f}%"></i></div><span class="small muted num legend-n">通過 ${Math.round(p * .36)}・未通過 ${Math.round(f * .36)}・未作答 ${36 - Math.round(p * .36) - Math.round(f * .36)}</span></div>`; }).join('')}
+    </section>
+    <div class="grid2" style="margin-top:16px">
+      <section class="panel"><div class="panel-h"><h2>需要確認</h2><span class="pill warn num">3</span></div>
+        <table><tbody>${[['302-3 張家豪', 42, '離開作答畫面 4 次（共 96 秒）'], ['304-11 鄭雅婷', 100, '作答時間過短'], ['306-8 蔡宗翰', 76, '偵測到翻譯工具 1 次']].map(([n, s, f]) => `<tr><td><b>${n}</b><br><span class="flag">${icon.alert}${f}</span></td><td class="r score num ${s >= 65 ? 'ok' : 'no'}">${s}</td></tr>`).join('')}</tbody></table></section>
+      <section class="panel"><div class="panel-h"><h2>最常答錯</h2></div>
+        <table><tbody>${missWords.map(([w, n]) => `<tr><td class="en"><b>${w}</b></td><td class="r num muted">${n} 人次</td></tr>`).join('')}</tbody></table></section>
+    </div>
+    <section class="panel" style="margin-top:16px"><div class="panel-h"><h2>還沒通過 <span class="muted small num">41 人</span></h2><div class="r"><button class="btn sm" type="button">${icon.download}匯出名單</button></div></div>
+      <div class="chips">${['301-4', '301-19', '302-3', '302-12', '302-27', '303-8', '304-2', '304-11', '304-30', '305-16', '306-5', '306-21'].map((s) => `<span class="chip num">${s}</span>`).join('')}<span class="chip muted">…還有 29 人</span></div></section>`;
+  return `
+    <section class="panel"><div class="panel-h"><h2>補作名單</h2><span class="muted small">截止後，名單上的學生可以單獨補做</span></div>
+      <table><thead><tr><th>學生</th><th>補作到</th><th>備註</th><th></th></tr></thead><tbody>
+        <tr><td><b>305-16 林冠宇</b></td><td class="num">10/28 23:59</td><td class="muted">病假</td><td class="r"><button class="btn sm ghost" type="button" aria-label="移除">${icon.trash}</button></td></tr>
+      </tbody></table>
+      <div class="form-grid" style="margin-top:16px;grid-template-columns:1.4fr 1fr 1fr auto;align-items:end">
+        <label class="field"><span>學生</span><input class="input" placeholder="搜尋姓名、班級或座號" data-dirty></label>
+        <label class="field"><span>補作到</span><input class="input" type="datetime-local" data-dirty></label>
+        <label class="field"><span>備註</span><input class="input" placeholder="例：公假" data-dirty></label>
+        <button class="btn" type="button">${icon.plus}加入</button>
+      </div></section>`;
+}
+
+function viewStudents() {
+  return `<div class="w-head"><div><h1>學生</h1><div class="sub muted num">6 班・214 人</div></div><div class="acts"><button class="btn primary" type="button">${icon.upload}匯入名單</button></div></div>
+  <section class="panel" style="margin-top:22px"><div class="panel-h"><label class="search" style="flex:1;max-width:360px"><span>${icon.search}</span><input type="search" placeholder="搜尋姓名、班級或座號"></label>
+    <div class="r"><select class="input" style="width:auto"><option>全部班級</option>${CLASSES.map((c) => `<option>${c}</option>`).join('')}</select></div></div>
+    <table><thead><tr><th>班級</th><th>座號</th><th>姓名</th>${units.slice(0, 4).map((u) => `<th class="r hide-sm">${u.id}</th>`).join('')}<th></th></tr></thead><tbody>
+    ${names.map((n, i) => `<tr><td class="num">${CLASSES[i % 6]}</td><td class="num">${i + 3}</td><td><b>${n}</b></td>${units.slice(0, 4).map((u, k) => { const s = [96, 84, i % 3 ? 70 : 42, i % 4 ? 80 : null][k]; return `<td class="r num hide-sm ${s == null ? 'muted' : s >= 65 ? '' : 'score no'}">${s == null ? '—' : s}</td>`; }).join('')}<td class="r"><button class="btn sm ghost" type="button">個人頁${icon.arrowR}</button></td></tr>`).join('')}
+    </tbody></table></section>`;
+}
+function viewScores() {
+  return `<div class="w-head"><div><h1>成績</h1><div class="sub muted">即時資料（Firebase）・試算表上次同步 14:30</div></div><div class="acts"><button class="btn" type="button">${icon.sync}立即同步</button><button class="btn" type="button">${icon.download}匯出</button></div></div>
+  <section class="panel" style="margin-top:22px"><div class="panel-h" style="gap:10px">
+    <select class="input" style="width:auto"><option>全部班級</option>${CLASSES.map((c) => `<option>${c}</option>`).join('')}</select>
+    <select class="input" style="width:auto"><option>全部單元</option>${units.map((u) => `<option>${u.title}</option>`).join('')}</select>
+    <select class="input" style="width:auto"><option>最近 14 天</option><option>最近 7 天</option></select>
+    <label class="switch small"><input type="checkbox"><b>只看需要確認</b></label></div>
+    <table><thead><tr><th>時間</th><th>學生</th><th>單元</th><th class="r">分數</th><th>驗證</th></tr></thead><tbody>
+    ${stream.concat(stream.slice(0, 3)).map(([t, c, s, n, u, p, f]) => `<tr><td class="num muted">10/18 ${t}</td><td><b>${c}-${s} ${n}</b></td><td>${u}</td><td class="r score num ${p >= 65 ? 'ok' : 'no'}">${p}</td><td>${f ? `<span class="flag">${icon.alert}${f}</span>` : '<span class="muted">正常</span>'}</td></tr>`).join('')}
+    </tbody></table></section>`;
+}
+function viewSettings() {
+  return `<div class="w-head"><div><h1>設定</h1><div class="sub muted">不常改的設定都在這裡</div></div></div>
+  <section class="panel" style="margin-top:22px"><div class="panel-h"><h2>AI 出題</h2><span class="pill good">Gemini・已設定金鑰</span><div class="r"><button class="btn sm" type="button">變更</button></div></div>
+    <p class="small muted" style="margin:0">AI 出題規則（單字、課文、句型各一份）<a href="#" style="color:var(--navy);font-weight:800">編輯規則</a>・預設已改成國中程度常用字</p></section>
+  <section class="panel"><div class="panel-h"><h2>錯誤分析引擎</h2><span class="pill good">本機引擎在線</span><span class="pill muted">雲端：Cloud Run</span></div>
+    <div class="form-grid"><label class="field"><span>雲端網址</span><input class="input en" value="https://b5-brain-xxxxx.asia-east1.run.app" data-dirty></label><label class="field"><span>金鑰</span><input class="input" type="password" placeholder="不變更就留空" data-dirty></label></div>
+    <p class="small muted" style="margin:12px 0 0">本機引擎：在這台電腦雙擊 <b>tools\\brain\\start-local-engine.bat</b>。待分析：<b>L4 單字片語</b> <button class="btn sm navy" type="button" style="margin-left:6px">${icon.cpu}全部分析</button></p></section>
+  <section class="panel"><div class="panel-h"><h2>試算表同步</h2><span class="pill good">每 10 分鐘自動同步</span><div class="r"><button class="btn sm" type="button">${icon.sync}立即同步</button><button class="btn sm" type="button">比對最近 7 天</button></div></div>
+    <p class="small muted" style="margin:0">成績先由伺服器計分寫進 Firebase，同時轉送試算表；漏掉的每 10 分鐘補同步。</p></section>
+  <section class="panel danger-zone"><div class="panel-h"><h2>危險區</h2><span class="small muted">需要通關密語；做之前先建立備份</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px"><button class="btn" type="button">${icon.download}建立成績備份</button><button class="btn danger" type="button">${icon.trash}刪除單元的所有紀錄</button><button class="btn danger" type="button">學期結算清除</button></div></section>
+  <div class="savebar" data-savebar><span>有未儲存的變更</span><button class="btn ghost sm" type="button" data-discard>復原</button><button class="btn primary sm" type="button" data-save>${icon.check}儲存</button></div>`;
+}
+
+function render() {
+  setNav(); drawList(document.querySelector('[data-usearch]').value);
+  const u = units.find((x) => x.id === cur.unit);
+  work.innerHTML = cur.view === 'overview' ? viewOverview() : cur.view === 'unit' && u ? viewUnit(u)
+    : cur.view === 'units' ? `<div class="w-head"><div><h1>單元</h1><div class="sub muted">從左邊選一個單元</div></div></div>`
+    : cur.view === 'students' ? viewStudents() : cur.view === 'scores' ? viewScores() : viewSettings();
+  work.classList.remove('enter'); void work.offsetWidth; work.classList.add('enter');
+  setDirty(false);
+}
+function setDirty(v) { dirty = v; document.querySelector('[data-savebar]')?.classList.toggle('on', v); }
+function guard() { return !dirty || confirm('有未儲存的變更，確定要離開嗎？'); }
+function toast(t) { const el = document.querySelector('[data-toast]'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 1800); }
+
+/* ---------------- 互動 ---------------- */
+document.addEventListener('click', (e) => {
+  const nav = e.target.closest('[data-nav]');
+  if (nav) { e.preventDefault(); if (!guard()) return; const v = nav.dataset.nav; cur.view = v === 'units' ? (cur.unit ? 'unit' : 'units') : v; shell.dataset.pane = v === 'units' && !cur.unit ? 'list' : 'work'; if (v === 'units' && matchMedia('(max-width: 900px)').matches) shell.dataset.pane = 'list'; render(); return; }
+  const row = e.target.closest('[data-unit]');
+  if (row) { if (!guard()) return; if (row.dataset.unit === '__overview') cur.view = 'overview'; else { cur.view = 'unit'; if (cur.unit !== row.dataset.unit) cur.tab = 'content'; cur.unit = row.dataset.unit; } shell.dataset.pane = 'work'; render(); return; }
+  const tab = e.target.closest('[data-tab]');
+  if (tab) { if (!guard()) return; cur.tab = tab.dataset.tab; document.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b === tab))); const body = document.querySelector('[data-tabbody]'); body.innerHTML = tabBody(units.find((x) => x.id === cur.unit)); body.classList.remove('enter'); void body.offsetWidth; body.classList.add('enter'); setDirty(false); return; }
+  const jump = e.target.closest('[data-jump]');
+  if (jump) { const a = attention[Number(jump.dataset.jump)]; cur = { view: 'unit', unit: a.unit, tab: a.tab }; shell.dataset.pane = 'work'; render(); return; }
+  if (e.target.closest('[data-save]')) { setDirty(false); toast('已儲存，學生網站已更新'); return; }
+  if (e.target.closest('[data-discard]')) { render(); return; }
+  if (e.target.closest('[data-back]')) { shell.dataset.pane = 'list'; return; }
+  if (e.target.closest('[data-collapse]')) { shell.classList.toggle('list-off'); return; }
+  if (e.target.closest('[data-add]')) { toast('原型：這裡會打開「新增單元」表單'); }
+});
+document.addEventListener('input', (e) => {
+  if (e.target.matches('[data-usearch]')) { drawList(e.target.value); return; }
+  if (e.target.closest('[data-dirty]')) setDirty(true);
+});
+document.addEventListener('change', (e) => { if (e.target.closest('[data-dirty]')) setDirty(true); });
+window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+// 示範：每 12 秒有人交卷，從上面滑進來
+let tick = 0;
+setInterval(() => {
+  const host = document.querySelector('[data-stream]'); if (!host) return;
+  const n = names[tick++ % names.length]; const p = 40 + ((tick * 37) % 60);
+  const d = new Date(); const t = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+  host.insertAdjacentHTML('afterbegin', streamRow([t, CLASSES[tick % 6], (tick * 7) % 36 + 1, n, ['L4VOC', 'L4Reading', 'L3VOC'][tick % 3], p, ''], true));
+  host.lastElementChild?.remove();
+  const o = document.querySelector('[data-online]'); if (o) o.textContent = 20 + (tick % 7);
+}, 12000);
+
+render();
+</script>
+</body>
+</html>
