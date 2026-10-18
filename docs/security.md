@@ -22,7 +22,7 @@
 網站只能從下列來源載入程式、連線、嵌入：
 
 - 程式：自己、`www.gstatic.com`（Firebase）、`apis.google.com`（Google 登入）、`*.firebasedatabase.app`（即時在線統計的備用連線）、reCAPTCHA
-- 連線：`*.googleapis.com`、Apps Script、`*.firebasedatabase.app`（含 wss）、`*.run.app`（錯誤分析引擎）、`http://127.0.0.1:8765`（本機錯誤分析引擎）
+- 連線：`*.googleapis.com`、reCAPTCHA（`www.google.com/recaptcha/`）、Apps Script、`*.firebasedatabase.app`（含 wss）、`*.run.app`（錯誤分析引擎）、`http://127.0.0.1:8765`（本機錯誤分析引擎）
 - 嵌入框：Google 登入、`*.firebaseapp.com`、reCAPTCHA
 - 本網站只能被自己和 Google Sites 嵌入
 
