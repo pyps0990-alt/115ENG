@@ -1247,3 +1247,17 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 .rd-pairs li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding: 6px 10px; border-radius: 10px; background: var(--wash); }
 .rd-arrow { color: var(--steel); font-weight: 800; }
 @media (prefers-reduced-motion: reduce) { .ann-tip { animation: none; } }
+
+/* 作答誠信（js/integrity.js）：作答中題目與文章不能選取、長按不跳出選單；輸入框照常可以打字 */
+body.integrity-on #app { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body.integrity-on #app input, body.integrity-on #app textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+/* 偵測到翻譯工具：遮住題目，關掉翻譯就恢復 */
+body.integrity-block #app { filter: blur(14px); pointer-events: none; }
+body.integrity-block::after {
+  content: "偵測到翻譯工具。請關閉翻譯（例如瀏覽器的「顯示原文」或翻譯擴充功能）後繼續作答，這次會記錄給老師。";
+  position: fixed; z-index: 60; left: 50%; top: 40%; transform: translate(-50%, -50%); width: min(420px, calc(100vw - 32px));
+  padding: 20px 22px; border-radius: 16px; background: var(--white); color: var(--navy); border: 1.5px solid var(--line);
+  box-shadow: var(--shadow); font-weight: 700; line-height: 1.6; text-align: center;
+}
+.integrity-note { color: var(--steel); font-size: .85rem; }
+.integrity-note .ic { width: 14px; height: 14px; vertical-align: -2px; }

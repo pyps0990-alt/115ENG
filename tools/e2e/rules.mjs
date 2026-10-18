@@ -65,6 +65,8 @@ await assertFails(submit(record({ attemptId: 'a3', key: OTHER })), 'key 要跟�
 await assertFails(submit(record({ attemptId: 'a3', key: keyOf('999', '1', '不存在') }), { cls: false }), '名單上沒有的人不能寫');
 await assertFails(submit(record({ attemptId: 'a3', cls: '307' }), { cls: false }), '帳本路徑的班級要跟名單一致');
 await assertFails(submit(record({ attemptId: 'a4', hacked: true })), '多出來的欄位');
+await assertSucceeds(submit(record({ attemptId: 'i1', integrity: { away: 2, awaySec: 30, translate: 0, paste: 1, copy: 0 } })));
+await assertFails(submit(record({ attemptId: 'i2', integrity: 'x' })), '作答誠信紀錄要是物件');
 await assertFails(submit(record({ attemptId: 'a5', pct: 150 })), '百分比超出範圍');
 await assertFails(submit(record({ attemptId: 'a6', createdAt: new Date('2020-01-01') })), '時間要用伺服器時間');
 await assertFails(submit(record({ attemptId: 'a7', details: Array(151).fill({}) })), '明細最多 150 筆');

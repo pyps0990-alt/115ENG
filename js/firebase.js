@@ -139,6 +139,12 @@ export async function saveScoreToFirestore(payload, key) {
     details: cleanDetails(payload.details),
     createdAt: serverTimestamp(),
   };
+  // 作答誠信紀錄（js/integrity.js）：離開畫面次數與秒數、偵測到翻譯、貼上、複製的次數
+  const ig = payload.integrity;
+  if (ig && typeof ig === 'object') {
+    const n = (v) => Math.max(0, Math.min(100000, Math.floor(Number(v) || 0)));
+    record.integrity = { away: n(ig.away), awaySec: n(ig.awaySec), translate: n(ig.translate), paste: n(ig.paste), copy: n(ig.copy) };
+  }
   const marks = cleanMarks(payload.marks);
   if (marks && marks.length) record.marks = marks;
   // 兩份一起寫（要嘛都成功、要嘛都失敗）。Promise 在伺服器確認後才完成；離線時先存在裝置上，連上網再送

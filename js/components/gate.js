@@ -72,6 +72,7 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
         <p class="gate-lead">${lead}</p>
         ${bestNow != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${bestNow}%</b></div>` : ''}
         ${timeNote ? `<p class="gate-note">${timeNote}</p>` : ''}
+        <p class="gate-note integrity-note">${icon.lock} 作答時不能翻譯、複製貼上；離開作答畫面（切換 App、分頁）會記錄給老師。</p>
         <div class="btn-row">${buttons}</div>
         <p class="who-line">以 <b>${esc(s.name)}</b>（${esc(s.cls)} 班 ${esc(s.seat)} 號）的身分作答 <button class="link-btn edit" type="button">不是我？切換</button></p>
         <details class="gate-rules"${firstTime ? ' open' : ''}><summary>測驗規則</summary>

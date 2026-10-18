@@ -698,6 +698,13 @@ function checkAttempt_(d) {
       }
       if (bad) issues.push('有 ' + bad + ' 題答案與題庫不符');
     }
+    // 作答誠信紀錄（網站 js/integrity.js）：離開作答畫面、偵測到翻譯工具、試圖貼上
+    var ig = d.integrity && typeof d.integrity === 'object' ? d.integrity : null;
+    if (ig) {
+      if (Number(ig.away) > 0) issues.push('離開作答畫面 ' + Number(ig.away) + ' 次（共 ' + Number(ig.awaySec || 0) + ' 秒）');
+      if (Number(ig.translate) > 0) issues.push('偵測到翻譯工具 ' + Number(ig.translate) + ' 次');
+      if (Number(ig.paste) > 0) issues.push('試圖貼上 ' + Number(ig.paste) + ' 次');
+    }
     return issues.join('；');
   } catch (err) {
     return '';

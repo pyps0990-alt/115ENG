@@ -13,7 +13,7 @@ service cloud.firestore {
     // key 是學生帳本的 key，寫進班級路徑時用來確認這個學生真的在名單上。
     function validAttempt(d, attemptId) {
       return d.keys().hasOnly(['cls', 'seat', 'unit', 'attemptId', 'key', 'name', 'unitTitle', 'level', 'mode', 'review',
-          'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTs', 'details', 'marks', 'createdAt'])
+          'score', 'total', 'pct', 'basic', 'advanced', 'mastery', 'wrong', 'durationSec', 'clientTs', 'details', 'marks', 'integrity', 'createdAt'])
         && d.keys().hasAll(['cls', 'seat', 'unit', 'attemptId', 'key', 'score', 'total', 'pct', 'details', 'createdAt'])
         && d.attemptId == attemptId
         && d.key is string && d.key.size() == 64
@@ -33,6 +33,7 @@ service cloud.firestore {
         && d.get('clientTs', '') is string && d.get('clientTs', '').size() <= 30
         && d.details is list && d.details.size() <= 150
         && d.get('marks', []) is list && d.get('marks', []).size() <= 300
+        && d.get('integrity', {}) is map && d.get('integrity', {}).size() <= 8
         && d.createdAt == request.time;
     }
 

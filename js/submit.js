@@ -1,4 +1,5 @@
 import { SCRIPT_URL, SCORE_TRANSPORT } from './config.js';
+import { take } from './integrity.js';
 import { PASS } from './types.js';
 import { store } from './storage.js';
 
@@ -143,7 +144,8 @@ const SCREEN_WAIT_MS = 5000;
 const track = (field) => { import('./presence.js').then((p) => p.track(field)).catch(() => {}); };
 
 export async function submitScore(payload) {
-  const item = withKey({ ...payload, attemptId: payload.attemptId || newAttemptId() });
+  const integ = take(payload.unit); // 作答中離開畫面、翻譯、貼上的次數（沒有就不附）
+  const item = withKey({ ...payload, ...(integ ? { integrity: integ } : {}), attemptId: payload.attemptId || newAttemptId() });
   // Firestore 是成績正本：伺服器確認後回 'ok'；離線時先存在裝置上，連上網自動補送（Promise 晚一點才完成）
   const fs = import('./firebase.js').then((fb) => fb.saveScoreToFirestore(item, item.key)).catch((e) => { console.warn(e); return 'error'; });
   // 通過（或複習）才算完成；沒通過要補考

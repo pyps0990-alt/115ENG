@@ -9,6 +9,7 @@ import { initNav, updateNav } from './nav.js';
 import { flushOutbox, pendingItems, clearOutbox, outboxStatus, rejectedItems } from './submit.js';
 import { submitStateHTML } from './components/gate.js';
 import { leaveBody } from './resume.js';
+import * as integrity from './integrity.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
 import { TYPES, typeOf, typeLabel, typeIcon, bestKey, lessonLabel, lessonHeading, lessonCmp, unitName } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
@@ -775,7 +776,15 @@ async function boot() {
       evaluate();
     }
   };
-  new MutationObserver(() => { setExam(!!document.body.dataset.busy); reportView(); }).observe(document.body, { attributes: true, attributeFilter: ['data-busy'] });
+  // 作答誠信：作答中阻擋翻譯與複製貼上、記錄離開畫面（js/integrity.js）；交卷時附在成績裡
+  let watching = false;
+  const watchIntegrity = (on) => {
+    if (on === watching) return;
+    watching = on;
+    if (on) integrity.start(decodeURIComponent(location.hash.split('/')[2] || ''), { onNotice: (t) => notify(t, 'wait') });
+    else integrity.stop();
+  };
+  new MutationObserver(() => { setExam(!!document.body.dataset.busy); watchIntegrity(!!document.body.dataset.busy); reportView(); }).observe(document.body, { attributes: true, attributeFilter: ['data-busy'] });
   // 成績排隊／排到送出時，在畫面右下角通知
   window.addEventListener('score-queued', (e) => notify(`${e.detail.unitTitle || e.detail.unit} 成績已加入排隊，稍後自動送出`, 'wait'));
   window.addEventListener('score-rejected', (e) => notify(`${e.detail.unitTitle || e.detail.unit} 成績被伺服器拒收，請到「我的成績」截圖給老師`, 'wait'));
