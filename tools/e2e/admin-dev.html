@@ -31,6 +31,7 @@ const DATA = {
     config: { updated: 'x', units: {} }, siteUrl: 'https://site/', sheetUrl: '#',
   },
   getAiPrompts: { vocab: { text: '' }, reading: { text: '' }, pattern: { text: '' } }, getBrainConfig: {},
+  getBestScores: { '301-5': { 'L1-2VOC': 88, L1R: 72 }, '302-9': { 'L1-2VOC': 30 } },
   listRoster: ['301', '302', '303', '304'].flatMap((c) => Array.from({ length: 32 }, (_, i) => ({ cls: c, seat: String(i + 1), name: '學生' + (i + 1) }))),
 };
 const W = [['accept', 'v.', '接受'], ['achieve', 'v.', '達成'], ['advice', 'n.', '建議'], ['afford', 'v.', '負擔得起'], ['amazing', 'adj.', '令人驚奇的'], ['anxious', 'adj.', '焦慮的'], ['appear', 'v.', '出現'], ['attend', 'v.', '參加'], ['avoid', 'v.', '避免'], ['aware', 'adj.', '察覺的'], ['give up', 'phr.', '放棄'], ['look forward to', 'phr.', '期待']];

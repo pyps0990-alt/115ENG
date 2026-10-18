@@ -130,7 +130,7 @@ function handleApi_(d) {
   // 網站版後台可以呼叫的函式（每一個函式內部都會再檢查一次老師身分）
   var fns = {
     whoami: function () { return { email: assertTeacher_() }; },
-    getAdminData: getAdminData, saveAllSettings: saveAllSettings, saveExtensions: saveExtensions, listRoster: listRoster, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
+    getAdminData: getAdminData, saveAllSettings: saveAllSettings, saveExtensions: saveExtensions, listRoster: listRoster, getBestScores: getBestScores, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
     getScores: getScores, getChecks: getChecks, getWrongStats: getWrongStats,
     syncGradebookRoster: syncGradebookRoster, syncAllGradebooks: syncAllGradebooks,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
@@ -861,6 +861,32 @@ function readExtensions_() {
 }
 
 // 學生名單（給補作時間的搜尋選單用）：讀 Firestore 的學生帳本，只取班級、座號、姓名
+// 後台「學生」頁：讀所有「成績單 班級」分頁裡每位學生、每個單元的最高分（只讀，不改試算表）
+// 回傳 { '306-20': { 'L1-2VOC': 87, ... }, ... }；座號去掉前面的 0
+function getBestScores() {
+  assertTeacher_();
+  drainInbox_(20000); // 先把排隊中的成績寫進來
+  var out = {}, base = GRADEBOOK_BASE_HEADER.length;
+  SpreadsheetApp.getActiveSpreadsheet().getSheets().forEach(function (sh) {
+    if (sh.getName().indexOf(GRADEBOOK_PREFIX) !== 0) return;
+    var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+    if (lastRow < 2 || lastCol <= base) return;
+    var v = sh.getRange(1, 1, lastRow, lastCol).getValues(), head = v[0];
+    for (var i = 1; i < v.length; i++) {
+      var cls = String(v[i][0]).trim(), seat = String(v[i][1]).trim().replace(/^0+(?=\d)/, '');
+      if (!cls || !seat) continue;
+      var row = null;
+      for (var j = base; j < head.length; j++) {
+        var unit = String(head[j]).trim(), cell = v[i][j];
+        if (!unit || cell === '' || cell === null || !isFinite(Number(cell))) continue;
+        row = row || (out[cls + '-' + seat] = out[cls + '-' + seat] || {});
+        row[unit] = Math.max(Number(cell), row[unit] || 0);
+      }
+    }
+  });
+  return out;
+}
+
 function listRoster() {
   assertTeacher_();
   var out = [], after = null;

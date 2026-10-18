@@ -3248,6 +3248,7 @@
       var list = SH.attempts; if (!list) return null;
       var best = {};
       list.forEach(function (x) { if (x.unit !== unitId || x.review) return; var k = x.cls + '-' + x.seat; best[k] = Math.max(best[k] || 0, Number(x.pct) || 0); });
+      var sb = SH.sheetBest || {}; Object.keys(sb).forEach(function (cs) { var v = sb[cs][unitId]; if (v !== undefined) best[cs] = Math.max(best[cs] || 0, v); });
       var byCls = {};
       Object.keys(best).forEach(function (k) { var c = k.split('-')[0]; (byCls[c] = byCls[c] || { n: 0, ok: 0 }).n++; if (best[k] >= PASS_PCT) byCls[c].ok++; });
       var classes = Object.keys(byCls).sort();
@@ -3727,7 +3728,10 @@
         US.rosterAsked = true;
         google.script.run.withSuccessHandler(function (list) { roster = list || []; if (SH.tab === 'scores') drawUnitScores(); }).withFailureHandler(function () { roster = []; }).listRoster();
       }
-      var rows = usRows(u), best = usBest(rows), keys = Object.keys(best);
+      var rows = usRows(u), best = usBest(rows);
+      var sb = SH.sheetBest || {};
+      Object.keys(sb).forEach(function (cs) { var v = sb[cs][u.id]; if (v === undefined) return; if (!best[cs] || v > Number(best[cs].pct)) { var p = cs.split('-'), r = (roster || []).filter(function (x) { return x.cls === p[0] && String(x.seat) === p.slice(1).join('-'); })[0]; best[cs] = { cls: p[0], seat: p.slice(1).join('-'), name: r ? r.name : '', pct: v, fromSheet: true }; } });
+      var keys = Object.keys(best);
       var rb = usRosterBy();
       var classes = {}; keys.forEach(function (k) { classes[k.split('-')[0]] = 1; }); Object.keys(rb).forEach(function (c) { classes[c] = 1; });
       classes = Object.keys(classes).sort();
@@ -3849,6 +3853,9 @@
     function bestByStudent() {
       var best = {};
       (SH.attempts || []).forEach(function (x) { if (x.review) return; var k = x.cls + '-' + x.seat + '|' + x.unit; if (!best[k] || Number(x.pct) > Number(best[k].pct)) best[k] = x; });
+      // 試算表成績單的最高分（含還沒有線上紀錄的舊成績）：比線上紀錄高或線上沒有，就用成績單的
+      var sb = SH.sheetBest || {};
+      Object.keys(sb).forEach(function (cs) { var p = cs.split('-'); Object.keys(sb[cs]).forEach(function (unit) { var k = cs + '|' + unit, v = sb[cs][unit]; if (!best[k] || v > Number(best[k].pct)) best[k] = { cls: p[0], seat: p.slice(1).join('-'), unit: unit, pct: v, fromSheet: true, check: '' }; }); });
       return best;
     }
 
@@ -4047,8 +4054,11 @@
       var withVT = function (fn) {
         if (!canVT || inVT) return fn();
         inVT = true;
-        var t = document.startViewTransition(function () { try { fn(); } finally { inVT = false; } });
+        // 保險：瀏覽器沒有在 0.3 秒內執行轉場（例如分頁在背景、畫面暫停繪製），就直接切換，不會卡住
+        var ran = false, go = function () { if (ran) return; ran = true; try { fn(); } finally { inVT = false; } };
+        var t = document.startViewTransition(go);
         t.finished.catch(function () {}); t.ready.catch(function () {});
+        setTimeout(function () { if (!ran) { try { t.skipTransition(); } catch (e) {} go(); } }, 300);
       };
       // 滑動的亮塊：分頁底線、左邊選單
       var tabs = document.querySelector('.u-tabs'), rail = document.querySelector('.rail');
@@ -4071,10 +4081,13 @@
       window.addEventListener('resize', function () { tabInk.classList.add('no-anim'); railInk.classList.add('no-anim'); window.placeInks(); requestAnimationFrame(function () { tabInk.classList.remove('no-anim'); railInk.classList.remove('no-anim'); }); });
 
       var routeM = route;
-      route = function () { withVT(function () { routeM(); window.placeInks(); }); };
+      // 第一次（頁面還在載入）直接切換，不用轉場：瀏覽器在載入中可能不執行轉場，畫面會停在總覽
+      var routed = false, settled = false;
+      route = function () { if (!routed) { routed = true; routeM(); window.placeInks(); setTimeout(function () { settled = true; }, 1500); return; }
+        if (!settled) { routeM(); window.placeInks(); return; } withVT(function () { routeM(); window.placeInks(); }); };
       var showTabM = showTab;
       showTab = function (tab) {
-        if (inVT) { showTabM(tab); window.placeInks(); return; }
+        if (inVT || !settled) { showTabM(tab); window.placeInks(); return; }
         var root = document.documentElement; root.classList.add('vt-tab');
         withVT(function () { showTabM(tab); window.placeInks(); });
         setTimeout(function () { root.classList.remove('vt-tab'); }, 260);
@@ -4124,7 +4137,9 @@
         var run = function () { shell.classList.toggle('list-off', off); $('ulist-show').hidden = !off; if (window.placeInks) window.placeInks(); };
         if (!document.startViewTransition || calm) { run(); return; }
         root.classList.add('vt-list');
-        var t = document.startViewTransition(run);
+        var ran = false, go = function () { if (ran) return; ran = true; run(); };
+        var t = document.startViewTransition(go);
+        setTimeout(function () { if (!ran) { try { t.skipTransition(); } catch (e) {} go(); } }, 300);
         var done = function () { root.classList.remove('vt-list'); };
         t.finished.then(done, done);
       };
@@ -4239,6 +4254,17 @@
         roster = list; try { localStorage.setItem(RKEY, JSON.stringify(list)); } catch (e) {}
         if (changed) { if (SH.view === 'students') drawStudents(); if (SH.view === 'unit' && SH.tab === 'scores') drawUnitScores(); if (typeof exRender === 'function') exRender(); }
       }).withFailureHandler(function () {}).listRoster();
+      // 成績單最高分：先用這台電腦記住的，背景向試算表讀最新的
+      var BKEY = me ? 'b5a:best:' + me : '';
+      try { var b0 = BKEY && JSON.parse(localStorage.getItem(BKEY) || 'null'); if (b0 && typeof b0 === 'object') SH.sheetBest = b0; } catch (e) {}
+      window.loadSheetBest = function () {
+        google.script.run.withSuccessHandler(function (m) {
+          if (!m || typeof m !== 'object') return;
+          SH.sheetBest = m; try { localStorage.setItem(BKEY, JSON.stringify(m)); } catch (e) {}
+          redraw(); if (SH.view === 'students') drawStudents(); if (SH.view === 'scores') drawAllScores();
+        }).withFailureHandler(function () {}).getBestScores();
+      };
+      if (BKEY) window.loadSheetBest();
     })();
     var tabSections = function () { return document.querySelectorAll('#work .view'); };
     function applyAdminData(d) {
