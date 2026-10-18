@@ -1226,14 +1226,6 @@
     function $(id) { return document.getElementById(id); }
 
     var TABS = []; // 舊的五個分頁已改成左邊導覽（見「後台外框」）
-    document.querySelectorAll('nav button').forEach(function (b) {
-      b.onclick = function () {
-        document.querySelectorAll('nav button').forEach(function (x) { x.classList.toggle('on', x === b); });
-        TABS.forEach(function (t) { var el = $('tab-' + t); if (el) el.hidden = b.dataset.tab !== t; });
-        if (b.dataset.tab === 'semester') puLoad();
-        if (b.dataset.tab === 'scores') syncStatus(); // 每次打開學期結算分頁，重新從試算表讀單元清單
-      };
-    });
 
     function titleCellHTML(u) {
       var meta = '<span>' + esc(u.id) + '</span>';
