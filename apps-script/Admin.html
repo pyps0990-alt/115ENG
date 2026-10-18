@@ -1040,7 +1040,7 @@
       $('smsg').textContent = '';
       $('rows').innerHTML = rows.map(function (r) {
         return '<tr><td>' + esc(r.time) + '</td><td>' + esc(r.cls) + '</td><td>' + esc(r.seat) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.unitTitle || r.unit) +
-          '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td><td style="white-space:normal">' + (r.check === '—' ? '<span class="muted" title="即時資料：同步到試算表時才用題庫核對">—</span>' : r.check ? '<span class="chk-warn">⚠ ' + esc(r.check) + '</span>' : '<span class="muted">✓</span>') + '</td></tr>';
+          '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td><td style="white-space:normal">' + (r.check === '—' ? '<span class="muted" title="還沒同步到試算表，尚未用題庫核對（每 10 分鐘自動同步）">—</span>' : r.check ? '<span class="chk-warn">⚠ ' + esc(r.check) + '</span>' : '<span class="muted">✓</span>') + '</td></tr>';
       }).join('') || '<tr><td colspan="12" class="muted">沒有資料</td></tr>';
       var n = rows.length;
       var avg = n ? Math.round(rows.reduce(function (a, r) { return a + Number(r.pct || 0); }, 0) / n) : 0;
@@ -1068,15 +1068,21 @@
       $('smsg').textContent = '載入中…'; $('smsg').className = 'msg';
       var cls = $('f-cls').value.trim(), unit = $('f-unit').value;
       if (useFs()) {
-        // 即時：直接讀 Firebase（剛交的成績也看得到）；驗證欄由同步到試算表時核對，這裡顯示「—」
+        // 即時：直接讀 Firebase（剛交的成績也看得到）。驗證欄：同步到試算表時用題庫核對的結果，用記錄編號查回來；
+        // 還沒同步的顯示「—」。學生可以繞過網站直接寫 Firebase，分數要看驗證欄才可靠
         window.fbAttempts({ cls: cls, days: Number($('f-days').value) || 14 }).then(function (list) {
-          paintScores(filterScores(list.filter(function (x) { return !unit || x.unit === unit; }).map(function (x) {
+          var rows = list.filter(function (x) { return !unit || x.unit === unit; }).map(function (x) {
             return {
-              time: fmtTime(x.at), cls: x.cls, seat: x.seat, name: x.name, unit: x.unit, unitTitle: x.unitTitle, level: x.level, mode: x.mode,
+              id: x.attemptId, time: fmtTime(x.at), cls: x.cls, seat: x.seat, name: x.name, unit: x.unit, unitTitle: x.unitTitle, level: x.level, mode: x.mode,
               score: x.score, total: x.total, pct: x.pct, basic: x.basic || '', advanced: x.advanced || '', mastery: x.mastery || '',
               wrong: (x.wrong || []).join(', '), durationSec: x.durationSec, check: '—',
             };
-          })));
+          });
+          paintScores(filterScores(rows));
+          google.script.run.withSuccessHandler(function (checks) {
+            rows.forEach(function (r) { if (r.id && Object.prototype.hasOwnProperty.call(checks || {}, r.id)) r.check = checks[r.id]; });
+            paintScores(filterScores(rows));
+          }).withFailureHandler(function () {}).getChecks(rows.map(function (r) { return r.id; }).filter(Boolean));
         }).catch(function (err) {
           var m = String(err && err.message || err);
           $('smsg').textContent = '載入失敗：' + (/index/i.test(m) ? 'Firebase 還沒建立查詢用的索引（請執行 firebase deploy --only firestore:indexes，建立需要幾分鐘）' : m);

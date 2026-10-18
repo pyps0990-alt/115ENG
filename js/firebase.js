@@ -8,7 +8,7 @@ import { SCRIPT_URL } from './config.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
 import {
   initializeFirestore, doc, getDoc, onSnapshot, getDocs, setDoc, collection, writeBatch, serverTimestamp,
-  persistentLocalCache, persistentMultipleTabManager, collectionGroup, query, where, orderBy, limit, Timestamp,
+  persistentLocalCache, persistentMultipleTabManager, collectionGroup, increment, query, where, orderBy, limit, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
 
 const app = initializeApp({
@@ -138,6 +138,9 @@ export async function saveScoreToFirestore(payload, key) {
   const batch = writeBatch(db);
   batch.set(classRef, record);
   batch.set(doc(db, 'vault', key, 'attempts', attemptId), record);
+  // 交卷次數計數器：規則要求每一筆成績都要把它加 1，而且有上限（防止有人繞過網站大量灌假紀錄）。
+  // 用 increment：離線時排隊的好幾筆會依序累加，不會互相衝突
+  batch.set(doc(db, 'vault', key, 'meta', 'quota'), { n: increment(1) }, { merge: true });
   try {
     await batch.commit();
     return 'ok';

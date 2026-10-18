@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const require = createRequire(path.join(process.env.RULES_DEPS || ROOT, 'noop.js'));
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require('@firebase/rules-unit-testing');
-const { doc, getDoc, setDoc, updateDoc, getDocs, collection, serverTimestamp } = require('firebase/firestore');
+const { doc, getDoc, setDoc, updateDoc, getDocs, collection, serverTimestamp, writeBatch, increment } = require('firebase/firestore');
 
 const env = await initializeTestEnvironment({
   projectId: 'demo-b5p',
@@ -42,30 +42,51 @@ const anon = env.unauthenticatedContext().firestore();
 const vaultAtt = (key, id) => doc(anon, 'vault', key, 'attempts', id);
 const classAtt = (cls, seat, unit, id, db = anon) => doc(db, 'classes', cls, 'seats', seat, 'units', unit, 'attempts', id);
 
-// 學生帳本：自己的紀錄
-await assertSucceeds(setDoc(vaultAtt(KEY, 'a1'), record()));
-await assertFails(setDoc(vaultAtt(KEY, 'a1'), record({ pct: 100 })), '不能改已經送出的紀錄');
-await assertFails(setDoc(vaultAtt(KEY, 'a2'), record({ attemptId: 'a2', key: OTHER })), 'key 要跟帳本一致');
-await assertFails(setDoc(vaultAtt(keyOf('999', '1', '不存在'), 'a3'), record({ attemptId: 'a3', key: keyOf('999', '1', '不存在') })), '名單上沒有的人不能寫');
-await assertFails(setDoc(vaultAtt(KEY, 'a4'), record({ attemptId: 'a4', hacked: true })), '多出來的欄位');
-await assertFails(setDoc(vaultAtt(KEY, 'a5'), record({ attemptId: 'a5', pct: 150 })), '百分比超出範圍');
-await assertFails(setDoc(vaultAtt(KEY, 'a6'), record({ attemptId: 'a6', createdAt: new Date('2020-01-01') })), '時間要用伺服器時間');
-await assertFails(setDoc(vaultAtt(KEY, 'a7'), record({ attemptId: 'a7', details: Array(151).fill({}) })), '明細最多 150 筆');
-await assertFails(setDoc(vaultAtt(KEY, 'a8'), record({ attemptId: 'a8', name: 'x'.repeat(41) })), '姓名太長');
-await assertFails(setDoc(vaultAtt(KEY, 'a9'), record({ attemptId: 'a9', score: '3' })), '分數要是數字');
+// 交卷：跟 js/firebase.js saveScoreToFirestore 一樣，同一批寫班級路徑、學生帳本、交卷次數計數器（加 1）
+const quota = (key, db = anon) => doc(db, 'vault', key, 'meta', 'quota');
+function submit(rec, { cls = true, vault = true, bump = 1, path = null } = {}) {
+  const batch = writeBatch(anon);
+  if (cls) batch.set(path || classAtt(rec.cls, rec.seat, rec.unit, rec.attemptId), rec);
+  if (vault) batch.set(vaultAtt(rec.key, rec.attemptId), rec);
+  if (bump) batch.set(quota(rec.key), { n: increment(bump) }, { merge: true });
+  return batch.commit();
+}
+
+// 學生帳本＋班級路徑：自己的紀錄
+await assertSucceeds(submit(record()));
+await assertFails(submit(record({ pct: 100 })), '不能改已經送出的紀錄');
+await assertFails(submit(record({ attemptId: 'a2' }), { bump: 0 }), '沒有把計數器加 1');
+await assertFails(submit(record({ attemptId: 'a2' }), { bump: 2 }), '計數器一次只能加 1');
+await assertFails(setDoc(vaultAtt(KEY, 'a2'), record({ attemptId: 'a2' })), '只寫帳本、沒加計數器');
+await assertSucceeds(submit(record({ attemptId: 'a2' })));
+await assertFails(getDoc(quota(KEY)), '學生讀不到計數器');
+await assertFails(setDoc(quota(KEY), { n: 1 }), '不能把計數器改回去');
+await assertFails(submit(record({ attemptId: 'a3', key: OTHER })), 'key 要跟帳本一致（帳本的班級座號不同）');
+await assertFails(submit(record({ attemptId: 'a3', key: keyOf('999', '1', '不存在') }), { cls: false }), '名單上沒有的人不能寫');
+await assertFails(submit(record({ attemptId: 'a3', cls: '307' }), { cls: false }), '帳本路徑的班級要跟名單一致');
+await assertFails(submit(record({ attemptId: 'a4', hacked: true })), '多出來的欄位');
+await assertFails(submit(record({ attemptId: 'a5', pct: 150 })), '百分比超出範圍');
+await assertFails(submit(record({ attemptId: 'a6', createdAt: new Date('2020-01-01') })), '時間要用伺服器時間');
+await assertFails(submit(record({ attemptId: 'a7', details: Array(151).fill({}) })), '明細最多 150 筆');
+await assertFails(submit(record({ attemptId: 'a8', name: 'x'.repeat(41) })), '姓名太長');
+await assertFails(submit(record({ attemptId: 'a9', score: '3' })), '分數要是數字');
 await assertSucceeds(getDocs(collection(anon, 'vault', KEY, 'attempts')));
 await assertFails(getDocs(collection(anon, 'vault')), '不能列出名單');
+// 交卷次數上限 3000
+await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'vault', KEY, 'meta', 'quota'), { n: 2999 }); });
+await assertSucceeds(submit(record({ attemptId: 'q1' })));
+await assertFails(submit(record({ attemptId: 'q2' })), '超過上限就寫不進去');
+await env.withSecurityRulesDisabled(async (ctx) => { await setDoc(doc(ctx.firestore(), 'vault', KEY, 'meta', 'quota'), { n: 2 }); });
 // 檢討紀錄
 await assertSucceeds(setDoc(doc(anon, 'vault', KEY, 'reviews', 'u1'), { unit: 'u1', at: serverTimestamp() }));
 await assertFails(setDoc(doc(anon, 'vault', KEY, 'reviews', 'u2'), { unit: 'u2', at: new Date() }));
 
 // 班級路徑：名單上的學生、自己的班級座號才能寫
-await assertSucceeds(setDoc(classAtt('306', '7', 'u1', 'a1'), record()));
-await assertFails(setDoc(classAtt('306', '7', 'u1', 'b1'), (() => { const r = record({ attemptId: 'b1' }); delete r.key; return r; })()), '沒有 key');
-await assertFails(setDoc(classAtt('306', '7', 'u1', 'b2'), record({ attemptId: 'b2', key: keyOf('306', '7', '冒名') })), '名單上沒有的 key');
-await assertFails(setDoc(classAtt('306', '8', 'u1', 'b3'), record({ attemptId: 'b3', seat: '8' })), '不能寫到別人的座號');
-await assertFails(setDoc(classAtt('307', '7', 'u1', 'b4'), record({ attemptId: 'b4', cls: '307' })), '不能寫到別的班');
-await assertFails(setDoc(classAtt('306', '7', 'u2', 'b5'), record({ attemptId: 'b5' })), '單元要跟路徑一致');
+await assertFails(submit((() => { const r = record({ attemptId: 'b1' }); delete r.key; return r; })(), { vault: false, bump: 0 }), '沒有 key');
+await assertFails(submit(record({ attemptId: 'b2', key: keyOf('306', '7', '冒名') }), { vault: false }), '名單上沒有的 key');
+await assertFails(submit(record({ attemptId: 'b3', seat: '8' }), { vault: false }), '不能寫到別人的座號');
+await assertFails(submit(record({ attemptId: 'b4', cls: '307' }), { vault: false }), '不能寫到別的班');
+await assertFails(submit(record({ attemptId: 'b5' }), { vault: false, path: classAtt('306', '7', 'u2', 'b5') }), '單元要跟路徑一致');
 await assertFails(getDoc(classAtt('306', '7', 'u1', 'a1')), '學生不能讀班級資料');
 
 // 公開設定：大家能讀，只有老師能寫

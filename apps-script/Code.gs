@@ -112,7 +112,7 @@ function verifyIdToken_(token) {
   if (res.getResponseCode() !== 200) throw new Error('登入已過期，請重新整理頁面');
   var u = (JSON.parse(res.getContentText()).users || [])[0];
   var email = u && u.email ? String(u.email).toLowerCase() : '';
-  if (!email || u.emailVerified === false) throw new Error('無法確認登入帳號');
+  if (!email || u.emailVerified !== true) throw new Error('無法確認登入帳號'); // 一定要是已驗證的 email（Google 登入一定是）
   var ttl = 300;
   try {
     var seg = token.split('.')[1] || '';
@@ -129,7 +129,7 @@ function handleApi_(d) {
   var fns = {
     whoami: function () { return { email: assertTeacher_() }; },
     getAdminData: getAdminData, saveAllSettings: saveAllSettings, saveExtensions: saveExtensions, listRoster: listRoster, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
-    getScores: getScores, getWrongStats: getWrongStats,
+    getScores: getScores, getChecks: getChecks, getWrongStats: getWrongStats,
     syncGradebookRoster: syncGradebookRoster, syncAllGradebooks: syncAllGradebooks,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
     getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey, testLocalAi: testLocalAi,
@@ -1043,6 +1043,24 @@ function getScores(filter) {
   return out;
 }
 
+// 老師後台「成績」看即時（Firebase）資料時：用記錄編號查試算表裡的核對結果（同步到試算表時用題庫核對過）。
+// 回傳 { 記錄編號: 核對結果 }：''＝核對通過；沒有這個編號＝還沒同步到試算表
+function getChecks(ids) {
+  assertTeacher_();
+  var want = {};
+  (Array.isArray(ids) ? ids : []).slice(0, 1000).forEach(function (id) { want[String(id)] = true; });
+  var sh = sheet_(SHEET_SCORES, SCORES_HEADER);
+  var last = sh.getLastRow();
+  var out = {};
+  if (last < 2) return out;
+  var idCol = SCORES_FIELDS.indexOf('attemptId'); // 驗證欄緊接在記錄編號後面
+  sh.getRange(2, idCol + 1, last - 1, 2).getValues().forEach(function (r) {
+    var id = String(r[0]);
+    if (want[id]) out[id] = String(r[1] || '');
+  });
+  return out;
+}
+
 /* ------------------------------------------------------------------ */
 /* 匯入內容（單字片語、課文理解）                                        */
 /* ------------------------------------------------------------------ */
@@ -1194,7 +1212,7 @@ function semesterReset(opts) {
   }
   if (opts.sheets && !opts.skipSheets) publishConfig_();
   var groups = [];
-  if (opts.attempts || opts.roster) groups.push('attempts', 'reviews');
+  if (opts.attempts || opts.roster) groups.push('attempts', 'reviews', 'meta'); // meta：每位學生的交卷次數計數器，跟著作答紀錄歸零
   if (opts.roster) groups.push('vault', 'seats');
   var deadline = Date.now() + 240000;
   for (var g = 0; g < groups.length; g++) {
@@ -1529,8 +1547,10 @@ function deleteStudent(cls, seat, name) {
   var out = { attempts: 0, reviews: 0, classAttempts: 0, vault: false, classSeat: false, timedOut: false };
   var attempts = firestoreListChildren_('vault/' + key + '/attempts');
   var reviews = firestoreListChildren_('vault/' + key + '/reviews');
+  var meta = firestoreListChildren_('vault/' + key + '/meta'); // 交卷次數計數器
   if (attempts.length) { firestoreDelete_(attempts); out.attempts = attempts.length; }
   if (reviews.length) { firestoreDelete_(reviews); out.reviews = reviews.length; }
+  if (meta.length) firestoreDelete_(meta);
   var vaultUrl = FIRESTORE_ROOT + '/vault/' + key;
   if (firestoreRequest_('get', vaultUrl)) { firestoreRequest_('delete', vaultUrl); out.vault = true; }
   // 依班級座號整理的那份複本，不知道做過哪些單元，只能掃過整個 attempts 集合比對班級與座號
