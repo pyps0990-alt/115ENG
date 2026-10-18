@@ -1116,6 +1116,7 @@
           <label>班級 <input type="text" id="f-cls" placeholder="全部" size="6"></label>
           <label>單元 <select id="f-unit"><option value="">全部</option></select></label>
           <label class="fs-only" hidden>期間 <select id="f-days"><option value="1">最近 1 天</option><option value="3">最近 3 天</option><option value="7">最近 7 天</option><option value="14" selected>最近 14 天</option><option value="30">最近 30 天</option><option value="60">最近 60 天</option></select></label>
+          <label style="font-weight:400"><input type="checkbox" id="f-best" checked> 只看每人最高分</label>
           <label style="font-weight:400"><input type="checkbox" id="f-fail"> 只看未通過</label>
           <label>搜尋 <input type="text" id="f-q" placeholder="姓名或座號" size="8"></label>
           <button class="btn primary" id="load">查詢</button>
@@ -1661,15 +1662,28 @@
     }
     var PASS_PCT = 65; // 與網站 js/types.js 的 PASS 相同
     // 姓名、座號搜尋與「只看未通過」：兩種來源都在這裡篩
+    var lastScoreRows = null;
     function filterScores(rows) {
+      lastScoreRows = rows;
       var q = $('f-q').value.trim().toLowerCase();
       var fail = $('f-fail').checked;
+      // 只看每人最高分：同一位學生、同一個單元只留分數最高的一次（複習不算）
+      if ($('f-best').checked) {
+        var best = {};
+        rows.forEach(function (r) {
+          if (/複習/.test(String(r.level || '')) || r.review) return;
+          var k = r.cls + '-' + r.seat + '|' + r.unit;
+          if (!best[k] || Number(r.pct) > Number(best[k].pct)) best[k] = r;
+        });
+        rows = rows.filter(function (r) { return best[r.cls + '-' + r.seat + '|' + r.unit] === r; });
+      }
       return rows.filter(function (r) {
         if (fail && (Number(r.pct) >= PASS_PCT || /複習/.test(String(r.level || '')))) return false;
         if (q && String(r.name || '').toLowerCase().indexOf(q) < 0 && String(r.seat) !== q) return false;
         return true;
       });
     }
+    ['f-best', 'f-fail'].forEach(function (id) { $(id).addEventListener('change', function () { if (lastScoreRows) paintScores(filterScores(lastScoreRows)); }); });
     var two = function (n) { return (n < 10 ? '0' : '') + n; };
     var fmtTime = function (ms) { var d = new Date(ms); return d.getFullYear() + '-' + two(d.getMonth() + 1) + '-' + two(d.getDate()) + ' ' + two(d.getHours()) + ':' + two(d.getMinutes()); };
     function useFs() { return !!window.fbAttempts && $('f-src').value === 'fs'; }
@@ -4160,6 +4174,72 @@
     // 存在這台電腦的 localStorage，依老師帳號分開；網站版才有（Apps Script 內建版沒有 who-email）。
     var me = ($('who-email') && $('who-email').textContent || '').trim().toLowerCase();
     var ADMIN_CACHE = me ? 'b5a:adminData:' + me : '';
+
+    /* ----- 成績載入加速：
+       1. 這台電腦記住上次讀到的成績（只留後台會用到的欄位），一打開就先畫出來
+       2. 接著只向 Firebase 補抓比快取新的成績
+       3. 沒有快取時：先抓最近 3 週畫出來，再在背景補到 120 天
+       學生名單（Apps Script 要 1～3 秒）也記在這台電腦，先用舊的，背景更新 ----- */
+    (function fastLoad() {
+      if (!window.fbAttempts) return;
+      var KEEP_DAYS = 120;
+      var AKEY = me ? 'b5a:att:' + me : '', RKEY = me ? 'b5a:roster:' + me : '';
+      var slim = function (x) {
+        return { attemptId: x.attemptId || '', unit: x.unit, cls: String(x.cls), seat: String(x.seat), name: x.name || '', pct: Number(x.pct) || 0, score: x.score, total: x.total,
+          review: !!x.review, at: x.at || 0, check: x.serverGraded ? String(x.check || '') : '', serverGraded: !!x.serverGraded, wrong: (x.wrong || []).slice(0, 40), level: x.level || '', unitTitle: x.unitTitle || '',
+          basic: x.basic, advanced: x.advanced, mastery: x.mastery, mode: x.mode || '' };
+      };
+      var keyOf = function (x) { return x.cls + '|' + x.seat + '|' + (x.attemptId || x.at); };
+      var readCache = function () { try { var j = AKEY && JSON.parse(localStorage.getItem(AKEY) || 'null'); return j && Array.isArray(j.list) ? j.list : null; } catch (e) { return null; } };
+      var writeCache = function (list) {
+        if (!AKEY) return;
+        try { localStorage.setItem(AKEY, JSON.stringify({ v: 1, list: list })); }
+        catch (e) { try { localStorage.setItem(AKEY, JSON.stringify({ v: 1, list: list.slice(0, 1500) })); } catch (e2) {} } // 空間不夠：只留最新的
+      };
+      var merge = function (base, more) {
+        var seen = {}, out = [];
+        more.concat(base).forEach(function (x) { var k = keyOf(x); if (!seen[k]) { seen[k] = 1; out.push(x); } });
+        var cut = Date.now() - KEEP_DAYS * 86400000;
+        return out.filter(function (x) { return x.at >= cut; }).sort(function (a, b) { return b.at - a.at; });
+      };
+      var redraw = function () {
+        drawUnitList(); drawOverview(); if (SH.view === 'unit') drawUnitHead();
+        if (SH.view === 'unit' && SH.tab === 'scores' && typeof drawUnitScores === 'function') drawUnitScores();
+      };
+      var loading = false;
+      loadAttempts = function () {
+        if (loading) return; loading = true;
+        var cached = readCache();
+        if (cached && cached.length) { SH.attempts = cached; redraw(); }
+        var newest = cached && cached.length ? cached[0].at : 0;
+        var done = function () { loading = false; };
+        var fail = function (err) { if (!SH.attempts) { SH.attempts = []; redraw(); } SH.attemptsError = err && err.message || String(err); done(); };
+        if (newest) {
+          // 有快取：只補新的
+          window.fbAttempts({ since: newest - 60000, max: 3000 }).then(function (list) {
+            SH.attempts = merge(SH.attempts || [], list.map(slim)); writeCache(SH.attempts); redraw(); done();
+          }, fail);
+          return;
+        }
+        // 沒有快取：先 3 週，再補到 120 天
+        window.fbAttempts({ days: 21, max: 1500 }).then(function (list) {
+          SH.attempts = merge([], list.map(slim)); redraw();
+          return window.fbAttempts({ days: KEEP_DAYS, max: 3000 }).then(function (all) {
+            SH.attempts = merge(SH.attempts, all.map(slim)); writeCache(SH.attempts); redraw(); done();
+          });
+        }).catch(fail);
+      };
+      // 交卷是即時的：頁面開著時每 2 分鐘補抓一次新成績（只抓新的，很快）
+      setInterval(function () { if (document.visibilityState === 'visible' && SH.attempts && !loading) loadAttempts(); }, 120000);
+      // 學生名單快取
+      try { var r0 = RKEY && JSON.parse(localStorage.getItem(RKEY) || 'null'); if (Array.isArray(r0) && r0.length && !roster) roster = r0; } catch (e) {}
+      if (RKEY) google.script.run.withSuccessHandler(function (list) {
+        if (!Array.isArray(list)) return;
+        var changed = JSON.stringify(list) !== JSON.stringify(roster || []);
+        roster = list; try { localStorage.setItem(RKEY, JSON.stringify(list)); } catch (e) {}
+        if (changed) { if (SH.view === 'students') drawStudents(); if (SH.view === 'unit' && SH.tab === 'scores') drawUnitScores(); if (typeof exRender === 'function') exRender(); }
+      }).withFailureHandler(function () {}).listRoster();
+    })();
     var tabSections = function () { return document.querySelectorAll('#work .view'); };
     function applyAdminData(d) {
       units = (d.units || []).concat(d.customUnits || []);

@@ -87,8 +87,10 @@ export async function markReviewed(key, unit) {
 // 成績不再由瀏覽器直接寫入：交卷送到伺服器計分（functions/index.js），由伺服器寫進 Firestore
 
 // 老師後台「成績」：最近 days 天的成績（可指定班級），新的在前。只取 classes 底下那一份（vault 底下是同一筆）
-export async function listAttempts({ cls = '', days = 14, max = 500 } = {}) {
-  const cons = [where('createdAt', '>=', Timestamp.fromMillis(Date.now() - days * 86400000)), orderBy('createdAt', 'desc'), limit(max * 2)];
+// since（毫秒）：只取比這個時間新的（後台用本機快取時，只補抓新的成績）
+export async function listAttempts({ cls = '', days = 14, max = 500, since = 0 } = {}) {
+  const from = since ? where('createdAt', '>', Timestamp.fromMillis(since)) : where('createdAt', '>=', Timestamp.fromMillis(Date.now() - days * 86400000));
+  const cons = [from, orderBy('createdAt', 'desc'), limit(max * 2)];
   if (cls) cons.unshift(where('cls', '==', String(cls)));
   const snap = await getDocs(query(collectionGroup(db, 'attempts'), ...cons));
   return snap.docs.filter((d) => d.ref.path.startsWith('classes/')).slice(0, max).map((d) => {
