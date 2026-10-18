@@ -248,16 +248,211 @@
     details.ai-box > :not(summary) { animation:tab-in .28s ease both; }
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
     #toast.ok { background:#15803D; } #toast.err { background:#B91C1C; }
+
+    /* ================= 後台外框：導覽 ｜ 單元清單 ｜ 工作區 ================= */
+    :root { --navy:#1E3A8A; --navy-ink:#C9D5F2; --navy-soft:#E8EDF8; --wash:#ECF0F6; --paper:#F6F8FB; --steel:#586880; --edge:#788396; --good-c:#15803D; --good-soft:#DCFCE7; --amber-soft:#FEF3C7; --amber-ink:#92400E; --ease-out:cubic-bezier(.16,1,.3,1); }
+    body { background:var(--paper); }
+    .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+    .small { font-size:.82rem; }
+    :focus-visible { outline:3px solid var(--primary); outline-offset:2px; }
+    .shell { display:grid; grid-template-columns:76px 300px minmax(0,1fr); height:100dvh; transition:grid-template-columns .34s var(--ease-out); }
+    .shell.list-off { grid-template-columns:76px 0 minmax(0,1fr); }
+    .shell svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+
+    .rail { background:var(--navy); color:var(--navy-ink); display:flex; flex-direction:column; align-items:center; padding:14px 0; gap:4px; z-index:6; }
+    .brand { width:44px; height:44px; border-radius:14px; background:var(--primary); color:var(--navy); font-weight:900; display:grid; place-items:center; margin-bottom:14px; }
+    .rail a[data-view] { width:62px; padding:9px 0 7px; border-radius:14px; display:grid; justify-items:center; gap:3px; color:var(--navy-ink); text-decoration:none; font-size:.74rem; font-weight:800; transition:background .2s, color .2s; }
+    .rail a[data-view]:hover { background:rgba(255,255,255,.08); color:#fff; }
+    .rail a[aria-current="page"] { background:rgba(255,255,255,.15); color:#fff; }
+    .rail a[aria-current="page"] svg { color:var(--primary); }
+    .rail-ic { position:relative; display:grid; }
+    .rail-ic[data-badge]:not([data-badge=""])::after { content:attr(data-badge); position:absolute; top:-7px; right:-12px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--primary); color:var(--navy); font-size:.68rem; font-weight:900; display:grid; place-items:center; }
+    .rail-who { margin-top:auto; display:grid; gap:6px; justify-items:center; font-size:.72rem; text-align:center; padding:0 4px; }
+    .rail-who a { color:var(--navy-ink); }
+    .rail-who #who-email { display:none; }
+
+    .ulist { background:var(--wash); border-right:1px solid var(--line); display:flex; flex-direction:column; min-width:0; overflow:hidden; }
+    .ulist-head { padding:18px 14px 8px; display:grid; gap:10px; }
+    .ulist-title { display:flex; align-items:center; gap:8px; }
+    .ulist-title h2 { font-size:1.05rem; margin:0; flex:1; }
+    .ulist-search { position:relative; display:block; }
+    .ulist-search svg { position:absolute; left:11px; top:10px; width:18px; height:18px; color:var(--steel); }
+    .ulist-search input { width:100%; height:38px; border:1px solid #C7CFDB; border-radius:12px; background:#fff; padding:0 12px 0 36px; font:inherit; color:var(--ink); }
+    .icon-btn { width:36px; height:36px; border-radius:10px; border:1px solid transparent; background:none; display:grid; place-items:center; color:var(--steel); cursor:pointer; padding:0; }
+    .icon-btn:hover { background:#fff; border-color:var(--line); color:var(--navy); }
+    .ulist-scroll { overflow:auto; padding:4px 10px 12px; flex:1; }
+    .ov-row { width:100%; display:flex; align-items:center; gap:10px; border:1px solid transparent; background:none; border-radius:14px; padding:11px 12px; color:var(--ink); font:inherit; font-weight:900; text-align:left; cursor:pointer; }
+    .ov-row:hover { background:rgba(255,255,255,.7); }
+    .ov-row[aria-current="true"] { background:var(--navy); color:#fff; }
+    .ov-count { margin-left:auto; background:var(--primary); color:var(--navy); border-radius:999px; font-size:.75rem; padding:1px 9px; font-weight:900; }
+    .u-group { margin-top:12px; }
+    .u-group > h3 { font-size:.76rem; color:var(--steel); font-weight:800; padding:0 8px 6px; margin:0; letter-spacing:.04em; }
+    .u-row { width:100%; text-align:left; border:1px solid transparent; background:none; border-radius:14px; padding:10px 10px 9px; display:grid; grid-template-columns:12px minmax(0,1fr) auto; gap:2px 9px; align-items:center; color:var(--ink); font:inherit; cursor:pointer; transition:background .18s, border-color .18s; }
+    .u-row:hover { background:rgba(255,255,255,.7); }
+    .u-row[aria-current="true"] { background:#fff; border-color:#C7CFDB; box-shadow:0 1px 2px rgba(30,58,138,.06), 0 6px 18px rgba(30,58,138,.07); }
+    .u-row .t { font-weight:800; font-size:.93rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .u-row .pct { font-size:.82rem; font-weight:800; color:var(--steel); font-variant-numeric:tabular-nums; }
+    .u-row .meta { grid-column:2 / 4; font-size:.74rem; color:var(--steel); font-weight:700; }
+    .u-row .strip { grid-column:2 / 4; }
+    .dot { width:10px; height:10px; border-radius:50%; display:inline-block; flex:none; }
+    .dot.open { background:var(--good-c); box-shadow:0 0 0 3px var(--good-soft); }
+    .dot.soon { background:var(--primary); box-shadow:0 0 0 3px var(--amber-soft); }
+    .dot.later { background:#fff; border:2px solid var(--navy); }
+    .dot.closed { background:var(--edge); }
+    .dot.hidden { border:2px dashed var(--edge); }
+    .dot.empty { border:2px solid #C7CFDB; background:#fff; }
+    /* 每班一段的通過率（已作答的學生裡通過的比例） */
+    .strip { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:3px; height:6px; margin-top:4px; }
+    .strip i { position:relative; border-radius:3px; background:#D6DDEA; overflow:hidden; }
+    .strip i::after { content:""; position:absolute; inset:0; width:var(--p); background:var(--navy); border-radius:3px; }
+    .strip i.full::after { background:var(--good-c); }
+    .add-unit { margin:6px 10px 14px; height:42px; border-radius:12px; border:1.5px dashed var(--edge); background:none; color:var(--navy); font:inherit; font-weight:800; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer; }
+    .add-unit:hover { border-style:solid; background:#fff; }
+
+    .work { overflow:auto; position:relative; background:var(--paper); }
+    .work-inner { max-width:1180px; margin:0 auto; padding:26px 34px 120px; }
+    .ulist-show { position:absolute; left:10px; top:14px; z-index:3; background:#fff; border-color:var(--line); }
+    .w-head { display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+    .w-head h1 { font-size:1.6rem; font-weight:900; margin:0; color:var(--ink); }
+    .w-sub { margin-top:4px; display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; font-size:.86rem; font-weight:700; }
+    .m-back { display:none; }
+    .view .card { margin-bottom:16px; }
+    .card-h { display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+    .card-h h2 { margin:0; font-size:1.05rem; }
+    .u-tabs { display:flex; gap:4px; margin:4px 0 20px; border-bottom:1px solid var(--line); overflow-x:auto; }
+    .u-tabs button { border:0; background:none; padding:11px 14px 12px; font:inherit; font-weight:800; color:var(--steel); position:relative; border-radius:10px 10px 0 0; cursor:pointer; white-space:nowrap; }
+    .u-tabs button:hover { color:var(--navy); background:var(--wash); }
+    .u-tabs button[aria-selected="true"] { color:var(--navy); }
+    .u-tabs button[aria-selected="true"]::after { content:""; position:absolute; left:10px; right:10px; bottom:-1px; height:3px; border-radius:3px 3px 0 0; background:var(--primary); }
+    .view:not([hidden]), .u-pane:not([hidden]) { animation:view-in .4s var(--ease-out) both; }
+    @keyframes view-in { from { opacity:0; transform:translateY(8px); } }
+    /* 出題設定：單元表只顯示選中的這一個 */
+    #shell [data-slot="settings"] #units tr[data-i]:not(.cur) { display:none; }
+    #shell [data-slot="settings"] .cards-table thead { display:none; }
+    #shell [data-slot="settings"] .unit-new-bar { display:none; }
+    #shell [data-slot="content"] .imp-pick { display:none; }
+
+    .ov-grid { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:16px; align-items:start; }
+    .att-row { display:grid; grid-template-columns:36px minmax(0,1fr) auto; gap:12px; align-items:center; padding:12px 2px; border-bottom:1px solid #EEF1F6; }
+    .att-row:last-child { border-bottom:0; }
+    .att-ic { width:36px; height:36px; border-radius:11px; display:grid; place-items:center; background:var(--amber-soft); color:var(--amber-ink); }
+    .att-ic.navy { background:var(--navy-soft); color:var(--navy); }
+    .att-ic svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+    .stream-row { display:grid; grid-template-columns:48px minmax(0,1fr) auto; gap:10px; align-items:center; padding:9px 0; border-bottom:1px solid #EEF1F6; font-size:.88rem; }
+    .stream-row:last-child { border-bottom:0; }
+    .stream-row b { color:var(--ink); }
+    .score-ok { color:var(--good-c); font-weight:900; font-variant-numeric:tabular-nums; }
+    .score-no { color:var(--bad); font-weight:900; font-variant-numeric:tabular-nums; }
+    .flag { display:inline-flex; gap:4px; color:var(--amber-ink); font-weight:800; font-size:.8rem; }
+    .danger-zone { border:1.5px solid #F3B4B4; background:#FFFBFB; }
+    .danger-zone .card-h h2 { color:var(--bad); }
+    .danger-zone .card { box-shadow:none; }
+
+    .savebar { position:fixed; left:50%; bottom:20px; transform:translate(-50%, 140%); opacity:0; display:flex; align-items:center; gap:14px; background:var(--navy); color:#fff; border-radius:16px; padding:10px 10px 10px 18px; box-shadow:0 10px 30px rgba(15,23,42,.28); transition:transform .45s var(--ease-out), opacity .3s; pointer-events:none; z-index:20; font-weight:800; }
+    .savebar.on { transform:translate(-50%, 0); opacity:1; pointer-events:auto; }
+
+    @media (max-width: 900px) {
+      .shell, .shell.list-off { grid-template-columns:1fr; grid-template-rows:auto minmax(0,1fr); }
+      .rail { flex-direction:row; padding:8px 10px; gap:2px; overflow-x:auto; }
+      .brand { margin:0 8px 0 0; width:38px; height:38px; }
+      .rail a[data-view] { width:auto; padding:6px 10px; grid-auto-flow:column; gap:6px; font-size:.8rem; align-items:center; white-space:nowrap; flex:none; }
+      .rail-ic[data-badge]:not([data-badge=""])::after { top:-9px; right:-10px; min-width:16px; height:16px; font-size:.62rem; }
+      .rail-ic { margin-right:6px; }
+      .rail-who { margin:0 0 0 auto; }
+      .ulist, .work { grid-row:2; grid-column:1; }
+      .shell[data-pane="work"] .ulist { display:none; }
+      .shell[data-pane="list"] .work { display:none; }
+      .ulist { border-right:0; }
+      .work-inner { padding:18px 14px 110px; }
+      .m-back { display:inline-flex; }
+      .ov-grid { grid-template-columns:1fr; }
+      .ulist-show, #ulist-hide { display:none !important; }
+    }
+    @media (prefers-reduced-motion: reduce) { .shell, .savebar { transition:none; } .view:not([hidden]), .u-pane:not([hidden]) { animation:none; } }
   </style>
 </head>
 <body>
-  <header><div class="wrap">
-    <h1>B5 Practice 老師後台</h1>
-    <nav><button class="on" data-tab="settings">單元設定</button><button data-tab="import">匯入內容</button><button data-tab="roster">學生名單</button><button data-tab="scores">成績</button><button data-tab="semester">學期結算</button></nav>
-    <span class="who"><?= email ?></span>
-  </div></header>
+  <!-- 後台外框（以單元為中心）：左邊導覽、單元清單、右邊工作區。各功能區塊沿用原本的卡片，開啟時由 shellMount() 搬進對應的位置 -->
+  <div class="shell" id="shell" data-pane="work">
+    <nav class="rail" aria-label="後台主選單">
+      <div class="brand" aria-hidden="true">B5</div>
+      <a href="#overview" data-view="overview"><span class="rail-ic" data-badge="" id="rail-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg></span>總覽</a>
+      <a href="#units" data-view="units"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg></span>單元</a>
+      <a href="#students" data-view="students"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M16 4.5a3.5 3.5 0 010 7"/><path d="M18 14a6 6 0 013.5 6"/></svg></span>學生</a>
+      <a href="#scores" data-view="scores"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg></span>成績</a>
+      <a href="#settings" data-view="settings"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span>設定</a>
+      <div class="rail-who"><span class="who"><?= email ?></span></div>
+    </nav>
 
-  <main class="wrap">
+    <aside class="ulist" aria-label="單元清單">
+      <div class="ulist-head">
+        <div class="ulist-title"><h2>單元</h2><button class="icon-btn" type="button" id="ulist-hide" aria-label="收起單元清單" title="收起單元清單"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button></div>
+        <label class="ulist-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="sr">搜尋單元</span><input type="search" id="ulist-q" placeholder="搜尋單元"></label>
+      </div>
+      <div class="ulist-scroll">
+        <button class="ov-row" type="button" data-go-overview><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/></svg>總覽<span class="ov-count" id="ov-count" hidden></span></button>
+        <div id="ulist-groups"><p class="muted" style="padding:8px 10px">載入中…</p></div>
+      </div>
+      <button class="add-unit" type="button" id="ulist-add"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>新增單元</button>
+    </aside>
+
+    <main class="work" id="work" tabindex="-1">
+      <button class="icon-btn ulist-show" type="button" id="ulist-show" aria-label="打開單元清單" title="打開單元清單" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
+      <div class="work-inner">
+        <div id="stale-anchor"></div>
+
+        <div class="view" data-pane-view="overview">
+          <div class="w-head"><div><h1>總覽</h1><div class="w-sub muted" id="ov-date"></div></div></div>
+          <div class="ov-grid">
+            <section class="card"><div class="card-h"><h2>需要處理</h2><span class="pill" id="ov-att-n"></span></div><div id="ov-att" class="att"><p class="muted">讀取中…</p></div></section>
+            <section class="card"><div class="card-h"><h2>剛交卷</h2><span class="muted small" id="ov-today"></span><a class="btn small" href="monitor.html" target="_blank" rel="noopener" style="margin-left:auto">即時監控</a></div><div id="ov-stream" class="stream"><p class="muted">讀取中…</p></div></section>
+          </div>
+        </div>
+
+        <div class="view" data-pane-view="units" hidden>
+          <div class="w-head"><div><h1>單元</h1><div class="w-sub muted">從左邊選一個單元；也可以在這裡新增</div></div></div>
+          <div data-slot="newunit"></div>
+        </div>
+
+        <div class="view" data-pane-view="unit" hidden>
+          <div class="w-head">
+            <button class="btn small ghost m-back" type="button" id="m-back">‹ 單元</button>
+            <div><h1 id="u-title"></h1><div class="w-sub" id="u-sub"></div></div>
+          </div>
+          <div class="u-tabs" role="tablist" aria-label="單元">
+            <button role="tab" type="button" data-utab="content">題目</button>
+            <button role="tab" type="button" data-utab="settings">出題設定</button>
+            <button role="tab" type="button" data-utab="scores">成績與錯題</button>
+            <button role="tab" type="button" data-utab="makeup">補作</button>
+          </div>
+          <div class="u-pane" data-utab-pane="content"><div data-slot="content"></div></div>
+          <div class="u-pane" data-utab-pane="settings" hidden><div data-slot="settings"></div></div>
+          <div class="u-pane" data-utab-pane="scores" hidden><div data-slot="uscores"></div></div>
+          <div class="u-pane" data-utab-pane="makeup" hidden><div data-slot="makeup"></div></div>
+        </div>
+
+        <div class="view" data-pane-view="students" hidden>
+          <div class="w-head"><div><h1>學生</h1><div class="w-sub muted">匯入名單、查詢或刪除學生資料</div></div></div>
+          <div data-slot="students"></div>
+        </div>
+
+        <div class="view" data-pane-view="scores" hidden>
+          <div class="w-head"><div><h1>成績</h1><div class="w-sub muted">所有單元的成績；即時資料直接讀 Firebase</div></div></div>
+          <div data-slot="scores"></div>
+        </div>
+
+        <div class="view" data-pane-view="settings" hidden>
+          <div class="w-head"><div><h1>設定</h1><div class="w-sub muted">不常改的設定都在這裡</div></div></div>
+          <div data-slot="settings-main"></div>
+          <section class="card danger-zone"><div class="card-h"><h2>危險區</h2><span class="muted small">刪除後無法復原，請先建立備份</span></div><div data-slot="danger"></div></section>
+        </div>
+      </div>
+    </main>
+  </div>
+  <div class="savebar" id="savebar" role="status"><span>有未儲存的變更</span><button class="btn small primary" type="button" id="savebar-save">儲存</button></div>
+
+  <!-- 原本的各功能區塊：開啟時搬進上面的外框（id 與程式都不變） -->
+  <div id="legacy" hidden>
     <section id="tab-settings">
       <div class="card">
         <div class="bar">
@@ -554,7 +749,7 @@
         </div>
       </div>
     </section>
-  </main>
+  </div>
 
   <div id="toast" role="status" aria-live="polite"></div>
   <script>
@@ -611,7 +806,7 @@
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
     function $(id) { return document.getElementById(id); }
 
-    var TABS = ['settings', 'import', 'roster', 'scores', 'semester'];
+    var TABS = []; // 舊的五個分頁已改成左邊導覽（見「後台外框」）
     document.querySelectorAll('nav button').forEach(function (b) {
       b.onclick = function () {
         document.querySelectorAll('nav button').forEach(function (x) { x.classList.toggle('on', x === b); });
@@ -2554,17 +2749,237 @@
       run(opts);
     };
 
+
+    /* ================= 後台外框（以單元為中心） =================
+       原本的功能卡片（id、事件都不變）在這裡搬到新的位置：
+         單元頁：題目＝匯入卡＋錯誤分析卡、出題設定＝單元設定表（只顯示這個單元）、成績與錯題＝成績卡（篩選這個單元）、補作＝補作卡
+         學生＝名單匯入＋查詢刪除、成績＝同步卡＋成績卡、設定＝AI、出題規則、錯誤分析引擎、危險區＝刪除單元紀錄＋學期結算
+       網址：#overview、#units、#unit/<代號>/<content|settings|scores|makeup>、#students、#scores、#settings */
+    var shell = $('shell');
+    var slot = function (k) { return document.querySelector('[data-slot="' + k + '"]'); };
+    var cardOf = function (id) { var el = $(id); return el ? el.closest('.card') : null; };
+    var wrapCard = function (title, node) {
+      var c = document.createElement('section'); c.className = 'card';
+      c.innerHTML = '<div class="card-h"><h2>' + esc(title) + '</h2></div>';
+      c.appendChild(node); return c;
+    };
+    var SH = { view: 'overview', unit: '', tab: 'content', attempts: null };
+    (function shellMount() {
+      var settingsCard = cardOf('units'), newBar = $('nu-add').closest('.bar');
+      newBar.classList.add('unit-new-bar');
+      slot('settings').appendChild(settingsCard);
+      var nb = document.createElement('section'); nb.className = 'card';
+      nb.innerHTML = '<div class="card-h"><h2>新增單元</h2></div>';
+      nb.appendChild(newBar.cloneNode(false));
+      [].slice.call(newBar.childNodes).forEach(function (n) { nb.lastChild.appendChild(n); });
+      nb.lastChild.classList.remove('unit-new-bar');
+      newBar.remove();
+      slot('newunit').appendChild(nb);
+      slot('makeup').appendChild(cardOf('ex-add'));
+      slot('content').appendChild(cardOf('imp-unit'));
+      slot('content').appendChild($('an-card'));
+      [].slice.call($('tab-roster').children).forEach(function (c) { slot('students').appendChild(c); });
+      slot('scores').appendChild($('sync-card'));
+      slot('scores').appendChild(cardOf('load'));
+      var ai = $('ai-box'), pr = $('pr-box'), br = $('br-url').closest('details');
+      ai.open = true; pr.open = false; br.open = true;
+      slot('settings-main').appendChild(wrapCard('AI 出題', ai));
+      slot('settings-main').appendChild(wrapCard('AI 出題規則', pr));
+      slot('settings-main').appendChild(wrapCard('錯誤分析引擎', br));
+      slot('danger').appendChild(cardOf('pu-go'));
+      slot('danger').appendChild(cardOf('sem-reset'));
+      // 錯誤分析卡：引擎設定搬到「設定」後，這張卡只留分析單元的按鈕
+      $('an-card').hidden = false;
+    })();
+
+    /* ----- 單元狀態：開放中／即將截止（3 天內）／尚未開放／已截止／隱藏／還沒有題目 ----- */
+    var twMs = function (s) { return s ? Date.parse(s + ':00+08:00') : NaN; };
+    function unitState(u) {
+      var now = Date.now(), open = twMs(u.openAt), close = twMs(u.closeAt);
+      if (!u.visible) return ['hidden', '隱藏'];
+      if (!content.some(function (c) { return c.id === u.id; })) return ['empty', '還沒有題目'];
+      if (open > now) return ['later', '尚未開放'];
+      if (close <= now) return ['closed', '已截止'];
+      if (close - now < 3 * 86400000) return ['soon', '即將截止'];
+      return ['open', '開放中'];
+    }
+    var TYPE_NAME = { vocab: '單字片語', reading: '課文理解', pattern: '句型練習' };
+    var fmtTw = function (s) { var t = twMs(s); if (isNaN(t)) return ''; var d = new Date(t + 8 * 3600000); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + ' ' + String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
+    function windowText(u) {
+      var a = fmtTw(u.openAt), b = fmtTw(u.closeAt);
+      return a && b ? a + ' – ' + b : b ? '截止 ' + b : a ? a + ' 開放' : '不限時間';
+    }
+    var lessonLabel = function (u) { var l = String(u.lesson || ''); return /^\d+$/.test(l) ? '第 ' + l + ' 課' : l ? l : '其他'; };
+
+    /* ----- 各班通過率：最近的作答紀錄裡，每位學生取最高分，看有沒有到及格線（只算有作答的人） ----- */
+    function passStats(unitId) {
+      var list = SH.attempts; if (!list) return null;
+      var best = {};
+      list.forEach(function (x) { if (x.unit !== unitId || x.review) return; var k = x.cls + '-' + x.seat; best[k] = Math.max(best[k] || 0, Number(x.pct) || 0); });
+      var byCls = {};
+      Object.keys(best).forEach(function (k) { var c = k.split('-')[0]; (byCls[c] = byCls[c] || { n: 0, ok: 0 }).n++; if (best[k] >= PASS_PCT) byCls[c].ok++; });
+      var classes = Object.keys(byCls).sort();
+      if (!classes.length) return null;
+      var n = 0, ok = 0; classes.forEach(function (c) { n += byCls[c].n; ok += byCls[c].ok; });
+      return { pct: Math.round(ok / n * 100), classes: classes.map(function (c) { return { cls: c, p: Math.round(byCls[c].ok / byCls[c].n * 100), n: byCls[c].n }; }) };
+    }
+    function stripHTML(st) {
+      return '<span class="strip" aria-hidden="true">' + st.classes.map(function (c) { return '<i class="' + (c.p >= 100 ? 'full' : '') + '" style="--p:' + c.p + '%" title="' + esc(c.cls + ' 班：' + c.p + '%（' + c.n + ' 人作答）') + '"></i>'; }).join('') + '</span>';
+    }
+
+    function drawUnitList() {
+      var q = ($('ulist-q').value || '').trim().toLowerCase();
+      var groups = [];
+      units.forEach(function (u) { var g = lessonLabel(u); if (groups.indexOf(g) < 0) groups.push(g); });
+      $('ulist-groups').innerHTML = groups.map(function (g) {
+        var list = units.filter(function (u) { return lessonLabel(u) === g && (!q || ((u.title || '') + u.id).toLowerCase().indexOf(q) >= 0); });
+        if (!list.length) return '';
+        return '<div class="u-group"><h3>' + esc(g) + '</h3>' + list.map(function (u) {
+          var s = unitState(u), st = passStats(u.id);
+          return '<button class="u-row" type="button" data-unit="' + esc(u.id) + '" aria-current="' + (SH.view === 'unit' && SH.unit === u.id) + '">' +
+            '<span class="dot ' + s[0] + '" aria-hidden="true"></span><span class="t">' + esc(u.title || u.id) + '</span>' +
+            '<span class="pct">' + (st ? st.pct + '%' : '') + '</span>' +
+            '<span class="meta">' + (TYPE_NAME[u.type] || '') + '・' + s[1] + '</span>' + (st ? stripHTML(st) : '') + '</button>';
+        }).join('') + '</div>';
+      }).join('') || '<p class="muted" style="padding:8px 10px">' + (units.length ? '找不到單元' : '還沒有單元') + '</p>';
+      document.querySelector('[data-go-overview]').setAttribute('aria-current', String(SH.view === 'overview'));
+    }
+
+    /* ----- 總覽：需要處理的事、剛交卷 ----- */
+    var IC = {
+      alert: '<svg viewBox="0 0 24 24"><path d="M12 3l10 18H2L12 3z"/><path d="M12 10v4M12 17.5v.5"/></svg>',
+      clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+      cpu: '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></svg>',
+      file: '<svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6"/></svg>',
+      cal: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    };
+    function drawOverview() {
+      var d = new Date(); $('ov-date').textContent = (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日（' + '日一二三四五六'[d.getDay()] + '）';
+      var items = [];
+      var flagged = (SH.attempts || []).filter(function (x) { return x.check && x.check !== '—' && Date.now() - x.at < 7 * 86400000; });
+      if (flagged.length) {
+        var byU = {}; flagged.forEach(function (x) { byU[x.unit] = (byU[x.unit] || 0) + 1; });
+        Object.keys(byU).forEach(function (id) { var u = units.filter(function (x) { return x.id === id; })[0]; items.push({ ic: 'alert', text: '<b>' + esc(u ? u.title : id) + '</b> 有 <b>' + byU[id] + ' 筆</b>成績需要確認（最近 7 天）', unit: id, tab: 'scores', act: '查看' }); });
+      }
+      units.forEach(function (u) {
+        var s = unitState(u)[0];
+        if (s === 'soon') { var st = passStats(u.id); items.push({ ic: 'clock', text: '<b>' + esc(u.title) + '</b> ' + fmtTw(u.closeAt) + ' 截止' + (st ? '，作答的人通過率 ' + st.pct + '%' : ''), unit: u.id, tab: 'scores', act: '看成績' }); }
+        if (s === 'empty' && u.visible) items.push({ ic: 'file', tone: 'navy', text: '<b>' + esc(u.title) + '</b> 還沒有匯入題目，學生看到的是「尚未開放」', unit: u.id, tab: 'content', act: '匯入' });
+        if (s === 'later' && twMs(u.openAt) - Date.now() < 7 * 86400000) items.push({ ic: 'cal', tone: 'navy', text: '<b>' + esc(u.title) + '</b> ' + fmtTw(u.openAt) + ' 開放', unit: u.id, tab: 'settings', act: '檢查設定' });
+      });
+      var pend = $('br-pending-list'); if (pend && !$('br-pending').hidden && pend.textContent.trim()) items.push({ ic: 'cpu', tone: 'navy', text: '錯誤分析待處理：<b>' + esc(pend.textContent.trim()) + '</b>（題目改過，還沒重新分析）', view: 'settings', act: '前往' });
+      $('ov-att').innerHTML = items.length ? items.map(function (a, i) {
+        return '<div class="att-row"><span class="att-ic ' + (a.tone || '') + '">' + IC[a.ic] + '</span><div>' + a.text + '</div><button class="btn small" type="button" data-att="' + i + '">' + a.act + ' ›</button></div>';
+      }).join('') : '<p class="muted" style="margin:0">目前沒有需要處理的事。</p>';
+      $('ov-att').onclick = function (e) { var b = e.target.closest('[data-att]'); if (!b) return; var a = items[Number(b.dataset.att)]; location.hash = a.view ? '#' + a.view : '#unit/' + encodeURIComponent(a.unit) + '/' + a.tab; };
+      $('ov-att-n').textContent = items.length ? String(items.length) : '';
+      $('ov-count').hidden = !items.length; $('ov-count').textContent = items.length;
+      $('rail-badge').setAttribute('data-badge', items.length ? String(items.length) : '');
+      var today = (SH.attempts || []).filter(function (x) { return Date.now() - x.at < 86400000; });
+      $('ov-today').textContent = SH.attempts ? '最近 24 小時 ' + today.length + ' 筆' : '';
+      $('ov-stream').innerHTML = !SH.attempts ? '<p class="muted" style="margin:0">' + (window.fbAttempts ? '讀取中…' : '網站版後台才看得到即時資料') + '</p>'
+        : today.length ? today.slice(0, 12).map(function (x) {
+          var t = new Date(x.at), hm = String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
+          var u = units.filter(function (y) { return y.id === x.unit; })[0];
+          return '<div class="stream-row"><span class="muted">' + hm + '</span><span><b>' + esc(x.cls + '-' + x.seat + ' ' + x.name) + '</b> <span class="muted small">' + esc(u ? u.title : x.unit) + (x.review ? '・複習' : '') + '</span>' +
+            (x.check && x.check !== '—' ? '<br><span class="flag">⚠ ' + esc(x.check) + '</span>' : '') + '</span><span class="' + (Number(x.pct) >= PASS_PCT ? 'score-ok' : 'score-no') + '">' + esc(x.pct) + '</span></div>';
+        }).join('') : '<p class="muted" style="margin:0">最近 24 小時沒有人交卷。</p>';
+    }
+    function loadAttempts() {
+      if (!window.fbAttempts) { drawOverview(); return; }
+      window.fbAttempts({ days: 120, max: 3000 }).then(function (list) {
+        SH.attempts = list.map(function (x) { return Object.assign({}, x, { check: x.serverGraded ? String(x.check || '') : '' }); });
+        drawUnitList(); drawOverview(); if (SH.view === 'unit') drawUnitHead();
+      }, function () { SH.attempts = []; drawOverview(); });
+    }
+
+    /* ----- 單元頁 ----- */
+    function curUnit() { return units.filter(function (u) { return u.id === SH.unit; })[0]; }
+    function drawUnitHead() {
+      var u = curUnit(); if (!u) return;
+      var s = unitState(u), st = passStats(u.id);
+      $('u-title').textContent = u.title || u.id;
+      $('u-sub').innerHTML = '<span class="pill' + (s[0] === 'open' ? ' on' : '') + '"><span class="dot ' + s[0] + '"></span> ' + s[1] + '</span><span class="muted">' + (TYPE_NAME[u.type] || '') + '・' + esc(u.id) + '</span><span class="muted">' + esc(windowText(u)) + '</span>' + (st ? '<span class="muted">作答的人通過率 ' + st.pct + '%</span>' : '');
+    }
+    function markSettingsRow() {
+      [].forEach.call(document.querySelectorAll('#units tr[data-i]'), function (tr) { var u = units[Number(tr.dataset.i)]; tr.classList.toggle('cur', !!u && u.id === SH.unit); });
+    }
+    function showTab(tab) {
+      SH.tab = tab;
+      [].forEach.call(document.querySelectorAll('[data-utab]'), function (b) { b.setAttribute('aria-selected', String(b.dataset.utab === tab)); });
+      [].forEach.call(document.querySelectorAll('[data-utab-pane]'), function (p) { p.hidden = p.dataset.utabPane !== tab; });
+      var u = curUnit(); if (!u) return;
+      if (tab === 'content' && $('imp-unit').value !== u.id) { $('imp-unit').value = u.id; $('imp-unit').dispatchEvent(new Event('change', { bubbles: true })); }
+      if (tab === 'settings') markSettingsRow();
+      if (tab === 'makeup' && $('ex-unit')) $('ex-unit').value = u.id;
+      if (tab === 'scores') {
+        slot('uscores').appendChild(cardOf('load'));
+        $('f-unit').value = u.id; $('f-cls').value = ''; $('load').click();
+      }
+    }
+    function openUnit(id, tab) {
+      SH.unit = id; showView('unit');
+      drawUnitHead(); drawUnitList(); markSettingsRow();
+      showTab(tab || 'content');
+      shell.dataset.pane = 'work';
+    }
+    function showView(v) {
+      SH.view = v;
+      [].forEach.call(document.querySelectorAll('[data-pane-view]'), function (el) { el.hidden = el.dataset.paneView !== v; });
+      var nav = v === 'unit' ? 'units' : v;
+      [].forEach.call(document.querySelectorAll('.rail a[data-view]'), function (a) { a.setAttribute('aria-current', a.dataset.view === nav ? 'page' : 'false'); });
+      if (v === 'scores') { slot('scores').appendChild(cardOf('load')); $('f-unit').value = ''; if (typeof syncStatus === 'function') syncStatus(); }
+      if (v === 'settings' && typeof puLoad === 'function') puLoad();
+      if (v === 'overview') drawOverview();
+      drawUnitList();
+      $('work').scrollTop = 0;
+    }
+    function route() {
+      var h = decodeURIComponent((location.hash || '#overview').slice(1)).split('/');
+      if (h[0] === 'unit' && h[1]) { if (units.some(function (u) { return u.id === h[1]; })) { openUnit(h[1], h[2]); return; } }
+      var v = ['overview', 'units', 'students', 'scores', 'settings'].indexOf(h[0]) >= 0 ? h[0] : 'overview';
+      showView(v);
+      shell.dataset.pane = v === 'units' ? 'list' : 'work';
+    }
+    // 有沒有儲存的修改：離開這一頁、換單元前提醒
+    var dirtyNow = function () { return /尚未儲存/.test($('msg').textContent) || /尚未儲存/.test(($('ex-msg') || {}).textContent || ''); };
+    var lastHash = location.hash;
+    window.addEventListener('hashchange', function () {
+      if (dirtyNow() && !confirm('有未儲存的變更，確定要離開嗎？（修改會留在畫面上，回來再按儲存）')) { history.replaceState(null, '', lastHash); return; }
+      lastHash = location.hash; route();
+    });
+    window.addEventListener('beforeunload', function (e) { if (dirtyNow()) { e.preventDefault(); e.returnValue = ''; } });
+    var paintSavebar = function () { $('savebar').classList.toggle('on', dirtyNow()); };
+    new MutationObserver(paintSavebar).observe($('msg'), { childList: true, characterData: true, subtree: true });
+    if ($('ex-msg')) new MutationObserver(paintSavebar).observe($('ex-msg'), { childList: true, characterData: true, subtree: true });
+    $('savebar-save').onclick = function () { if (/尚未儲存/.test(($('ex-msg') || {}).textContent || '') && !/尚未儲存/.test($('msg').textContent)) $('ex-save').click(); else $('save').click(); };
+
+    document.addEventListener('click', function (e) {
+      var r = e.target.closest('[data-unit]'); if (r && r.classList.contains('u-row')) { location.hash = '#unit/' + encodeURIComponent(r.dataset.unit) + '/' + (SH.unit === r.dataset.unit ? SH.tab : 'content'); return; }
+      if (e.target.closest('[data-go-overview]')) { location.hash = '#overview'; return; }
+      var t = e.target.closest('[data-utab]'); if (t) { history.replaceState(null, '', '#unit/' + encodeURIComponent(SH.unit) + '/' + t.dataset.utab); lastHash = location.hash; showTab(t.dataset.utab); return; }
+    });
+    $('ulist-q').addEventListener('input', drawUnitList);
+    $('ulist-add').onclick = function () { location.hash = '#units'; setTimeout(function () { $('nu-id').focus(); }, 50); };
+    $('ulist-hide').onclick = function () { shell.classList.add('list-off'); $('ulist-show').hidden = false; };
+    $('ulist-show').onclick = function () { shell.classList.remove('list-off'); $('ulist-show').hidden = true; };
+    $('m-back').onclick = function () { shell.dataset.pane = 'list'; };
+    // 原本的單元表重畫時（存檔、改設定），清單、標題跟著更新
+    var origRender = render;
+    render = function () { origRender(); markSettingsRow(); drawUnitList(); if (SH.view === 'unit') drawUnitHead(); };
+
     // 開啟加速：先用這台電腦上次讀到的資料畫出畫面，同時向伺服器讀最新的（Apps Script 每次往返要 1～2 秒以上）。
     // 最新資料回來之前，各分頁暫時不能編輯（inert），避免在舊資料上修改後被覆蓋；回來後重畫並解除。
     // 存在這台電腦的 localStorage，依老師帳號分開；網站版才有（Apps Script 內建版沒有 who-email）。
     var me = ($('who-email') && $('who-email').textContent || '').trim().toLowerCase();
     var ADMIN_CACHE = me ? 'b5a:adminData:' + me : '';
-    var tabSections = function () { return document.querySelectorAll('section[id^="tab-"]'); };
+    var tabSections = function () { return document.querySelectorAll('#work .view'); };
     function applyAdminData(d) {
       units = (d.units || []).concat(d.customUnits || []);
       cfgBase = d.config || null;
       exts = d.extensions || [];
       content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit(); exRender(); puRender();
+      if (!SH.started) { SH.started = true; route(); loadAttempts(); } else { drawUnitList(); if (SH.view === 'overview') drawOverview(); if (SH.view === 'unit') drawUnitHead(); }
     }
     var staleNote = null;
     function lockTabs(text) {
@@ -2572,7 +2987,7 @@
       if (!staleNote) {
         staleNote = document.createElement('div');
         staleNote.setAttribute('role', 'status');
-        $('tab-settings').parentNode.insertBefore(staleNote, $('tab-settings'));
+        $('stale-anchor').appendChild(staleNote);
       }
       staleNote.className = 'stale-note';
       staleNote.textContent = text;
@@ -2617,7 +3032,7 @@
     // 開啟後開始編輯過：Apps Script 晚到的資料不覆蓋畫面
     var touched = false;
     ['input', 'change'].forEach(function (ev) {
-      document.addEventListener(ev, function (e) { if (e.target && e.target.closest && e.target.closest('section[id^="tab-"]')) touched = true; }, true);
+      document.addEventListener(ev, function (e) { if (e.target && e.target.closest && e.target.closest('#work')) touched = true; }, true);
     });
     var cached = null, earlyKey = '', serverDone = false;
     try {

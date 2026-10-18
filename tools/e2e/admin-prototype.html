@@ -360,7 +360,7 @@ function setNav() {
   const v = cur.view === 'unit' ? 'units' : cur.view;
   document.querySelectorAll('[data-nav]').forEach((a) => a.setAttribute('aria-current', a.dataset.nav === v || (v === 'units' && a.dataset.nav === 'units') ? 'page' : 'false'));
   // 總覽、學生、成績、設定：工作區用整個寬度（單元清單只在「單元」顯示）
-  shell.classList.toggle('wide', !['unit', 'units', 'overview'].includes(cur.view));
+  // 單元清單一直留著（任何分區都看得到），要更寬時自己按收起
 }
 
 /* ---------------- 畫面 ---------------- */

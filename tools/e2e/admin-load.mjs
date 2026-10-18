@@ -24,7 +24,7 @@ function run({ cache, fsCfg, server, order, edit = false }) {
   const pending = {};
   const ctx = {
     console, JSON, Object, Array,
-    $: (id) => ({ parentNode: { insertBefore: (n) => notes.push(n) }, href: '' }),
+    $: (id) => ({ parentNode: { insertBefore: (n) => notes.push(n) }, appendChild: (n) => notes.push(n), href: '' }),
     tabSections: () => sections,
     applyAdminData: (d) => applied.push(d),
     ADMIN_CACHE: 'k',
