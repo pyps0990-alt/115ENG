@@ -984,6 +984,35 @@
     ::view-transition-group(m-rail), ::view-transition-group(m-top), ::view-transition-group(m-who) { animation:none; z-index:50; }
     ::view-transition-old(m-rail), ::view-transition-new(m-rail), ::view-transition-old(m-top), ::view-transition-new(m-top), ::view-transition-old(m-who), ::view-transition-new(m-who) { animation:none; }
     ::view-transition-old(m-rail), ::view-transition-old(m-top), ::view-transition-old(m-who) { display:none; }
+
+    /* ----- 液態玻璃：更精緻的動畫；「更多」改成分頁列上方的小選單 ----- */
+    @media (max-width:900px) {
+      /* 膠囊移動：先拉長（快），再縮進目標並回彈（彈性） */
+      .lg-ink.stretch { transition:transform .17s cubic-bezier(.3, .7, .4, 1), width .17s cubic-bezier(.3, .7, .4, 1), opacity .2s; }
+      .lg-ink.settle { transition:transform .55s cubic-bezier(.22, 1.5, .4, 1), width .55s cubic-bezier(.22, 1.5, .4, 1), opacity .2s; }
+      .lg-ink.lifted { scale:var(--sx, 1.12) var(--sy, 1.12); transition:scale .25s cubic-bezier(.22, 1.4, .4, 1), width .3s, box-shadow .2s, background .2s; }
+      /* 點分頁：圖示彈一下 */
+      .rail a[data-view] .rail-ic, .rail-more .rail-ic { transition:transform .35s cubic-bezier(.22, 1.6, .4, 1); }
+      .rail a[data-view]:active .rail-ic, .rail-more:active .rail-ic { transform:scale(.82); transition-duration:.08s; }
+      .rail a[aria-current="page"] .rail-ic, .rail-more.on .rail-ic, .rail-more[aria-expanded="true"] .rail-ic { transform:translateY(-1px) scale(1.06); }
+      .rail-more[aria-expanded="true"] { color:var(--navy) !important; }
+      /* 「更多」小選單：浮在「更多」上方，分頁列保持可見、可以點 */
+      .m-sheet { z-index:25; }
+      .m-scrim { background:transparent; animation:none; }
+      .m-panel { left:auto; right:var(--more-r, 12px); bottom:calc(86px + env(safe-area-inset-bottom, 0px)); width:min(290px, calc(100vw - 24px)); padding:6px; gap:2px; border-radius:24px;
+        background:linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.66));
+        -webkit-backdrop-filter:blur(24px) saturate(190%); backdrop-filter:blur(24px) saturate(190%);
+        box-shadow:0 14px 40px rgba(15, 23, 42, .2), inset 0 1px 0 rgba(255,255,255,.95), inset 0 0 0 1px rgba(255,255,255,.5);
+        transform-origin:calc(100% - 30px) calc(100% + 30px); animation:m-pop .42s cubic-bezier(.22, 1.35, .4, 1) both; }
+      .m-grip, .m-cancel { display:none; }
+      .m-item { min-height:58px; border-radius:18px; }
+      .m-item:hover, .m-item:focus-visible { background:rgba(30, 58, 138, .07); }
+      .m-sheet.closing .m-panel { animation:m-unpop .18s ease-in both; }
+      .m-sheet.closing .m-scrim { animation:none; }
+    }
+    @keyframes m-pop { from { opacity:0; transform:scale(.4) translateY(18px); filter:blur(4px); } 60% { opacity:1; filter:blur(0); } }
+    @keyframes m-unpop { to { opacity:0; transform:scale(.6) translateY(14px); } }
+    @media (max-width:900px) and (prefers-reduced-motion: reduce) { .m-panel { animation:none !important; } .lg-ink.stretch, .lg-ink.settle { transition:opacity .2s !important; } }
   </style>
 </head>
 <body>
@@ -4591,11 +4620,12 @@
       document.body.appendChild(sheet);
       var open = function (on) {
         more.setAttribute('aria-expanded', String(on));
-        if (on) { sheet.classList.remove('closing'); sheet.hidden = false; sheet.querySelector('.m-item').focus(); }
+        if (on) { sheet.classList.remove('closing'); sheet.hidden = false; var mr = more.getBoundingClientRect(); sheet.style.setProperty('--more-r', Math.max(12, window.innerWidth - mr.right) + 'px'); sheet.querySelector('.m-item').focus({ preventScroll: true }); }
         else if (!sheet.hidden) { sheet.classList.add('closing'); setTimeout(function () { sheet.hidden = true; sheet.classList.remove('closing'); }, 200); }
       };
       more.onclick = function () { open(sheet.hidden); };
       sheet.addEventListener('click', function (e) { if (e.target.closest('[data-close]')) open(false); });
+      rail.addEventListener('click', function (e) { if (!sheet.hidden && !e.target.closest('#rail-more')) open(false); }, true);
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !sheet.hidden) { open(false); more.focus(); } });
       $('m-top-back').onclick = function () { location.hash = '#units'; };
       var NAMES = { overview: '總覽', units: '單元', live: '即時監控', students: '學生', scores: '成績', settings: '設定' };
@@ -4620,13 +4650,21 @@
       rail.appendChild(ink);
       var tabs = function () { return [].slice.call(rail.querySelectorAll('a[data-view], .rail-more')).filter(function (t) { return t.offsetParent !== null; }).sort(function (a, b) { return a.getBoundingClientRect().left - b.getBoundingClientRect().left; }); };
       var current = function () { return rail.querySelector('.rail-more.on') || rail.querySelector('a[data-view][aria-current="page"]:not([data-view="live"]):not([data-view="settings"])'); };
+      var morphT = null, at = null;
+      var setInk = function (x, w) { ink.style.width = w + 'px'; ink.style.transform = 'translateX(' + x + 'px)'; at = { x: x, w: w }; };
       var place = function (el, instant) {
         if (!mq.matches || !el) { ink.style.opacity = '0'; return; }
         var r = el.getBoundingClientRect(), rr = rail.getBoundingClientRect();
-        ink.classList.toggle('instant', !!instant);
+        var x = r.left - rr.left, w = r.width;
+        clearTimeout(morphT);
         ink.style.opacity = '1';
-        ink.style.width = r.width + 'px';
-        ink.style.transform = 'translateX(' + (r.left - rr.left) + 'px)';
+        var calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (instant || !at || calm || Math.abs(at.x - x) < 2) { ink.className = 'lg-ink' + (instant ? ' instant' : ''); setInk(x, w); return; }
+        // 液滴：先往目標拉長（蓋住起點到終點），再縮進目標、回彈一下
+        var from = at, left = Math.min(from.x, x), right = Math.max(from.x + from.w, x + w);
+        ink.className = 'lg-ink stretch';
+        setInk(left, right - left);
+        morphT = setTimeout(function () { ink.className = 'lg-ink settle'; setInk(x, w); }, 170);
       };
       var paint = function () { if (!dragging) place(current()); };
       var placeOld = window.placeInks;
@@ -4638,7 +4676,7 @@
       requestAnimationFrame(function () { place(current(), true); });
 
       // 拖動：按住後移動超過 6px 就開始拖；膠囊跟著手指走（放大一點），經過的分頁亮起來；放開吸到最近的分頁並切換
-      var dragging = false, startX = 0, pid = null, offset = 0, hover = null, moved = false;
+      var dragging = false, startX = 0, pid = null, offset = 0, hover = null, moved = false, lastX = 0, lastT = 0, squishT = null;
       var nearest = function (x) {
         var best = null, d = Infinity;
         tabs().forEach(function (t) { var r = t.getBoundingClientRect(), c = r.left + r.width / 2; if (Math.abs(c - x) < d) { d = Math.abs(c - x); best = t; } });
@@ -4647,7 +4685,7 @@
       rail.addEventListener('pointerdown', function (e) {
         if (!mq.matches || e.button > 0 || e.target.closest('.rail-who')) return;
         var t = e.target.closest('a[data-view], .rail-more'); if (!t) return;
-        pid = e.pointerId; startX = e.clientX; moved = false;
+        pid = e.pointerId; startX = e.clientX; moved = false; lastX = e.clientX; lastT = 0;
         var ir = ink.getBoundingClientRect();
         offset = e.clientX - ir.left;
         // 從別的分頁開始拖：先把膠囊移到手指下面
@@ -4662,10 +4700,16 @@
           rail.classList.add('lg-drag'); ink.classList.add('lifted');
         }
         e.preventDefault();
-        var rr = rail.getBoundingClientRect(), w = ink.getBoundingClientRect().width / 1.12 || 60;
+        var rr = rail.getBoundingClientRect(), w = (at && at.w) || 60;
         var x = Math.max(4, Math.min(rr.width - w - 4, e.clientX - rr.left - offset));
         ink.classList.add('instant');
-        ink.style.transform = 'translateX(' + x + 'px)';
+        ink.style.transform = 'translateX(' + x + 'px)'; at = { x: x, w: w };
+        // 依手指速度把膠囊拉長一點（像液體被拖著走），停下來就回彈
+        var now = performance.now(), v = lastT ? (e.clientX - lastX) / Math.max(8, now - lastT) : 0;
+        lastX = e.clientX; lastT = now;
+        var k = Math.min(.22, Math.abs(v) * .12);
+        ink.style.setProperty('--sx', (1.12 + k).toFixed(3)); ink.style.setProperty('--sy', (1.12 - k * .45).toFixed(3));
+        clearTimeout(squishT); squishT = setTimeout(function () { ink.style.setProperty('--sx', '1.12'); ink.style.setProperty('--sy', '1.12'); }, 90);
         var n = nearest(e.clientX);
         if (n !== hover) { if (hover) hover.classList.remove('lg-hover'); hover = n; if (hover) hover.classList.add('lg-hover'); if (navigator.vibrate) navigator.vibrate(4); }
       }, { passive: false });
@@ -4674,7 +4718,7 @@
         pid = null;
         if (!dragging) return;
         dragging = false;
-        rail.classList.remove('lg-drag'); ink.classList.remove('lifted', 'instant');
+        rail.classList.remove('lg-drag'); ink.classList.remove('lifted', 'instant'); ink.style.removeProperty('--sx'); ink.style.removeProperty('--sy');
         if (hover) hover.classList.remove('lg-hover');
         var target = e.type === 'pointercancel' ? current() : nearest(e.clientX);
         hover = null;
