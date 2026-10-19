@@ -4620,6 +4620,7 @@
       document.body.appendChild(sheet);
       var open = function (on) {
         more.setAttribute('aria-expanded', String(on));
+        if (window.placeInks) requestAnimationFrame(window.placeInks); // 膠囊跟著滑到「更多」，關掉選單時滑回原本的分頁
         if (on) { sheet.classList.remove('closing'); sheet.hidden = false; var mr = more.getBoundingClientRect(); sheet.style.setProperty('--more-r', Math.max(12, window.innerWidth - mr.right) + 'px'); sheet.querySelector('.m-item').focus({ preventScroll: true }); }
         else if (!sheet.hidden) { sheet.classList.add('closing'); setTimeout(function () { sheet.hidden = true; sheet.classList.remove('closing'); }, 200); }
       };
@@ -4649,7 +4650,7 @@
       var ink = document.createElement('span'); ink.className = 'lg-ink'; ink.setAttribute('aria-hidden', 'true');
       rail.appendChild(ink);
       var tabs = function () { return [].slice.call(rail.querySelectorAll('a[data-view], .rail-more')).filter(function (t) { return t.offsetParent !== null; }).sort(function (a, b) { return a.getBoundingClientRect().left - b.getBoundingClientRect().left; }); };
-      var current = function () { return rail.querySelector('.rail-more.on') || rail.querySelector('a[data-view][aria-current="page"]:not([data-view="live"]):not([data-view="settings"])'); };
+      var current = function () { return rail.querySelector('.rail-more.on, .rail-more[aria-expanded="true"]') || rail.querySelector('a[data-view][aria-current="page"]:not([data-view="live"]):not([data-view="settings"])'); };
       var morphT = null, at = null;
       var setInk = function (x, w) { ink.style.width = w + 'px'; ink.style.transform = 'translateX(' + x + 'px)'; at = { x: x, w: w }; };
       var place = function (el, instant) {
