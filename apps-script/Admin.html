@@ -1345,6 +1345,8 @@
         var busy = /…\s*(（.*）)?$/.test(t);
         if (lastBtn) lastBtn.classList.toggle('busy', busy);
         if (!busy) lastBtn = null;
+        // 儲存的進度（儲存中、學生網站已更新、存進試算表、已儲存、失敗）由下方的儲存狀態列顯示，不再另外浮出一樣的提示
+        if (window.savebarOwned && (el.id === 'msg' || el.id === 'ex-msg' || (el.id === 'imp-msg' && /儲存|⚡|存進試算表|學生網站/.test(t)))) { toast.className = toast.className.replace('show', ''); return; }
         // 訊息文字已經在畫面上看得到（按鈕旁邊）就不再跳出重複的提示；捲到看不到的地方時才用浮動提示
         var r = el.getBoundingClientRect();
         if (r.width > 0 && r.top >= 56 && r.bottom <= window.innerHeight) { toast.className = toast.className.replace('show', ''); return; }
