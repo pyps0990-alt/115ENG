@@ -149,14 +149,14 @@ export function mount(stage, ctx) {
     const stKind = !official ? 'redo' : review ? 'review' : 'official';
     stage.innerHTML = `
       <div class="quiz">
-        ${statusBarHTML({ kind: stKind, note: { official: '這次的分數會送給老師。', review: '複習不會改變你的成績。', redo: '只練剛剛錯的題目，不計分也不送出。' }[stKind], mid: `<div class="quiz-bar">
+        ${statusBarHTML({ kind: stKind, note: { official: '這次的分數會送給老師。', review: '複習不會改變你的成績。', redo: '只練剛剛錯的題目，不計分也不送出。' }[stKind], mid: `<ol class="stepper" aria-label="測驗進度">${stages.map((s, i) => `<li data-step="${i}">
+          <span class="step-dot">${i + 1}</span><span class="step-name">${s.level.name}</span><span class="step-score"></span></li>`).join('')}</ol><div class="quiz-bar">
           <div class="bar"><span></span></div>
           <span class="quiz-stat" data-n></span>
           <span class="quiz-all" data-all title="全部題數"></span>
           <span class="quiz-stat streak" data-streak title="連續答對">${icon.flame}<b>0</b></span>
         </div>` })}
-        <ol class="stepper" aria-label="測驗進度">${stages.map((s, i) => `<li data-step="${i}">
-          <span class="step-dot">${i + 1}</span><span class="step-name">${s.level.name}</span><span class="step-score"></span></li>`).join('')}</ol>
+
         <div class="auto-opt">
           <button class="link-btn leave" type="button" data-leave>離開測驗</button>
           <button class="switch" type="button" role="switch" data-auto-toggle><span class="sw" aria-hidden="true"></span>自動下一題</button>

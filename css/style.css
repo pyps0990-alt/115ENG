@@ -1333,3 +1333,8 @@ body.integrity-block::after {
 .unit-steps li.now { background: var(--white); border: 2px solid var(--navy); color: var(--navy); }
 .unit-steps li.now::before { background: var(--navy); border-color: var(--navy); color: var(--white); }
 @media (max-width: 480px) { .unit-steps { grid-template-columns: 1fr; } }
+/* 單字：基礎／進階／精熟的段落放進狀態列（一起黏在上面，不會被狀態列蓋住） */
+.st-mid .stepper { gap: 6px; margin-bottom: 8px; }
+.st-mid .stepper li { padding: 5px 8px; font-size: .84rem; gap: 6px; border-radius: 10px; }
+.st-mid .stepper .step-dot { width: 20px; height: 20px; font-size: .72rem; }
+.st-mid .stepper .step-score { font-size: .74rem; }
