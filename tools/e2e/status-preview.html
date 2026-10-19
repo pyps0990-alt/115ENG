@@ -22,7 +22,7 @@
   .st-prog .row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 800; font-size: .85rem; color: #1E3A8A; }
   .st-prog .row span:last-child { color: #586880; font-weight: 700; display: inline-flex; gap: 4px; align-items: center; }
   .st-track { height: 8px; border-radius: 4px; background: #ECF0F6; overflow: hidden; }
-  .st-track i { display: block; height: 100%; width: 30%; border-radius: 4px; background: #F59E0B; transition: width .4s cubic-bezier(.22,1,.36,1); }
+  .st-track i { display: block; height: 100%; width: 100%; transform: scaleX(.3); transform-origin: left; border-radius: 4px; background: #F59E0B; transition: transform .4s cubic-bezier(.22,1,.36,1); }
   .deadline { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 999px; font-weight: 900; font-size: .85rem; white-space: nowrap; background: #FEF3C7; color: #92400E; flex: none; }
   .deadline.urgent { background: #FEE2E2; color: #B91C1C; animation: urge 1.6s ease-in-out infinite; }
   .deadline.urgent { box-shadow: none; }
