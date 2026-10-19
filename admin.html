@@ -855,7 +855,12 @@
     #work .pill.u-state.empty { background:var(--bad-soft); color:var(--bad-ink); }
     #work .pill.u-state.closed, #work .pill.u-state.hidden { background:var(--wash); color:var(--steel); }
     #work .pill.u-state .u-next { font-weight:700; opacity:.85; }
-    @media (max-width:900px) { .sys-btn { width:36px; height:36px; } .sys-panel { left:auto; right:0; bottom:auto; top:calc(100% + 8px); width:min(340px, calc(100vw - 24px)); } .rail-who { flex-direction:row; } }
+    /* 手機、平板：選單在上方而且可以左右捲動，彈出的面板會被切掉，改成浮在畫面上、放在選單正下方 */
+    @media (max-width:900px) {
+      .rail-who { display:flex; flex-direction:row; align-items:center; gap:8px; position:sticky; right:0; z-index:2; margin-left:auto; padding:0 2px 0 10px; background:var(--navy); box-shadow:-12px 0 12px -4px var(--navy); } /* 狀態燈與頭像固定在右邊，不用捲動 */
+      .sys-btn { width:36px; height:36px; }
+      .sys-panel, .who-menu { position:fixed; top:var(--rail-b, 64px); right:12px; left:auto; bottom:auto; width:min(340px, calc(100vw - 24px)); transform-origin:top right; }
+    }
   </style>
 </head>
 <body>
@@ -4293,6 +4298,10 @@
       }).join('');
       $('sys-head').textContent = lv === 'ok' ? '一切正常' : lv === 'warn' ? '有 ' + n + ' 件事要注意' : '有地方出錯了';
     }
+    // 面板浮在選單正下方：記下選單底部的位置（打開面板、改變視窗大小時更新）
+    var railBottom = function () { var r = document.querySelector('.rail'); if (r) document.documentElement.style.setProperty('--rail-b', Math.round(r.getBoundingClientRect().bottom + 8) + 'px'); };
+    document.addEventListener('click', function (e) { if (e.target.closest('#sys-btn, #who-btn')) railBottom(); }, true);
+    window.addEventListener('resize', railBottom);
     (function sysMount() {
       var who = document.querySelector('.rail-who');
       var b = document.createElement('button'); b.type = 'button'; b.id = 'sys-btn'; b.className = 'sys-btn'; b.dataset.level = 'warn';
