@@ -981,6 +981,16 @@
     @media (max-width:900px) and (prefers-reduced-motion: reduce) { .lg-ink { transition:opacity .2s !important; } }
     /* 不支援模糊效果的瀏覽器：改用不透明的白色 */
     @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) { @media (max-width:900px) { .rail::before { background:rgba(255,255,255,.96); } } }
+
+    /* 換頁轉場時，分頁列與標題列不被工作區的轉場畫面蓋住（內容會捲到玻璃分頁列底下，轉場時工作區的截圖原本會蓋過分頁列，看起來像分頁不見） */
+    @media (max-width:900px) {
+      .rail { view-transition-name:m-rail; }
+      .m-top { view-transition-name:m-top; }
+      .rail-who { view-transition-name:m-who; }
+    }
+    ::view-transition-group(m-rail), ::view-transition-group(m-top), ::view-transition-group(m-who) { animation:none; z-index:50; }
+    ::view-transition-old(m-rail), ::view-transition-new(m-rail), ::view-transition-old(m-top), ::view-transition-new(m-top), ::view-transition-old(m-who), ::view-transition-new(m-who) { animation:none; }
+    ::view-transition-old(m-rail), ::view-transition-old(m-top), ::view-transition-old(m-who) { display:none; }
   </style>
 </head>
 <body>
