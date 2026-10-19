@@ -867,6 +867,56 @@
     .sys-btn b { min-width:20px; height:20px; font-size:12px; top:-6px; right:-6px; }
     .rail .rail-ic[data-badge]:not([data-badge=""])::after { font-size:12px; min-width:20px; height:20px; }
     @media (max-width:900px) { .sys-btn, .avatar { width:44px; height:44px; } .rail a[data-view] { min-height:44px; } }
+    /* ================= 手機版導覽：上方標題列＋下方 5 個分頁 ================= */
+    .m-top, .rail-more { display:none; }
+    .m-sheet[hidden] { display:none; }
+    @media (max-width:900px) {
+      .shell, .shell.list-off { grid-template-rows:56px minmax(0, 1fr) !important; padding-bottom:calc(64px + env(safe-area-inset-bottom, 0px)); }
+      .m-top { display:flex; align-items:center; gap:6px; grid-row:1; grid-column:1; height:56px; padding:0 112px 0 12px; background:var(--navy); color:#fff; position:relative; z-index:7; }
+      .m-top-title { margin:0; font-size:1.05rem; font-weight:900; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .m-top-back { width:44px; height:44px; margin-left:-6px; border:0; border-radius:12px; background:transparent; color:#fff; display:grid; place-items:center; cursor:pointer; flex:none; }
+      .m-top-back:hover, .m-top-back:focus-visible { background:rgba(255,255,255,.12); }
+      .m-top-back svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+      .ulist, .work { grid-row:2 !important; }
+      /* 下方分頁列 */
+      .rail { position:fixed; left:0; right:0; bottom:0; top:auto; z-index:30; height:calc(64px + env(safe-area-inset-bottom, 0px)); padding:4px 4px env(safe-area-inset-bottom, 0px); display:flex; flex-direction:row; align-items:stretch; justify-content:space-around; gap:0; overflow:visible; border-top:1px solid rgba(255,255,255,.12); }
+      .rail .brand, .rail-ink { display:none !important; }
+      .rail a[data-view], .rail-more { flex:1 1 0; min-width:0; width:auto !important; min-height:56px; padding:6px 0 4px !important; display:flex !important; flex-direction:column; align-items:center; justify-content:center; gap:3px; border:0; border-radius:12px; background:transparent; color:var(--navy-ink); font:inherit; font-size:.74rem !important; font-weight:800; white-space:nowrap; cursor:pointer; }
+      .rail a[data-view="live"], .rail a[data-view="settings"] { display:none !important; }
+      .rail a[data-view="overview"] { order:1; } .rail a[data-view="units"] { order:2; } .rail a[data-view="scores"] { order:3; } .rail a[data-view="students"] { order:4; } .rail-more { order:5; }
+      .rail .rail-ic { margin:0 !important; }
+      .rail a[aria-current="page"], .rail-more.on { color:#fff; background:rgba(255,255,255,.1) !important; }
+      .rail a[aria-current="page"] svg, .rail-more.on svg { color:var(--primary); }
+      .rail-more svg { width:22px; height:22px; fill:currentColor; stroke:none; }
+      /* 狀態燈與頭像：放在上方標題列右邊 */
+      .rail-who { position:fixed !important; top:6px; right:8px; z-index:31; display:flex !important; flex-direction:row; align-items:center; gap:6px; margin:0 !important; padding:0 !important; background:none !important; box-shadow:none !important; order:9; }
+      .sys-panel, .who-menu { top:62px !important; }
+      /* 單元頁內的「‹ 單元」改由標題列的返回鍵處理 */
+      #work .m-back { display:none !important; }
+      /* 頁名已經在上方標題列：工作區的大標題不重複，只留下面的說明與狀態 */
+      #work .w-head h1 { display:none; }
+      #work .w-head { margin-bottom:12px; }
+      .savebar { bottom:calc(76px + env(safe-area-inset-bottom, 0px)); }
+      .work-inner { padding-bottom:120px; }
+    }
+    /* 「更多」：從下方滑出的面板 */
+    .m-sheet { position:fixed; inset:0; z-index:60; }
+    .m-scrim { position:absolute; inset:0; background:rgba(15, 23, 42, .45); animation:m-fade .2s ease-out both; }
+    .m-panel { position:absolute; left:0; right:0; bottom:0; display:grid; gap:4px; padding:8px 12px calc(16px + env(safe-area-inset-bottom, 0px)); background:#fff; border-radius:22px 22px 0 0; animation:m-up .28s var(--ease-out) both; }
+    .m-grip { justify-self:center; width:40px; height:4px; border-radius:2px; background:var(--line-strong); margin:4px 0 8px; }
+    .m-item { display:grid; grid-template-columns:44px 1fr; gap:12px; align-items:center; min-height:64px; padding:8px 10px; border-radius:14px; color:var(--ink); text-decoration:none; }
+    .m-item:hover, .m-item:focus-visible { background:var(--wash); outline:none; }
+    .m-item b { display:block; font-size:1rem; }
+    .m-item small { display:block; color:var(--steel); font-size:max(12px, .8rem); }
+    .m-ic { width:44px; height:44px; border-radius:12px; background:var(--navy-soft); color:var(--navy); display:grid; place-items:center; }
+    .m-ic svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+    .m-cancel { margin-top:6px; height:48px; width:100%; justify-content:center; }
+    .m-sheet.closing .m-panel { animation:m-down .2s ease-in both; }
+    .m-sheet.closing .m-scrim { animation:m-fade .2s ease-in reverse both; }
+    @keyframes m-up { from { transform:translateY(100%); } }
+    @keyframes m-down { to { transform:translateY(100%); } }
+    @keyframes m-fade { from { opacity:0; } }
+    @media (prefers-reduced-motion: reduce) { .m-panel, .m-scrim { animation:none !important; } }
   </style>
 </head>
 <body>
@@ -4455,6 +4505,46 @@
       pill.className = 'pill u-state ' + s[0];
       pill.innerHTML = '<span class="dot ' + s[0] + '"></span>' + esc(s[1]) + (next ? '<span class="u-next">・' + esc(next) + '</span>' : '');
     };
+
+
+    /* ----- 手機版導覽（900px 以下）：上方標題列（返回、頁名、狀態燈、頭像）＋下方 5 個分頁（總覽、單元、成績、學生、更多）；
+       即時監控與設定收在「更多」，從下方滑出 ----- */
+    (function mobileNav() {
+      var shell = $('shell'), rail = document.querySelector('.rail');
+      var top = document.createElement('header'); top.className = 'm-top'; top.id = 'm-top';
+      top.innerHTML = '<button class="m-top-back" type="button" id="m-top-back" aria-label="回單元清單" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><h1 class="m-top-title" id="m-top-title">總覽</h1>';
+      shell.insertBefore(top, shell.firstChild);
+      var more = document.createElement('button'); more.type = 'button'; more.className = 'rail-more'; more.id = 'rail-more';
+      more.setAttribute('aria-haspopup', 'dialog'); more.setAttribute('aria-expanded', 'false');
+      more.innerHTML = '<span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span>更多';
+      rail.insertBefore(more, document.querySelector('.rail-who'));
+      var sheet = document.createElement('div'); sheet.className = 'm-sheet'; sheet.id = 'm-sheet'; sheet.hidden = true;
+      sheet.innerHTML = '<div class="m-scrim" data-close></div><div class="m-panel" role="dialog" aria-label="更多"><span class="m-grip" aria-hidden="true"></span>' +
+        '<a href="#live" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span><span><b>即時監控</b><small>誰在線上、正在做哪個單元、交卷是否順利</small></span></a>' +
+        '<a href="#settings" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span><span><b>設定</b><small>AI 出題、錯誤分析引擎、學期結算</small></span></a>' +
+        '<button class="btn m-cancel" type="button" data-close>關閉</button></div>';
+      document.body.appendChild(sheet);
+      var open = function (on) {
+        more.setAttribute('aria-expanded', String(on));
+        if (on) { sheet.classList.remove('closing'); sheet.hidden = false; sheet.querySelector('.m-item').focus(); }
+        else if (!sheet.hidden) { sheet.classList.add('closing'); setTimeout(function () { sheet.hidden = true; sheet.classList.remove('closing'); }, 200); }
+      };
+      more.onclick = function () { open(sheet.hidden); };
+      sheet.addEventListener('click', function (e) { if (e.target.closest('[data-close]')) open(false); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !sheet.hidden) { open(false); more.focus(); } });
+      $('m-top-back').onclick = function () { location.hash = '#units'; };
+      var NAMES = { overview: '總覽', units: '單元', live: '即時監控', students: '學生', scores: '成績', settings: '設定' };
+      window.paintMobileTop = function () {
+        var v = SH.view, u = v === 'unit' ? curUnit() : null;
+        $('m-top-title').textContent = u ? (u.title || u.id) : NAMES[v] || '';
+        $('m-top-back').hidden = v !== 'unit';
+        more.classList.toggle('on', v === 'live' || v === 'settings');
+      };
+    })();
+    var showViewMN = showView;
+    showView = function (v) { showViewMN(v); paintMobileTop(); };
+    var drawUnitHeadMN = drawUnitHead;
+    drawUnitHead = function () { drawUnitHeadMN(); paintMobileTop(); };
 
     // 開啟加速：先用這台電腦上次讀到的資料畫出畫面，同時向伺服器讀最新的（Apps Script 每次往返要 1～2 秒以上）。
     // 最新資料回來之前，各分頁暫時不能編輯（inert），避免在舊資料上修改後被覆蓋；回來後重畫並解除。
