@@ -1,6 +1,7 @@
-// 句型練習：一次一題，選擇、填空、應用（重組句子）混合出現，作答後立刻看到解析；做完逐題檢討錯題
-// 答案不公開（js/answers.js）：正式測驗每題作答時送伺服器判斷（第一次作答就鎖定），伺服器回傳這一題的答案與解析；
-// 複習、錯題重練、檢討用完整題目（交過這個單元才拿得到，存在這台裝置）
+// 句型練習：一次一題，選擇、填空、應用（重組句子）混合出現
+// 正式測驗（比照課文理解）：先全部作答、可以回上一題改，最後一次交卷；伺服器計分後才回傳答案與解析，接著逐題檢討
+// 複習、錯題重練：作答後立刻看到解析（用完整題目：交過這個單元才拿得到，存在這台裝置）
+// 答案不公開（js/answers.js）
 import { typeLabel } from '../types.js';
 import { store } from '../storage.js';
 import { esc, nowStamp, wait, shuffle, centerInView } from '../util.js';
@@ -9,7 +10,7 @@ import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
-import { submitScore, fetchKey, cachedKey, checkAnswer, newAttemptId } from '../submit.js';
+import { submitScore, fetchKey, cachedKey, newAttemptId } from '../submit.js';
 import { progress } from '../resume.js';
 import { PASS } from '../levels.js';
 import { flattenPattern, renderChoiceCard, renderFillCard, renderApplyCard, explainHTML, reviewCardHTML, correctText, KIND_LABEL } from '../components/items.js';
@@ -74,7 +75,7 @@ export function mount(stage, ctx) {
     timeWindow: () => unitWindow(ctx.config, unitId),
     rules: [
       `共 <b>${n}</b> 題，${esc(kindsIn)}混合出現，每次會從題庫（${all.length} 題）重新抽題`,
-      '每題作答後馬上看到解析',
+      '全部作答完再交卷，交卷前可以回上一題修改；交卷後看答案與解析',
       ...(all.some((q) => q.kind === 'apply') ? ['應用題（排句子）部分給分：排進去的單字越多、順序越接近，分數越高'] : []),
       '做完可以逐題檢討錯題',
     ],
@@ -87,13 +88,14 @@ export function mount(stage, ctx) {
     resume: () => {
       const r = progress.load(unitId, 'pattern');
       if (!r || !Array.isArray(r.qs) || !r.qs.length) return null;
-      return { label: `第 ${Math.min(r.qi + 1, r.qs.length)} / ${r.qs.length} 題`, onResume: (s) => play(s, !!r.review, null, r), discard: () => progress.clear(unitId) };
+      return { label: `第 ${Math.min(r.qi + 1, r.qs.length)} / ${r.qs.length} 題`, onResume: (s) => (r.official ? playOfficial(s, r) : play(s, !!r.review, null, r)), discard: () => progress.clear(unitId) };
     },
   });
 
   // redo：只重練指定的題目（錯題重練），不計成績、不送出
   function play(student, review = false, redo = null, saved = null) {
-    const official = !review && !redo;
+    if (!review && !redo) { playOfficial(student, saved && saved.official ? saved : null); return; }
+    const official = false;
     if (!official && !keyed) { withKey(() => play(student, review, redo, saved)); return; }
     // 正式測驗：這次作答的編號（也是成績的記錄編號），每題送伺服器判斷時帶著
     const session = official ? (saved && saved.session) || newAttemptId() : null;
@@ -132,8 +134,7 @@ export function mount(stage, ctx) {
       const host = stage.querySelector('[data-q]');
       host.innerHTML = '';
       const done = (ok, yours, score) => answered(q, ok, yours, score);
-      // 正式測驗：先送伺服器判斷並記下，拿到這一題的答案與解析再顯示對錯（題卡用同一套判斷，結果跟伺服器一樣）
-      const reveal = official ? async (yours) => { const j = await checkAnswer({ unit: unitId, session, qid: q.id, yours }); Object.assign(q, j.q); } : null;
+      const reveal = null; // 複習、錯題重練：題目有答案，直接在畫面上判斷
       if (q.kind === 'mc') current = renderChoiceCard(host, q, { meta: `第 ${qi + 1} 題・選擇`, onAnswer: done, reveal });
       else if (q.kind === 'fill') current = renderFillCard(host, q, { meta: `第 ${qi + 1} 題・填空`, onAnswer: done, reveal });
       else current = renderApplyCard(host, q, { meta: `第 ${qi + 1} 題・應用`, onAnswer: done, reveal });
@@ -247,6 +248,131 @@ export function mount(stage, ctx) {
     };
     document.addEventListener('keydown', onKey);
     show();
+  }
+
+  // 正式測驗（比照課文理解）：先全部作答（可以回上一題改），最後一次交卷；伺服器計分後才回傳答案與解析、可以檢討
+  function playOfficial(student, saved = null) {
+    const session = (saved && saved.session) || newAttemptId();
+    const qs = saved ? saved.qs : shuffle(all).slice(0, n);
+    const answers = (saved && saved.answers) || {}; // 題目 id → { yours, state }
+    let qi = saved ? Math.min(saved.qi || 0, qs.length - 1) : 0;
+    let current = null;
+    const t0 = Date.now() - (saved ? saved.elapsed || 0 : 0);
+    const persist = () => progress.save(unitId, 'pattern', { review: false, official: true, qs, qi, answers, elapsed: Date.now() - t0, session });
+    const answered = () => qs.filter((q) => answers[q.id] && String(answers[q.id].yours || '').trim()).length;
+    document.body.dataset.busy = '1';
+    document.getElementById('fx').replaceChildren();
+    window.addEventListener('beforeunload', unload);
+    stage.innerHTML = `
+      <div class="quiz">
+        <div class="quiz-bar"><div class="bar"><span></span></div><span class="quiz-stat" data-n></span></div>
+        <div data-q></div>
+        <div class="q-nav">
+          <button class="btn ghost" type="button" data-prev>${icon.arrowL || '‹'} 上一題</button>
+          <div class="q-dots" role="group" aria-label="跳到第幾題"></div>
+          <button class="btn primary" type="button" data-next></button>
+        </div>
+      </div>`;
+    const dots = stage.querySelector('.q-dots');
+    const prevBtn = stage.querySelector('[data-prev]'), nextBtn = stage.querySelector('[data-next]');
+    function paintNav() {
+      const k = answered();
+      stage.querySelector('.bar > span').style.setProperty('--w', `${(k / qs.length) * 100}%`);
+      stage.querySelector('[data-n]').textContent = `第 ${qi + 1} / ${qs.length} 題・已答 ${k}`;
+      dots.innerHTML = qs.map((q, i) => `<button type="button" class="q-dot${i === qi ? ' now' : ''}${answers[q.id] && String(answers[q.id].yours || '').trim() ? ' done' : ''}" data-go="${i}" aria-label="第 ${i + 1} 題${answers[q.id] ? '（已作答）' : ''}">${i + 1}</button>`).join('');
+      prevBtn.disabled = qi === 0;
+      nextBtn.innerHTML = qi < qs.length - 1 ? `下一題 ${icon.arrowR}` : `交卷 ${icon.check}`;
+    }
+    function show() {
+      persist();
+      const q = qs[qi];
+      const host = stage.querySelector('[data-q]');
+      host.innerHTML = '';
+      const a = answers[q.id];
+      const opts = { meta: `第 ${qi + 1} 題・${q.label}`, deferred: true, initial: a ? a.state : null, onPick: (yours, state) => { answers[q.id] = { yours, state }; persist(); paintNav(); } };
+      if (q.kind === 'mc') current = renderChoiceCard(host, q, opts);
+      else if (q.kind === 'fill') current = renderFillCard(host, q, opts);
+      else current = renderApplyCard(host, q, opts);
+      paintNav();
+      centerInView(host.querySelector('.q-card'));
+    }
+    const go = (i) => { qi = Math.max(0, Math.min(qs.length - 1, i)); show(); };
+    prevBtn.addEventListener('click', () => go(qi - 1));
+    dots.addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) go(Number(b.dataset.go)); });
+    nextBtn.addEventListener('click', () => {
+      if (qi < qs.length - 1) { go(qi + 1); return; }
+      const left = qs.length - answered();
+      if (left && !confirm(`還有 ${left} 題沒作答（以答錯計），確定要交卷嗎？`)) { const i = qs.findIndex((q) => !(answers[q.id] && String(answers[q.id].yours || '').trim())); go(i); return; }
+      submitOfficial();
+    });
+    if (onKey) document.removeEventListener('keydown', onKey);
+    onKey = (e) => {
+      if (e.target.closest('input, textarea, dialog') || !current) return;
+      const k = e.key.toLowerCase(), map = { 1: 0, 2: 1, 3: 2, 4: 3, a: 0, b: 1, c: 2, d: 3 };
+      if (current.choose && k in map) current.choose(map[k]);
+      else if (k === 'enter' && !e.target.closest('button')) { e.preventDefault(); nextBtn.click(); }
+    };
+    document.addEventListener('keydown', onKey);
+    show();
+
+    async function submitOfficial() {
+      current = null;
+      progress.clear(unitId);
+      delete document.body.dataset.busy;
+      window.removeEventListener('beforeunload', unload);
+      const durationSec = Math.round((Date.now() - t0) / 1000);
+      const stamp = nowStamp();
+      const wasTried = store.tried(unitId);
+      const mine = qs.map((q, i) => ({ stage: '句型練習', n: i + 1, kind: q.label, q: q.kind === 'apply' ? q.zh : q.stem, correct: '', yours: String((answers[q.id] || {}).yours || ''), ok: false, points: 0, hints: 0, word: q.id, err: '' }));
+      stage.innerHTML = '<div class="loading"><span class="spinner"></span>交卷中，伺服器正在計分…</div>';
+      window.scrollTo(0, 0);
+      const res = await submitScore({
+        clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
+        unit: unitId, unitTitle: ctx.unit.title, mode: 'pattern', review: false, attemptId: session,
+        level: `${wasTried ? '補考 · ' : ''}句型練習`.slice(0, 60),
+        score: null, total: qs.length, pct: null, durationSec, wrong: [], details: mine,
+      });
+      if (!alive) return;
+      const result = res.result || null;
+      if (result && result.data) useKey(result.data);
+      const graded = !!result && typeof result.pct === 'number';
+      stage.innerHTML = '';
+      if (!graded) {
+        // 還沒拿到分數（離線、伺服器忙）：成績在這台裝置排隊，送出後才能檢討
+        store.setTried(unitId);
+        const box = document.createElement('div');
+        box.className = 'card gate-card';
+        box.innerHTML = `<h2>已交卷</h2><p class="gate-lead">成績會在送到伺服器後算出來（右下角會通知）。送出後回到這個單元，就能看答案與解析、逐題檢討。</p>
+          ${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML(res.status)}</div>
+          <div class="btn-row"><button class="btn primary" type="button" data-home>${icon.home} 返回首頁</button></div>`;
+        box.querySelector('[data-home]').addEventListener('click', () => { location.hash = '#/'; });
+        stage.append(box);
+        return;
+      }
+      const byWord = new Map((result.details || []).map((d) => [String(d.word), d]));
+      const details = mine.map((d) => { const r = byWord.get(d.word) || {}; return { ...d, correct: r.correct || '', ok: !!r.ok, points: Number(r.points) || 0 }; });
+      const pct = result.pct, points = result.score;
+      store.setBest(unitId, 'pattern', pct);
+      const passed = pct >= PASS;
+      if (passed) store.setDone(unitId); else store.setTried(unitId);
+      store.setFirst(unitId, { mode: 'pattern', details });
+      const byKind = {};
+      details.forEach((d) => { const k = (byKind[d.kind] = byKind[d.kind] || { ok: 0, n: 0 }); k.n++; k.ok = Math.round((k.ok + (Number(d.points) || 0)) * 100) / 100; });
+      const bars = `<div class="stage-bars">${Object.entries(byKind).map(([k, v]) => `<div class="stage-bar"><span class="sb-name">${esc(k)}</span><span class="bar"><span style="--w:${Math.round((v.ok / v.n) * 100)}%"></span></span><span class="sb-score">${fmt(v.ok)}/${v.n}</span></div>`).join('')}</div>`;
+      const wrongN = details.filter((d) => !d.ok).length;
+      if (!wrongN) completeReview(unitId);
+      const actions = [!wrongN
+        ? { label: '返回首頁', icon: icon.home, primary: true, onClick: () => { location.hash = '#/'; } }
+        : { label: `看答案與解析（錯 ${wrongN} 題）`, icon: icon.bulb, primary: true, onClick: () => startReview(details) }];
+      renderResult(stage, {
+        title: passed ? '句型練習通過！' : '未通過',
+        pct, scoreText: `${fmt(points)} / ${qs.length}`,
+        pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, wrongN ? '接著看答案與解析，完成後才能複習' : '全部答對'],
+        passLine: true,
+        extraHTML: `${bars}${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML(res.status)}</div>`,
+        actions,
+      });
+    }
   }
 
   return () => {

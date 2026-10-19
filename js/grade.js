@@ -155,6 +155,6 @@ export function gradeSubmission(sub, data, config) {
   else if (sub.mode === 'pattern' && Array.isArray(data.items)) out = gradePattern(sub, data, config, unit, flags);
   if (!out) return null;
   const claimed = Number(sub.pct);
-  if (Number.isFinite(claimed) && Math.abs(claimed - out.pct) >= 1) flags.unshift(`分數以伺服器重算為準（學生端送來 ${claimed}%）`);
+  if (sub.pct != null && sub.pct !== '' && Number.isFinite(claimed) && Math.abs(claimed - out.pct) >= 1) flags.unshift(`分數以伺服器重算為準（學生端送來 ${claimed}%）`);
   return { ...out, flags };
 }

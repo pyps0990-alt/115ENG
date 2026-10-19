@@ -203,7 +203,7 @@ export const submit = onRequest({ region: 'asia-east1', cors: ORIGINS, maxInstan
         const open = others.docs.filter((x) => x.id !== attemptId && !x.get('submitted') && Object.keys(x.get('answers') || {}).length).length;
         if (open) sessionNote = `另有 ${open} 次沒交卷的作答（可能先看過部分答案）`;
         await ses.ref.update({ submitted: true });
-      } else if (!d.review) sessionNote = '沒有逐題作答紀錄（舊版網頁或連線問題）';
+      } // 沒有逐題紀錄：新版正式測驗是全部作答完一次交卷（比照課文理解），直接用交卷內容計分
     }
     const g = gradeSubmission(d, content.data, config || {});
     if (g && sessionNote) g.flags.push(sessionNote);

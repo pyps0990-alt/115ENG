@@ -785,10 +785,10 @@
     .rail-who { gap:12px; }
     .sys-btn { position:relative; width:42px; height:42px; border-radius:14px; border:0; background:rgba(255,255,255,.08); display:grid; place-items:center; cursor:pointer; padding:0; transition:background .16s; }
     .sys-btn:hover, .sys-btn[aria-expanded="true"] { background:rgba(255,255,255,.16); }
-    .sys-light { width:14px; height:14px; border-radius:50%; background:#4ADE80; box-shadow:0 0 0 4px rgba(74,222,128,.22); }
-    .sys-btn[data-level="warn"] .sys-light { background:var(--primary); box-shadow:0 0 0 4px rgba(245,158,11,.25); }
-    .sys-btn[data-level="bad"] .sys-light { background:#F87171; box-shadow:0 0 0 4px rgba(248,113,113,.3); animation:sys-blink 1.6s ease-in-out infinite; }
-    @keyframes sys-blink { 50% { box-shadow:0 0 0 8px rgba(248,113,113,.08); } }
+    .sys-light { width:14px; height:14px; border-radius:50%; background:#4ADE80; border:2px solid #fff; box-sizing:content-box; }
+    .sys-btn[data-level="warn"] .sys-light { background:var(--primary); }
+    .sys-btn[data-level="bad"] .sys-light { background:#F87171; animation:sys-blink 1.6s ease-in-out infinite; }
+    @keyframes sys-blink { 50% { opacity:.35; } }
     .sys-btn b { position:absolute; top:-5px; right:-5px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--primary); color:var(--navy); font-size:.68rem; font-weight:900; display:grid; place-items:center; }
     .sys-btn b:empty { display:none; }
     .sys-btn[data-level="bad"] b { background:#F87171; color:#fff; }
@@ -825,7 +825,7 @@
     .savebar { padding:8px 8px 8px 14px; gap:12px; min-width:320px; max-width:min(720px, calc(100vw - 32px)); }
     .savebar .sb-t { flex:1; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .savebar .sb-ic { width:20px; height:20px; border-radius:50%; flex:none; display:grid; place-items:center; }
-    .savebar[data-state="dirty"] .sb-ic { background:var(--primary); box-shadow:0 0 0 4px rgba(245,158,11,.25); width:10px; height:10px; margin:0 5px; }
+    .savebar[data-state="dirty"] .sb-ic { background:var(--primary); width:10px; height:10px; margin:0 5px; }
     .savebar[data-state="saving"] .sb-ic { border:2.5px solid rgba(255,255,255,.3); border-top-color:#fff; animation:btnspin .8s linear infinite; }
     .savebar[data-state="done"] { background:var(--good-c); }
     .savebar[data-state="done"] .sb-ic::before { content:"✓"; font-weight:900; }

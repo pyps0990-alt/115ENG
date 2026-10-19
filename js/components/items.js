@@ -95,7 +95,8 @@ function head(q, meta, sentence) {
   return `<div class="q-head"><div class="q-meta">${esc(meta)}</div>${q.tag ? `<span class="tagchip">${esc(q.tag)}</span>` : ''}${sentence}</div>`;
 }
 
-export function renderChoiceCard(host, q, { meta = '選出最適合的答案', onAnswer, reveal = null } = {}) {
+// deferred：正式測驗先作答、交卷才看對錯（比照課文理解）。選了可以改，onPick(yours, state) 回報目前的答案；initial 是之前選的（回到這一題時還原）
+export function renderChoiceCard(host, q, { meta = '選出最適合的答案', onAnswer, reveal = null, deferred = false, initial = null, onPick } = {}) {
   const card = document.createElement('div');
   card.className = 'q-card slide-in';
   card.innerHTML = `${head(q, meta, `<div class="q-sentence en">${blankHTML(q.stem)}</div>`)}
@@ -104,6 +105,12 @@ export function renderChoiceCard(host, q, { meta = '選出最適合的答案', o
   host.append(card);
   if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   const opts = [...card.querySelectorAll('.opt')];
+  if (deferred) {
+    const pick = (i) => { if (i < 0 || i >= opts.length) return; opts.forEach((o, j) => { o.classList.toggle('selected', j === i); o.setAttribute('aria-pressed', String(j === i)); }); onPick?.(`${KEYS[i]}. ${q.options[i]}`, i); };
+    if (Number.isInteger(initial)) opts.forEach((o, j) => { o.classList.toggle('selected', j === initial); o.setAttribute('aria-pressed', String(j === initial)); });
+    opts.forEach((o) => o.addEventListener('click', () => pick(Number(o.dataset.i))));
+    return { choose: pick, el: card };
+  }
   let done = false;
   const choose = async (i) => {
     if (done || i < 0 || i >= opts.length) return;
@@ -122,7 +129,7 @@ export function renderChoiceCard(host, q, { meta = '選出最適合的答案', o
   return { choose, el: card };
 }
 
-export function renderFillCard(host, q, { meta = '填入空格中的單字或片語', onAnswer, reveal = null } = {}) {
+export function renderFillCard(host, q, { meta = '填入空格中的單字或片語', onAnswer, reveal = null, deferred = false, initial = null, onPick } = {}) {
   const card = document.createElement('div');
   card.className = 'q-card slide-in';
   card.innerHTML = `${head(q, meta, `<div class="q-sentence en">${blankHTML(q.stem)}</div>${q.hint ? `<div class="q-sub"><span>${esc(q.hint)}</span></div>` : ''}`)}
@@ -132,6 +139,13 @@ export function renderFillCard(host, q, { meta = '填入空格中的單字或片
   host.append(card);
   const input = card.querySelector('.fill-input');
   const btn = card.querySelector('[data-check]');
+  if (deferred) {
+    btn.remove();
+    if (initial) input.value = initial;
+    input.addEventListener('input', () => onPick?.(input.value.trim(), input.value));
+    setTimeout(() => input.focus({ preventScroll: true }), 60);
+    return { el: card };
+  }
   let done = false;
   const check = async () => {
     if (done) return;
@@ -153,7 +167,7 @@ export function renderFillCard(host, q, { meta = '填入空格中的單字或片
   return { el: card };
 }
 
-export function renderApplyCard(host, q, { meta = '應用：把單字排成正確的句子', onAnswer, reveal = null } = {}) {
+export function renderApplyCard(host, q, { meta = '應用：把單字排成正確的句子', onAnswer, reveal = null, deferred = false, initial = null, onPick } = {}) {
   const card = document.createElement('div');
   card.className = 'q-card slide-in';
   const order = shuffle(q.words.map((w, i) => i));
@@ -165,9 +179,10 @@ export function renderApplyCard(host, q, { meta = '應用：把單字排成正�
   host.append(card);
   const line = card.querySelector('.build-line');
   const bank = [...card.querySelectorAll('.chip-word')];
-  let picked = [];
+  let picked = deferred && Array.isArray(initial) ? initial.slice() : [];
   let done = false;
   const paint = () => {
+    if (deferred) onPick?.(picked.map((i) => q.words[i]).join(' '), picked.slice());
     line.innerHTML = picked.length ? picked.map((i, k) => `<button class="chip-word en on" type="button" data-k="${k}">${esc(q.words[i])}</button>`).join('') : '<span class="build-hint">點一下或拖動下面的單字，排成句子</span>';
     bank.forEach((b) => { b.disabled = done || picked.includes(Number(b.dataset.w)); });
   };
@@ -245,6 +260,7 @@ export function renderApplyCard(host, q, { meta = '應用：把單字排成正�
     window.addEventListener('pointercancel', end);
   });
   card.querySelector('[data-clear]').addEventListener('click', () => { if (done) return; picked = []; paint(); });
+  if (deferred) { card.querySelector('[data-check]').remove(); paint(); return { el: card }; }
   card.querySelector('[data-check]').addEventListener('click', async () => {
     if (done || !picked.length) return;
     done = true;

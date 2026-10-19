@@ -8,77 +8,111 @@
 <link rel="stylesheet" href="../../css/style.css">
 <style>
   /* 這一頁是預覽（示範資料）：學生端所有「狀態」放到醒目、固定的位置。確認後才改正式網站 */
-  body { padding-bottom: 260px; }
+  :root { --box-h: 40px; --box-r: 12px; --card-r: 18px; }
+  body { padding-bottom: 300px; }
   .pv-wrap { max-width: 760px; margin: 0 auto; padding: 18px 16px; }
+  .ic { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* 統一的方塊：所有狀態標籤同高、同圓角 */
+  .box { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: var(--box-h); padding: 0 14px; border-radius: var(--box-r); font-weight: 900; font-size: .9rem; white-space: nowrap; flex: none; }
 
   /* ---------- 1. 作答中：頂端狀態列 ---------- */
-  .st-bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin: 0 -4px 16px; border-radius: 16px; background: var(--white, #fff); border: 1px solid var(--line, #E2E8F0); box-shadow: 0 6px 18px rgba(30,58,138,.08); }
-  .mode-badge { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px; border-radius: 999px; font-weight: 900; font-size: .9rem; white-space: nowrap; flex: none; }
-  .mode-badge i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .85; }
+  .st-bar { position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "mode prog dl"; align-items: center; gap: 14px; padding: 10px 12px; margin: 0 0 16px; border-radius: var(--card-r); background: #fff; border: 1px solid #E2E8F0; box-shadow: 0 6px 18px rgba(30,58,138,.08); }
+  .st-bar .mode-badge { grid-area: mode; }
+  .st-bar .st-prog { grid-area: prog; }
+  .st-bar .deadline { grid-area: dl; }
   .mode-badge.official { background: #1E3A8A; color: #fff; }
   .mode-badge.review { background: #DCFCE7; color: #166534; }
-  .mode-badge.redo { background: #ECF0F6; color: #586880; }
-  .st-prog { flex: 1; min-width: 0; display: grid; gap: 4px; }
-  .st-prog .row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 800; font-size: .85rem; color: #1E3A8A; }
-  .st-prog .row span:last-child { color: #586880; font-weight: 700; display: inline-flex; gap: 4px; align-items: center; }
+  .mode-badge.redo { background: #ECF0F6; color: #475569; }
+  .st-prog { min-width: 0; display: grid; gap: 6px; }
+  .st-prog .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-weight: 800; font-size: .88rem; color: #1E3A8A; white-space: nowrap; }
+  .st-prog .streak { display: inline-flex; align-items: center; gap: 4px; color: #92400E; font-weight: 800; }
+  .st-prog .streak .ic { width: 15px; height: 15px; }
+  .st-prog .streak[hidden] { display: none; }
   .st-track { height: 8px; border-radius: 4px; background: #ECF0F6; overflow: hidden; }
   .st-track i { display: block; height: 100%; width: 100%; transform: scaleX(.3); transform-origin: left; border-radius: 4px; background: #F59E0B; transition: transform .4s cubic-bezier(.22,1,.36,1); }
-  .deadline { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 999px; font-weight: 900; font-size: .85rem; white-space: nowrap; background: #FEF3C7; color: #92400E; flex: none; }
+  .deadline { background: #FEF3C7; color: #92400E; }
   .deadline.urgent { background: #FEE2E2; color: #B91C1C; animation: urge 1.6s ease-in-out infinite; }
-  .deadline.urgent { box-shadow: none; }
   @keyframes urge { 50% { background: #FECACA; } }
   .deadline[hidden] { display: none; }
-  .mode-note { margin: -8px 0 14px; font-size: .85rem; font-weight: 700; color: #586880; }
+  .mode-note { margin: -6px 0 14px; font-size: .86rem; font-weight: 700; color: #586880; }
   .mode-note.official { color: #1E3A8A; }
+  /* 平板：進度另起一列，徽章與截止在上面 */
+  @media (max-width: 720px) {
+    .st-bar { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "mode dl" "prog prog"; gap: 10px 12px; }
+    .st-bar .deadline { justify-self: end; }
+  }
+  /* 手機：方塊縮小一點，文字不換行 */
+  @media (max-width: 420px) {
+    :root { --box-h: 36px; }
+    .box { padding: 0 11px; font-size: .84rem; }
+    .st-bar { padding: 9px 10px; margin: 0 -6px 14px; }
+    .st-prog .row { font-size: .82rem; }
+  }
 
-  /* ---------- 2. 題卡上的即時狀態 ---------- */
-  .q-wrap { position: relative; }
-  .q-state { position: absolute; top: 14px; right: 14px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 11px; border-radius: 999px; font-size: .8rem; font-weight: 900; }
-  .q-state.checking { background: #E8EDF8; color: #1E3A8A; }
-  .q-state.slow { background: #FEF3C7; color: #92400E; }
-  .q-state.locked { background: #DCFCE7; color: #166534; }
-  .q-state .spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .q-fail { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: #FEF3C7; border: 1px solid #F5D58A; color: #92400E; font-weight: 800; }
-  .q-fail span { flex: 1; }
+  /* 題號導覽（句型正式測驗，比照課文：全部作答完再交卷） */
+  .q-nav2 { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-top: 14px; }
+  .q-nav2[hidden] { display: none; }
+  .q-nav2 .btn { height: var(--box-h); }
+  .dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .dots span { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; font-size: .82rem; border: 1.5px solid #C7CFDB; color: #586880; background: #fff; }
+  .dots span.done { background: #E8EDF8; border-color: #E8EDF8; color: #1E3A8A; }
+  .dots span.now { background: #1E3A8A; border-color: #1E3A8A; color: #fff; }
+  @media (max-width: 560px) { .q-nav2 { grid-template-columns: 1fr 1fr; } .dots { grid-column: 1 / -1; grid-row: 1; } }
 
-  /* ---------- 3. 結果頁最上方的大狀態卡 ---------- */
-  .send-card { display: grid; grid-template-columns: 52px 1fr; gap: 4px 14px; align-items: center; padding: 18px 20px; border-radius: 20px; margin-bottom: 16px; }
-  .send-card .ic { grid-row: span 2; width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; font-size: 1.5rem; font-weight: 900; }
-  .send-card b { font-size: 1.15rem; }
+  /* ---------- 2. 結果頁最上方的大狀態卡 ---------- */
+  .send-card { display: grid; grid-template-columns: 52px 1fr; gap: 4px 14px; align-items: center; padding: 18px 20px; border-radius: var(--card-r); margin-bottom: 16px; min-height: 112px; }
+  .send-card .big { grid-row: span 3; width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; }
+  .send-card .big .ic { width: 26px; height: 26px; stroke-width: 2.6; }
+  .send-card b { font-size: 1.12rem; }
   .send-card p { margin: 0; font-size: .9rem; line-height: 1.55; }
   .send-card .acts { grid-column: 2; display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-  .send-card.sent { background: #DCFCE7; color: #166534; } .send-card.sent .ic { background: #15803D; color: #fff; }
-  .send-card.sending { background: #E8EDF8; color: #1E3A8A; } .send-card.sending .ic { background: #1E3A8A; color: #fff; }
-  .send-card.queued { background: #FEF3C7; color: #92400E; } .send-card.queued .ic { background: #F59E0B; color: #fff; }
-  .send-card.error { background: #FEE2E2; color: #B91C1C; } .send-card.error .ic { background: #DC2626; color: #fff; }
-  .send-card.practice { background: #ECF0F6; color: #475569; } .send-card.practice .ic { background: #586880; color: #fff; }
-  .send-card .score { margin-left: 8px; font-variant-numeric: tabular-nums; }
+  .send-card .acts .btn { height: var(--box-h); }
+  .send-card.sent { background: #DCFCE7; color: #166534; } .send-card.sent .big { background: #15803D; color: #fff; }
+  .send-card.sending { background: #E8EDF8; color: #1E3A8A; } .send-card.sending .big { background: #1E3A8A; color: #fff; }
+  .send-card.queued { background: #FEF3C7; color: #92400E; } .send-card.queued .big { background: #B45309; color: #fff; }
+  .send-card.error { background: #FEE2E2; color: #B91C1C; } .send-card.error .big { background: #DC2626; color: #fff; }
+  .send-card.practice { background: #ECF0F6; color: #475569; } .send-card.practice .big { background: #586880; color: #fff; }
+  .send-card .score { margin-left: 6px; font-variant-numeric: tabular-nums; }
   .send-card .stamp { grid-column: 2; font-size: .8rem; font-weight: 700; }
+  .spin { width: 22px; height: 22px; border-radius: 50%; border: 3px solid rgba(255,255,255,.4); border-top-color: #fff; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ---------- 單元頁：步驟 ---------- */
+  /* ---------- 單元頁：步驟（三格同高） ---------- */
   .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 18px; counter-reset: s; }
-  .step { position: relative; padding: 12px 12px 12px 44px; border-radius: 14px; background: #F6F8FB; border: 1.5px solid #E2E8F0; color: #586880; font-weight: 800; font-size: .9rem; }
+  .step { position: relative; display: grid; align-content: center; min-height: 64px; padding: 10px 12px 10px 46px; border-radius: var(--box-r); background: #F6F8FB; border: 1.5px solid #E2E8F0; color: #586880; font-weight: 800; font-size: .9rem; }
   .step::before { counter-increment: s; content: counter(s); position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 1.5px solid #C7CFDB; display: grid; place-items: center; font-size: .8rem; }
   .step small { display: block; font-weight: 700; font-size: .76rem; margin-top: 2px; }
   .step.done { background: #DCFCE7; border-color: #BBF0CC; color: #166534; }
-  .step.done::before { content: "✓"; background: #15803D; border-color: #15803D; color: #fff; }
-  .step.now { background: #fff; border-color: #1E3A8A; color: #1E3A8A; box-shadow: 0 0 0 3px rgba(30,58,138,.12); }
+  .step.done::before { content: ""; background: #15803D url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E") center/13px no-repeat; border-color: #15803D; }
+  .step.now { background: #fff; border: 2px solid #1E3A8A; color: #1E3A8A; }
   .step.now::before { background: #1E3A8A; border-color: #1E3A8A; color: #fff; }
+  .unit-acts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .unit-acts .btn { height: var(--box-h); }
+  @media (max-width: 600px) { .steps { grid-template-columns: 1fr; } }
 
   /* ---------- 示範控制面板 ---------- */
-  .pv-ctl { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 20; max-width: 980px; margin: 0 auto; background: #172E6E; color: #fff; border-radius: 18px; padding: 12px 14px; box-shadow: 0 14px 40px rgba(15,23,42,.35); display: grid; gap: 8px; font-size: .82rem; }
-  .pv-ctl .t { font-weight: 900; color: #F59E0B; display: flex; justify-content: space-between; }
+  .pv-ctl { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 20; max-width: 980px; margin: 0 auto; background: #172E6E; color: #fff; border-radius: 18px; padding: 12px 14px; box-shadow: 0 14px 40px rgba(15,23,42,.35); display: grid; gap: 8px; font-size: .82rem; max-height: 46vh; overflow: auto; }
+  .pv-ctl .t { font-weight: 900; color: #FBBF24; }
   .pv-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .pv-row > b { min-width: 66px; color: #C9D5F2; font-weight: 800; }
-  .pv-row button { border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; border-radius: 999px; padding: 4px 11px; font: inherit; font-weight: 800; cursor: pointer; }
-  .pv-row button.on { background: #F59E0B; border-color: #F59E0B; color: #1E3A8A; }
+  .pv-row > b { min-width: 66px; color: #DCE4F7; font-weight: 800; }
+  .pv-row button { border: 1px solid rgba(255,255,255,.3); background: transparent; color: #fff; border-radius: 999px; padding: 4px 11px; font: inherit; font-weight: 800; cursor: pointer; }
+  .pv-row button.on { background: #F59E0B; border-color: #F59E0B; color: #172E6E; }
   .pv-screen[hidden] { display: none; }
-  .pv-label { font-size: .75rem; font-weight: 900; color: #F59E0B; letter-spacing: .04em; margin: 22px 0 8px; }
-  @media (max-width: 600px) { .st-bar { flex-wrap: wrap; } .st-prog { order: 3; flex-basis: 100%; } .steps { grid-template-columns: 1fr; } .pv-row > b { min-width: 100%; } }
+  .pv-label { font-size: .75rem; font-weight: 900; color: #B45309; letter-spacing: .04em; margin: 22px 0 8px; }
+  @media (max-width: 600px) { .pv-row > b { min-width: 100%; } }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3c1 4 5 5.5 5 10a5 5 0 01-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3-1-5.5 1-8.5z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2L12 3z"/><path d="M12 10v4M12 17.5v.5"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+</svg>
 <div class="pv-wrap">
   <h1 style="margin:6px 0 2px">L4 句型練習</h1>
   <p class="muted" style="margin:0 0 6px">學生端狀態預覽（示範資料）・用下方面板切換各種情況</p>
@@ -89,35 +123,34 @@
     <div class="card">
       <div class="steps" id="steps"></div>
       <p id="unit-next" style="margin:0 0 14px;font-weight:800;color:#1E3A8A"></p>
-      <div class="deadline" id="unit-dl" hidden></div>
-      <div class="btn-row" style="margin-top:14px"><button class="btn primary" type="button" id="unit-go"></button></div>
+      <div class="unit-acts"><button class="btn primary" type="button" id="unit-go"></button><span class="box deadline" id="unit-dl" hidden></span></div>
     </div>
   </section>
 
   <!-- 作答中 -->
   <section class="pv-screen" data-screen="quiz" hidden>
-    <div class="pv-label">作答中：頂端狀態列＋題卡狀態</div>
+    <div class="pv-label">作答中：頂端狀態列</div>
     <div class="st-bar">
-      <span class="mode-badge" id="mode-badge"></span>
-      <div class="st-prog"><div class="row"><span id="prog-t">第 3 / 10 題</span><span title="連續答對">🔥 2</span></div><div class="st-track"><i></i></div></div>
-      <span class="deadline" id="quiz-dl" hidden></span>
+      <span class="box mode-badge" id="mode-badge"></span>
+      <div class="st-prog"><div class="row"><span id="prog-t"></span><span class="streak" id="streak" title="連續答對"><svg class="ic"><use href="#i-flame"/></svg>2</span></div><div class="st-track"><i id="track"></i></div></div>
+      <span class="box deadline" id="quiz-dl" hidden></span>
     </div>
     <p class="mode-note" id="mode-note"></p>
-    <div class="q-wrap">
-      <span class="q-state" id="q-state" hidden></span>
-      <div class="q-card">
-        <div class="q-meta">第 3 題・選擇</div>
-        <div class="q-sentence en">If it ____ tomorrow, we will stay at home.</div>
-        <div class="options two" id="opts">
-          <button class="opt" type="button"><span class="opt-key">A</span><span class="opt-text en">rain</span></button>
-          <button class="opt" type="button"><span class="opt-key">B</span><span class="opt-text en">rains</span></button>
-          <button class="opt" type="button"><span class="opt-key">C</span><span class="opt-text en">rained</span></button>
-          <button class="opt" type="button"><span class="opt-key">D</span><span class="opt-text en">will rain</span></button>
-        </div>
+    <div class="q-card">
+      <div class="q-meta">第 3 題・選擇</div>
+      <div class="q-sentence en">If it ____ tomorrow, we will stay at home.</div>
+      <div class="options two" id="opts">
+        <button class="opt" type="button"><span class="opt-key">A</span><span class="opt-text en">rain</span></button>
+        <button class="opt" type="button"><span class="opt-key">B</span><span class="opt-text en">rains</span></button>
+        <button class="opt" type="button"><span class="opt-key">C</span><span class="opt-text en">rained</span></button>
+        <button class="opt" type="button"><span class="opt-key">D</span><span class="opt-text en">will rain</span></button>
       </div>
-      <div class="q-fail" id="q-fail" hidden><span>網路沒有回應，答案還沒送出（不會重複計算）</span><button class="btn small primary" type="button" id="q-retry">再送一次</button></div>
     </div>
-    <p class="muted small" style="margin-top:10px">點一個選項，看看作答後的狀態（依「網路」設定）。</p>
+    <div class="q-nav2" id="qnav">
+      <button class="btn ghost" type="button"><svg class="ic"><use href="#i-left"/></svg>上一題</button>
+      <div class="dots"><span class="done">1</span><span class="done">2</span><span class="now">3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></div>
+      <button class="btn primary" type="button">下一題<svg class="ic"><use href="#i-right"/></svg></button>
+    </div>
   </section>
 
   <!-- 結果頁 -->
@@ -127,86 +160,62 @@
     <div class="card" style="text-align:center">
       <div style="font-size:3rem;font-weight:900;color:#1E3A8A;line-height:1">78<small style="font-size:.4em">%</small></div>
       <p class="muted" style="margin:6px 0 12px">7.8 / 10・選擇 4/4・填空 2.8/3・應用 1/3</p>
-      <div class="btn-row center"><button class="btn primary" type="button">開始檢討</button></div>
+      <div class="btn-row center"><button class="btn primary" type="button">看答案與解析</button></div>
     </div>
   </section>
 </div>
 
 <div class="pv-ctl" role="region" aria-label="示範控制">
-  <div class="t"><span>示範控制（只在預覽頁）</span><span id="pv-hint"></span></div>
+  <div class="t">示範控制（只在預覽頁）</div>
   <div class="pv-row" data-k="screen"><b>畫面</b><button data-v="unit" class="on">單元頁</button><button data-v="quiz">作答中</button><button data-v="result">結果頁</button></div>
   <div class="pv-row" data-k="mode"><b>模式</b><button data-v="official" class="on">正式測驗</button><button data-v="review">複習</button><button data-v="redo">錯題重練</button></div>
   <div class="pv-row" data-k="type"><b>題型</b><button data-v="pattern" class="on">句型</button><button data-v="vocab">單字</button><button data-v="reading">課文</button></div>
   <div class="pv-row" data-k="dl"><b>截止</b><button data-v="none" class="on">還很久（不顯示）</button><button data-v="today">今天 23:59</button><button data-v="urgent">剩 45 分鐘</button></div>
-  <div class="pv-row" data-k="net"><b>網路</b><button data-v="ok" class="on">正常</button><button data-v="slow">很慢</button><button data-v="fail">失敗</button></div>
   <div class="pv-row" data-k="send"><b>送出結果</b><button data-v="sent" class="on">已送出</button><button data-v="sending">送出中</button><button data-v="queued">先排隊</button><button data-v="error">失敗</button></div>
   <div class="pv-row" data-k="step"><b>單元進度</b><button data-v="0" class="on">還沒做</button><button data-v="1">做過、沒通過</button><button data-v="2">通過、沒檢討</button><button data-v="3">都完成</button></div>
 </div>
 
 <script>
-const S = { screen: 'unit', mode: 'official', type: 'pattern', dl: 'none', net: 'ok', send: 'sent', step: '0' };
+const S = { screen: 'unit', mode: 'official', type: 'pattern', dl: 'none', send: 'sent', step: '0' };
 const $ = (id) => document.getElementById(id);
+const ic = (n) => `<svg class="ic"><use href="#i-${n}"/></svg>`;
 const MODE = {
-  official: ['正式測驗・計分', '這次的分數會送給老師，每題第一次作答就算數。'],
-  review: ['複習・不影響成績', '複習不會改變你的成績，放心練習。'],
+  official: ['正式測驗・計分', '這次的分數會送給老師。全部作答完再交卷，交卷前可以回上一題修改。'],
+  review: ['複習・不影響成績', '複習不會改變你的成績，每題答完馬上看解析。'],
   redo: ['錯題重練・練習', '只練剛剛錯的題目，不計分也不送出。'],
 };
-const DL = { today: '⏰ 今天 23:59 截止', urgent: '⏰ 剩 45 分鐘截止' };
+const DL = { today: '今天 23:59 截止', urgent: '剩 45 分鐘截止' };
 
 function paint() {
   document.querySelectorAll('.pv-row').forEach((r) => r.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === S[r.dataset.k])));
   document.querySelectorAll('.pv-screen').forEach((s) => { s.hidden = s.dataset.screen !== S.screen; });
   // 作答中
-  const mb = $('mode-badge'); mb.className = `mode-badge ${S.mode}`; mb.innerHTML = `<i></i>${MODE[S.mode][0]}`;
+  const mb = $('mode-badge'); mb.className = `box mode-badge ${S.mode}`; mb.textContent = MODE[S.mode][0];
   const mn = $('mode-note'); mn.className = `mode-note ${S.mode}`;
-  mn.textContent = S.mode === 'official' && S.type !== 'pattern' ? '這次的分數會送給老師，交卷後才算分。' : MODE[S.mode][1];
-  [$('quiz-dl'), $('unit-dl')].forEach((d) => { d.hidden = S.dl === 'none' || (d.id === 'quiz-dl' && S.mode === 'redo'); d.className = `deadline${S.dl === 'urgent' ? ' urgent' : ''}`; d.textContent = DL[S.dl] || ''; });
-  $('prog-t').textContent = S.type === 'reading' ? '已答 3 / 10 題' : '第 3 / 10 題';
-  resetQuiz();
+  mn.textContent = S.mode === 'official' && S.type === 'vocab' ? '這次的分數會送給老師，交卷後才算分。' : MODE[S.mode][1];
+  [$('quiz-dl'), $('unit-dl')].forEach((d) => { d.hidden = S.dl === 'none' || (d.id === 'quiz-dl' && S.mode === 'redo'); d.className = `box deadline${S.dl === 'urgent' ? ' urgent' : ''}`; d.innerHTML = DL[S.dl] ? ic('clock') + DL[S.dl] : ''; });
+  const official = S.mode === 'official' && S.type !== 'vocab';
+  $('prog-t').textContent = official ? '第 3 / 10 題・已答 2' : '第 3 / 10 題';
+  $('streak').hidden = official; // 正式測驗交卷才知道對錯，不顯示連對
+  $('qnav').hidden = !official;
   // 結果頁
   const card = $('send-card');
   const stamp = '<span class="stamp">306 班 20 號 陳同學・完成時間 2026/10/19 14:32</span>';
-  if (S.mode === 'redo') card.className = 'send-card practice', card.innerHTML = '<span class="ic">✎</span><b>練習完成</b><p>錯題重練不計分，也不會送出。</p>';
-  else if (S.send === 'sent') card.className = 'send-card sent', card.innerHTML = `<span class="ic">✓</span><b>成績已送到老師那裡<span class="score">・78 分・${S.mode === 'review' ? '複習' : '通過'}</span></b><p>${S.mode === 'review' ? '複習紀錄已送出，不影響你的成績。' : '可以放心離開這一頁。'}</p>${stamp}`;
-  else if (S.send === 'sending') card.className = 'send-card sending', card.innerHTML = '<span class="ic"><span class="spinner sm" style="border-color:#fff;border-right-color:transparent"></span></span><b>成績送出中…</b><p>大約 1～3 秒，請先不要關掉這一頁。</p>';
-  else if (S.send === 'queued') card.className = 'send-card queued', card.innerHTML = `<span class="ic">⏳</span><b>成績先存在這台裝置<span class="score">・78 分</span></b><p>網路恢復後會自動送給老師，可以先離開。請不要清除瀏覽器資料。</p><div class="acts"><button class="btn small" type="button">立即重送</button></div>${stamp}`;
-  else card.className = 'send-card error', card.innerHTML = `<span class="ic">!</span><b>成績還沒送出<span class="score">・78 分</span></b><p>成績已存在這台裝置。請按「立即重送」，或截圖這個畫面給老師。</p><div class="acts"><button class="btn small primary" type="button">立即重送</button></div>${stamp}`;
+  const set = (cls, big, html) => { card.className = `send-card ${cls}`; card.innerHTML = `<span class="big">${big}</span>${html}`; };
+  if (S.mode === 'redo') set('practice', ic('pencil'), '<b>練習完成</b><p>錯題重練不計分，也不會送出。</p>');
+  else if (S.send === 'sent') set('sent', ic('check'), `<b>成績已送到老師那裡<span class="score">・78 分・${S.mode === 'review' ? '複習' : '通過'}</span></b><p>${S.mode === 'review' ? '複習紀錄已送出，不影響你的成績。' : '可以放心離開這一頁。'}</p>${stamp}`);
+  else if (S.send === 'sending') set('sending', '<span class="spin"></span>', '<b>成績送出中</b><p>大約 1 到 3 秒，請先不要關掉這一頁。</p>');
+  else if (S.send === 'queued') set('queued', ic('clock'), `<b>成績先存在這台裝置<span class="score">・78 分</span></b><p>網路恢復後會自動送給老師，可以先離開。請不要清除瀏覽器資料。</p><div class="acts"><button class="btn small" type="button">立即重送</button></div>${stamp}`);
+  else set('error', ic('alert'), `<b>成績還沒送出<span class="score">・78 分</span></b><p>成績已存在這台裝置。請按「立即重送」，或截圖這個畫面給老師。</p><div class="acts"><button class="btn small primary" type="button">立即重送</button></div>${stamp}`);
   // 單元頁
   const st = Number(S.step);
-  const steps = [['正式測驗', st >= 2 ? '通過 78 分' : st === 1 ? '最高 52 分，還沒通過' : '開放中，65 分通過'], ['檢討錯題', st >= 3 ? '完成' : st === 2 ? '還沒檢討' : '通過後開放'], ['複習', st >= 3 ? '隨時可以練' : '檢討完開放']];
+  const steps = [['正式測驗', st >= 2 ? '通過 78 分' : st === 1 ? '最高 52 分，還沒通過' : '開放中，65 分通過'], ['看答案與解析', st >= 3 ? '完成' : st === 2 ? '還沒看' : '通過後開放'], ['複習', st >= 3 ? '隨時可以練' : '看完解析後開放']];
   const now = st <= 1 ? 0 : st === 2 ? 1 : 2;
   $('steps').innerHTML = steps.map(([t, s], i) => `<div class="step ${i < now || (st === 3 && i < 2) ? 'done' : i === now ? 'now' : ''}">${t}<small>${s}</small></div>`).join('');
-  $('unit-next').textContent = ['下一步：開始正式測驗', '下一步：再考一次（沒有次數限制）', '下一步：檢討錯題，檢討完就能複習', '都完成了！可以隨時複習'][st];
-  $('unit-go').textContent = ['開始測驗', '再考一次', '開始檢討', '開始複習'][st];
-  $('pv-hint').textContent = S.screen === 'quiz' ? '點選項看題卡狀態' : '';
+  $('unit-next').textContent = ['下一步：開始正式測驗', '下一步：再考一次（沒有次數限制）', '下一步：看答案與解析，看完就能複習', '都完成了，可以隨時複習'][st];
+  $('unit-go').textContent = ['開始測驗', '再考一次', '看答案與解析', '開始複習'][st];
 }
-
-let timers = [];
-function resetQuiz() {
-  timers.forEach(clearTimeout); timers = [];
-  $('q-state').hidden = true; $('q-fail').hidden = true;
-  document.querySelectorAll('#opts .opt').forEach((o) => { o.disabled = false; o.className = 'opt'; });
-}
-function answer(i) {
-  resetQuiz();
-  const opts = [...document.querySelectorAll('#opts .opt')];
-  opts.forEach((o) => { o.disabled = true; });
-  opts[i].classList.add('picked');
-  const st = $('q-state');
-  const reveal = () => {
-    opts.forEach((o, j) => { if (j === 1) o.classList.add('correct'); else if (j === i) o.classList.add('wrong'); else o.classList.add('dim'); });
-    // 只有句型的正式測驗：每題送伺服器、第一次作答就鎖定
-    if (S.type === 'pattern' && S.mode === 'official') { st.hidden = false; st.className = 'q-state locked'; st.innerHTML = '🔒 已記錄'; } else st.hidden = true;
-  };
-  if (!(S.type === 'pattern' && S.mode === 'official')) { reveal(); return; }
-  st.hidden = false; st.className = 'q-state checking'; st.innerHTML = '<span class="spin"></span>判斷中…';
-  if (S.net === 'ok') { timers.push(setTimeout(reveal, 400)); return; }
-  timers.push(setTimeout(() => { st.className = 'q-state slow'; st.innerHTML = '<span class="spin"></span>網路較慢，答案已送出，請稍等'; }, 1000));
-  if (S.net === 'slow') { timers.push(setTimeout(reveal, 3200)); return; }
-  timers.push(setTimeout(() => { st.hidden = true; opts.forEach((o) => { o.disabled = false; o.classList.remove('picked'); }); $('q-fail').hidden = false; }, 3000));
-}
-document.querySelectorAll('#opts .opt').forEach((o, i) => o.addEventListener('click', () => answer(i)));
-$('q-retry').onclick = () => { S.net = 'ok'; paint(); answer(0); };
+document.querySelectorAll('#opts .opt').forEach((o) => o.addEventListener('click', () => { document.querySelectorAll('#opts .opt').forEach((x) => x.classList.toggle('selected', x === o)); }));
 document.querySelector('.pv-ctl').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-v]'); if (!b) return;
   S[b.closest('.pv-row').dataset.k] = b.dataset.v; paint();

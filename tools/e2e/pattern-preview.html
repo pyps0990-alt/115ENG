@@ -19,10 +19,11 @@ window.fetch = (url, opt) => {
 };
 </script>
 <script type="module">
-// 開發用：句型練習正式測驗（答案不公開）。網站只拿到題目；每題作答送「假的伺服器計分」判斷、鎖定，回傳這一題的答案與解析
+// 開發用：句型練習正式測驗（答案不公開）。網站只拿到題目；全部作答完一次交卷，「假的伺服器」用跟正式伺服器同一份計分程式（js/grade.js）計分，回傳答案與解析
 import { mount } from '../../js/modes/pattern.js';
 import { stripContent } from '../../js/answers.js';
 import { flattenPattern, judge, applyScore } from '../../js/components/items.js';
+import { gradeSubmission } from '../../js/grade.js';
 try { localStorage.setItem('b5p:student', JSON.stringify({ cls: '201', seat: '1', name: '預覽', key: 'a'.repeat(64) })); } catch {}
 const data = { items: [
   { type: 'mc', q: 'He ____ here every day.', options: ['comes', 'come', 'coming', 'came'], answer: 0, explain: '主詞 he 第三人稱單數，現在式動詞加 s。', tag: '主詞動詞一致' },
@@ -45,10 +46,9 @@ window.__fakeServer = async (url, opt) => {
   }
   if (body.op === 'key') return new Response(JSON.stringify(window.__submitted ? { ok: true, v: '', data } : { ok: false, error: '交卷後才能看答案' }), { status: window.__submitted ? 200 : 403 });
   window.__submitted = true;
-  const s = sessions[body.attemptId] || {};
-  const score = Object.values(s).reduce((a, x) => a + x.got, 0);
-  window.__sub = { claimedPct: body.pct, session: body.attemptId, server: s };
-  return new Response(JSON.stringify({ ok: true, score, total: 3, pct: Math.round(score / 3 * 100), details: body.details, data, v: '' }));
+  const g = gradeSubmission(body, data, { units: { 'preview-pt': { questionCount: 3 } } });
+  window.__sub = { claimedPct: body.pct, session: body.attemptId, graded: g };
+  return new Response(JSON.stringify({ ok: true, score: g.score, total: g.total, pct: g.pct, details: g.details, data, v: '' }));
 };
 const ctx = { unit: { id: 'preview-pt', title: '句型預覽' }, data: stripContent(data), config: { units: {} }, questionCount: 3 };
 mount(document.getElementById('stage'), ctx);

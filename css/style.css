@@ -351,6 +351,14 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 .opt.dim { opacity: .7; }
 @keyframes pop { 40% { transform: scale(1.06); } }
 
+/* 句型正式測驗：上一題、題號、下一題／交卷（全部作答完才交卷，比照課文理解） */
+.q-nav { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-top: 14px; }
+.q-dots { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.q-dot { width: 32px; height: 32px; border-radius: 10px; border: 1.5px solid var(--line-strong, #C7CFDB); background: var(--white); color: var(--steel, #586880); font: inherit; font-weight: 800; font-size: .82rem; cursor: pointer; font-variant-numeric: tabular-nums; transition: background .15s, border-color .15s, color .15s; }
+.q-dot.done { background: var(--navy-soft); border-color: var(--navy-soft); color: var(--navy); }
+.q-dot.now { border-color: var(--navy); background: var(--navy); color: var(--white); }
+.q-dot:focus-visible { outline: 3px solid var(--amber, #F59E0B); outline-offset: 2px; }
+@media (max-width: 560px) { .q-nav { grid-template-columns: 1fr 1fr; } .q-dots { grid-column: 1 / -1; grid-row: 1; } }
 .q-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 46px; }
 .q-foot .btn { flex: none; }
 .feedback { flex: 1; min-width: 0; font-weight: 700; display: flex; align-items: center; gap: 6px; line-height: 1.4; }
