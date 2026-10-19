@@ -31,6 +31,7 @@ const DATA = {
     config: { updated: 'x', units: {} }, siteUrl: 'https://site/', sheetUrl: '#',
   },
   getAiPrompts: { vocab: { text: '' }, reading: { text: '' }, pattern: { text: '' } }, getBrainConfig: {},
+  getSyncStatus: { last: new Date(Date.now() - 4 * 60000).toISOString(), trigger: true },
   getBestScores: { '301-5': { 'L1-2VOC': 88, L1R: 72 }, '302-9': { 'L1-2VOC': 30 } },
   listRoster: ['301', '302', '303', '304'].flatMap((c) => Array.from({ length: 32 }, (_, i) => ({ cls: c, seat: String(i + 1), name: '學生' + (i + 1) }))),
 };

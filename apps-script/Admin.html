@@ -781,6 +781,75 @@
     #work .view:not([hidden]) { animation-name:vt-fade; animation-duration:.2s; }
     .u-row:active { transform:none; }
     details.nv-adv[open] > :not(summary), details.usc-all[open] > :not(summary) { animation:vt-fade .18s ease-out both; }
+    /* ================= 狀態：系統狀態燈、通知條、儲存狀態列、單元標籤 ================= */
+    .rail-who { gap:12px; }
+    .sys-btn { position:relative; width:42px; height:42px; border-radius:14px; border:0; background:rgba(255,255,255,.08); display:grid; place-items:center; cursor:pointer; padding:0; transition:background .16s; }
+    .sys-btn:hover, .sys-btn[aria-expanded="true"] { background:rgba(255,255,255,.16); }
+    .sys-light { width:14px; height:14px; border-radius:50%; background:#4ADE80; box-shadow:0 0 0 4px rgba(74,222,128,.22); }
+    .sys-btn[data-level="warn"] .sys-light { background:var(--primary); box-shadow:0 0 0 4px rgba(245,158,11,.25); }
+    .sys-btn[data-level="bad"] .sys-light { background:#F87171; box-shadow:0 0 0 4px rgba(248,113,113,.3); animation:sys-blink 1.6s ease-in-out infinite; }
+    @keyframes sys-blink { 50% { box-shadow:0 0 0 8px rgba(248,113,113,.08); } }
+    .sys-btn b { position:absolute; top:-5px; right:-5px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--primary); color:var(--navy); font-size:.68rem; font-weight:900; display:grid; place-items:center; }
+    .sys-btn b:empty { display:none; }
+    .sys-btn[data-level="bad"] b { background:#F87171; color:#fff; }
+    .sys-panel { position:absolute; left:calc(100% + 10px); bottom:54px; z-index:41; width:340px; background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:16px; box-shadow:0 12px 32px rgba(15,23,42,.22); padding:8px; text-align:left; }
+    .sys-panel:not([hidden]) { animation:menu-in .2s var(--ease-out) both; transform-origin:bottom left; }
+    .sys-panel.closing { animation:drop-out-up .15s ease-in both; }
+    .sys-top { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:8px 10px 10px; border-bottom:1px solid var(--line); margin-bottom:4px; }
+    .sys-top b { font-size:1rem; }
+    .sys-row { display:grid; grid-template-columns:12px 1fr auto; gap:10px; align-items:center; padding:10px; border-radius:10px; }
+    .sys-row + .sys-row { border-top:1px solid #EEF1F6; }
+    .sys-row b { display:block; font-size:.9rem; }
+    .sys-row span:not(.sys-dot) { display:block; font-size:.8rem; color:var(--steel); line-height:1.45; }
+    .sys-dot { width:10px; height:10px; border-radius:50%; background:var(--good-c); }
+    .sys-row.warn .sys-dot, .sys-row.wait .sys-dot { background:var(--primary); }
+    .sys-row.bad { background:var(--bad-soft); } .sys-row.bad .sys-dot { background:var(--bad); } .sys-row.bad span:not(.sys-dot) { color:var(--bad-ink); }
+    .sys-row.wait .sys-dot { animation:sys-blink 1.2s ease-in-out infinite; }
+    /* 通知條：固定在工作區最上方 */
+    #stale-anchor { position:sticky; top:0; z-index:8; }
+    .notice-bar { display:grid; gap:8px; margin:0 0 14px; }
+    .notice-bar:empty { display:none; }
+    .notice { display:flex; align-items:center; gap:12px; padding:10px 12px 10px 14px; border-radius:14px; font-weight:800; font-size:.9rem; box-shadow:0 6px 18px rgba(15,23,42,.1); animation:drop-in .22s var(--ease-out) both; }
+    .notice.closing { animation:drop-out .16s ease-in both; }
+    .notice-t { flex:1; line-height:1.5; }
+    .notice-ic { width:24px; height:24px; border-radius:50%; display:grid; place-items:center; font-weight:900; flex:none; }
+    .notice.wait { background:var(--navy); color:#fff; }
+    .notice.wait .notice-ic { border:2.5px solid rgba(255,255,255,.35); border-top-color:#fff; animation:btnspin .8s linear infinite; }
+    .notice.warn { background:var(--amber-soft); color:var(--amber-ink); border:1px solid #F5D58A; } .notice.warn .notice-ic { background:var(--primary); color:#fff; }
+    .notice.bad { background:var(--bad-soft); color:var(--bad-ink); border:1px solid #F3B4B4; } .notice.bad .notice-ic { background:var(--bad); color:#fff; }
+    .notice .btn { flex:none; }
+    .notice.wait .btn { background:rgba(255,255,255,.12); color:#fff; border-color:rgba(255,255,255,.3); }
+    .notice-x { border:0; background:none; font-size:1.3rem; line-height:1; color:inherit; cursor:pointer; padding:4px 6px; border-radius:8px; opacity:.7; }
+    .notice-x:hover { opacity:1; background:rgba(0,0,0,.06); }
+    /* 儲存狀態列 */
+    .savebar { padding:8px 8px 8px 14px; gap:12px; min-width:320px; max-width:min(720px, calc(100vw - 32px)); }
+    .savebar .sb-t { flex:1; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .savebar .sb-ic { width:20px; height:20px; border-radius:50%; flex:none; display:grid; place-items:center; }
+    .savebar[data-state="dirty"] .sb-ic { background:var(--primary); box-shadow:0 0 0 4px rgba(245,158,11,.25); width:10px; height:10px; margin:0 5px; }
+    .savebar[data-state="saving"] .sb-ic { border:2.5px solid rgba(255,255,255,.3); border-top-color:#fff; animation:btnspin .8s linear infinite; }
+    .savebar[data-state="done"] { background:var(--good-c); }
+    .savebar[data-state="done"] .sb-ic::before { content:"✓"; font-weight:900; }
+    .savebar[data-state="fail"] { background:var(--bad); }
+    .savebar[data-state="fail"] .sb-ic::before { content:"!"; font-weight:900; }
+    .savebar #savebar-undo { background:transparent; color:#fff; border:1px solid rgba(255,255,255,.35); box-shadow:none; }
+    .savebar #savebar-undo:hover { background:rgba(255,255,255,.12); }
+    .savebar .btn.ghost:hover { background:rgba(255,255,255,.12); }
+    .savebar[data-state="fail"] .btn.primary { background:#fff; border-color:#fff; color:var(--bad-ink); }
+    /* 單元清單：要注意的狀態用文字標籤 */
+    .u-tag { justify-self:end; font-size:.72rem; font-weight:900; padding:2px 8px; border-radius:999px; white-space:nowrap; background:var(--wash); color:var(--steel); }
+    .u-tag.soon { background:var(--amber-soft); color:var(--amber-ink); }
+    .u-tag.empty { background:var(--bad-soft); color:var(--bad-ink); }
+    .u-tag.hidden { background:transparent; border:1.5px dashed var(--edge); padding:1px 7px; }
+    .u-tag.later { background:var(--navy-soft); color:var(--navy); }
+    .u-tag.below { grid-column:2 / 4; justify-self:start; margin-top:2px; }
+    /* 單元標題旁的狀態：加大、寫出下一個時間點 */
+    #work .pill.u-state { height:32px; padding:0 14px; font-size:.88rem; gap:8px; }
+    #work .pill.u-state.open { background:var(--good-soft); color:var(--good-ink); }
+    #work .pill.u-state.soon { background:var(--amber-soft); color:var(--amber-ink); }
+    #work .pill.u-state.empty { background:var(--bad-soft); color:var(--bad-ink); }
+    #work .pill.u-state.closed, #work .pill.u-state.hidden { background:var(--wash); color:var(--steel); }
+    #work .pill.u-state .u-next { font-weight:700; opacity:.85; }
+    @media (max-width:900px) { .sys-btn { width:36px; height:36px; } .sys-panel { left:auto; right:0; bottom:auto; top:calc(100% + 8px); width:min(340px, calc(100vw - 24px)); } .rail-who { flex-direction:row; } }
   </style>
 </head>
 <body>
@@ -3379,7 +3448,7 @@
       lastHash = location.hash; route();
     });
     window.addEventListener('beforeunload', function (e) { if (dirtyNow()) { e.preventDefault(); e.returnValue = ''; } });
-    var paintSavebar = function () { $('savebar').classList.toggle('on', dirtyNow()); };
+    var paintSavebar = function () { if (window.savebarOwned) return; $('savebar').classList.toggle('on', dirtyNow()); };
     new MutationObserver(paintSavebar).observe($('msg'), { childList: true, characterData: true, subtree: true });
     if ($('ex-msg')) new MutationObserver(paintSavebar).observe($('ex-msg'), { childList: true, characterData: true, subtree: true });
     $('savebar-save').onclick = function () { if (/尚未儲存/.test(($('ex-msg') || {}).textContent || '') && !/尚未儲存/.test($('msg').textContent)) $('ex-save').click(); else $('save').click(); };
@@ -4176,6 +4245,184 @@
       window.foldList(true);
     });
 
+
+    /* ================= 狀態：左下角系統狀態燈、頂端通知條、儲存狀態列 ================= */
+    var SYS = { items: {}, order: ['data', 'scores', 'sheet', 'analysis'] };
+    var SYS_NAME = { data: '單元資料', scores: '成績', sheet: '試算表同步', analysis: '錯誤分析' };
+    var hhmm = function (ms) { var d = new Date(ms || Date.now()); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+    // level：ok／warn／bad／wait；act：{ label, run }
+    window.sysSet = function (key, level, text, act) {
+      SYS.items[key] = { level: level, text: text, act: act || null, at: Date.now() };
+      sysPaint();
+    };
+    function sysLevel() {
+      var lv = 'ok';
+      SYS.order.forEach(function (k) { var it = SYS.items[k]; if (!it) return; if (it.level === 'bad') lv = 'bad'; else if ((it.level === 'warn' || it.level === 'wait') && lv !== 'bad') lv = 'warn'; });
+      return lv;
+    }
+    function sysPaint() {
+      var btn = $('sys-btn'); if (!btn) return;
+      var lv = sysLevel();
+      btn.dataset.level = lv;
+      btn.title = lv === 'ok' ? '系統狀態：一切正常' : lv === 'warn' ? '系統狀態：有事要注意' : '系統狀態：出錯了';
+      var n = SYS.order.filter(function (k) { return SYS.items[k] && SYS.items[k].level !== 'ok'; }).length;
+      btn.querySelector('b').textContent = n || '';
+      var list = $('sys-list'); if (!list) return;
+      list.innerHTML = SYS.order.filter(function (k) { return SYS.items[k]; }).map(function (k) {
+        var it = SYS.items[k];
+        return '<div class="sys-row ' + it.level + '"><span class="sys-dot" aria-hidden="true"></span><div><b>' + SYS_NAME[k] + '</b><span>' + esc(it.text) + '</span></div>' +
+          (it.act ? '<button class="btn sm" type="button" data-sys-act="' + k + '">' + esc(it.act.label) + '</button>' : '') + '</div>';
+      }).join('');
+      $('sys-head').textContent = lv === 'ok' ? '一切正常' : lv === 'warn' ? '有 ' + n + ' 件事要注意' : '有地方出錯了';
+    }
+    (function sysMount() {
+      var who = document.querySelector('.rail-who');
+      var b = document.createElement('button'); b.type = 'button'; b.id = 'sys-btn'; b.className = 'sys-btn'; b.dataset.level = 'warn';
+      b.setAttribute('aria-haspopup', 'dialog'); b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-controls', 'sys-panel');
+      b.innerHTML = '<span class="sys-light" aria-hidden="true"></span><b></b><span class="sr">系統狀態</span>';
+      who.insertBefore(b, who.firstChild);
+      var p = document.createElement('div'); p.id = 'sys-panel'; p.className = 'sys-panel'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', '系統狀態'); p.hidden = true;
+      p.innerHTML = '<div class="sys-top"><b id="sys-head">檢查中…</b><span class="muted small">點按鈕直接處理</span></div><div id="sys-list"></div>';
+      who.appendChild(p);
+      var open = function (on) { b.setAttribute('aria-expanded', String(on)); if (on) { p.classList.remove('closing'); p.hidden = false; } else closeAnimated(p); };
+      b.onclick = function (e) { e.stopPropagation(); open(p.hidden || p.classList.contains('closing')); };
+      document.addEventListener('click', function (e) { if (!p.hidden && !e.target.closest('#sys-panel') && !e.target.closest('#sys-btn')) open(false); }, true);
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !p.hidden) { open(false); b.focus(); } }, true);
+      p.addEventListener('click', function (e) { var a = e.target.closest('[data-sys-act]'); if (!a) return; var it = SYS.items[a.dataset.sysAct]; if (it && it.act) { open(false); it.act.run(); } });
+      sysSet('data', 'wait', '讀取中…');
+    })();
+
+    /* ----- 頂端通知條：有重要的事才出現；紅色要按掉，黃色處理好自動消失 ----- */
+    var NOTICES = {};
+    window.notice = function (id, level, text, act) {
+      var bar = $('notice-bar');
+      if (!bar) { bar = document.createElement('div'); bar.id = 'notice-bar'; bar.className = 'notice-bar'; $('stale-anchor').appendChild(bar); }
+      if (!level) { var old = NOTICES[id]; if (old) { old.classList.add('closing'); setTimeout(function () { old.remove(); }, 160); delete NOTICES[id]; } return; }
+      var el = NOTICES[id];
+      if (!el) { el = document.createElement('div'); el.setAttribute('role', level === 'bad' ? 'alert' : 'status'); bar.appendChild(el); NOTICES[id] = el; }
+      el.className = 'notice ' + level;
+      el.innerHTML = '<span class="notice-ic" aria-hidden="true">' + (level === 'bad' ? '!' : level === 'wait' ? '' : 'i') + '</span><span class="notice-t">' + esc(text) + '</span>' +
+        (act ? '<button class="btn sm" type="button" data-n-act>' + esc(act.label) + '</button>' : '') +
+        (level === 'bad' ? '<button class="notice-x" type="button" aria-label="關閉" data-n-x>×</button>' : '');
+      if (act) el.querySelector('[data-n-act]').onclick = function () { act.run(); };
+      var x = el.querySelector('[data-n-x]'); if (x) x.onclick = function () { notice(id, null); };
+    };
+    // 讀取中鎖住編輯：改用通知條（原本的提示只在工作區最上面，捲下去就看不到）
+    lockTabs = function (text, err) {
+      SH.locked = true;
+      [].forEach.call(tabSections(), function (s) { s.inert = true; });
+      err = !!err;
+      notice('data', err ? 'bad' : 'wait', text, err ? { label: '重新整理', run: function () { location.reload(); } } : null);
+      sysSet('data', err ? 'bad' : 'wait', err ? text : '正在讀取最新資料，暫時不能編輯');
+    };
+    unlockTabs = function () {
+      SH.locked = false;
+      [].forEach.call(tabSections(), function (s) { s.inert = false; });
+      notice('data', null);
+      sysSet('data', 'ok', '最新・' + hhmm() + ' 讀取');
+    };
+
+    /* ----- 儲存狀態列：未儲存（復原／儲存）→ 儲存中 → 已儲存（停 3 秒）；失敗變紅、停住 ----- */
+    var SAVED = { units: null, exts: null };
+    var snapSaved = function () { SAVED.units = JSON.parse(JSON.stringify(units)); SAVED.exts = JSON.parse(JSON.stringify(exts)); };
+    (function saveBar() {
+      var bar = $('savebar');
+      bar.innerHTML = '<span class="sb-ic" aria-hidden="true"></span><span class="sb-t" id="sb-t">有未儲存的變更</span><button class="btn sm ghost" type="button" id="savebar-undo">復原</button><button class="btn small primary" type="button" id="savebar-save">儲存</button>';
+      var hideT = null;
+      var state = function (s, text) {
+        clearTimeout(hideT);
+        bar.dataset.state = s; $('sb-t').textContent = text;
+        $('savebar-undo').hidden = s !== 'dirty'; $('savebar-save').hidden = !(s === 'dirty' || s === 'fail');
+        $('savebar-save').textContent = s === 'fail' ? '再存一次' : '儲存';
+        bar.classList.toggle('on', s !== 'idle');
+        if (s === 'done') hideT = setTimeout(function () { state('idle', ''); }, 3000);
+      };
+      var which = function () { return /尚未儲存/.test(($('ex-msg') || {}).textContent || '') && !/尚未儲存/.test($('msg').textContent) ? 'ex' : 'main'; };
+      var read = function () {
+        var ms = [$('msg'), $('ex-msg'), $('imp-msg')].filter(Boolean);
+        var dirty = /尚未儲存/.test($('msg').textContent) || /尚未儲存/.test(($('ex-msg') || {}).textContent || '');
+        var t = ms.map(function (m) { return { t: m.textContent, err: /\berr\b/.test(m.className) }; });
+        var saving = t.filter(function (x) { return /儲存中|⚡|存進試算表|確認學生網站同步中/.test(x.t); })[0];
+        var done = t.filter(function (x) { return /^✓ 已儲存/.test(x.t); })[0];
+        var fail = t.filter(function (x) { return x.err && /失敗/.test(x.t); })[0];
+        if (fail) { state('fail', fail.t); notice('save', 'bad', fail.t); return; }
+        if (saving) { state('saving', saving.t.replace(/^⚡\s*/, '')); return; }
+        if (dirty) { state('dirty', '有未儲存的變更'); return; }
+        if (done) { state('done', done.t); notice('save', null); snapSaved(); return; }
+        if (bar.dataset.state !== 'done') state('idle', '');
+      };
+      [$('msg'), $('ex-msg'), $('imp-msg')].forEach(function (m) { if (m) new MutationObserver(read).observe(m, { childList: true, characterData: true, subtree: true, attributes: true }); });
+      $('savebar-save').onclick = function () { if (which() === 'ex') $('ex-save').click(); else $('save').click(); };
+      $('savebar-undo').onclick = function () {
+        if (!SAVED.units) return;
+        if (!confirm('復原到上次儲存的狀態？這次的修改會全部取消。')) return;
+        units = JSON.parse(JSON.stringify(SAVED.units)); exts = JSON.parse(JSON.stringify(SAVED.exts));
+        $('msg').textContent = ''; $('msg').className = 'msg';
+        if ($('ex-msg')) { $('ex-msg').textContent = ''; $('ex-msg').className = 'msg'; }
+        render(); impInit(); exRender(); drawUnitList();
+        if (SH.view === 'unit') { drawUnitHead(); if (!units.some(function (u) { return u.id === SH.unit; })) location.hash = '#units'; }
+      };
+      window.savebarOwned = true; // 原本只切換顯示／隱藏，改由上面的 read 負責
+    })();
+    var applyAdminDataST = applyAdminData;
+    applyAdminData = function (d) { applyAdminDataST(d); if (!/尚未儲存/.test($('msg').textContent)) snapSaved(); };
+
+    /* ----- 試算表同步、錯誤分析：放進狀態燈 ----- */
+    function sheetCheck() {
+      google.script.run.withSuccessHandler(function (st) {
+        var last = st && st.last ? Date.parse(st.last) : NaN, h = new Date().getHours(), night = h >= 22 || h < 7;
+        var run = { label: '立即同步', run: function () { location.hash = '#scores'; setTimeout(function () { var d = $('sc-sync'); if (d) d.open = true; $('sync-now').click(); }, 300); } };
+        if (st && st.trigger === false) sysSet('sheet', 'bad', '自動同步沒有開', run);
+        else if (isNaN(last)) sysSet('sheet', 'warn', '還沒同步過', run);
+        else if (!night && Date.now() - last > 30 * 60000) sysSet('sheet', 'warn', '上次同步 ' + hhmm(last) + '，已經超過 30 分鐘', run);
+        else sysSet('sheet', 'ok', '上次同步 ' + hhmm(last) + (night ? '（晚上 10 點到早上 7 點暫停）' : '・每 10 分鐘自動'));
+      }).withFailureHandler(function (e) { sysSet('sheet', 'warn', '讀不到同步狀態：' + e.message); }).getSyncStatus();
+    }
+    setTimeout(sheetCheck, 1500); setInterval(function () { if (document.visibilityState === 'visible') sheetCheck(); }, 5 * 60000);
+    (function anWatch() {
+      var paint = function () {
+        if (!window.fastPublish) return;
+        var list = ($('br-pending-list').textContent || '').trim();
+        if (!$('br-pending').hidden && list) sysSet('analysis', 'warn', list + '：題目改過，還沒重新分析', { label: '前往', run: function () { var u = units.filter(function (x) { return list.split('、').indexOf(x.title || x.id) >= 0; })[0]; if (u) location.hash = '#unit/' + encodeURIComponent(u.id) + '/content'; } });
+        else sysSet('analysis', 'ok', '單字單元都分析好了');
+      };
+      new MutationObserver(paint).observe($('br-pending'), { attributes: true, childList: true, subtree: true });
+      setTimeout(paint, 2500);
+    })();
+
+    /* ----- 單元清單：快截止、沒題目、隱藏用文字標籤；標題旁寫出下一個時間點 ----- */
+    function attnTag(u) {
+      var s = unitState(u)[0], close = twMs(u.closeAt), open = twMs(u.openAt), now = Date.now();
+      if (s === 'empty') return ['empty', '沒題目'];
+      if (s === 'soon') { var d = Math.ceil((close - now) / 86400000); return ['soon', d <= 1 ? '今天截止' : '剩 ' + d + ' 天']; }
+      if (s === 'hidden') return ['hidden', '隱藏'];
+      if (s === 'closed') return ['closed', '已截止'];
+      if (s === 'later' && !isNaN(open)) return ['later', fmtTw(u.openAt).split(' ')[0] + ' 開放'];
+      return null;
+    }
+    var drawUnitListST = drawUnitList;
+    drawUnitList = function () {
+      drawUnitListST.apply(this, arguments);
+      [].forEach.call(document.querySelectorAll('#ulist-groups .u-row'), function (r) {
+        var u = units.filter(function (x) { return x.id === r.dataset.unit; })[0]; if (!u) return;
+        var t = attnTag(u); if (!t) return;
+        var pct = r.querySelector('.pct');
+        var tag = document.createElement('span'); tag.className = 'u-tag ' + t[0]; tag.textContent = t[1];
+        if (pct && !pct.textContent) pct.replaceWith(tag); else if (pct) pct.insertAdjacentElement('afterend', tag), tag.classList.add('below');
+      });
+      if (window.placeInks) window.placeInks(); // 標籤讓列變高：亮塊重新對齊
+    };
+    var drawUnitHeadST = drawUnitHead;
+    drawUnitHead = function () {
+      drawUnitHeadST();
+      var u = curUnit(); if (!u) return;
+      var pill = $('u-sub').querySelector('.pill'); if (!pill) return;
+      var s = unitState(u), close = twMs(u.closeAt), open = twMs(u.openAt);
+      var next = s[0] === 'later' && !isNaN(open) ? fmtTw(u.openAt) + ' 開放' : (s[0] === 'open' || s[0] === 'soon') && !isNaN(close) ? fmtTw(u.closeAt) + ' 截止' : '';
+      pill.className = 'pill u-state ' + s[0];
+      pill.innerHTML = '<span class="dot ' + s[0] + '"></span>' + esc(s[1]) + (next ? '<span class="u-next">・' + esc(next) + '</span>' : '');
+    };
+
     // 開啟加速：先用這台電腦上次讀到的資料畫出畫面，同時向伺服器讀最新的（Apps Script 每次往返要 1～2 秒以上）。
     // 最新資料回來之前，各分頁暫時不能編輯（inert），避免在舊資料上修改後被覆蓋；回來後重畫並解除。
     // 存在這台電腦的 localStorage，依老師帳號分開；網站版才有（Apps Script 內建版沒有 who-email）。
@@ -4218,13 +4465,20 @@
         if (loading) return; loading = true;
         var cached = readCache();
         if (cached && cached.length) { SH.attempts = cached; redraw(); }
+        if (window.sysSet) sysSet('scores', 'wait', cached && cached.length ? '先顯示上次的成績，正在補抓新的…' : '讀取中…');
+        var okNow = function () { if (window.sysSet) { sysSet('scores', 'ok', '最新・' + hhmm() + ' 更新・最近 120 天 ' + (SH.attempts || []).length + ' 筆'); notice('scores', null); } };
         var newest = cached && cached.length ? cached[0].at : 0;
         var done = function () { loading = false; };
-        var fail = function (err) { if (!SH.attempts) { SH.attempts = []; redraw(); } SH.attemptsError = err && err.message || String(err); done(); };
+        var fail = function (err) {
+          if (!SH.attempts) { SH.attempts = []; redraw(); } SH.attemptsError = err && err.message || String(err); done();
+          var msg = /permission/i.test(SH.attemptsError) ? '沒有讀取成績的權限' : SH.attemptsError;
+          var retry = { label: '重試', run: function () { loadAttempts(); } };
+          if (window.sysSet) { sysSet('scores', 'bad', '讀不到成績：' + msg, retry); notice('scores', 'bad', '讀不到成績（' + msg + '），畫面上的數字' + ((SH.attempts || []).length ? '是上次的資料' : '都是 0，不是真的沒人交') + '。', retry); }
+        };
         if (newest) {
           // 有快取：只補新的
           window.fbAttempts({ since: newest - 60000, max: 3000 }).then(function (list) {
-            SH.attempts = merge(SH.attempts || [], list.map(slim)); writeCache(SH.attempts); redraw(); done();
+            SH.attempts = merge(SH.attempts || [], list.map(slim)); writeCache(SH.attempts); redraw(); done(); okNow();
           }, fail);
           return;
         }
@@ -4232,7 +4486,7 @@
         window.fbAttempts({ days: 21, max: 1500 }).then(function (list) {
           SH.attempts = merge([], list.map(slim)); redraw();
           return window.fbAttempts({ days: KEEP_DAYS, max: 3000 }).then(function (all) {
-            SH.attempts = merge(SH.attempts, all.map(slim)); writeCache(SH.attempts); redraw(); done();
+            SH.attempts = merge(SH.attempts, all.map(slim)); writeCache(SH.attempts); redraw(); done(); okNow();
           });
         }).catch(fail);
       };
@@ -4349,9 +4603,7 @@
         }
         if (earlyKey && touched) {
           // 已經開始編輯，但伺服器上的資料在別處被改過：不覆蓋正在編輯的內容，提醒重新整理
-          lockTabs('');
-          staleNote.className = 'stale-note err';
-          staleNote.textContent = '試算表上的資料剛在別處被修改過，為了不蓋掉別人的修改，請重新整理頁面後再編輯（尚未儲存的修改會遺失）。';
+          lockTabs('試算表上的資料剛在別處被修改過，為了不蓋掉別人的修改，請重新整理頁面後再編輯（尚未儲存的修改會遺失）。', true);
           return;
         }
         applyAdminData(d);
@@ -4360,7 +4612,7 @@
       .withFailureHandler(function (err) {
         serverDone = true;
         if (earlyKey) return; // 畫面上的資料已確認和學生網站一致，照常使用；之後儲存時會再連一次 Apps Script
-        if (staleNote) { staleNote.textContent = '讀取最新資料失敗：' + err.message + '（畫面是上次的內容，請重新整理再試）'; staleNote.className = 'stale-note err'; return; }
+        if (SH.locked) { lockTabs('讀取最新資料失敗：' + err.message + '（畫面是上次的內容，請重新整理再試）', true); return; }
         $('units').innerHTML = '<tr><td colspan="5" class="msg err">' + esc(err.message) + '</td></tr>';
       })
       .getAdminData();
