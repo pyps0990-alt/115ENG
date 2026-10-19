@@ -917,6 +917,22 @@
     @keyframes m-down { to { transform:translateY(100%); } }
     @keyframes m-fade { from { opacity:0; } }
     @media (prefers-reduced-motion: reduce) { .m-panel, .m-scrim { animation:none !important; } }
+
+    /* 成績：各單元卡片 */
+    .sc-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap:12px; }
+    .sc-card { display:grid; gap:8px; text-align:left; padding:16px; border:1px solid var(--line); border-radius:16px; background:#fff; font:inherit; color:var(--ink); cursor:pointer; transition:border-color .16s, background .16s, transform .12s; }
+    .sc-card:hover { border-color:var(--navy); background:var(--paper); }
+    .sc-card:active { transform:scale(.99); }
+    .sc-head { display:flex; align-items:center; gap:10px; min-width:0; }
+    .sc-head .dot { flex:none; }
+    .sc-title { flex:1; min-width:0; font-size:1rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sc-pct { flex:none; font-size:1.5rem; font-weight:900; color:var(--navy); font-variant-numeric:tabular-nums; line-height:1; }
+    .sc-pct small { font-size:.8rem; font-weight:800; color:var(--steel); margin-left:1px; }
+    .sc-state { font-size:max(12px, .8rem); margin-top:-4px; }
+    .sc-bar { height:12px !important; }
+    .sc-meta { display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; font-size:max(12px, .82rem); color:var(--steel); font-weight:700; }
+    .sc-meta b { color:var(--ink); font-variant-numeric:tabular-nums; }
+    .sc-flag { margin-left:auto; }
   </style>
 </head>
 <body>
@@ -3394,7 +3410,7 @@
       var classes = Object.keys(byCls).sort();
       if (!classes.length) return null;
       var n = 0, ok = 0; classes.forEach(function (c) { n += byCls[c].n; ok += byCls[c].ok; });
-      return { pct: Math.round(ok / n * 100), classes: classes.map(function (c) { return { cls: c, p: Math.round(byCls[c].ok / byCls[c].n * 100), n: byCls[c].n }; }) };
+      return { pct: Math.round(ok / n * 100), classes: classes.map(function (c) { return { cls: c, p: Math.round(byCls[c].ok / byCls[c].n * 100), n: byCls[c].n, ok: byCls[c].ok }; }) };
     }
     function stripHTML(st) {
       return '<span class="strip" aria-hidden="true">' + st.classes.map(function (c) { return '<i class="' + (c.p >= 100 ? 'full' : '') + '" style="--p:' + c.p + '%" title="' + esc(c.cls + ' 班：' + c.p + '%（' + c.n + ' 人作答）') + '"></i>'; }).join('') + '</span>';
@@ -4093,22 +4109,29 @@
     }
 
     /* ----- 成績（全部單元）：每個單元一列，點進去看那個單元的成績與錯題 ----- */
+    // 成績（全部單元）：每個單元一張卡片。人數、通過率都用同一份資料（線上紀錄＋試算表成績單的最高分），不會一邊 0 人一邊 100%
     function drawAllScores() {
       var box = $('sc-view'); if (!box) return;
       if (!window.fbAttempts) { box.innerHTML = ''; return; }
       if (!SH.attempts) { box.innerHTML = '<section class="card"><p class="muted" style="margin:0">讀取成績中…</p></section>'; return; }
-      var rows = units.map(function (u) {
-        var list = SH.attempts.filter(function (x) { return x.unit === u.id && !x.review; });
-        var st = passStats(u.id), s = unitState(u);
-        var flag = list.filter(function (x) { return x.check && x.check !== '—' && Date.now() - x.at < 7 * 86400000; }).length;
-        var people = {}; list.forEach(function (x) { people[x.cls + '-' + x.seat] = 1; });
-        return '<tr class="sc-row" data-sc="' + esc(u.id) + '" tabindex="0"><td><span class="dot ' + s[0] + '"></span> <b>' + esc(u.title || u.id) + '</b><div class="muted small">' + esc(s[1]) + '</div></td>' +
-          '<td class="r">' + Object.keys(people).length + '</td>' +
-          '<td>' + (st ? '<div class="sc-pass"><span class="usc-bar"><i class="ok" style="width:' + st.pct + '%"></i></span><b>' + st.pct + '%</b></div>' : '<span class="muted">—</span>') + '</td>' +
-          '<td class="r">' + (flag ? '<span class="pill warn">' + flag + '</span>' : '<span class="muted">—</span>') + '</td><td class="r muted">›</td></tr>';
+      var rosterN = (roster || []).length;
+      var cards = units.map(function (u) {
+        var s = unitState(u), st = passStats(u.id);
+        var n = 0, ok = 0; (st ? st.classes : []).forEach(function (c) { n += c.n; ok += c.ok; });
+        var no = n - ok, none = rosterN ? Math.max(0, rosterN - n) : 0, total = rosterN || n;
+        var pc = function (k) { return total ? (k / total * 100).toFixed(1) + '%' : '0'; };
+        var flagged = {}; SH.attempts.forEach(function (x) { if (x.unit === u.id && !x.review && x.check && x.check !== '—' && Date.now() - x.at < 7 * 86400000) flagged[x.cls + '-' + x.seat] = 1; });
+        var fN = Object.keys(flagged).length;
+        return '<button type="button" class="sc-card" data-sc="' + esc(u.id) + '">' +
+          '<span class="sc-head"><span class="dot ' + s[0] + '" aria-hidden="true"></span><b class="sc-title">' + esc(u.title || u.id) + '</b><span class="sc-pct">' + (n ? Math.round(ok / n * 100) + '<small>%</small>' : '<small>還沒有人作答</small>') + '</span></span>' +
+          '<span class="sc-state muted">' + esc(s[1]) + (n ? '・作答的人通過率' : '') + '</span>' +
+          '<span class="usc-bar sc-bar" role="img" aria-label="通過 ' + ok + ' 人、還沒通過 ' + no + ' 人' + (rosterN ? '、還沒作答 ' + none + ' 人' : '') + '"><i class="ok" style="width:' + pc(ok) + '"></i><i class="no" style="width:' + pc(no) + '"></i></span>' +
+          '<span class="sc-meta"><span>通過 <b>' + ok + '</b></span><span>還沒通過 <b>' + no + '</b></span>' + (rosterN ? '<span>還沒作答 <b>' + none + '</b></span>' : '') +
+          (fN ? '<span class="pill warn sc-flag">' + fN + ' 人需要確認</span>' : '') + '</span></button>';
       }).join('');
-      box.innerHTML = '<section class="card"><div class="nv-panel-h"><h2>各單元</h2><span class="muted small">最近 120 天・每人以最高分計</span></div>' +
-        '<div class="uc-tbl"><table><thead><tr><th>單元</th><th class="r">作答人數</th><th>通過率</th><th class="r">需要確認<br><span style="font-weight:600">（7 天內）</span></th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
+      box.innerHTML = '<section class="card"><div class="nv-panel-h"><h2>各單元</h2><span class="muted small">最近 120 天・每人以最高分計（含試算表成績單）・點卡片看詳細</span>' +
+        '<div class="r usc-legend"><span><i class="ok"></i>通過</span><span><i class="no"></i>還沒通過</span>' + (rosterN ? '<span><i></i>還沒作答</span>' : '') + '</div></div>' +
+        '<div class="sc-grid">' + cards + '</div></section>';
     }
 
     (function pagesMount() {
