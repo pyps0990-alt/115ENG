@@ -1020,6 +1020,31 @@
     @keyframes m-pop { from { opacity:0; transform:scale(.4) translateY(18px); filter:blur(4px); } 60% { opacity:1; filter:blur(0); } }
     @keyframes m-unpop { to { opacity:0; transform:scale(.6) translateY(14px); } }
     @media (max-width:900px) and (prefers-reduced-motion: reduce) { .m-panel { animation:none !important; } .lg-ink.stretch, .lg-ink.settle { transition:opacity .2s !important; } }
+    /* ----- 液態玻璃（第二版）：彈簧動畫由程式控制，這裡只放外觀 ----- */
+    @media (max-width:900px) {
+      .lg-ink, .lg-ink.stretch, .lg-ink.settle, .lg-ink.instant, .lg-ink.lifted { transition:opacity .2s !important; scale:none !important; }
+      .lg-ink { transform-origin:center; will-change:transform, width;
+        background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(236,240,248,.78));
+        box-shadow:0 2px 10px rgba(30, 58, 138, .14), inset 0 1px 0 #fff, inset 0 -1px 1px rgba(30, 58, 138, .06), inset 0 0 0 1px rgba(255,255,255,.6); }
+      /* 拖動時：更透明、邊緣更亮，像一顆放大鏡 */
+      .lg-ink.lifted { background:radial-gradient(120% 140% at 50% 0%, rgba(255,255,255,.55), rgba(255,255,255,.18) 60%, rgba(232,237,248,.28));
+        box-shadow:0 12px 28px rgba(30, 58, 138, .22), inset 0 1px 1px rgba(255,255,255,.95), inset 0 -2px 6px rgba(30, 58, 138, .1), inset 0 0 0 1.5px rgba(255,255,255,.75); }
+      .lg-ink::after { content:""; position:absolute; inset:2px 10% auto; height:40%; border-radius:999px; background:linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,0)); opacity:.7; pointer-events:none; }
+      /* 分頁列的高光跟著膠囊移動（像光從玻璃上滑過） */
+      .rail::after { content:""; position:absolute; inset:0; z-index:-1; border-radius:inherit; pointer-events:none;
+        background:radial-gradient(60% 120% at var(--lx, 50%) 0%, rgba(255,255,255,.55), rgba(255,255,255,0) 70%); }
+      /* 放大鏡：圖示依距離放大（--mag 由程式算） */
+      .rail .rail-ic { transform:scale(var(--mag, 1)) !important; transition:transform .18s cubic-bezier(.22, 1.4, .4, 1) !important; }
+      .rail a[data-view]:active .rail-ic, .rail-more:active .rail-ic { transform:scale(calc(var(--mag, 1) * .9)) !important; }
+      .rail .lg-hover { transform:none; }
+      /* 往下捲：收成只有圖示的小膠囊 */
+      .rail { transition:height .38s cubic-bezier(.22, 1.2, .4, 1), left .38s cubic-bezier(.22, 1.2, .4, 1), right .38s cubic-bezier(.22, 1.2, .4, 1), bottom .38s cubic-bezier(.22, 1.2, .4, 1); }
+      .rail a[data-view], .rail-more { transition:color .2s, font-size .3s, gap .3s; }
+      .rail.lg-mini { height:52px !important; left:22% !important; right:22% !important; }
+      .rail.lg-mini a[data-view], .rail.lg-mini .rail-more { min-height:42px !important; font-size:0 !important; gap:0; }
+      .rail.lg-mini .rail-ic[data-badge]:not([data-badge=""])::after { top:-6px; right:-10px; }
+    }
+    @media (max-width:900px) and (prefers-reduced-motion: reduce) { .rail { transition:none !important; } .rail .rail-ic { transition:none !important; } }
   </style>
 </head>
 <body>
@@ -4662,54 +4687,98 @@
     drawUnitHead = function () { drawUnitHeadMN(); paintMobileTop(); };
 
 
-    /* ----- 手機版下方分頁：液態玻璃（浮在畫面上的玻璃膠囊）；選到的分頁有一顆玻璃小膠囊，可以按住拖動到別的分頁，放開就切換 ----- */
+    /* ----- 手機版下方分頁：液態玻璃（仿 Apple Liquid Glass）
+       - 所有移動用彈簧物理（可以中途打斷、保留速度），不是固定時間的動畫
+       - 膠囊左右兩邊各自一個彈簧：前進方向那一邊比較快、後面那一邊比較慢，自然拉長成水滴，速度越快拉越長
+       - 按住：膠囊在手指下鼓起；拖動：膠囊像放大鏡跟著手指，底下的圖示依距離放大；放開：彈進最近的分頁、稍微過衝
+       - 高光隨膠囊位置移動；往下捲動時分頁列收成只有圖示的小膠囊，往上捲恢復 ----- */
     (function glassTabs() {
       var rail = document.querySelector('.rail'); if (!rail) return;
       var mq = window.matchMedia('(max-width: 900px)');
+      var calm = function () { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; };
       var ink = document.createElement('span'); ink.className = 'lg-ink'; ink.setAttribute('aria-hidden', 'true');
       rail.appendChild(ink);
       var tabs = function () { return [].slice.call(rail.querySelectorAll('a[data-view], .rail-more')).filter(function (t) { return t.offsetParent !== null; }).sort(function (a, b) { return a.getBoundingClientRect().left - b.getBoundingClientRect().left; }); };
       var current = function () { return rail.querySelector('.rail-more.on, .rail-more[aria-expanded="true"]') || rail.querySelector('a[data-view][aria-current="page"]:not([data-view="live"]):not([data-view="settings"])'); };
-      var morphT = null, at = null;
-      var setInk = function (x, w) { ink.style.width = w + 'px'; ink.style.transform = 'translateX(' + x + 'px)'; at = { x: x, w: w }; };
-      var place = function (el, instant) {
-        if (!mq.matches || !el) { ink.style.opacity = '0'; return; }
-        var r = el.getBoundingClientRect(), rr = rail.getBoundingClientRect();
-        var x = r.left - rr.left, w = r.width;
-        clearTimeout(morphT);
-        ink.style.opacity = '1';
-        var calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (instant || !at || calm || Math.abs(at.x - x) < 2) { ink.className = 'lg-ink' + (instant ? ' instant' : ''); setInk(x, w); return; }
-        // 液滴：先往目標拉長（蓋住起點到終點），再縮進目標、回彈一下
-        var from = at, left = Math.min(from.x, x), right = Math.max(from.x + from.w, x + w);
-        ink.className = 'lg-ink stretch';
-        setInk(left, right - left);
-        morphT = setTimeout(function () { ink.className = 'lg-ink settle'; setInk(x, w); }, 170);
+      var box = function (el) { var r = el.getBoundingClientRect(), rr = rail.getBoundingClientRect(); return { l: r.left - rr.left, r: r.right - rr.left }; };
+
+      // 彈簧：位置 x、速度 v、目標 to；stiffness 越大越快，damping 越小越會彈
+      function Spring(k, c) { this.x = 0; this.v = 0; this.to = 0; this.k = k; this.c = c; }
+      Spring.prototype.step = function (dt) { var f = -this.k * (this.x - this.to) - this.c * this.v; this.v += f * dt; this.x += this.v * dt; };
+      Spring.prototype.done = function () { return Math.abs(this.x - this.to) < .05 && Math.abs(this.v) < .05; };
+      var L = new Spring(420, 30), R = new Spring(420, 30), S = new Spring(520, 22); // 左邊、右邊、大小
+      S.x = S.to = 1;
+      var raf = null, last = 0, ready = false;
+      var render = function () {
+        var w = Math.max(20, R.x - L.x);
+        ink.style.transform = 'translateX(' + L.x.toFixed(2) + 'px) scale(' + S.x.toFixed(4) + ')';
+        ink.style.width = w.toFixed(2) + 'px';
+        // 拉長時變扁一點（體積感）；高光跟著膠囊移動
+        var stretch = Math.max(0, w / (baseW || w) - 1);
+        ink.style.setProperty('--squash', (1 - Math.min(.12, stretch * .18)).toFixed(3));
+        rail.style.setProperty('--lx', ((L.x + w / 2) / Math.max(1, rail.clientWidth) * 100).toFixed(1) + '%');
+        magnify();
       };
-      var paint = function () { if (!dragging) place(current()); };
+      var tick = function (t) {
+        var dt = Math.min(.032, (t - last) / 1000 || .016); last = t;
+        L.step(dt); R.step(dt); S.step(dt);
+        render();
+        if (L.done() && R.done() && S.done()) { L.x = L.to; R.x = R.to; S.x = S.to; render(); raf = null; return; }
+        raf = requestAnimationFrame(tick);
+      };
+      var run = function () { if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); } };
+      var baseW = 0;
+      // 移到某個分頁：前進那一邊快（stiffness 高）、後面那一邊慢 → 自然拉長再收回
+      var moveTo = function (el, instant) {
+        if (!mq.matches || !el) { ink.style.opacity = '0'; return; }
+        ink.style.opacity = '1';
+        var b = box(el); baseW = b.r - b.l;
+        if (instant || !ready || calm()) { L.x = L.to = b.l; R.x = R.to = b.r; L.v = R.v = 0; render(); ready = true; return; }
+        var right = b.l > L.x;
+        L.k = right ? 170 : 520; L.c = right ? 22 : 34;
+        R.k = right ? 520 : 170; R.c = right ? 34 : 22;
+        L.to = b.l; R.to = b.r; run();
+        // 兩邊都快到之後，把剛度拉回一樣，收尾乾淨
+        setTimeout(function () { L.k = R.k = 420; L.c = R.c = 30; }, 260);
+      };
+      var paint = function () { if (!dragging) moveTo(current()); };
       var placeOld = window.placeInks;
       window.placeInks = function () { if (placeOld) placeOld(); paint(); };
       var showViewLG = showView;
       showView = function (v) { showViewLG(v); requestAnimationFrame(paint); };
-      window.addEventListener('resize', function () { place(current(), true); });
-      mq.addEventListener ? mq.addEventListener('change', function () { place(current(), true); }) : null;
-      requestAnimationFrame(function () { place(current(), true); });
+      window.addEventListener('resize', function () { moveTo(current(), true); });
+      if (mq.addEventListener) mq.addEventListener('change', function () { moveTo(current(), true); });
+      requestAnimationFrame(function () { moveTo(current(), true); });
 
-      // 拖動：按住後移動超過 6px 就開始拖；膠囊跟著手指走（放大一點），經過的分頁亮起來；放開吸到最近的分頁並切換
-      var dragging = false, startX = 0, pid = null, offset = 0, hover = null, moved = false, lastX = 0, lastT = 0, squishT = null;
+      // 放大鏡：膠囊經過的圖示依距離放大（越靠近中心越大）
+      var magnify = function () {
+        var on = rail.classList.contains('lg-drag') || S.x > 1.03;
+        var cx = L.x + (R.x - L.x) / 2, half = Math.max(30, (R.x - L.x) / 2) * 1.4;
+        tabs().forEach(function (t) {
+          var ic = t.querySelector('.rail-ic'); if (!ic) return;
+          if (!on) { ic.style.removeProperty('--mag'); return; }
+          var b = box(t), d = Math.abs((b.l + b.r) / 2 - cx), m = Math.max(0, 1 - d / half);
+          ic.style.setProperty('--mag', (1 + m * .28).toFixed(3));
+        });
+      };
+
+      // 按住、拖動、放開
+      var dragging = false, startX = 0, pid = null, grab = 0, hover = null, moved = false, pressT = null;
       var nearest = function (x) {
-        var best = null, d = Infinity;
-        tabs().forEach(function (t) { var r = t.getBoundingClientRect(), c = r.left + r.width / 2; if (Math.abs(c - x) < d) { d = Math.abs(c - x); best = t; } });
+        var best = null, d = Infinity, rr = rail.getBoundingClientRect();
+        tabs().forEach(function (t) { var b = box(t), c = rr.left + (b.l + b.r) / 2; if (Math.abs(c - x) < d) { d = Math.abs(c - x); best = t; } });
         return best;
       };
       rail.addEventListener('pointerdown', function (e) {
         if (!mq.matches || e.button > 0 || e.target.closest('.rail-who')) return;
         var t = e.target.closest('a[data-view], .rail-more'); if (!t) return;
-        pid = e.pointerId; startX = e.clientX; moved = false; lastX = e.clientX; lastT = 0;
-        var ir = ink.getBoundingClientRect();
-        offset = e.clientX - ir.left;
-        // 從別的分頁開始拖：先把膠囊移到手指下面
-        if (e.clientX < ir.left || e.clientX > ir.right) offset = ir.width / 2;
+        pid = e.pointerId; startX = e.clientX; moved = false;
+        var rr = rail.getBoundingClientRect(), x = e.clientX - rr.left;
+        var onInk = x >= L.x && x <= R.x;
+        grab = onInk ? x - L.x : (R.x - L.x) / 2;
+        // 按住目前的分頁：膠囊鼓起來（像水滴被按）
+        if (onInk && !calm()) { S.to = 1.14; S.k = 520; S.c = 18; run(); }
+        clearTimeout(pressT);
       });
       rail.addEventListener('pointermove', function (e) {
         if (pid !== e.pointerId) return;
@@ -4718,38 +4787,47 @@
           dragging = true; moved = true;
           try { rail.setPointerCapture(pid); } catch (err) {}
           rail.classList.add('lg-drag'); ink.classList.add('lifted');
+          S.to = 1.2; S.k = 480; S.c = 20;
         }
         e.preventDefault();
-        var rr = rail.getBoundingClientRect(), w = (at && at.w) || 60;
-        var x = Math.max(4, Math.min(rr.width - w - 4, e.clientX - rr.left - offset));
-        ink.classList.add('instant');
-        ink.style.transform = 'translateX(' + x + 'px)'; at = { x: x, w: w };
-        // 依手指速度把膠囊拉長一點（像液體被拖著走），停下來就回彈
-        var now = performance.now(), v = lastT ? (e.clientX - lastX) / Math.max(8, now - lastT) : 0;
-        lastX = e.clientX; lastT = now;
-        var k = Math.min(.22, Math.abs(v) * .12);
-        ink.style.setProperty('--sx', (1.12 + k).toFixed(3)); ink.style.setProperty('--sy', (1.12 - k * .45).toFixed(3));
-        clearTimeout(squishT); squishT = setTimeout(function () { ink.style.setProperty('--sx', '1.12'); ink.style.setProperty('--sy', '1.12'); }, 90);
+        var rr = rail.getBoundingClientRect(), w = baseW || (R.x - L.x);
+        var x = Math.max(4, Math.min(rr.width - w - 4, e.clientX - rr.left - grab));
+        // 拖動時兩邊都追手指（前面那邊快、後面那邊慢），手指甩得快膠囊就拉長
+        var right = x > L.to;
+        L.k = right ? 260 : 700; R.k = right ? 700 : 260; L.c = R.c = 30;
+        L.to = x; R.to = x + w; run();
         var n = nearest(e.clientX);
-        if (n !== hover) { if (hover) hover.classList.remove('lg-hover'); hover = n; if (hover) hover.classList.add('lg-hover'); if (navigator.vibrate) navigator.vibrate(4); }
+        if (n !== hover) { if (hover) hover.classList.remove('lg-hover'); hover = n; if (hover) hover.classList.add('lg-hover'); if (navigator.vibrate) navigator.vibrate(3); }
       }, { passive: false });
       var end = function (e) {
         if (pid !== e.pointerId) return;
         pid = null;
+        S.to = 1; S.k = 380; S.c = 16; run(); // 放開：縮回原大小，稍微過衝
         if (!dragging) return;
         dragging = false;
-        rail.classList.remove('lg-drag'); ink.classList.remove('lifted', 'instant'); ink.style.removeProperty('--sx'); ink.style.removeProperty('--sy');
+        rail.classList.remove('lg-drag'); ink.classList.remove('lifted');
         if (hover) hover.classList.remove('lg-hover');
         var target = e.type === 'pointercancel' ? current() : nearest(e.clientX);
         hover = null;
-        place(target);
-        if (target && target !== current()) setTimeout(function () { target.click(); }, 60);
+        moveTo(target);
+        if (target && target !== current()) setTimeout(function () { target.click(); }, 40);
         setTimeout(function () { moved = false; }, 350);
       };
       rail.addEventListener('pointerup', end);
       rail.addEventListener('pointercancel', end);
       // 拖完放開時瀏覽器會補一個 click：擋掉，避免重複切換
       rail.addEventListener('click', function (e) { if (moved && e.isTrusted) { moved = false; e.preventDefault(); e.stopPropagation(); } }, true);
+
+      // 往下捲：分頁列收成小膠囊（只有圖示）；往上捲或停在頂端：恢復
+      var lastY = 0, acc = 0;
+      $('work').addEventListener('scroll', function () {
+        if (!mq.matches) return;
+        var y = this.scrollTop, dy = y - lastY; lastY = y;
+        acc = (dy > 0) === (acc > 0) ? acc + dy : dy;
+        var mini = rail.classList.contains('lg-mini');
+        if (!mini && acc > 48 && y > 80) { rail.classList.add('lg-mini'); setTimeout(function () { moveTo(current(), true); }, 0); setTimeout(function () { moveTo(current(), true); }, 380); }
+        else if (mini && (acc < -24 || y < 40)) { rail.classList.remove('lg-mini'); setTimeout(function () { moveTo(current(), true); }, 0); setTimeout(function () { moveTo(current(), true); }, 380); }
+      }, { passive: true });
     })();
 
     // 開啟加速：先用這台電腦上次讀到的資料畫出畫面，同時向伺服器讀最新的（Apps Script 每次往返要 1～2 秒以上）。
