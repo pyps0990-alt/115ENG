@@ -1038,6 +1038,9 @@
       .rail.lg-mini .rail-ic[data-badge]:not([data-badge=""])::after { top:-6px; right:-10px; }
     }
     @media (max-width:900px) and (prefers-reduced-motion: reduce) { .rail { transition:none !important; } .rail .rail-ic { transition:none !important; } }
+
+    /* 液態玻璃分頁列往下挪一點：跟 iOS 一樣，稍微伸進底部橫條的範圍，不留太大空隙 */
+    @media (max-width:900px) { .rail { bottom:max(6px, calc(env(safe-area-inset-bottom, 0px) - 10px)) !important; } .savebar { bottom:calc(80px + max(0px, env(safe-area-inset-bottom, 0px) - 16px)) !important; } .m-panel { bottom:calc(80px + max(0px, env(safe-area-inset-bottom, 0px) - 16px)) !important; } }
   </style>
 </head>
 <body>
