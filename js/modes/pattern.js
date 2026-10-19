@@ -11,6 +11,7 @@ import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore, fetchKey, cachedKey, newAttemptId } from '../submit.js';
+import { statusBarHTML, mountDeadline } from '../components/status.js';
 import { progress } from '../resume.js';
 import { PASS } from '../levels.js';
 import { flattenPattern, renderChoiceCard, renderFillCard, renderApplyCard, explainHTML, reviewCardHTML, correctText, KIND_LABEL } from '../components/items.js';
@@ -112,12 +113,11 @@ export function mount(stage, ctx) {
 
     stage.innerHTML = `
       <div class="quiz">
-        <div class="quiz-bar">
-          ${redo ? '<span class="level-chip">錯題重練</span>' : review ? '<span class="level-chip">複習</span>' : ''}
+        ${statusBarHTML({ kind: redo ? 'redo' : 'review', note: redo ? '只練剛剛錯的題目，不計分也不送出。' : '複習不會改變你的成績，每題答完馬上看解析。', mid: `<div class="quiz-bar">
           <div class="bar"><span></span></div>
           <span class="quiz-stat" data-n></span>
           <span class="quiz-stat streak" data-streak title="連續答對">${icon.flame}<b>0</b></span>
-        </div>
+        </div>` })}
         <div data-q></div>
         <div class="q-foot"><div class="feedback" data-fb aria-live="polite"></div><button class="btn primary" type="button" data-next hidden></button></div>
       </div>`;
@@ -265,7 +265,7 @@ export function mount(stage, ctx) {
     window.addEventListener('beforeunload', unload);
     stage.innerHTML = `
       <div class="quiz">
-        <div class="quiz-bar"><div class="bar"><span></span></div><span class="quiz-stat" data-n></span></div>
+        ${statusBarHTML({ kind: 'official', note: '這次的分數會送給老師。全部作答完再交卷，交卷前可以回上一題修改。', mid: '<div class="quiz-bar"><div class="bar"><span></span></div><span class="quiz-stat" data-n></span></div>' })}
         <div data-q></div>
         <div class="q-nav">
           <button class="btn ghost" type="button" data-prev>${icon.arrowL || '‹'} 上一題</button>
@@ -273,6 +273,7 @@ export function mount(stage, ctx) {
           <button class="btn primary" type="button" data-next></button>
         </div>
       </div>`;
+    mountDeadline(stage, unitWindow(ctx.config, unitId));
     const dots = stage.querySelector('.q-dots');
     const prevBtn = stage.querySelector('[data-prev]'), nextBtn = stage.querySelector('[data-next]');
     function paintNav() {

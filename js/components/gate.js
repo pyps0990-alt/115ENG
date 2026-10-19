@@ -65,9 +65,18 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
     if (rs) {
       buttons = `<button class="btn primary" type="button" data-resume>${icon.play} 繼續上次 · ${esc(rs.label)}</button><button class="btn" type="button" data-start>重新開始</button>`;
     }
+    // 這個單元走到哪：正式測驗 → 檢討錯題 → 複習（完成的打勾、目前這步框起來）
+    const passed = !!isReview;
+    const steps = [
+      ['正式測驗', passed ? (bestNow != null ? `通過 ${bestNow}%` : '已通過') : bestNow != null ? `最高 ${bestNow}%，還沒通過` : `${PASS}% 通過`, passed ? 'done' : 'now'],
+      ...(onReview ? [['檢討錯題', passed && isReviewed ? '完成' : passed ? '還沒檢討' : '通過後開放', passed && isReviewed ? 'done' : needReview ? 'now' : '']] : []),
+      ['複習', passed && (isReviewed || !onReview) ? '隨時可以練' : onReview ? '檢討完開放' : '通過後開放', passed && (isReviewed || !onReview) ? 'now' : ''],
+    ];
+    const stepsHTML = `<ol class="unit-steps" aria-label="這個單元的進度">${steps.map(([t, sub, st]) => `<li class="${st}"${st === 'now' ? ' aria-current="step"' : ''}><b>${t}</b><small>${esc(sub)}</small></li>`).join('')}</ol>`;
     const box = document.createElement('div');
     box.className = 'gate';
     box.innerHTML = `<div class="card gate-card">
+        ${stepsHTML}
         ${(() => { const tag = [eyebrow, isReview ? '複習' : needRetake ? '補考' : ''].filter(Boolean).join(' · '); return tag ? `<div class="eyebrow">${esc(tag)}</div>` : ''; })()}
         <p class="gate-lead">${lead}</p>
         ${bestNow != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${bestNow}%</b></div>` : ''}
@@ -96,20 +105,21 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
   return { redraw: draw, stop: () => clearTimeout(wake) };
 }
 
+// 成績送出狀態：結果頁最上方的大狀態卡（圖示＋一句結論＋說明＋必要時「立即重送」）
 export function submitStateHTML(status) {
   const map = {
-    sending: ['sending', '<span class="spinner sm"></span>成績傳送中…'],
-    sent: ['sent', `${icon.check} 成績已送出給老師`],
-    pending: ['queued', `${icon.clock} 成績已存在這台裝置，正在送給老師。可以先離開，送出後右下角會通知`],
-    queued: ['queued', `${icon.clock} 成績已存在這台裝置，網路恢復後自動送出。可以先離開`],
-    error: ['error', `${icon.alert} 還沒送出：成績已存在這台裝置，可以按「立即重送」，或截圖這個畫面給老師`],
-    disabled: ['disabled', `${icon.camera} 請截圖這個畫面繳交給老師`],
-    volatile: ['error', `${icon.alert} 成績還沒送出，而且這台裝置不能暫存成績：請先不要關掉或離開這一頁，等顯示「成績已送出給老師」再離開`],
-    rejected: ['error', `${icon.alert} 老師的伺服器拒收了這份成績：請截圖這個畫面給老師（「我的成績」頁也會列出來）`],
+    sending: ['sending', '<span class="spinner sm"></span>', '成績送出中', '大約 1 到 3 秒，請先不要關掉這一頁。'],
+    sent: ['sent', icon.check, '成績已送到老師那裡', '可以放心離開這一頁。'],
+    pending: ['queued', icon.clock, '成績先存在這台裝置', '正在送給老師，可以先離開，送出後右下角會通知。'],
+    queued: ['queued', icon.clock, '成績先存在這台裝置', '網路恢復後會自動送給老師，可以先離開。請不要清除瀏覽器資料。'],
+    error: ['error', icon.alert, '成績還沒送出', '成績已存在這台裝置。請按「立即重送」，或截圖這個畫面給老師。'],
+    disabled: ['disabled', icon.camera, '請截圖這個畫面繳交給老師', ''],
+    volatile: ['error', icon.alert, '成績還沒送出', '這台裝置不能暫存成績：請先不要關掉或離開這一頁，等顯示「成績已送到老師那裡」再離開。'],
+    rejected: ['error', icon.alert, '老師的伺服器拒收了這份成績', '請截圖這個畫面給老師（「我的成績」頁也會列出來）。'],
   };
-  const [cls, text] = map[status] || map.disabled;
+  const [cls, ic, title, desc] = map[status] || map.disabled;
   const resend = status !== 'rejected' && (cls === 'queued' || cls === 'error') ? `<button class="btn small${cls === 'error' ? ' primary' : ''}" type="button" data-resend>立即重送</button>` : '';
-  return `<div class="submit-state ${cls}"><span>${text}</span>${resend}</div>`;
+  return `<div class="submit-state ${cls}"><span class="ss-ic" aria-hidden="true">${ic}</span><span class="ss-t"><b>${title}</b>${desc ? `<small>${desc}</small>` : ''}</span>${resend}</div>`;
 }
 
 export function stampHTML(s, title, stamp) {

@@ -49,6 +49,9 @@ export function renderResult(host, { title, pct, scoreText, pills = [], wrong = 
       ${wrong.map((w) => `<div class="wrong-item"><span class="p">${esc(w.p)}</span><span class="a">${esc(w.a)}</span>
         ${w.y != null && w.y !== '' ? `<span class="y">你的答案：${esc(w.y)}</span>` : ''}
         ${w.x ? `<span class="x">${esc(w.x)}</span>` : ''}</div>`).join('')}</div>` : ''}`;
+  // 成績送出狀態放最上面（最需要學生確認的事）
+  const sub = box.querySelector('[data-submit]');
+  if (sub) { sub.classList.add('result-submit'); box.prepend(sub); }
   const row = box.querySelector('[data-actions]');
   actions.forEach((a) => {
     const b = document.createElement('button');

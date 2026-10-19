@@ -1271,3 +1271,65 @@ body.integrity-block::after {
 /* 句型練習正式測驗：作答後等伺服器判斷的那一下 */
 .q-card.checking { opacity: .7; pointer-events: none; transition: opacity .15s; }
 .q-err { margin: 10px 0 0; color: var(--bad, #B91C1C); font-weight: 700; font-size: .9rem; }
+
+/* ================= 狀態醒目化：作答中狀態列、結果頁送出狀態卡、單元頁進度 ================= */
+:root { --st-h: 40px; --st-r: 12px; }
+/* 作答中狀態列：黏在網站 header 下面；左：算不算分　中：進度　右：24 小時內截止才出現 */
+.st-bar { position: sticky; top: calc(var(--top-h, 0px) + 8px); z-index: 6; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "mode mid dl"; align-items: center; gap: 14px; padding: 10px 12px; margin: 0 0 10px; border-radius: 18px; background: var(--white); border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(30, 58, 138, .08); }
+.st-box { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: var(--st-h); padding: 0 14px; border-radius: var(--st-r); font-weight: 900; font-size: .9rem; white-space: nowrap; }
+.st-box .ic { width: 17px; height: 17px; }
+.mode-badge { grid-area: mode; min-width: 10.5em; }
+.mode-badge.official { background: var(--navy); color: var(--white); }
+.mode-badge.review { background: var(--good-soft); color: var(--good-ink); }
+.mode-badge.redo { background: var(--wash); color: var(--steel); }
+.st-mid { grid-area: mid; min-width: 0; }
+.st-mid .quiz-bar { gap: 10px; }
+.st-deadline { grid-area: dl; background: var(--amber-soft); color: var(--amber-ink); }
+.st-deadline.urgent { background: var(--bad-soft); color: var(--bad-ink); animation: st-urge 1.6s ease-in-out infinite; }
+.st-deadline[hidden] { display: none; }
+@keyframes st-urge { 50% { background: #FECACA; } }
+.st-note { margin: 0 0 14px; font-size: .86rem; font-weight: 700; color: var(--steel); }
+.st-note.official { color: var(--navy); }
+@media (max-width: 720px) {
+  .st-bar { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "mode dl" "mid mid"; gap: 10px 12px; }
+  .st-deadline { justify-self: end; }
+}
+@media (max-width: 420px) {
+  :root { --st-h: 36px; }
+  .st-box { padding: 0 11px; font-size: .84rem; }
+  .mode-badge { min-width: 0; }
+  .st-bar { padding: 9px 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .st-deadline.urgent { animation: none; } }
+/* 課文理解：狀態列在文章與題目上方 */
+.st-bar + .st-note + .reading-quiz, .st-bar + .reading-quiz { margin-top: 0; }
+
+/* 結果頁最上方：成績送出狀態卡 */
+.submit-state { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 4px 14px; width: 100%; padding: 16px 18px; border-radius: 18px; text-align: left; font-weight: 700; }
+.submit-state .ss-ic { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; color: var(--white); }
+.submit-state .ss-ic .ic { width: 24px; height: 24px; }
+.submit-state .ss-t { display: grid; gap: 2px; min-width: 0; }
+.submit-state .ss-t b { font-size: 1.08rem; }
+.submit-state .ss-t small { font-size: .88rem; font-weight: 600; line-height: 1.55; }
+.submit-state .btn { height: var(--st-h); }
+.submit-state.sending .ss-ic { background: var(--navy); }
+.submit-state.sending .spinner.sm { border-color: rgba(255, 255, 255, .35); border-top-color: var(--white); }
+.submit-state.sent .ss-ic { background: var(--good); }
+.submit-state.queued .ss-ic { background: #B45309; }
+.submit-state.error { background: var(--bad-soft); color: var(--bad-ink); border: 0; }
+.submit-state.error .ss-ic { background: var(--bad); }
+.submit-state.disabled .ss-ic { background: var(--steel); }
+.result-submit { width: 100%; margin-bottom: 4px; }
+@media (max-width: 480px) { .submit-state { grid-template-columns: 40px minmax(0, 1fr); } .submit-state .ss-ic { width: 40px; height: 40px; } .submit-state .btn { grid-column: 2; justify-self: start; } }
+
+/* 單元頁：這個單元走到哪（三格同高） */
+.unit-steps { list-style: none; margin: 0 0 16px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; counter-reset: us; }
+.unit-steps li { position: relative; display: grid; align-content: center; min-height: 60px; padding: 8px 12px 8px 46px; border-radius: var(--st-r); background: var(--wash); border: 1.5px solid var(--line); color: var(--steel); text-align: left; counter-increment: us; }
+.unit-steps li::before { content: counter(us); position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 24px; height: 24px; border-radius: 50%; background: var(--white); border: 1.5px solid var(--line-strong); display: grid; place-items: center; font-size: .8rem; font-weight: 800; }
+.unit-steps b { font-size: .92rem; }
+.unit-steps small { font-size: .76rem; font-weight: 700; }
+.unit-steps li.done { background: var(--good-soft); border-color: #BBF0CC; color: var(--good-ink); }
+.unit-steps li.done::before { content: ""; background: var(--good) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E") center/13px no-repeat; border-color: var(--good); }
+.unit-steps li.now { background: var(--white); border: 2px solid var(--navy); color: var(--navy); }
+.unit-steps li.now::before { background: var(--navy); border-color: var(--navy); color: var(--white); }
+@media (max-width: 480px) { .unit-steps { grid-template-columns: 1fr; } }
