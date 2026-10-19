@@ -92,7 +92,7 @@ export function mount(stage, ctx) {
     let shut = false;
     try { shut = localStorage.getItem('b5p:rd-passage') === 'closed'; } catch { /* 無痕模式 */ }
     stage.innerHTML = `
-      ${statusBarHTML({ kind: review ? 'review' : 'official', note: review ? '複習不會改變你的成績。' : '這次的分數會送給老師。全部作答完再交卷，交卷前都可以修改。', mid: '<div class="quiz-bar"><div class="bar"><span></span></div><span class="quiz-stat" data-rd-n></span></div>' })}
+      ${statusBarHTML({ kind: review ? 'review' : 'official', note: review ? '複習不會改變你的成績。' : '這次的分數會送給老師。全部作答完再交卷，交卷前都可以修改。', mid: '<div class="quiz-bar" title="作答進度"><div class="bar"><span></span></div></div>' })}
       <div class="reading-quiz" data-passage="${shut ? 'closed' : 'open'}">
         <details class="rd-fold"><summary>${icon.book} 看文章<span class="rd-fold-note">建議搭配課本使用</span></summary>${passageHTML()}</details>
         <aside class="rd-side" aria-label="文章">
@@ -191,7 +191,6 @@ export function mount(stage, ctx) {
     const updateFoot = () => {
       const k = answers.filter((a) => a != null).length;
       countEl.textContent = `已作答 ${k} / ${qs.length}`;
-      stage.querySelector('[data-rd-n]').textContent = `已答 ${k} / ${qs.length}`;
       stage.querySelector('[data-st-bar] .bar > span').style.setProperty('--w', `${(k / qs.length) * 100}%`);
     };
 

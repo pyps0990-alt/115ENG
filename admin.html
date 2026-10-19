@@ -861,6 +861,12 @@
       .sys-btn { width:36px; height:36px; }
       .sys-panel, .who-menu { position:fixed; top:var(--rail-b, 64px); right:12px; left:auto; bottom:auto; width:min(340px, calc(100vw - 24px)); transform-origin:top right; }
     }
+
+    /* 字級下限 12px（說明文字、標籤、徽章）；手機版狀態燈與頭像 44px，比較好點 */
+    #work small, #work .small, .nv-field small, .nv-switch small, .ulist small, .u-row .meta, .u-tag, .sys-row span:not(.sys-dot), .who-id #who-email, .stream-row .small, .usc-stat span { font-size:max(12px, .8rem) !important; }
+    .sys-btn b { min-width:20px; height:20px; font-size:12px; top:-6px; right:-6px; }
+    .rail .rail-ic[data-badge]:not([data-badge=""])::after { font-size:12px; min-width:20px; height:20px; }
+    @media (max-width:900px) { .sys-btn, .avatar { width:44px; height:44px; } .rail a[data-view] { min-height:44px; } }
   </style>
 </head>
 <body>

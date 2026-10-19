@@ -1338,3 +1338,17 @@ body.integrity-block::after {
 .st-mid .stepper li { padding: 5px 8px; font-size: .84rem; gap: 6px; border-radius: 10px; }
 .st-mid .stepper .step-dot { width: 20px; height: 20px; font-size: .72rem; }
 .st-mid .stepper .step-score { font-size: .74rem; }
+
+/* 捲動時（鍵盤 Tab、自動捲到題目）預留固定在上方的 header＋狀態列，被選到的元素不會躲在底下（--sticky-h 由 js/components/status.js 量） */
+html { scroll-padding-top: var(--sticky-h, 0px); }
+
+/* 句型題號：已作答的加小勾（不只靠顏色）；手機上加大、一排左右滑 */
+.q-dot { position: relative; }
+.q-dot.done::after { content: ""; position: absolute; right: -4px; top: -4px; width: 14px; height: 14px; border-radius: 50%; background: var(--good) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E") center/9px no-repeat; border: 2px solid var(--white); }
+.q-dot.now.done::after { background-color: var(--good); }
+@media (max-width: 560px) {
+  .q-dots { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scroll-behavior: smooth; padding: 6px 4px 8px; scrollbar-width: none; }
+  .q-dots::-webkit-scrollbar { display: none; }
+  .q-dot { flex: none; width: 44px; height: 44px; font-size: .9rem; border-radius: 12px; }
+  .q-nav .btn { min-height: 44px; }
+}

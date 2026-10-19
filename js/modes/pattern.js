@@ -281,6 +281,8 @@ export function mount(stage, ctx) {
       stage.querySelector('.bar > span').style.setProperty('--w', `${(k / qs.length) * 100}%`);
       stage.querySelector('[data-n]').textContent = `第 ${qi + 1} / ${qs.length} 題・已答 ${k}`;
       dots.innerHTML = qs.map((q, i) => `<button type="button" class="q-dot${i === qi ? ' now' : ''}${answers[q.id] && String(answers[q.id].yours || '').trim() ? ' done' : ''}" data-go="${i}" aria-label="第 ${i + 1} 題${answers[q.id] ? '（已作答）' : ''}">${i + 1}</button>`).join('');
+      const cur = dots.querySelector('.q-dot.now');
+      if (cur && dots.scrollWidth > dots.clientWidth) dots.scrollLeft = cur.offsetLeft - dots.clientWidth / 2 + cur.offsetWidth / 2; // 手機上題號一排可以左右滑：目前這題放中間
       prevBtn.disabled = qi === 0;
       nextBtn.innerHTML = qi < qs.length - 1 ? `下一題 ${icon.arrowR}` : `交卷 ${icon.check}`;
     }

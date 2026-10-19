@@ -1,4 +1,5 @@
 // 測驗前關卡：確認學生基本資料，顯示規則與開始按鈕
+import { mountDeadline } from './status.js';
 import { store } from '../storage.js';
 import { esc, confirmDialog } from '../util.js';
 import { icon } from '../icons.js';
@@ -35,6 +36,9 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
     if (win.state === 'before' && win.openAt - Date.now() < 86400000) wake = setTimeout(draw, win.openAt - Date.now() + 500);
     let timeNote = '';
     if (win.state === 'open' && win.closeAt) timeNote = `${icon.clock} ${win.extended ? '老師開放你補作到' : '開放到'} ${fmtWhen(win.closeAt)}`;
+    // 24 小時內截止：改用跟作答中一樣的醒目方塊（剩不到 1 小時變紅）
+    const soon = win.state === 'open' && win.closeAt && win.closeAt - Date.now() <= 86400000;
+    if (soon) timeNote = '';
     let buttons = needRetake
       ? `<button class="btn primary" type="button" data-start>${icon.play} 開始補考</button>${onReview ? `<button class="btn ghost" type="button" data-review>${icon.bulb} 看上次的檢討</button>` : ''}`
       : `<button class="btn primary" type="button" data-start>${icon.play} 開始測驗</button>`;
@@ -81,7 +85,7 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
         <p class="gate-lead">${lead}</p>
         ${bestNow != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${bestNow}%</b></div>` : ''}
         ${timeNote ? `<p class="gate-note">${timeNote}</p>` : ''}
-        <div class="btn-row">${buttons}</div>
+        <div class="btn-row">${buttons}${soon ? '<span class="st-box st-deadline" data-deadline hidden></span>' : ''}</div>
         <p class="who-line">以 <b>${esc(s.name)}</b>（${esc(s.cls)} 班 ${esc(s.seat)} 號）的身分作答 <button class="link-btn edit" type="button">不是我？切換</button></p>
         <details class="gate-rules"${firstTime ? ' open' : ''}><summary>測驗規則</summary>
           <ul class="rules">${rules.map((r) => `<li>${r}</li>`).join('')}
@@ -100,6 +104,7 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
     box.querySelector('[data-resume]')?.addEventListener('click', () => rs.onResume(s));
     box.querySelector('[data-review]')?.addEventListener('click', () => onReview(s));
     stage.append(box);
+    if (soon) mountDeadline(box, win);
   };
   draw();
   return { redraw: draw, stop: () => clearTimeout(wake) };

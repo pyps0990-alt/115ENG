@@ -25,6 +25,7 @@ export function statusBarHTML({ kind, mid, note = '' }) {
 export function mountDeadline(root, win) {
   const el = root.querySelector('[data-deadline]');
   measureTop();
+  if (typeof MutationObserver !== 'undefined' && !window.__stickyMo) { window.__stickyMo = new MutationObserver(() => { if (watched && !watched.isConnected) measureTop(); }); window.__stickyMo.observe(document.body, { childList: true, subtree: true }); }
   if (!el || !win || win.state !== 'open' || !win.closeAt) return () => {};
   const paint = () => {
     if (!el.isConnected) { clearInterval(t); return; }
@@ -46,9 +47,21 @@ function sameDay(ms) {
 }
 
 // 網站 header 是黏在最上面的：狀態列要黏在它下面（矮螢幕 header 不固定時就貼齊最上面）
+// 同時讓頁面捲動（鍵盤 Tab、自動捲到題目）時預留 header＋狀態列的高度，被選到的元素不會躲在它們底下
+let watched = null, ro = null;
 function measureTop() {
+  const root = document.documentElement;
   const top = document.querySelector('.topbar');
   const h = top && getComputedStyle(top).position === 'sticky' ? top.offsetHeight : 0;
-  document.documentElement.style.setProperty('--top-h', `${h}px`);
+  root.style.setProperty('--top-h', `${h}px`);
+  const bar = document.querySelector('[data-st-bar]');
+  root.style.setProperty('--sticky-h', `${h + (bar && bar.isConnected ? bar.offsetHeight + 16 : 0)}px`);
+  if (bar !== watched && typeof ResizeObserver !== 'undefined') {
+    if (ro) ro.disconnect();
+    watched = bar;
+    if (bar) { ro = new ResizeObserver(() => measureTop()); ro.observe(bar); }
+  }
 }
 if (typeof window !== 'undefined') window.addEventListener('resize', measureTop);
+// 測驗結束（狀態列不在畫面上）：不再預留
+export const refreshSticky = measureTop;
