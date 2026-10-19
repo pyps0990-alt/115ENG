@@ -927,6 +927,18 @@
     .sc-meta { display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; font-size:max(12px, .82rem); color:var(--steel); font-weight:700; }
     .sc-meta b { color:var(--ink); font-variant-numeric:tabular-nums; }
     .sc-flag { margin-left:auto; }
+
+    /* iPhone 安全區域：標題列延伸到最上面（狀態列底下也是深藍，不會看到模糊的內容）；下方分頁避開底部的橫條 */
+    @media (max-width:900px) {
+      html:has(#app-root:not([hidden])), html:has(#app-root:not([hidden])) body { background:var(--navy); }
+      .shell, .shell.list-off { grid-template-rows:calc(56px + env(safe-area-inset-top, 0px)) minmax(0, 1fr) !important; padding-bottom:calc(68px + env(safe-area-inset-bottom, 0px)); background:var(--paper); }
+      .m-top { height:calc(56px + env(safe-area-inset-top, 0px)); padding-top:env(safe-area-inset-top, 0px); padding-left:max(12px, env(safe-area-inset-left, 0px)); }
+      .rail-who { top:calc(6px + env(safe-area-inset-top, 0px)) !important; right:max(8px, env(safe-area-inset-right, 0px)) !important; }
+      .sys-panel, .who-menu { top:calc(62px + env(safe-area-inset-top, 0px)) !important; }
+      .rail { height:auto; padding:6px 4px calc(8px + max(env(safe-area-inset-bottom, 0px), 6px)); }
+      .rail a[data-view], .rail-more { min-height:54px; }
+      .savebar { bottom:calc(84px + env(safe-area-inset-bottom, 0px)); }
+    }
   </style>
 </head>
 <body>

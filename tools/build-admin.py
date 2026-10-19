@@ -22,7 +22,8 @@ def sub1(old, new, text):
 out = src
 out = sub1('  <base target="_top">\n', '', out)
 out = sub1('  <meta charset="utf-8">\n', '''  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1E3A8A">
   <meta name="robots" content="noindex">
   <title>老師後台 — B5 Practice</title>
   <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
