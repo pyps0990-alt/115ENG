@@ -4450,19 +4450,20 @@
         if (fail) { state('fail', fail.t); notice('save', 'bad', fail.t); return; }
         if (saving) { state('saving', saving.t.replace(/^⚡\s*/, '')); return; }
         if (dirty) { state('dirty', '有未儲存的變更'); return; }
-        if (done) { state('done', done.t); notice('save', null); snapSaved(); return; }
+        if (done) { state('done', done.t.replace(/^[✓⚡]\s*/, '')); notice('save', null); snapSaved(); return; } // 左邊已經有勾，文字開頭的 ✓ 不重複
         if (bar.dataset.state !== 'done') state('idle', '');
       };
       [$('msg'), $('ex-msg'), $('imp-msg')].forEach(function (m) { if (m) new MutationObserver(read).observe(m, { childList: true, characterData: true, subtree: true, attributes: true }); });
       $('savebar-save').onclick = function () { if (which() === 'ex') $('ex-save').click(); else $('save').click(); };
       $('savebar-undo').onclick = function () {
         if (!SAVED.units) return;
-        if (!confirm('復原到上次儲存的狀態？這次的修改會全部取消。')) return;
         units = JSON.parse(JSON.stringify(SAVED.units)); exts = JSON.parse(JSON.stringify(SAVED.exts));
         $('msg').textContent = ''; $('msg').className = 'msg';
         if ($('ex-msg')) { $('ex-msg').textContent = ''; $('ex-msg').className = 'msg'; }
         render(); impInit(); exRender(); drawUnitList();
         if (SH.view === 'unit') { drawUnitHead(); if (!units.some(function (u) { return u.id === SH.unit; })) location.hash = '#units'; }
+        // 讓老師知道已經復原了（不跳確認視窗：手機上確認視窗有時不會出現，看起來像按了沒反應）
+        setTimeout(function () { state('done', '已復原到上次儲存的狀態'); }, 0);
       };
       window.savebarOwned = true; // 原本只切換顯示／隱藏，改由上面的 read 負責
     })();
