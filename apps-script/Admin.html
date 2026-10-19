@@ -1041,6 +1041,18 @@
 
     /* 液態玻璃分頁列往下挪一點：跟 iOS 一樣，稍微伸進底部橫條的範圍，不留太大空隙 */
     @media (max-width:900px) { .rail { bottom:max(6px, calc(env(safe-area-inset-bottom, 0px) - 10px)) !important; } .savebar { bottom:calc(80px + max(0px, env(safe-area-inset-bottom, 0px) - 16px)) !important; } .m-panel { bottom:calc(80px + max(0px, env(safe-area-inset-bottom, 0px) - 16px)) !important; } }
+
+    /* 分頁列縮小、放大：同一條彈性曲線一起動；文字淡出並收起高度，圖示同時稍微放大置中 */
+    @media (max-width:900px) {
+      .rail { transition:height .52s cubic-bezier(.32, 1.25, .45, 1), left .52s cubic-bezier(.32, 1.25, .45, 1), right .52s cubic-bezier(.32, 1.25, .45, 1), bottom .52s cubic-bezier(.32, 1.25, .45, 1), border-radius .52s ease !important; }
+      .rail a[data-view], .rail-more { gap:3px !important; transition:color .2s, gap .45s cubic-bezier(.32, 1.25, .45, 1), min-height .52s cubic-bezier(.32, 1.25, .45, 1) !important; }
+      .lg-label { display:block; line-height:1.2; max-height:1.3em; overflow:hidden; opacity:1; transform:none; transition:opacity .22s ease .08s, max-height .45s cubic-bezier(.32, 1.25, .45, 1), transform .45s cubic-bezier(.32, 1.25, .45, 1); }
+      .rail.lg-mini a[data-view], .rail.lg-mini .rail-more { font-size:inherit !important; gap:0 !important; }
+      .rail.lg-mini .lg-label { opacity:0; max-height:0; transform:translateY(4px) scale(.9); transition:opacity .14s ease, max-height .45s cubic-bezier(.32, 1.25, .45, 1), transform .3s ease; }
+      .rail.lg-mini .rail-ic { --mini:1.08; }
+      .rail .rail-ic { transform:scale(calc(var(--mag, 1) * var(--mini, 1))) !important; }
+    }
+    @media (max-width:900px) and (prefers-reduced-motion: reduce) { .lg-label { transition:none !important; } }
   </style>
 </head>
 <body>
@@ -4802,6 +4814,18 @@
       // 拖完放開時瀏覽器會補一個 click：擋掉，避免重複切換
       rail.addEventListener('click', function (e) { if (moved && e.isTrusted) { moved = false; e.preventDefault(); e.stopPropagation(); } }, true);
 
+      // 分頁列縮放的這段時間，膠囊每一格都貼著目前的分頁（不是只在開始、結束時對齊一次）
+      var trackRaf = null;
+      var track = function () {
+        cancelAnimationFrame(trackRaf);
+        var until = performance.now() + 560;
+        var f = function (t) { if (!dragging) moveTo(current(), true); if (t < until) trackRaf = requestAnimationFrame(f); };
+        trackRaf = requestAnimationFrame(f);
+      };
+      // 分頁文字包起來，縮小時可以淡出、收起（不是一下子消失）
+      [].forEach.call(rail.querySelectorAll('a[data-view], .rail-more'), function (a) {
+        [].slice.call(a.childNodes).forEach(function (n) { if (n.nodeType === 3 && n.textContent.trim()) { var sp = document.createElement('span'); sp.className = 'lg-label'; sp.textContent = n.textContent.trim(); a.replaceChild(sp, n); } });
+      });
       // 往下捲：分頁列收成小膠囊（只有圖示）；往上捲或停在頂端：恢復
       var lastY = 0, acc = 0;
       $('work').addEventListener('scroll', function () {
@@ -4809,8 +4833,8 @@
         var y = this.scrollTop, dy = y - lastY; lastY = y;
         acc = (dy > 0) === (acc > 0) ? acc + dy : dy;
         var mini = rail.classList.contains('lg-mini');
-        if (!mini && acc > 48 && y > 80) { rail.classList.add('lg-mini'); setTimeout(function () { moveTo(current(), true); }, 0); setTimeout(function () { moveTo(current(), true); }, 380); }
-        else if (mini && (acc < -24 || y < 40)) { rail.classList.remove('lg-mini'); setTimeout(function () { moveTo(current(), true); }, 0); setTimeout(function () { moveTo(current(), true); }, 380); }
+        if (!mini && acc > 48 && y > 80) { rail.classList.add('lg-mini'); track(); }
+        else if (mini && (acc < -24 || y < 40)) { rail.classList.remove('lg-mini'); track(); }
       }, { passive: true });
     })();
 
