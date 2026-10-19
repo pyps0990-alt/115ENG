@@ -946,6 +946,41 @@
       .rail a[data-view], .rail-more { min-height:54px; }
       .savebar { bottom:calc(84px + env(safe-area-inset-bottom, 0px)); }
     }
+    /* ================= 手機版下方分頁：液態玻璃 ================= */
+    .lg-ink { display:none; }
+    @media (max-width:900px) {
+      /* 分頁列浮在畫面上：玻璃效果畫在 ::before（分頁列本身不加模糊，避免裡面固定位置的狀態燈、面板跑掉） */
+      .rail { left:12px !important; right:12px !important; bottom:calc(10px + env(safe-area-inset-bottom, 0px)) !important; height:66px !important; padding:5px !important; border:0 !important; border-radius:30px; background:transparent !important; isolation:isolate; }
+      .rail::before { content:""; position:absolute; inset:0; z-index:-1; border-radius:inherit;
+        background:linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,.42));
+        -webkit-backdrop-filter:blur(22px) saturate(190%); backdrop-filter:blur(22px) saturate(190%);
+        box-shadow:0 10px 30px rgba(15, 23, 42, .16), 0 1px 3px rgba(15, 23, 42, .1), inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 0 rgba(255,255,255,.35), inset 0 0 0 1px rgba(255,255,255,.45); }
+      .rail a[data-view], .rail-more { position:relative; z-index:1; min-height:56px !important; border-radius:24px !important; color:var(--steel) !important; background:transparent !important; transition:color .2s, transform .2s var(--ease-out); -webkit-tap-highlight-color:transparent; touch-action:pan-y; user-select:none; -webkit-user-select:none; }
+      .rail a[aria-current="page"], .rail-more.on { color:var(--navy) !important; }
+      .rail a[aria-current="page"] svg, .rail-more.on svg { color:var(--navy) !important; }
+      .rail a[data-view]:active, .rail-more:active { transform:scale(.94); }
+      /* 選到的分頁：玻璃小膠囊 */
+      .lg-ink { display:block; position:absolute; left:0; top:5px; bottom:5px; z-index:0; border-radius:24px; pointer-events:none;
+        background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(232,237,248,.85));
+        box-shadow:0 2px 8px rgba(30, 58, 138, .14), inset 0 1px 0 #fff, inset 0 0 0 1px rgba(30, 58, 138, .08);
+        transition:transform .5s cubic-bezier(.34, 1.4, .64, 1), width .4s cubic-bezier(.34, 1.4, .64, 1), opacity .2s; will-change:transform; }
+      .lg-ink.instant { transition:width .3s var(--ease-out), opacity .2s; }
+      /* 拖動中：膠囊放大浮起，經過的分頁亮起來 */
+      .lg-ink.lifted { scale:1.12; box-shadow:0 10px 26px rgba(30, 58, 138, .22), inset 0 1px 0 #fff, inset 0 0 0 1px rgba(30, 58, 138, .1); background:linear-gradient(180deg, rgba(255,255,255,.75), rgba(232,237,248,.6)); }
+      .rail.lg-drag a[data-view], .rail.lg-drag .rail-more { color:var(--steel) !important; }
+      .rail .lg-hover { color:var(--navy) !important; transform:scale(1.06); }
+      .rail .lg-hover svg { color:var(--navy) !important; }
+      /* 內容可以捲到分頁列底下（玻璃後面看得到內容） */
+      .shell, .shell.list-off { padding-bottom:0 !important; }
+      .work-inner, .ulist-scroll { padding-bottom:calc(110px + env(safe-area-inset-bottom, 0px)) !important; }
+      .add-unit { margin-bottom:calc(96px + env(safe-area-inset-bottom, 0px)) !important; }
+      .savebar { bottom:calc(88px + env(safe-area-inset-bottom, 0px)) !important; }
+      html:has(#app-root:not([hidden])), html:has(#app-root:not([hidden])) body { background:var(--paper) !important; }
+      .m-top { box-shadow:0 -60px 0 var(--navy); } /* 往上拉超過頂端時露出深藍 */
+    }
+    @media (max-width:900px) and (prefers-reduced-motion: reduce) { .lg-ink { transition:opacity .2s !important; } }
+    /* 不支援模糊效果的瀏覽器：改用不透明的白色 */
+    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) { @media (max-width:900px) { .rail::before { background:rgba(255,255,255,.96); } } }
   </style>
 </head>
 <body>
@@ -4584,6 +4619,83 @@
     showView = function (v) { showViewMN(v); paintMobileTop(); };
     var drawUnitHeadMN = drawUnitHead;
     drawUnitHead = function () { drawUnitHeadMN(); paintMobileTop(); };
+
+
+    /* ----- 手機版下方分頁：液態玻璃（浮在畫面上的玻璃膠囊）；選到的分頁有一顆玻璃小膠囊，可以按住拖動到別的分頁，放開就切換 ----- */
+    (function glassTabs() {
+      var rail = document.querySelector('.rail'); if (!rail) return;
+      var mq = window.matchMedia('(max-width: 900px)');
+      var ink = document.createElement('span'); ink.className = 'lg-ink'; ink.setAttribute('aria-hidden', 'true');
+      rail.appendChild(ink);
+      var tabs = function () { return [].slice.call(rail.querySelectorAll('a[data-view], .rail-more')).filter(function (t) { return t.offsetParent !== null; }).sort(function (a, b) { return a.getBoundingClientRect().left - b.getBoundingClientRect().left; }); };
+      var current = function () { return rail.querySelector('.rail-more.on') || rail.querySelector('a[data-view][aria-current="page"]:not([data-view="live"]):not([data-view="settings"])'); };
+      var place = function (el, instant) {
+        if (!mq.matches || !el) { ink.style.opacity = '0'; return; }
+        var r = el.getBoundingClientRect(), rr = rail.getBoundingClientRect();
+        ink.classList.toggle('instant', !!instant);
+        ink.style.opacity = '1';
+        ink.style.width = r.width + 'px';
+        ink.style.transform = 'translateX(' + (r.left - rr.left) + 'px)';
+      };
+      var paint = function () { if (!dragging) place(current()); };
+      var placeOld = window.placeInks;
+      window.placeInks = function () { if (placeOld) placeOld(); paint(); };
+      var showViewLG = showView;
+      showView = function (v) { showViewLG(v); requestAnimationFrame(paint); };
+      window.addEventListener('resize', function () { place(current(), true); });
+      mq.addEventListener ? mq.addEventListener('change', function () { place(current(), true); }) : null;
+      requestAnimationFrame(function () { place(current(), true); });
+
+      // 拖動：按住後移動超過 6px 就開始拖；膠囊跟著手指走（放大一點），經過的分頁亮起來；放開吸到最近的分頁並切換
+      var dragging = false, startX = 0, pid = null, offset = 0, hover = null, moved = false;
+      var nearest = function (x) {
+        var best = null, d = Infinity;
+        tabs().forEach(function (t) { var r = t.getBoundingClientRect(), c = r.left + r.width / 2; if (Math.abs(c - x) < d) { d = Math.abs(c - x); best = t; } });
+        return best;
+      };
+      rail.addEventListener('pointerdown', function (e) {
+        if (!mq.matches || e.button > 0 || e.target.closest('.rail-who')) return;
+        var t = e.target.closest('a[data-view], .rail-more'); if (!t) return;
+        pid = e.pointerId; startX = e.clientX; moved = false;
+        var ir = ink.getBoundingClientRect();
+        offset = e.clientX - ir.left;
+        // 從別的分頁開始拖：先把膠囊移到手指下面
+        if (e.clientX < ir.left || e.clientX > ir.right) offset = ir.width / 2;
+      });
+      rail.addEventListener('pointermove', function (e) {
+        if (pid !== e.pointerId) return;
+        if (!dragging) {
+          if (Math.abs(e.clientX - startX) < 6) return;
+          dragging = true; moved = true;
+          try { rail.setPointerCapture(pid); } catch (err) {}
+          rail.classList.add('lg-drag'); ink.classList.add('lifted');
+        }
+        e.preventDefault();
+        var rr = rail.getBoundingClientRect(), w = ink.getBoundingClientRect().width / 1.12 || 60;
+        var x = Math.max(4, Math.min(rr.width - w - 4, e.clientX - rr.left - offset));
+        ink.classList.add('instant');
+        ink.style.transform = 'translateX(' + x + 'px)';
+        var n = nearest(e.clientX);
+        if (n !== hover) { if (hover) hover.classList.remove('lg-hover'); hover = n; if (hover) hover.classList.add('lg-hover'); if (navigator.vibrate) navigator.vibrate(4); }
+      }, { passive: false });
+      var end = function (e) {
+        if (pid !== e.pointerId) return;
+        pid = null;
+        if (!dragging) return;
+        dragging = false;
+        rail.classList.remove('lg-drag'); ink.classList.remove('lifted', 'instant');
+        if (hover) hover.classList.remove('lg-hover');
+        var target = e.type === 'pointercancel' ? current() : nearest(e.clientX);
+        hover = null;
+        place(target);
+        if (target && target !== current()) setTimeout(function () { target.click(); }, 60);
+        setTimeout(function () { moved = false; }, 350);
+      };
+      rail.addEventListener('pointerup', end);
+      rail.addEventListener('pointercancel', end);
+      // 拖完放開時瀏覽器會補一個 click：擋掉，避免重複切換
+      rail.addEventListener('click', function (e) { if (moved && e.isTrusted) { moved = false; e.preventDefault(); e.stopPropagation(); } }, true);
+    })();
 
     // 開啟加速：先用這台電腦上次讀到的資料畫出畫面，同時向伺服器讀最新的（Apps Script 每次往返要 1～2 秒以上）。
     // 最新資料回來之前，各分頁暫時不能編輯（inert），避免在舊資料上修改後被覆蓋；回來後重畫並解除。
