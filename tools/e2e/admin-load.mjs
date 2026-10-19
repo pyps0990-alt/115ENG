@@ -25,7 +25,7 @@ function run({ cache, fsCfg, server, order, edit = false }) {
   const ctx = {
     console, JSON, Object, Array,
     $: (id) => ({ parentNode: { insertBefore: (n) => notes.push(n) }, appendChild: (n) => notes.push(n), href: '' }),
-    tabSections: () => sections,
+    tabSections: () => sections, SH: {},
     applyAdminData: (d) => applied.push(d),
     ADMIN_CACHE: 'k',
     localStorage: { getItem: () => (cache ? JSON.stringify(cache) : null), setItem: () => {} },

@@ -4612,7 +4612,7 @@
       .withFailureHandler(function (err) {
         serverDone = true;
         if (earlyKey) return; // 畫面上的資料已確認和學生網站一致，照常使用；之後儲存時會再連一次 Apps Script
-        if (SH.locked) { lockTabs('讀取最新資料失敗：' + err.message + '（畫面是上次的內容，請重新整理再試）', true); return; }
+        if (SH.locked || staleNote) { lockTabs('讀取最新資料失敗：' + err.message + '（畫面是上次的內容，請重新整理再試）', true); return; }
         $('units').innerHTML = '<tr><td colspan="5" class="msg err">' + esc(err.message) + '</td></tr>';
       })
       .getAdminData();
