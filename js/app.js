@@ -508,7 +508,7 @@ function renderDiag() {
   app.querySelector('.diag-ua').textContent = navigator.userAgent;
   app.querySelector('[data-again]').onclick = run;
   app.querySelector('[data-flush]').onclick = async () => { await flushOutbox(); box(); };
-  app.querySelector('[data-clear]').onclick = () => { if (confirm('確定要清除這台裝置排隊中的成績嗎？清除後這些成績不會送到老師的試算表（學生網站上的紀錄不受影響）。')) { clearOutbox(); box(); } };
+  app.querySelector('[data-clear]').onclick = async () => { if (await confirmDialog({ title: '清除排隊中的成績？', body: '清除後這些成績不會送到老師的試算表（學生網站上的紀錄不受影響）。', ok: '清除', danger: true })) { clearOutbox(); box(); } };
   run();
 }
 

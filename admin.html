@@ -936,7 +936,8 @@
     .sc-bar { height:12px !important; }
     .sc-meta { display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; font-size:max(12px, .82rem); color:var(--steel); font-weight:700; }
     .sc-meta b { color:var(--ink); font-variant-numeric:tabular-nums; }
-    .sc-flag { margin-left:auto; }
+    .sc-flag { margin-left:auto; display:inline-flex; align-items:center; color:var(--amber-ink); font-weight:800; }
+    @media (max-width:900px) { .sc-meta > span:not(.sc-flag) { display:none; } .sc-meta:not(:has(.sc-flag)) { display:none; } } /* 手機：卡片只留百分比、長條和需要確認；人數看長條旁的說明或點開 */
 
     /* iPhone 安全區域：標題列延伸到最上面（狀態列底下也是深藍，不會看到模糊的內容）；下方分頁避開底部的橫條 */
     @media (max-width:900px) {
@@ -4279,7 +4280,7 @@
           '<span class="sc-state muted">' + esc(s[1]) + (n ? '・作答的人通過率' : '') + '</span>' +
           '<span class="usc-bar sc-bar" role="img" aria-label="通過 ' + ok + ' 人、還沒通過 ' + no + ' 人' + (rosterN ? '、還沒作答 ' + none + ' 人' : '') + '"><i class="ok" style="width:' + pc(ok) + '"></i><i class="no" style="width:' + pc(no) + '"></i></span>' +
           '<span class="sc-meta"><span>通過 <b>' + ok + '</b></span><span>還沒通過 <b>' + no + '</b></span>' + (rosterN ? '<span>還沒作答 <b>' + none + '</b></span>' : '') +
-          (fN ? '<span class="pill warn sc-flag">' + fN + ' 人需要確認</span>' : '') + '</span></button>';
+          (fN ? '<span class="sc-flag"><svg class="ic-w" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>' + fN + ' 人需要確認</span>' : '') + '</span></button>';
       }).join('');
       box.innerHTML = '<section class="card"><div class="nv-panel-h"><h2>各單元</h2><span class="muted small">最近 120 天・每人以最高分計（含試算表成績單）・點卡片看詳細</span>' +
         '<div class="r usc-legend"><span><i class="ok"></i>通過</span><span><i class="no"></i>還沒通過</span>' + (rosterN ? '<span><i></i>還沒作答</span>' : '') + '</div></div>' +
