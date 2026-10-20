@@ -1,12 +1,13 @@
 import { esc, confetti } from '../util.js';
 import { PASS } from '../types.js';
+import { icon } from '../icons.js';
 
 const CIRC = 2 * Math.PI * 52;
 
 function cheer(pct) {
   if (pct === 100) return '滿分！太強了';
   if (pct >= 85) return '表現超棒！';
-  if (pct >= PASS) return '不錯喔，再接再厲';
+  if (pct >= PASS) return '過關了，做得好';
   if (pct >= 50) return '再練一次，會更穩';
   return '先看錯的題目，再試一次';
 }
@@ -27,7 +28,12 @@ function countUp(el, to, ms = 1000) {
 // wrong: [{ p: 題目, a: 正確答案, y: 你的答案 }]
 // actions: [{ label, icon, primary, onClick }]
 // passLine：正式測驗才顯示及格線與「還差多少」（練習與複習不計及格）
-export function renderResult(host, { title, pct, scoreText, pills = [], wrong = [], actions = [], extraHTML = '', passLine = false }) {
+// prevBest：這次之前的最佳成績（補考時顯示進步多少）
+// onRetake：正式測驗沒過時，「馬上補考」變成主要按鈕，其他按鈕降為次要
+export function renderResult(host, { title, pct, scoreText, pills = [], wrong = [], actions = [], extraHTML = '', passLine = false, prevBest = null, onRetake = null }) {
+  if (passLine && pct < PASS && onRetake) actions = [{ label: '馬上補考', icon: icon.redo, primary: true, onClick: onRetake }, ...actions.map((a) => ({ ...a, primary: false }))];
+  const gain = passLine && prevBest != null && pct > prevBest ? pct - prevBest : 0;
+  if (gain) pills = [`比上次最佳多 ${gain}%`, ...pills];
   const box = document.createElement('div');
   box.className = pct >= PASS ? 'result pass' : 'result';
   box.innerHTML = `
@@ -38,10 +44,10 @@ export function renderResult(host, { title, pct, scoreText, pills = [], wrong = 
         ${passLine && pct < PASS ? `<circle class="gap" cx="60" cy="60" r="52" style="stroke-dasharray:${(CIRC * (PASS - pct)) / 100} ${CIRC};stroke-dashoffset:${-(CIRC * pct) / 100}"/>` : ''}
         ${passLine ? `<line class="pass-tick" x1="103" y1="60" x2="117" y2="60" transform="rotate(${PASS * 3.6} 60 60)"/>` : ''}
       </svg>
-      ${passLine && pct >= PASS ? `<span class="pass-badge" aria-hidden="true">✓</span>` : ''}
+      ${passLine && pct >= PASS ? `<span class="pass-badge" aria-hidden="true">${icon.check}</span>` : ''}
       <div class="ring-label"><div class="pct"><span data-num>${pct}</span><small style="font-size:.5em">%</small></div><div class="sub">${esc(scoreText || '')}</div></div>
     </div>
-    <div><h2>${esc(passLine && pct < PASS ? `還差 ${PASS - pct}%，再試一次` : title || cheer(pct))}</h2>${passLine ? `<p class="pass-gap ${pct >= PASS ? 'ok' : 'no'}">${pct >= PASS ? `已達及格線 ${PASS}%` : `${esc(title || '未通過')} · 及格線 ${PASS}%，沒有次數限制`}</p>` : title ? `<p class="muted" style="margin:4px 0 0">${esc(cheer(pct))}</p>` : ''}</div>
+    <div><h2>${esc(passLine && pct < PASS ? `還差 ${PASS - pct}%，再試一次` : title || cheer(pct))}</h2>${passLine ? `<p class="pass-gap ${pct >= PASS ? 'ok' : 'no'}">${pct >= PASS ? `已達及格線 ${PASS}%，${esc(cheer(pct))}` : `及格線 ${PASS}%，可以馬上再考一次，沒有次數限制`}</p>` : title ? `<p class="muted" style="margin:4px 0 0">${esc(cheer(pct))}</p>` : ''}</div>
     ${pills.length ? `<div class="result-lines">${pills.map((p) => `<span class="hud-pill">${p}</span>`).join('')}</div>` : ''}
     ${extraHTML}
     <div class="btn-row center" data-actions></div>
@@ -66,6 +72,7 @@ export function renderResult(host, { title, pct, scoreText, pills = [], wrong = 
     box.querySelector('.val').style.strokeDashoffset = String(CIRC * (1 - pct / 100));
   }));
   countUp(box.querySelector('[data-num]'), pct);
-  if (pct === 100 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) setTimeout(confetti, 350);
+  // 正式測驗過關（或滿分）是最重要的一刻：撒彩帶
+  if ((pct === 100 || (passLine && pct >= PASS)) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) setTimeout(confetti, 350);
   return box;
 }

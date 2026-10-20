@@ -225,7 +225,7 @@ export function mountAnnotator(root, paras, marks, onChange, { nQ = 0 } = {}) {
       ${nQ ? `<hr><div class="ann-q-label">對照題目（選填）</div><div class="row ann-qs">
         <button class="ann-q" type="button" data-q="" aria-pressed="${qSel == null}">不對照</button>
         ${Array.from({ length: nQ }, (_, i) => `<button class="ann-q" type="button" data-q="${i}" aria-pressed="${qSel === i}" aria-label="對照第 ${i + 1} 題">Q${i + 1}</button>`).join('')}</div>` : ''}
-      <hr><button class="ann-tool wide" type="button" data-tool="" aria-pressed="${!tool}"><span class="mk-ic-hand">✋</span><span>放下工具（一般閱讀）</span></button>
+      <hr><button class="ann-tool wide" type="button" data-tool="" aria-pressed="${!tool}"><span class="mk-ic-hand"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3l14 8-6 1.5L10 19z"/></svg></span><span>放下工具（一般閱讀）</span></button>
       <p class="hint">${touchMode() ? '劃記：長按一個字再滑過去；或點第一個字、再點最後一個字' : '劃記：在文字上拖曳；點一下只標一個字'}・不計分</p>`;
     document.body.append(pop);
     const f = fab.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;

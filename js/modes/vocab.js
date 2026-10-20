@@ -331,6 +331,7 @@ export function mount(stage, ctx) {
       const durationSec = Math.round((Date.now() - t0) / 1000);
       const stamp = nowStamp();
       const per = Object.fromEntries(stages.map((s, i) => [s.level.id, `${Math.round(w.stages[i])}/${Math.round(w.max)}`]));
+      const prevBest = store.best(unitId).vocab ?? null;
       if (official) {
         store.setBest(unitId, 'vocab', pct);
         store.setLast(unitId, Object.fromEntries(stages.map((s, i) => [s.level.id, Math.round((w.stages[i] / w.max) * 100)])));
@@ -369,7 +370,7 @@ export function mount(stage, ctx) {
         title: !official ? '錯題練習完成' : `${review ? '複習' : '三段測驗'}${passed ? '通過！' : firstTest ? '未通過' : '完成'}`,
         pct,
         scoreText: `${pct} / 100`,
-        passLine: firstTest,
+        passLine: firstTest, prevBest, onRetake: firstTest ? () => play(student, stagesNow(), true) : null,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, `${icon.flame} 最長連對 ${bestStreak}`],
         extraHTML: bars + (official
           ? `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML('sending')}</div>`

@@ -40,7 +40,14 @@ export function pauseLive() { if (live) live.paused = true; }
 
 function setState(state, text) {
   const s = live.el.querySelector('[data-lv-state]');
-  if (s) { s.dataset.state = state; s.querySelector('span').textContent = text; }
+  if (s) { s.dataset.state = state; s.dataset.text = text; s.querySelector('span').textContent = text + (state === 'on' && s.dataset.at ? `・${s.dataset.at} 收到資料` : ''); }
+}
+// 真的收到新資料時，綠點閃一下並記下時間（沒有資料進來就不閃：狀態必須是真的）
+function ping() {
+  const s = live && live.el.querySelector('[data-lv-state]'); if (!s) return;
+  s.dataset.at = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+  if (s.dataset.state === 'on') s.querySelector('span').textContent = `${s.dataset.text}・${s.dataset.at} 收到資料`;
+  s.classList.remove('ping'); void s.offsetWidth; s.classList.add('ping');
 }
 
 async function connect() {
@@ -56,13 +63,13 @@ async function connect() {
   const guard = setTimeout(() => { if (!gotAny) fail(new Error('8 秒內沒有回應')); }, 8000);
   m.onValue(m.ref(db, '.info/serverTimeOffset'), (s) => { offset = Number(s.val()) || 0; });
   m.onValue(m.ref(db, '.info/connected'), (s) => { if (!failed) { if (s.val()) setState('on', '即時連線中'); else setState('wait', '連線中斷，正在重新連線…'); } });
-  m.onValue(m.ref(db, 'presence'), (s) => { gotAny = true; clearTimeout(guard); presence = s.val() || {}; live.render(); }, fail);
+  m.onValue(m.ref(db, 'presence'), (s) => { gotAny = true; clearTimeout(guard); presence = s.val() || {}; ping(); live.render(); }, fail);
   let days = [];
   const ensureDays = () => {
     const now = Date.now() + offset;
     [hourKey(now - 86400000)[0], hourKey(now)[0]].filter((d) => !days.includes(d)).forEach((day) => {
       days.push(day);
-      m.onValue(m.ref(db, `stats/${day}`), (s) => { stats[day] = s.val() || {}; live.render(); }, fail);
+      m.onValue(m.ref(db, `stats/${day}`), (s) => { stats[day] = s.val() || {}; ping(); live.render(); }, fail);
     });
   };
   ensureDays();

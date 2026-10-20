@@ -407,9 +407,9 @@ function unitStatus(u) {
   const w = unitWindow(config, u.id);
   if (done && store.reviewed(u.id)) return { k: 'ok', rank: 4, st: best != null ? `${best}%` : '已完成', note: best != null ? '已完成・可複習' : '已完成', ic: icon.check };
   // 做過正式測驗但沒通過：需要補考（缺交的判斷之前先處理）
-  if (!done && store.tried(u.id)) return { k: 'retake', rank: 0, st: '需補考', note: `${best != null ? `最佳 ${best}%，` : ''}未達 ${PASS}%，要重新做一次正式測驗${w.state === 'after' ? '（已截止，請找老師開放補作）' : ''}`, ic: icon.alert };
+  if (!done && store.tried(u.id)) return { k: 'retake', rank: 0, st: '需補考', note: `${best != null ? `最佳 ${best}%，` : ''}未達 ${PASS}%，要重新做一次正式測驗${w.state === 'after' ? '。已截止：下課跟老師說「班級、座號、這個單元要補作」，老師開放後這裡會變回可以作答' : ''}`, ic: icon.alert };
   if (done) return { k: 'todo', rank: 1, st: '待檢討', note: `${best != null ? `最佳 ${best}%・` : ''}做完檢討才能複習`, ic: icon.bulb };
-  if (w.state === 'after') return { k: 'miss', rank: 0, st: '缺交', note: `已於 ${fmtWhen(w.closeAt)} 截止，還沒有正式測驗紀錄`, ic: icon.alert };
+  if (w.state === 'after') return { k: 'miss', rank: 0, st: '缺交', note: `已於 ${fmtWhen(w.closeAt)} 截止。跟老師說「班級、座號、這個單元要補作」，老師開放後就能作答`, ic: icon.alert };
   if (w.state === 'before') return { k: 'wait', rank: 5, st: '未開放', note: `${fmtWhen(w.openAt)} 開放`, ic: icon.lock };
   return { k: 'open', rank: 2, st: '尚未開始', note: w.closeAt ? `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}` : '尚未測驗', ic: icon.play };
 }

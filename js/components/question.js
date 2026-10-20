@@ -467,7 +467,7 @@ const posLabel = (q, w) => { const c = rolesOf(q, w); return c.length ? roleName
 // 一個選項一列：記號（✓／✗）一欄；單字、詞性、「你選的」、意思同一行（放不下時意思整段換到下一行，對齊單字）；原因另起一行
 function optionRow({ text, w, ok, picked, pos, why, whyKind }) {
   return `<li class="op${ok ? ' op-ok' : ''}${picked ? ' op-picked' : ''}">`
-    + `<span class="op-mark" aria-label="${ok ? '正確' : '錯誤'}">${ok ? '✓' : '✗'}</span>`
+    + `<span class="op-mark" aria-label="${ok ? '正確' : '錯誤'}">${ok ? icon.check : icon.x}</span>`
     + `<div class="op-body"><div class="op-line"><b class="op-word en">${esc(text)}</b>`
     + (pos ? `<span class="op-pos">${esc(pos)}</span>` : '')
     + (picked && !ok ? '<span class="op-you">你選的</span>' : '')

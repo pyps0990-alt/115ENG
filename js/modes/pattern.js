@@ -355,6 +355,7 @@ export function mount(stage, ctx) {
       const byWord = new Map((result.details || []).map((d) => [String(d.word), d]));
       const details = mine.map((d) => { const r = byWord.get(d.word) || {}; return { ...d, correct: r.correct || '', ok: !!r.ok, points: Number(r.points) || 0 }; });
       const pct = result.pct, points = result.score;
+      const prevBest = store.best(unitId).pattern ?? null;
       store.setBest(unitId, 'pattern', pct);
       const passed = pct >= PASS;
       if (passed) store.setDone(unitId); else store.setTried(unitId);
@@ -371,7 +372,7 @@ export function mount(stage, ctx) {
         title: passed ? '句型練習通過！' : '未通過',
         pct, scoreText: `${fmt(points)} / ${qs.length}`,
         pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, wrongN ? '接著看答案與解析，完成後才能複習' : '全部答對'],
-        passLine: true,
+        passLine: true, prevBest, onRetake: () => playOfficial(student),
         extraHTML: `${bars}${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML(res.status)}</div>`,
         actions,
       });

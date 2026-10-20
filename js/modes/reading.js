@@ -274,6 +274,7 @@ export function mount(stage, ctx) {
     }
     const score = graded ? result.score : local;
     const pct = graded ? result.pct : Math.round((local / qs.length) * 100);
+    const prevBest = store.best(unitId).reading ?? null;
     store.setBest(unitId, 'reading', pct);
     const passed = pct >= PASS;
     if (official) { if (passed) store.setDone(unitId); else store.setTried(unitId); }
@@ -287,7 +288,7 @@ export function mount(stage, ctx) {
       pct,
       scoreText: `${score} / ${qs.length}`,
       pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, official && !passed ? '' : firstTest ? '接著逐題檢討，完成後才能複習' : '可以逐題檢討這次的作答'].filter(Boolean),
-      passLine: official,
+      passLine: official, prevBest, onRetake: official ? () => run(student) : null,
       extraHTML: `${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML(res.status)}</div>`,
       actions,
     });

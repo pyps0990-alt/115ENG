@@ -14,7 +14,7 @@
     :root {
       --bg:#FFFFFF; --surface:#F4F6F9; --ink:#1E3A8A; --muted:#586880; --line:#E2E8F0;
       --primary:#F59E0B; --soft:#FEF3C7; --good:#92400E; --bad:#B91C1C;
-      --shadow: 0 1px 2px rgba(30,58,138,.04), 0 8px 24px -12px rgba(30,58,138,.12);
+      --shadow: 0 1px 2px rgba(30,58,138,.06), 0 2px 6px -2px rgba(30,58,138,.08);
       --shadow-sm: 0 1px 2px rgba(30,58,138,.06);
       --radius: 18px;
     }
@@ -151,7 +151,8 @@
     .br-steps li::before { content:counter(st) '. '; }
     .br-steps li.on { color:var(--ink); font-weight:700; }
     .br-steps li.done { color:#166534; }
-    .br-steps li.done::before { content:'✓ '; }
+    .br-steps li.done::before { content:''; display:inline-block; width:.9em; height:.9em; margin-right:4px; vertical-align:-.1em; background:currentColor; -webkit-mask:var(--ic-check) center/contain no-repeat; mask:var(--ic-check) center/contain no-repeat; }
+    :root { --ic-check:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E"); }
     .br-track { height:8px; border-radius:999px; background:var(--line); overflow:hidden; }
     .br-fill { height:100%; width:0; border-radius:999px; background:var(--ink); transition:width .6s ease; }
     .br-info { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:.85rem; color:var(--muted); font-variant-numeric:tabular-nums; }
@@ -333,7 +334,6 @@
     .u-tabs button[aria-selected="true"] { color:var(--navy); }
     .u-tabs button[aria-selected="true"]::after { content:""; position:absolute; left:10px; right:10px; bottom:-1px; height:3px; border-radius:3px 3px 0 0; background:var(--primary); }
     .view:not([hidden]), .u-pane:not([hidden]) { animation:view-in .4s var(--ease-out) both; }
-    @keyframes view-in { from { opacity:0; transform:translateY(8px); } }
     /* 出題設定：單元表只顯示選中的這一個 */
     #shell [data-slot="settings"] #units tr[data-i]:not(.cur) { display:none; }
     #shell [data-slot="settings"] .cards-table thead { display:none; }
@@ -351,6 +351,7 @@
     .stream-row b { color:var(--ink); }
     .score-ok { color:var(--good-c); font-weight:900; font-variant-numeric:tabular-nums; }
     .score-no { color:var(--bad); font-weight:900; font-variant-numeric:tabular-nums; }
+    .ic-w { width:1em; height:1em; flex:none; vertical-align:-.15em; margin-right:3px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
     .flag { display:inline-flex; gap:4px; color:var(--amber-ink); font-weight:800; font-size:.8rem; }
     .danger-zone { border:1.5px solid #F3B4B4; background:#FFFBFB; }
     .danger-zone .card-h h2 { color:var(--bad); }
@@ -364,7 +365,7 @@
       .rail { flex-direction:row; padding:8px 10px; gap:2px; overflow-x:auto; }
       .brand { margin:0 8px 0 0; width:38px; height:38px; }
       .rail a[data-view] { width:auto; padding:6px 10px; grid-auto-flow:column; gap:6px; font-size:.8rem; align-items:center; white-space:nowrap; flex:none; }
-      .rail-ic[data-badge]:not([data-badge=""])::after { top:-9px; right:-10px; min-width:16px; height:16px; font-size:.62rem; }
+      .rail-ic[data-badge]:not([data-badge=""])::after { top:-9px; right:-10px; min-width:16px; height:16px; font-size:.68rem; }
       .rail-ic { margin-right:6px; }
       .rail-who { margin:0 0 0 auto; }
       .ulist, .work { grid-row:2; grid-column:1; }
@@ -485,7 +486,8 @@
     .rail-who .who-id #who-email { display:block; color:var(--steel); font-size:.8rem; word-break:break-all; }
     .who-menu button { border:0; background:none; text-align:left; padding:10px 12px; border-radius:9px; font:inherit; font-weight:800; font-size:.9rem; color:var(--ink); cursor:pointer; }
     .who-menu button:hover, .who-menu button:focus-visible { background:var(--wash); outline:none; }
-    .who-menu #sign-out { color:var(--bad-ink); }
+    nav .who-menu button:hover, nav .who-menu button:focus-visible { color:var(--ink); } /* 外殼的 nav button:hover 會把字變白 */
+    .who-menu #sign-out, nav .who-menu #sign-out:hover { color:var(--bad-ink); }
     @media (max-width:900px) { .avatar { width:36px; height:36px; } .who-menu { left:auto; right:0; bottom:auto; top:calc(100% + 8px); } }
     .u-tabs { overflow-y:hidden; scrollbar-width:none; }
     @media (max-width:900px) { .nv-grid { grid-template-columns:1fr; } #work .m-back { display:inline-flex; } }
@@ -620,7 +622,8 @@
     .lv-state { display:inline-flex; align-items:center; gap:8px; height:30px; padding:0 12px; border-radius:999px; background:var(--wash); color:var(--steel); font-weight:800; font-size:.85rem; }
     .lv-state i { width:9px; height:9px; border-radius:50%; background:var(--edge); }
     .lv-state[data-state="on"] { background:var(--good-soft); color:var(--good-ink); }
-    .lv-state[data-state="on"] i { background:var(--good-c); animation:lv-pulse 2s infinite; }
+    .lv-state[data-state="on"] i { background:var(--good-c); }
+    .lv-state.ping[data-state="on"] i { animation:lv-pulse .9s ease-out 1; }
     .lv-state[data-state="wait"] i { background:var(--primary); }
     .lv-state[data-state="off"] { background:var(--bad-soft); color:var(--bad-ink); }
     .lv-state[data-state="off"] i { background:var(--bad); }
@@ -648,8 +651,8 @@
     .lv-chart svg { width:100%; height:auto; display:block; stroke:none; }
     .lv-chart .g, .lv-chart .g0 { stroke-width:1; }
     .lv-chart .g { stroke:#EEF1F6; } .lv-chart .g0 { stroke:var(--line-strong); }
-    .lv-chart .yl { font-size:11px; fill:var(--steel); text-anchor:end; font-weight:700; }
-    .lv-chart .xl { font-size:11px; fill:var(--steel); text-anchor:middle; font-weight:700; }
+    .lv-chart .yl { font-size:12px; fill:var(--steel); text-anchor:end; font-weight:700; }
+    .lv-chart .xl { font-size:12px; fill:var(--steel); text-anchor:middle; font-weight:700; }
     .lv-chart .bar { fill:var(--navy); transform-box:fill-box; transform-origin:bottom; animation:lv-grow .6s var(--ease-out) var(--d) both; }
     .lv-chart .bar.now { fill:var(--primary); }
     .lv-chart.calm .bar { animation:none; }
@@ -749,8 +752,8 @@
       transition:transform .36s var(--ease-out), width .36s var(--ease-out), height .36s var(--ease-out), background .25s, border-color .25s, opacity .2s; }
     .ul-ink.dark { background:var(--navy); border-color:var(--navy); box-shadow:none; }
     /* 半透明的方塊：滑過其他單元時看得到底下的字 */
-    .ul-ink { background:rgba(255,255,255,.55); border-color:rgba(255,255,255,.9); -webkit-backdrop-filter:blur(2px) saturate(1.2); backdrop-filter:blur(2px) saturate(1.2); box-shadow:0 1px 2px rgba(30,58,138,.05), 0 8px 22px rgba(30,58,138,.08), inset 0 0 0 1px rgba(30,58,138,.08); }
-    .ul-ink.dark { background:rgba(30,58,138,.88); border-color:rgba(30,58,138,.4); box-shadow:0 8px 22px rgba(30,58,138,.18); }
+    .ul-ink { background:rgba(255,255,255,.55); border-color:rgba(255,255,255,.9); -webkit-backdrop-filter:blur(2px) saturate(1.2); backdrop-filter:blur(2px) saturate(1.2); box-shadow:0 1px 2px rgba(30,58,138,.06), 0 3px 8px -2px rgba(30,58,138,.1), inset 0 0 0 1px rgba(30,58,138,.08); }
+    .ul-ink.dark { background:rgba(30,58,138,.88); border-color:rgba(30,58,138,.4); box-shadow:0 3px 10px -2px rgba(30,58,138,.25); }
     .ul-ink.no-anim, .vt-run .ul-ink, .vt-run .u-ink, .vt-run .rail-ink { transition:none; }
     ::view-transition-group(ul-ink) { animation-duration:.36s; animation-timing-function:var(--ease-out); }
     /* 下拉選單、搜尋結果、更多選單：打開時從上方淡入 */
@@ -835,7 +838,7 @@
     .savebar[data-state="dirty"] .sb-ic { background:var(--primary); width:10px; height:10px; margin:0 5px; }
     .savebar[data-state="saving"] .sb-ic { border:2.5px solid rgba(255,255,255,.3); border-top-color:#fff; animation:btnspin .8s linear infinite; }
     .savebar[data-state="done"] { background:var(--good-c); }
-    .savebar[data-state="done"] .sb-ic::before { content:"✓"; font-weight:900; }
+    .savebar[data-state="done"] .sb-ic::before { content:""; display:inline-block; width:14px; height:14px; background:currentColor; -webkit-mask:var(--ic-check) center/contain no-repeat; mask:var(--ic-check) center/contain no-repeat; }
     .savebar[data-state="fail"] { background:var(--bad); }
     .savebar[data-state="fail"] .sb-ic::before { content:"!"; font-weight:900; }
     .savebar #savebar-undo { background:transparent; color:#fff; border:1px solid rgba(255,255,255,.35); box-shadow:none; }
@@ -883,8 +886,8 @@
       .rail { position:fixed; left:0; right:0; bottom:0; top:auto; z-index:30; height:calc(64px + env(safe-area-inset-bottom, 0px)); padding:4px 4px env(safe-area-inset-bottom, 0px); display:flex; flex-direction:row; align-items:stretch; justify-content:space-around; gap:0; overflow:visible; border-top:1px solid rgba(255,255,255,.12); }
       .rail .brand, .rail-ink { display:none !important; }
       .rail a[data-view], .rail-more { flex:1 1 0; min-width:0; width:auto !important; min-height:56px; padding:6px 0 4px !important; display:flex !important; flex-direction:column; align-items:center; justify-content:center; gap:3px; border:0; border-radius:12px; background:transparent; color:var(--navy-ink); font:inherit; font-size:.74rem !important; font-weight:800; white-space:nowrap; cursor:pointer; }
-      .rail a[data-view="live"], .rail a[data-view="settings"] { display:none !important; }
-      .rail a[data-view="overview"] { order:1; } .rail a[data-view="units"] { order:2; } .rail a[data-view="scores"] { order:3; } .rail a[data-view="students"] { order:4; } .rail-more { order:5; }
+      .rail a[data-view="students"], .rail a[data-view="settings"] { display:none !important; }
+      .rail a[data-view="overview"] { order:1; } .rail a[data-view="units"] { order:2; } .rail a[data-view="scores"] { order:3; } .rail a[data-view="live"] { order:4; } .rail-more { order:5; }
       .rail .rail-ic { margin:0 !important; }
       .rail a[aria-current="page"], .rail-more.on { color:#fff; background:rgba(255,255,255,.1) !important; }
       .rail a[aria-current="page"] svg, .rail-more.on svg { color:var(--primary); }
@@ -1207,7 +1210,7 @@
             <button class="btn" id="imp-load" type="button">載入目前內容</button>
             <label class="btn" style="cursor:pointer" title="支援 CSV（Excel 另存新檔）、TSV、TXT、JSON">從檔案匯入<input type="file" id="imp-file" accept=".csv,.tsv,.txt,.md,.json,text/*" hidden></label>
             <details class="menu" id="imp-more">
-              <summary class="btn">更多</summary>
+              <summary class="btn">其他動作</summary>
               <div class="menu-list" role="menu">
                 <button type="button" id="imp-copy" role="menuitem">複製目前題目（文字）</button>
                 <button type="button" id="imp-dl" role="menuitem">下載題目（文字檔）</button>
@@ -1334,7 +1337,7 @@
           <span class="msg" id="br-msg"></span>
         </div>
         <div class="br-pending" id="br-pending" hidden>
-          <span>⚠ 待分析：<b id="br-pending-list"></b>（題目改過，還沒分析；學生暫時看到基本解析）</span>
+          <span><svg class="ic-w" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>待分析：<b id="br-pending-list"></b>（題目改過，還沒分析；學生暫時看到基本解析）</span>
           <button class="btn" id="br-all" type="button">全部用這台電腦分析</button>
         </div>
         <div class="br-live" id="br-live" hidden>
@@ -1794,7 +1797,7 @@
         fast = o.build(now);
         var docs = Object.assign({}, fast.docs || {}, { config: fast.cfg });
         fastP = window.fastPublish(docs).then(function () {
-          M.textContent = '⚡ 學生網站已更新（' + ((Date.now() - t0) / 1000).toFixed(1) + ' 秒），正在存進試算表…'; M.className = 'msg';
+          M.textContent = '學生網站已更新（' + ((Date.now() - t0) / 1000).toFixed(1) + ' 秒），正在存進試算表…'; M.className = 'msg';
           return true;
         }, function (err) { fastErr = err; return false; });
       }
@@ -1939,7 +1942,7 @@
       $('smsg').textContent = '';
       $('rows').innerHTML = rows.map(function (r) {
         return '<tr><td>' + esc(r.time) + '</td><td>' + esc(r.cls) + '</td><td>' + esc(r.seat) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.unitTitle || r.unit) +
-          '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td><td style="white-space:normal">' + (r.check === '—' ? '<span class="muted" title="還沒同步到試算表，尚未用題庫核對（每 10 分鐘自動同步）">—</span>' : r.check ? '<span class="chk-warn">⚠ ' + esc(r.check) + '</span>' : '<span class="muted">✓</span>') + '</td></tr>';
+          '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td><td style="white-space:normal">' + (r.check === '—' ? '<span class="muted" title="還沒同步到試算表，尚未用題庫核對（每 10 分鐘自動同步）">—</span>' : r.check ? '<span class="chk-warn"><svg class="ic-w" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>' + esc(r.check) + '</span>' : '<span class="muted">✓</span>') + '</td></tr>';
       }).join('') || '<tr><td colspan="12" class="muted">沒有資料</td></tr>';
       var n = rows.length;
       var avg = n ? Math.round(rows.reduce(function (a, r) { return a + Number(r.pct || 0); }, 0) / n) : 0;
@@ -3600,7 +3603,7 @@
           var t = new Date(x.at), hm = String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
           var u = units.filter(function (y) { return y.id === x.unit; })[0];
           return '<div class="stream-row"><span class="muted">' + hm + '</span><span><b>' + esc(x.cls + '-' + x.seat + ' ' + x.name) + '</b> <span class="muted small">' + esc(u ? u.title : x.unit) + (x.review ? '・複習' : '') + '</span>' +
-            (x.check && x.check !== '—' ? '<br><span class="flag">⚠ ' + esc(x.check) + '</span>' : '') + '</span><span class="' + (Number(x.pct) >= PASS_PCT ? 'score-ok' : 'score-no') + '">' + esc(x.pct) + '</span></div>';
+            (x.check && x.check !== '—' ? '<br><span class="flag"><svg class="ic-w" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>' + esc(x.check) + '</span>' : '') + '</span><span class="' + (Number(x.pct) >= PASS_PCT ? 'score-ok' : 'score-no') + '">' + esc(x.pct) + '</span></div>';
         }).join('') : '<p class="muted" style="margin:0">最近 24 小時沒有人交卷。</p>';
     }
     function loadAttempts() {
@@ -4057,7 +4060,7 @@
       var none = []; classes.forEach(function (c) { if (US.cls && c !== US.cls) return; (rb[c] || []).forEach(function (r) { if (!best[c + '-' + r.seat]) none.push(r); }); });
       var chip = function (k, name, cls) { return '<span class="chip' + (cls ? ' ' + cls : '') + '" title="' + esc(name || '') + '">' + esc(k) + (name ? ' ' + esc(name) : '') + '</span>'; };
       h += '<section class="card"><div class="nv-panel-h"><h2>還沒通過 <span class="muted small">' + fail.length + ' 人</span></h2>' + (fail.length ? '<div class="r"><button class="btn sm" type="button" data-usc-copy="fail">複製名單</button></div>' : '') + '</div>' +
-        (fail.length ? '<div class="chips">' + fail.map(function (k) { return chip(k, best[k].name, '') + ''; }).join('') + '</div>' : '<p class="muted" style="margin:0">' + (keys.length ? '作答的人都通過了 🎉' : '還沒有人作答') + '</p>') + '</section>';
+        (fail.length ? '<div class="chips">' + fail.map(function (k) { return chip(k, best[k].name, '') + ''; }).join('') + '</div>' : '<p class="muted" style="margin:0">' + (keys.length ? '作答的人都通過了' : '還沒有人作答') + '</p>') + '</section>';
       if (roster && roster.length) h += '<section class="card"><div class="nv-panel-h"><h2>還沒作答 <span class="muted small">' + none.length + ' 人</span></h2>' + (none.length ? '<div class="r"><button class="btn sm" type="button" data-usc-copy="none">複製名單</button></div>' : '') + '</div>' +
         (none.length ? '<div class="chips">' + none.map(function (r) { return chip(r.cls + '-' + r.seat, r.name, 'muted'); }).join('') + '</div>' : '<p class="muted" style="margin:0">名單上的學生都作答過了。</p>') + '</section>';
       US.lists = { fail: fail.map(function (k) { return k + ' ' + (best[k].name || '') + '（' + best[k].pct + '）'; }), none: none.map(function (r) { return r.cls + '-' + r.seat + ' ' + r.name; }) };
@@ -4673,7 +4676,7 @@
       rail.insertBefore(more, document.querySelector('.rail-who'));
       var sheet = document.createElement('div'); sheet.className = 'm-sheet'; sheet.id = 'm-sheet'; sheet.hidden = true;
       sheet.innerHTML = '<div class="m-scrim" data-close></div><div class="m-panel" role="dialog" aria-label="更多"><span class="m-grip" aria-hidden="true"></span>' +
-        '<a href="#live" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span><span><b>即時監控</b><small>誰在線上、正在做哪個單元、交卷是否順利</small></span></a>' +
+        '<a href="#students" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M16 4.5a3.5 3.5 0 010 7"/><path d="M18 14a6 6 0 013.5 6"/></svg></span><span><b>學生</b><small>名單、補作延長、個別學生的成績</small></span></a>' +
         '<a href="#settings" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span><span><b>設定</b><small>AI 出題、錯誤分析引擎、學期結算</small></span></a>' +
         '<button class="btn m-cancel" type="button" data-close>關閉</button></div>';
       document.body.appendChild(sheet);
@@ -4693,7 +4696,7 @@
         var v = SH.view, u = v === 'unit' ? curUnit() : null;
         $('m-top-title').textContent = u ? (u.title || u.id) : NAMES[v] || '';
         $('m-top-back').hidden = v !== 'unit';
-        more.classList.toggle('on', v === 'live' || v === 'settings');
+        more.classList.toggle('on', v === 'students' || v === 'settings');
       };
     })();
     var showViewMN = showView;
@@ -4714,7 +4717,7 @@
       var ink = document.createElement('span'); ink.className = 'lg-ink'; ink.setAttribute('aria-hidden', 'true');
       rail.appendChild(ink);
       var tabs = function () { return [].slice.call(rail.querySelectorAll('a[data-view], .rail-more')).filter(function (t) { return t.offsetParent !== null; }).sort(function (a, b) { return a.getBoundingClientRect().left - b.getBoundingClientRect().left; }); };
-      var current = function () { return rail.querySelector('.rail-more.on, .rail-more[aria-expanded="true"]') || rail.querySelector('a[data-view][aria-current="page"]:not([data-view="live"]):not([data-view="settings"])'); };
+      var current = function () { return rail.querySelector('.rail-more.on, .rail-more[aria-expanded="true"]') || rail.querySelector('a[data-view][aria-current="page"]:not([data-view="students"]):not([data-view="settings"])'); };
       var box = function (el) { var r = el.getBoundingClientRect(), rr = rail.getBoundingClientRect(); return { l: r.left - rr.left, r: r.right - rr.left }; };
 
       // 彈簧：位置 x、速度 v、目標 to；stiffness 越大越快，damping 越小越會彈

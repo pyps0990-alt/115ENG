@@ -54,7 +54,7 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
       timeNote = `${icon.clock} ${fmtWhen(win.openAt)} 開放`;
     } else if (win.state === 'after' && !isReview) {
       buttons = `<button class="btn" type="button" data-start disabled>${icon.lock} 已截止</button>`;
-      timeNote = `${icon.clock} 已於 ${fmtWhen(win.closeAt)} 截止，不能再做正式測驗`;
+      timeNote = `${icon.clock} 已於 ${fmtWhen(win.closeAt)} 截止，不能再做正式測驗。需要補作請跟老師說班級、座號和單元名稱，老師開放後重新整理這頁就能作答`;
     }
     const rs = typeof resume === 'function' && win.state === 'open' && !needReview ? resume() : null;
     // 一句話說明這次要做什麼；詳細規則收在下面，第一次進來的人預設展開
