@@ -4648,12 +4648,15 @@
         if (s === 'done') hideT = setTimeout(function () { state('idle', ''); }, 3000);
       };
       var which = function () { return /尚未儲存/.test(($('ex-msg') || {}).textContent || '') && !/尚未儲存/.test($('msg').textContent) ? 'ex' : 'main'; };
+      var prevT = [];
       var read = function () {
         var ms = [$('msg'), $('ex-msg'), $('imp-msg')].filter(Boolean);
         var dirty = /尚未儲存/.test($('msg').textContent) || /尚未儲存/.test(($('ex-msg') || {}).textContent || '');
         var t = ms.map(function (m) { return { t: m.textContent, err: /\berr\b/.test(m.className) }; });
         var saving = t.filter(function (x) { return /儲存中|⚡|存進試算表|確認學生網站同步中/.test(x.t); })[0];
-        var done = t.filter(function (x) { return /^✓ 已儲存/.test(x.t); })[0];
+        // 「已儲存」只在剛剛變成已儲存時顯示一次：其他訊息（例如按「預覽與檢查」）改變時，不要把之前留下的舊訊息再秀出來
+        var done = t.filter(function (x, i) { return /^✓ 已儲存/.test(x.t) && prevT[i] !== x.t; })[0];
+        prevT = t.map(function (x) { return x.t; });
         var fail = t.filter(function (x) { return x.err && /失敗/.test(x.t); })[0];
         if (fail) { state('fail', fail.t); notice('save', 'bad', fail.t); return; }
         if (saving) { state('saving', saving.t.replace(/^⚡\s*/, '')); return; }
