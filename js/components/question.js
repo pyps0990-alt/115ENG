@@ -109,6 +109,16 @@ export function promptText(q) {
 export const answerText = (q) => (q.type === 'mc' ? q.options[q.answer] : q.answer);
 
 // 拼字框依單字分組：放不下一行時在單字之間換行，不會把一個字拆成兩行（keep a watchful eye on）
+// 例句拼寫的空格提示：每個字顯示第一個和最後一個字母，中間用底線（例如 r _ _ _ _ n）；3 個字母以下只給第一個字母
+function blankHint(answer) {
+  return String(answer).split(/(\s+)/).map((part) => {
+    if (/^\s+$/.test(part)) return '<span class="bh-gap"></span>';
+    const idx = [...part].map((ch, i) => (/[a-z]/i.test(ch) ? i : -1)).filter((i) => i >= 0);
+    const first = idx[0], last = idx.length > 3 ? idx[idx.length - 1] : -1;
+    return [...part].map((ch, i) => (!/[a-z]/i.test(ch) ? esc(ch) : i === first || i === last ? `<b>${esc(ch.toLowerCase())}</b>` : '<i></i>')).join('');
+  }).join('');
+}
+
 function wordGroups(slots) {
   const groups = [[]];
   for (const s of slots) {
@@ -178,10 +188,12 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   const n = target.length;
   const w = q.word;
 
+  // 單字：空格直接顯示頭尾字母（片語不給，維持原本的空格與小提示）
+  const phrase = /\s/.test(String(q.answer).trim());
   const head = q.variant === 'cloze'
     ? `<div class="q-meta">${esc(label || '依句意拼出空格中的單字')}</div>
-       <div class="q-sentence">${esc(q.parts.before)}<span class="blank"></span>${esc(q.parts.after)}</div>
-       <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${n} 個字母・開頭是 ${esc(target[0].toUpperCase())}</span></div>`
+       <div class="q-sentence">${esc(q.parts.before)}${phrase ? '<span class="blank"></span>' : `<span class="blank blank-hint" role="img" aria-label="空格：開頭 ${esc(target[0])}${n > 3 ? `、結尾 ${esc(target[n - 1])}` : ''}，共 ${n} 個字母">${blankHint(q.answer)}</span>`}${esc(q.parts.after)}</div>
+       <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${n} 個字母${phrase ? `・開頭是 ${esc(target[0].toUpperCase())}` : ''}</span></div>`
     : `<div class="q-meta">${esc(label || '看中文，拼出英文單字')}</div>
        <div class="q-prompt"><span class="zh">${esc(w.zh)}</span></div>
        <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${n} 個字母・開頭是 ${esc(target[0].toUpperCase())}</span></div>`;

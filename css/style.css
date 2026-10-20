@@ -319,6 +319,11 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 .q-prompt .w { font-family: var(--font-read); font-weight: 900; font-size: clamp(1.9rem, 8vw, 2.8rem); color: var(--navy); letter-spacing: -.01em; line-height: 1.15; }
 .q-prompt .zh { font-weight: 800; font-size: clamp(1.4rem, 6vw, 2rem); color: var(--navy); line-height: 1.35; }
 .q-sentence { font-family: var(--font-read); font-size: clamp(1.1rem, 4.4vw, 1.4rem); line-height: 1.75; color: var(--navy); font-weight: 600; max-width: 34em; }
+.q-sentence .blank.blank-hint { display: inline-flex; align-items: flex-end; gap: .16em; width: auto; min-width: 0; height: auto; margin: 0 .3em; padding: .1em .35em .15em; border-bottom: 0; border-radius: .35em; background: var(--navy-soft, #E8EDF8); font-family: var(--font-en); font-size: 1.15em; line-height: 1.2; color: var(--navy); vertical-align: baseline; }
+.blank-hint b, .blank-hint i { display: inline-block; width: .7em; text-align: center; line-height: 1.15; border-bottom: 2.5px solid currentColor; }
+.blank-hint b { font-weight: 800; color: var(--navy); }
+.blank-hint i { height: 1.15em; color: var(--edge, #788396); opacity: .6; } /* 每個要拼的字母一條同寬的短線，數得出幾個字母 */
+.blank-hint .bh-gap { width: .6em; }
 .q-sentence .blank, .pq-q .blank, .rv-prompt .blank { display: inline-block; min-width: 4.5em; border-bottom: 3px solid var(--navy); margin: 0 4px; height: 1.1em; vertical-align: -0.1em; }
 .q-sub { display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; font-size: .92rem; }
 
