@@ -3614,7 +3614,7 @@
         return '<div class="att-row"><span class="att-ic ' + (a.tone || '') + '">' + IC[a.ic] + '</span><div>' + a.text + '</div><button class="btn small" type="button" data-att="' + i + '">' + a.act + ' ›</button></div>';
       }).join('') : '<p class="muted" style="margin:0">目前沒有需要處理的事。</p>';
       $('ov-att').onclick = function (e) { var b = e.target.closest('[data-att]'); if (!b) return; var a = items[Number(b.dataset.att)]; location.hash = a.view ? '#' + a.view : '#unit/' + encodeURIComponent(a.unit) + '/' + a.tab; };
-      $('ov-att-n').textContent = items.length ? String(items.length) : '';
+      $('ov-att-n').textContent = String(items.length);
       $('ov-count').hidden = !items.length; $('ov-count').textContent = items.length;
       $('rail-badge').setAttribute('data-badge', items.length ? String(items.length) : '');
       var today = (SH.attempts || []).filter(function (x) { return Date.now() - x.at < 86400000; });
@@ -4462,6 +4462,11 @@
       window.foldList = fold;
       $('ulist-hide').onclick = function () { fold(true); };
       $('ulist-show').onclick = function () { fold(false); };
+      // 電腦版：點左邊導覽的「單元」，單元清單收起來時自動打開（手機版沒有這個清單，不影響）
+      document.addEventListener('click', function (e) {
+        if (window.innerWidth <= 900 || !e.target.closest('.rail a[data-view="units"]')) return;
+        if (shell.classList.contains('list-off')) fold(false);
+      }, true);
     })();
     // 關閉時先播淡出再藏起來（打開的動畫在 CSS）
     function closeAnimated(el, after) {
