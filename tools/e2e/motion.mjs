@@ -21,7 +21,7 @@ await p.click('.back'); await p.waitForSelector('.unit-tile'); await sleep(500);
 // 從單元選單切換
 await p.click('.unit-tile[data-id="l2-pat"]'); await p.waitForSelector('[data-start]');
 await p.click('#unit-menu-btn'); await p.click('#unit-menu a[data-id="l3-pat"]');
-await p.waitForFunction(() => /third/.test(document.querySelector('#app').textContent), null, { timeout: 5000 });
+await p.waitForFunction(() => /l3-pat/.test(location.hash) && /L3/.test((document.querySelector('.unit-head h1') || {}).textContent || ''), null, { timeout: 5000 });
 // 說明卡要和上面的標題靠左對齊（不是置中跑版）
 await p.click('#unit-menu-btn'); await p.click('#unit-menu a[data-id="l4-pat"]');
 await p.waitForSelector('.gate-card'); await sleep(500);

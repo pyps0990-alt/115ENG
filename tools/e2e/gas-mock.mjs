@@ -217,7 +217,7 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
   teachers.forEach((e) => t.appendRow([e, '']));
 
   return {
-    ctx, ss, sheets, calls, propMap, cacheMap, lock, publicDocs, admins, rtdb,
+    ctx, ss, sheets, calls, propMap, cacheMap, lock, publicDocs, admins, rtdb, secureDocs,
     setRoster(v) { rosterKeys = v; },
     post(body) { return JSON.parse(ctx.doPost({ postData: { contents: typeof body === 'string' ? body : JSON.stringify(body) } }).getContent()); },
     get(parameter) { return JSON.parse(ctx.doGet({ parameter }).getContent()); },

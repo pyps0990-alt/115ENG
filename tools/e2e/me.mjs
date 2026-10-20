@@ -49,11 +49,11 @@ await step('從成績頁點單元可進入；作答中名牌選單不會開', as
 });
 await step('首頁有進度摘要（1/5 已完成、缺交 1、待檢討 1）並可點進成績頁', async () => {
   await p.evaluate(() => { delete document.body.dataset.busy; location.hash = '#/'; });
-  await p.waitForSelector('.home-prog');
-  const t = (await p.textContent('.home-prog')).replace(/\s+/g, ' ');
+  await p.waitForSelector('.hp-link');
+  const t = (await p.textContent('.hp-link')).replace(/\s+/g, ' ');
   console.log('   ', t.trim());
   assert.match(t, /已完成 1 \/ 5/); assert.match(t, /缺交 1/); assert.match(t, /待檢討 1/);
-  await p.click('.home-prog'); await p.waitForSelector('.me-row');
+  await p.click('.hp-link'); await p.waitForSelector('.me-row');
 });
 await step('內容不存在時顯示分類的錯誤頁（沒有原始錯誤訊息）', async () => {
   const rows = g.sheets.get('content').rows;
@@ -69,7 +69,7 @@ await step('5 分鐘內重新整理不重複下載紀錄；超過就重新讀取
   const reads = () => p.evaluate(() => (window.__fb.log || []).filter((x) => x[0] === 'getDocs').length);
   await p.evaluate(() => { location.hash = '#/'; }); await p.reload(); await p.waitForSelector('.unit-tile'); await sleep(600);
   assert.equal(await reads(), 0, '剛讀過，重新整理不用再讀');
-  assert.match((await p.textContent('.home-prog')).replace(/\s+/g, ' '), /已完成 1 \/ 5/, '沿用裝置上的紀錄');
+  assert.match((await p.textContent('.hp-link')).replace(/\s+/g, ' '), /已完成 1 \/ 5/, '沿用裝置上的紀錄');
   await p.evaluate(() => { const h = JSON.parse(localStorage.getItem('b5p:histAt')); h.at -= 6 * 60 * 1000; localStorage.setItem('b5p:histAt', JSON.stringify(h)); });
   await p.reload(); await p.waitForSelector('.unit-tile'); await sleep(600);
   assert.equal(await reads(), 2, '超過 5 分鐘：重新讀取作答與檢討紀錄');

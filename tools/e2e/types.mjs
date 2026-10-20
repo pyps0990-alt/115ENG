@@ -36,21 +36,24 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
   await step(`[${label}] 句型練習：選擇、填空、應用 → 成績`, async () => {
     await p.goto(world.base + '/#/u/l2-pat'); await p.waitForSelector('[data-start]');
     await p.click('[data-start]');
+    // 正式測驗：每題作答（不會馬上對答案），按「下一題」，最後一題按「交卷」（比照課文理解）
     let done = false;
     for (let i = 0; i < 60 && !done; i++) {
       await sleep(200);
       if (await p.locator('.result').count()) { done = true; break; }
-      if (await p.locator('[data-next]:not([hidden])').count()) { await p.click('[data-next]'); continue; }
-      const opts = p.locator('.opt:not([disabled])');
-      if (await opts.count()) { await opts.nth(1).click(); continue; }
-      const fill = p.locator('.fill-input:not([disabled])');
-      if (await fill.count()) { await fill.fill('touching'); await p.keyboard.press('Enter'); if (i === 3) await shot('pat-fill'); continue; }
-      const words = p.locator('.chip-word:not([disabled])');
-      if (await words.count()) {
+      const ok = p.locator('dialog.modal [value="ok"]');
+      if (await ok.count()) { await ok.click(); continue; }
+      if (!(await p.locator('[data-next]').count())) continue;
+      const opts = p.locator('[data-q] .opt:not([disabled])');
+      const fill = p.locator('[data-q] .fill-input:not([disabled])');
+      const words = p.locator('[data-q] .bank .chip-word:not([disabled])');
+      if (await opts.count()) await opts.nth(1).click();
+      else if (await fill.count()) { await fill.fill('touching'); await shot('pat-fill'); }
+      else if (await words.count()) {
         await shot('pat-apply');
-        for (const t of ['It', 'was', 'her hard work', 'that', 'made', 'her', 'succeed']) await p.locator('.bank .chip-word:not([disabled])', { hasText: new RegExp('^' + t + '$') }).first().click();
-        await p.locator('[data-check]').click();
+        for (const t of ['It', 'was', 'her hard work', 'that', 'made', 'her', 'succeed']) { const w = p.locator('[data-q] .bank .chip-word:not([disabled])', { hasText: new RegExp('^' + t + '$') }).first(); if (await w.count()) await w.click(); }
       }
+      await p.click('[data-next]');
     }
     assert.ok(done, '沒有走到成績畫面'); await shot('pat-result');
   });
@@ -92,10 +95,8 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
     await chip('a', '.bank').click(); await chip('lot', '.bank').click();
     assert.equal(await lineText(), 'I like red apples a lot');
     assert.equal((await p.locator('.bank .chip-word').allTextContents()).join(' '), bankBefore, '下方單字順序不可改變');
-    await p.locator('[data-check]').click();
-    await p.waitForSelector('.build-line.ok');
     await shot('drag-ok');
-    await p.locator('[data-next]:not([hidden])').click(); await p.waitForSelector('.result', { timeout: 8000 });
+    await p.locator('[data-next]').click(); await p.waitForSelector('.result', { timeout: 8000 }); // 只有一題：直接交卷
   });
   await step(`[${label}] 沒通過要補考：65% 才通過，沒通過重新做正式測驗`, async () => {
     const c4 = await world.newContext({ viewport: { width: w, height: h } });
@@ -104,15 +105,13 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
       await p4.waitForSelector('.bank .chip-word');
       const seq = right ? ['I', 'like', 'red', 'apples', 'a', 'lot'] : ['lot', 'a', 'I'];
       for (const t of seq) await p4.locator('.bank .chip-word:not([disabled])', { hasText: new RegExp('^' + t + '$') }).first().click();
-      await p4.locator('[data-check]').click();
-      await p4.locator('[data-next]:not([hidden])').click(); await p4.waitForSelector('.result');
+      await p4.locator('[data-next]').click(); await p4.waitForSelector('.result');
     };
     await p4.goto(world.base + '/#/u/l2-drag'); await p4.waitForSelector('[data-start]');
     assert.match(await p4.locator('[data-start]').textContent(), /開始測驗/);
     await p4.click('[data-start]'); await answer(false);
-    assert.match(await p4.locator('.result').textContent(), /未通過/);
-    assert.match(await p4.locator('.result').textContent(), /需要補考/);
-    assert.equal(await p4.getByRole('button', { name: /馬上補考/ }).count(), 0); // 結果頁只有「開始檢討」
+    assert.match(await p4.locator('.result').textContent(), /還差 \d+%/); // 不寫「未通過」，寫還差多少
+    assert.equal(await p4.getByRole('button', { name: /馬上補考/ }).count(), 1); // 沒過：「馬上補考」是主要按鈕
     await p4.reload(); await p4.waitForSelector('[data-start]');
     assert.match(await p4.locator('[data-start]').textContent(), /開始補考/);
     await p4.click('[data-start]');
@@ -128,12 +127,15 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
     await p5.click('[data-start]');
     for (let i = 0; i < 40 && !(await p5.locator('.result').count()); i++) {
       await sleep(150);
-      if (await p5.locator('[data-next]:not([hidden])').count()) { await p5.click('[data-next]'); continue; }
-      const o = p5.locator('.opt:not([disabled])'); if (await o.count()) { await o.nth(2).click(); continue; } // 故意選錯
-      const f = p5.locator('.fill-input:not([disabled])'); if (await f.count()) { await f.fill('zzz'); await p5.keyboard.press('Enter'); continue; }
-      if (await p5.locator('.bank .chip-word:not([disabled])').count()) { await p5.locator('.bank .chip-word:not([disabled])').first().click(); await p5.locator('[data-check]').click(); }
+      const ok = p5.locator('dialog.modal [value="ok"]'); if (await ok.count()) { await ok.click(); continue; }
+      if (!(await p5.locator('[data-next]').count())) continue;
+      const o = p5.locator('[data-q] .opt:not([disabled])'); const f = p5.locator('[data-q] .fill-input:not([disabled])'); const b = p5.locator('[data-q] .bank .chip-word:not([disabled])');
+      if (await o.count()) await o.nth(2).click(); // 故意選錯
+      else if (await f.count()) await f.fill('zzz');
+      else if (await b.count()) await b.first().click();
+      await p5.click('[data-next]');
     }
-    assert.match(await p5.locator('.result').textContent(), /未通過/);
+    assert.match(await p5.locator('.result').textContent(), /還差 \d+%/);
     await sleep(1500); // 等成績送出再換頁
     await p5.goto(world.base + '/#/me'); await p5.waitForSelector('.me-row');
     assert.match(await p5.locator('.me-row.retake').first().textContent(), /需補考/);

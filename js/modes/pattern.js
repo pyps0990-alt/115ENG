@@ -4,7 +4,7 @@
 // 答案不公開（js/answers.js）
 import { typeLabel } from '../types.js';
 import { store } from '../storage.js';
-import { esc, nowStamp, wait, shuffle, centerInView } from '../util.js';
+import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog } from '../util.js';
 import { icon } from '../icons.js';
 import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
@@ -302,10 +302,10 @@ export function mount(stage, ctx) {
     const go = (i) => { qi = Math.max(0, Math.min(qs.length - 1, i)); show(); };
     prevBtn.addEventListener('click', () => go(qi - 1));
     dots.addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) go(Number(b.dataset.go)); });
-    nextBtn.addEventListener('click', () => {
+    nextBtn.addEventListener('click', async () => {
       if (qi < qs.length - 1) { go(qi + 1); return; }
       const left = qs.length - answered();
-      if (left && !confirm(`還有 ${left} 題沒作答（以答錯計），確定要交卷嗎？`)) { const i = qs.findIndex((q) => !(answers[q.id] && String(answers[q.id].yours || '').trim())); go(i); return; }
+      if (left && !(await confirmDialog({ title: '確定要交卷嗎？', body: `還有 <b>${left}</b> 題沒作答，沒作答的以答錯計。交卷後就不能修改。`, ok: '交卷', cancel: '回去作答' }))) { const i = qs.findIndex((q) => !(answers[q.id] && String(answers[q.id].yours || '').trim())); go(i); return; }
       submitOfficial();
     });
     if (onKey) document.removeEventListener('keydown', onKey);

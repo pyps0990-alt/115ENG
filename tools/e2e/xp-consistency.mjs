@@ -62,7 +62,7 @@ for (const name of fs.readdirSync(path.join(brain, 'samples'))) {
             const kind = picked[1];
             if ((brief.err === '詞性不合') !== (kind === 'pos')) fails.push(`${id}: 標籤「${brief.err}」但原因是「${picked[2]}」`);
           }
-          if (!/op op-ok[\s\S]*?✓/.test(full.html)) fails.push(`${id}: 正確答案沒有打勾`);
+          if (!/op op-ok[\s\S]*?op-mark" aria-label="正確"/.test(full.html)) fails.push(`${id}: 正確答案沒有打勾`);
           if (full.html.indexOf('xp-answer') < full.html.indexOf('op-list')) fails.push(`${id}: 答案卡不在最後`);
           if ((brief.html.match(/class="op[ "]/g) || []).length !== q.options.length) fails.push(`${id}: 作答中的選項數不對`);
           if (/op-zh">\s*</.test(html)) fails.push(`${id}: 有空的意思`);

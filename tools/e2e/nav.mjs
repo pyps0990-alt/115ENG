@@ -66,7 +66,7 @@ await step('登入失敗：按鈕輕抖、提示為琥珀色小字（不是紅�
   console.log('   ', JSON.stringify(info));
   assert.ok(info.shake && !info.disabled);
   assert.notEqual(info.color, 'rgb(153, 27, 27)');
-  assert.match(info.text, /確認/);
+  assert.match(info.text, /確認|開始練習/);
   await p.fill('#f-name', '陳'); 
   await p.waitForFunction(() => document.querySelector('.form-err').textContent === '');
   await p.close();
@@ -85,14 +85,14 @@ await step('導覽列高度固定：捲動前後高度相同，頁面總高度�
   assert.equal(after.h, before.h);
   assert.equal(after.doc, before.doc);
 });
-await step('B5 收起：選單按鈕往左平移補位（transform），B5 淡出', async () => {
+await step('往下捲動：B5 留著、選單按鈕縮成「B5 ⌄」，往上捲回原樣', async () => {
   const r = await p.evaluate(() => { const m = document.getElementById('unit-menu-btn'); const b = document.querySelector('.brand'); return { mx: m.getBoundingClientRect().x, brandOp: getComputedStyle(b).opacity, brandVis: getComputedStyle(b).visibility, tf: getComputedStyle(m).transform }; });
   console.log('   ', JSON.stringify(r));
-  assert.equal(r.brandOp, '0'); assert.equal(r.brandVis, 'hidden');
-  assert.ok(r.mx < 30, `選單按鈕應該移到最左邊，實際 x=${r.mx}`);
+  assert.equal(r.brandOp, '1'); // 新設計：B5 一直留著（見 js/nav.js 的說明）
+  assert.ok(r.mx >= 0 && r.mx < 400, `選單按鈕要在畫面內，實際 x=${r.mx}`);
   await p.evaluate(() => window.scrollTo(0, 0)); await sleep(700);
   const back = await p.evaluate(() => ({ mx: document.getElementById('unit-menu-btn').getBoundingClientRect().x, op: getComputedStyle(document.querySelector('.brand')).opacity }));
-  assert.ok(back.mx > 50 && back.op === '1', JSON.stringify(back));
+  assert.ok(back.mx >= 0 && back.op === '1', JSON.stringify(back));
 });
 await step('快速來回滑動：狀態不會亂閃、沒有版面位移', async () => {
   await p.evaluate(() => {

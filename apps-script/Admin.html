@@ -424,6 +424,16 @@
     .nv-quick { display:flex; flex-wrap:wrap; gap:6px; }
     .nv-quick button { border:1px solid var(--line-strong); background:#fff; color:var(--navy); border-radius:999px; padding:3px 11px; font:inherit; font-size:.8rem; font-weight:800; cursor:pointer; }
     .nv-quick button:hover { border-color:var(--navy); background:var(--navy-soft); }
+    .nv-quick button[aria-pressed="true"] { background:var(--navy); border-color:var(--navy); color:#fff; }
+    .nv-step { width:40px; height:40px; flex:none; border:1px solid var(--line-strong); border-radius:12px; background:#fff; color:var(--navy); font:inherit; font-size:1.2rem; font-weight:900; cursor:pointer; }
+    .nv-step:hover { border-color:var(--navy); background:var(--navy-soft); }
+    .nv-sum { margin:0 0 14px; padding:12px 14px; border-radius:12px; background:var(--navy-soft); color:var(--navy); font-weight:700; line-height:1.6; }
+    .nv-sum .empty { color:var(--bad-ink); font-weight:800; }
+    details.nv-more > summary { list-style:none; cursor:pointer; display:flex; align-items:baseline; gap:12px; }
+    details.nv-more > summary::-webkit-details-marker { display:none; }
+    details.nv-more > summary::after { content:""; margin-left:auto; width:10px; height:10px; border-right:2px solid var(--steel); border-bottom:2px solid var(--steel); transform:rotate(45deg); transition:transform .2s; align-self:center; }
+    details.nv-more[open] > summary::after { transform:rotate(-135deg); }
+    details.nv-more > summary b { font-size:1.05rem; color:var(--navy); }
     .nv-switch { display:flex; align-items:center; gap:12px; cursor:pointer; font-weight:800; color:var(--ink); }
     .nv-switch input[type=checkbox] { appearance:none; -webkit-appearance:none; width:44px; height:26px; border-radius:13px; border:0; background:var(--line-strong); position:relative; cursor:pointer; transition:background .2s; margin:0; flex:none; display:block; }
     .nv-switch input[type=checkbox]::before { content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.2); transition:transform .25s var(--ease-out); clip-path:none; transform:none; }
@@ -3743,18 +3753,25 @@
           }).join('') + '<small class="muted">同一段勾多種題型就隨機出現；各段分數平均分配，最多 3 段。</small>';
       }
       var flow = quizStages(u);
+      var per = n || Math.min(30, words || 30);
+      var MODE_HINT = { default: '固定三段：基礎（選擇）→ 進階（例句選字）→ 精熟（拼字）；可以拿掉不想考的段。', auto: '只勾要考的題型，系統自動由易到難排成段落。', custom: '自己決定分幾段、每段考哪些題型。' };
+      var sum = flow.length ? '學生每次考 <b>' + per + '</b> 個字，分 <b>' + flow.length + '</b> 段：' + flow.map(function (g) { return esc(g[0]); }).join(' → ') : '<span class="empty">沒有任何段落，學生看不到測驗</span>';
+      var presets = [20, 30].concat(words && words <= 100 && words !== 20 && words !== 30 ? [words] : []);
       return '<section class="card"><div class="nv-panel-h"><h2>出題方式</h2></div>' +
+        '<p class="nv-sum">' + sum + '</p>' +
         '<div class="nv-field"><div class="nv-seg" role="radiogroup" aria-label="出題方式">' +
           usSeg('us-mode', 'default', '預設三段', mode === 'default', 'data-us-mode') + usSeg('us-mode', 'auto', '勾題型，自動分段', mode === 'auto', 'data-us-mode') + usSeg('us-mode', 'custom', '自訂每一段', mode === 'custom', 'data-us-mode') +
-        '</div></div><div style="display:grid;gap:12px;margin-top:14px">' + body + '</div>' +
+        '</div><small class="muted">' + MODE_HINT[mode] + '</small></div><div style="display:grid;gap:12px;margin-top:14px">' + body + '</div>' +
         '<hr class="nv-sep"><div class="nv-grid">' +
-          '<div class="nv-field"><span class="lbl">每次考幾個字</span><div class="nv-num"><input type="number" min="1" max="100" data-us-words value="' + (n || '') + '" placeholder="30"> 個字</div>' +
+          '<div class="nv-field"><span class="lbl">每次考幾個字</span><div class="nv-num"><button type="button" class="nv-step" data-us-wstep="-5" aria-label="少 5 個">−</button><input type="number" min="1" max="100" data-us-words value="' + (n || '') + '" placeholder="' + per + '"' + (words ? ' data-max="' + Math.min(100, words) + '"' : '') + '><button type="button" class="nv-step" data-us-wstep="5" aria-label="多 5 個">+</button> 個字</div>' +
+            '<div class="nv-quick">' + presets.map(function (p) { return '<button type="button" data-us-wset="' + p + '" aria-pressed="' + (per === p) + '">' + (p === words ? '全部 ' + p : p) + '</button>'; }).join('') + '</div>' +
             '<small>' + (words ? '這個單元有 ' + words + ' 個字；' : '') + '空白＝最多 30 個。字比較多時每次抽題，下次優先考沒考過的。</small></div>' +
-          '<div class="nv-field"><span class="lbl">學生會考</span>' +
+          '<div class="nv-field" style="grid-column:1/-1"><span class="lbl">學生會考</span>' +
             (flow.length ? '<div class="nv-flow">' + flow.map(function (g, k) { return (k ? '<span class="arrow" aria-hidden="true">→</span>' : '') + '<div class="step"><b>' + esc(g[0]) + '</b><span>' + esc(g[1].map(typeName).join('、')) + '</span></div>'; }).join('') + '</div>'
               : '<span class="empty">沒有任何段落，學生看不到測驗</span>') + '</div>' +
         '</div></section>';
     }
+    var usMoreOpen = false;
     function drawUnitSettings() {
       var box = $('us-form'); if (!box) return;
       var i = usIndex(), u = units[i]; if (!u) { box.innerHTML = ''; return; }
@@ -3764,9 +3781,9 @@
         '<div class="nv-grid">' +
           '<div class="nv-field" style="grid-column:1/-1"><label class="nv-switch"><input type="checkbox" data-us-k="visible"' + (u.visible ? ' checked' : '') + '><span>顯示在學生首頁<small>' + (u.visible ? '學生看得到這個單元' : '目前隱藏，學生看不到') + '</small></span></label></div>' +
           '<div class="nv-field"><label class="lbl" for="us-open">開放時間</label><input type="datetime-local" id="us-open" data-us-k="openAt" value="' + esc(u.openAt || '') + '">' +
-            '<div class="nv-quick"><button type="button" data-us-set="openAt" data-v="now">現在</button><button type="button" data-us-set="openAt" data-v="">不限</button></div><small>空白＝一顯示就能作答</small></div>' +
+            '<div class="nv-quick"><button type="button" data-us-set="openAt" data-v="now">現在</button><button type="button" data-us-set="openAt" data-v="" aria-pressed="' + !u.openAt + '">不限</button></div><small>空白＝一顯示就能作答</small></div>' +
           '<div class="nv-field"><label class="lbl" for="us-close">截止時間</label><input type="datetime-local" id="us-close" data-us-k="closeAt" value="' + esc(u.closeAt || '') + '">' +
-            '<div class="nv-quick"><button type="button" data-us-set="closeAt" data-v="0">今天 23:59</button><button type="button" data-us-set="closeAt" data-v="7">一週後</button><button type="button" data-us-set="closeAt" data-v="14">兩週後</button><button type="button" data-us-set="closeAt" data-v="">不限</button></div>' +
+            '<div class="nv-quick">' + [['0', '今天 23:59'], ['7', '一週後'], ['14', '兩週後'], ['', '不限']].map(function (o) { return '<button type="button" data-us-set="closeAt" data-v="' + o[0] + '" aria-pressed="' + ((u.closeAt || '') === (o[0] === '' ? '' : endOfDay(Number(o[0])))) + '">' + o[1] + '</button>'; }).join('') + '</div>' +
             '<small>截止後不能做正式測驗，做過的人仍可檢討與複習</small></div>' +
         '</div></section>';
       if (u.type === 'vocab') h += usQuizHTML(u);
@@ -3777,12 +3794,13 @@
           (u.type === 'reading' ? '<div class="nv-field"><label class="nv-switch"><input type="checkbox" data-us-annotate' + (ann ? ' checked' : '') + '><span>文章劃記工具<small>學生可以在文章上畫螢光筆、底線、便利貼；不計分</small></span></label></div>' : '') +
         '</div></section>';
       }
-      h += '<section class="card"><div class="nv-panel-h"><h2>單元資料</h2></div><div class="nv-grid">' +
+      h += '<details class="card nv-more"' + (usMoreOpen ? ' open' : '') + '><summary><b>單元資料</b><span class="muted small">名稱、課次、類型' + (u.custom ? '、刪除單元' : '') + '</span></summary><div class="nv-grid" style="margin-top:14px">' +
         '<div class="nv-field"><label class="lbl" for="us-title">名稱</label><input type="text" id="us-title" data-us-k="title" value="' + esc(u.title || u.id) + '"><small>代號 ' + esc(u.id) + '（不能改）</small></div>' +
         (u.custom ? '<div class="nv-field"><label class="lbl" for="us-lesson">課次</label><input type="text" id="us-lesson" data-us-k="lesson" data-k="lesson" maxlength="20" lang="en" inputmode="latin" value="' + esc(u.lesson) + '"><small>填數字顯示成 L1、L2…；英文照原樣（例如 R-X）</small></div>' +
           '<div class="nv-field"><span class="lbl">類型</span><div class="nv-seg" role="radiogroup" aria-label="類型">' + Object.keys(TYPE_NAMES).map(function (t) { return usSeg('us-type', t, TYPE_NAMES[t], u.type === t, 'data-us-type'); }).join('') + '</div><small>改類型後，原本匯入的題目格式可能不符，需要重新匯入</small></div>' : '') +
-        '</div></section>';
-      if (u.custom) h += '<section class="card nv-danger-card"><div class="nv-danger"><p><b style="color:var(--bad-ink)">刪除這個單元</b><br>題目會一起清除；學生成績保留到學期結算時再決定。按「儲存」後才會真的刪除。</p><button class="btn danger" type="button" data-us-del>刪除單元</button></div></section>';
+        '</div>';
+      if (u.custom) h += '<div class="nv-danger" style="margin-top:18px;padding-top:16px;border-top:1px solid #F3D1D1"><p><b style="color:var(--bad-ink)">刪除這個單元</b><br>題目會一起清除；學生成績保留到學期結算時再決定。按「儲存」後才會真的刪除。</p><button class="btn danger" type="button" data-us-del>刪除單元</button></div>';
+      h += '</details>';
       var keep = document.activeElement && box.contains(document.activeElement) ? document.activeElement.id : '';
       box.innerHTML = h;
       if (keep && $(keep)) $(keep).focus();
@@ -3791,8 +3809,15 @@
       var old = cardOf('units'); old.hidden = true;
       var box = document.createElement('div'); box.id = 'us-form'; box.className = 'nv';
       slot('settings').appendChild(box);
+      box.addEventListener('toggle', function (e) { if (e.target.classList && e.target.classList.contains('nv-more')) usMoreOpen = e.target.open; }, true);
       box.addEventListener('click', async function (e) {
         var u = units[usIndex()]; if (!u) return;
+        var ws = e.target.closest('[data-us-wset], [data-us-wstep]'), wEl = box.querySelector('[data-us-words]');
+        if (ws && wEl) {
+          var cur = Math.floor(Number(wEl.value)) || Number(wEl.placeholder) || 30;
+          wEl.value = ws.dataset.usWset ? ws.dataset.usWset : String(Math.max(1, Math.min(Number(wEl.dataset.max) || 100, cur + Number(ws.dataset.usWstep))));
+          quizReadUS(u); usDirty(); render(); return;
+        }
         var b = e.target.closest('[data-us-set]');
         if (b) { var v = b.dataset.v; u[b.dataset.usSet] = v === 'now' ? twLocal(Date.now()) : v === '' ? '' : endOfDay(Number(v)); usDirty(); render(); return; }
         if (e.target.closest('[data-us-del]')) {
@@ -4446,8 +4471,29 @@
       // 電腦版：點左邊導覽的「單元」，單元清單收起來時自動打開（手機版沒有這個清單，不影響）
       document.addEventListener('click', function (e) {
         if (window.innerWidth <= 900 || !e.target.closest('.rail a[data-view="units"]')) return;
-        if (shell.classList.contains('list-off')) fold(false);
+        if (shell.classList.contains('list-off')) { peek = false; fold(false); }
       }, true);
+      // 電腦版：清單收起來時，滑鼠停在左邊導覽列約 0.3 秒，清單自動滑出；滑鼠離開導覽列和清單後自動收回
+      var peek = false, inT = null, outT = null, list = document.querySelector('.ulist');
+      var hoverable = function () { return window.innerWidth > 900 && window.matchMedia('(hover: hover)').matches; };
+      var enter = function () {
+        clearTimeout(outT);
+        if (!hoverable() || !shell.classList.contains('list-off')) return;
+        clearTimeout(inT); inT = setTimeout(function () { if (shell.classList.contains('list-off')) { peek = true; fold(false); } }, 300);
+      };
+      var leave = function (e) {
+        clearTimeout(inT);
+        if (!peek) return;
+        var to = e.relatedTarget;
+        if (to && to.closest && to.closest('.rail, .ulist, .menu-list, .who-menu, .sys-panel')) return;
+        clearTimeout(outT); outT = setTimeout(function () { if (peek) { peek = false; fold(true); } }, 450);
+      };
+      var rail = document.querySelector('.rail');
+      [rail, list].forEach(function (el) { if (el) { el.addEventListener('mouseenter', enter); el.addEventListener('mouseleave', leave); } });
+      if (list) list.addEventListener('mouseenter', function () { clearTimeout(outT); });
+      // 手動按了收起／打開，就不再自動收回
+      $('ulist-hide').addEventListener('click', function () { peek = false; clearTimeout(inT); });
+      $('ulist-show').addEventListener('click', function () { peek = false; });
     })();
     // 關閉時先播淡出再藏起來（打開的動畫在 CSS）
     function closeAnimated(el, after) {

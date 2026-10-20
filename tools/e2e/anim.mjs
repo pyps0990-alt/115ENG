@@ -57,6 +57,7 @@ for (const reduced of [false, true]) {
   await p.evaluate(() => { delete document.body.dataset.busy; location.hash = '#/me'; }); await p.waitForSelector('.me-row');
   await settled(p, tag + '我的成績', reduced);
   await p.evaluate(() => { location.hash = '#/'; }); await p.waitForSelector('.unit-tile');
+  await p.mouse.move(1, 1); // 滑鼠停在單元卡上會有懸停浮起，不算動畫停在中途
   await settled(p, tag + '回到首頁', reduced);
   const bad = p.errors.filter((e) => !/favicon/.test(e));
   assert.equal(bad.length, 0, bad.join('\n'));

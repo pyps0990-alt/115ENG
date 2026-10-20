@@ -58,7 +58,8 @@ export async function startWorld({ scriptLatency = 1200, teachers = ['teacher@ex
   world.newPage = async (ctx, { student = false, staff = null } = {}) => {
     const page = await ctx.newPage();
     const errors = [];
-    page.on('console', (m) => { if (m.type() === 'error') errors.push(`console.error: ${m.text()}`); });
+    // 還沒產生分析的單元，讀 analysis_ 文件會得到 404：正式網站也一樣，屬於正常情況
+    page.on('console', (m) => { if (m.type() === 'error' && !/\/public\/analysis_/.test((m.location() || {}).url || '')) errors.push(`console.error: ${m.text()}`); });
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message} ${process.env.STACK ? e.stack : ''}`));
     page.on('requestfailed', (r) => errors.push(`requestfailed: ${r.url()} ${r.failure() && r.failure().errorText}`));
     page.errors = errors;
@@ -116,6 +117,37 @@ async function routes(ctx, world) {
       return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: '{"writeResults":[{}],"commitTime":"2026-01-01T00:00:00Z"}' });
     }
     return route.fulfill({ status: 404, headers: cors, body: '{}' });
+  });
+  // 假的伺服器計分（Cloud Function functions/index.js）：用網站同一套 js/grade.js 判分，再轉送假的 Apps Script。絕不連到正式伺服器
+  const { gradeSubmission } = await import('../../js/grade.js');
+  const { flattenPattern, judge, applyScore } = await import('../../js/components/items.js');
+  world.fnSeen = world.fnSeen || new Set();
+  await ctx.route(/https:\/\/[^/]*cloudfunctions\.net\/.*/, async (route) => {
+    const req = route.request();
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    const send = (code, body) => route.fulfill({ status: code, headers: cors, contentType: 'application/json', body: JSON.stringify(body) });
+    if (world.fnDown) return route.abort('failed');
+    if (req.method() === 'GET') return send(200, { ok: true, seen: world.fnSeen.has(new URL(req.url()).searchParams.get('check')) });
+    const d = JSON.parse(req.postData() || '{}');
+    const parse = (k) => { try { return JSON.parse(world.docs[k] || 'null'); } catch { return null; } };
+    // 跟正式伺服器一樣用含答案的完整版（secure/）判分；沒有完整版（單字）才用公開版
+    const sec = world.gas.secureDocs && world.gas.secureDocs.get('content_' + d.unit);
+    let c = null; try { c = sec ? JSON.parse(sec.json.stringValue) : parse('content_' + d.unit); } catch { c = parse('content_' + d.unit); }
+    const data = c && c.data ? c.data : c, config = parse('config') || {};
+    if (!data) return send(404, { ok: false, error: '找不到這個單元的題目' });
+    if (d.op === 'key') return send(200, { ok: true, v: (c && c.v) || '', data });
+    if (d.op === 'answer') {
+      const q = flattenPattern(data.items || []).find((x) => x.id === d.qid);
+      if (!q) return send(404, { ok: false, error: '題庫裡找不到這一題' });
+      return send(200, { ok: true, got: q.kind === 'apply' ? applyScore(q, d.yours) : (judge(q, d.yours) ? 1 : 0), q });
+    }
+    if (world.fnSeen.has(d.attemptId)) return send(200, { ok: true, duplicate: true });
+    const g = gradeSubmission(d, data, config);
+    if (!g) return send(400, { ok: false, error: '題型與題庫不符' });
+    world.fnSeen.add(d.attemptId);
+    // 轉送試算表時附上伺服器密語（正式環境在 private/fn；測試用固定值）
+    try { world.gas.cacheMap.set('fn-secret', 'e2e-secret'); world.gas.post({ ...d, score: g.score, total: g.total, pct: g.pct, details: g.details, serverGraded: true, sig: 'e2e-secret', serverCheck: (g.flags || []).join('；') }); } catch { /* 試算表轉送失敗不影響 */ }
+    return send(200, { ok: true, score: g.score, total: g.total, pct: g.pct, details: g.details, ...(d.mode === 'vocab' ? {} : { data, v: (c && c.v) || '' }) });
   });
   await ctx.route(/https:\/\/script\.google\.com\/macros\/.*/, async (route) => {
     const req = route.request();

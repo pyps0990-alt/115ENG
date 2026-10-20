@@ -15,6 +15,7 @@ const code = [
   grab('var PROMPT_COMMON', '    function copyAiPrompt'),
   grab('function csvToTsv(text)', '    function readTextFile'),
   grab('function serVocab(d)', '    function fillForm'),
+  grab('var QUIZ_AUTO', ';') + ';', // 單字預設三段（aiPromptFor 沒有單元時用）
 ].join('\n').replace(/function \$\(id\) \{[^\n]*\n/, '').replace(/\$\('t-example'\)\.onclick = function[\s\S]*?\n    };\n/, '').replace(/function textShow[\s\S]*?\n    }\n    /, '');
 const els = { 't-topic': { value: '主題' }, 't-text': { value: '' }, 'imp-report': { innerHTML: '' } };
 const ctx = { $: (id) => els[id] || (els[id] = { value: '' }), console, impUnit: () => ({ title: 'U' }) };

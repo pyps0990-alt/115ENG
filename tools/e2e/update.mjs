@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert';
 import { startWorld, sleep } from './harness.mjs';
+import { adminReady } from './admin-ui.mjs';
 import { fileURLToPath } from 'node:url';
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const vf = ROOT + 'version.json';
@@ -38,7 +39,7 @@ try {
   // 3) 老師後台：只提示，不自動重新載入
   const t = await world.newPage(ctx, { staff: 'teacher@example.com' });
   let tl = 0; t.on('load', () => { tl++; });
-  await t.goto(world.base + '/admin.html'); await t.waitForSelector('#units tr[data-i]', { timeout: 15000 });
+  await t.goto(world.base + '/admin.html'); await adminReady(t);
   await sleep(1500);
   setV('cccccccccccc'); await t.evaluate(() => window.dispatchEvent(new Event('focus')));
   await t.waitForSelector('.update-bar', { timeout: 4000 });
@@ -46,7 +47,7 @@ try {
   assert.equal(tl, tb, '後台不能自動重新載入');
   assert.match(await t.locator('.update-bar').textContent(), /先儲存/);
   await t.click('.update-bar button');
-  await t.waitForSelector('#units tr[data-i]', { timeout: 15000 });
+  await adminReady(t);
   assert(tl > tb, '按「立即更新」會重新載入');
   const bad = p.errors.concat(t.errors).filter((e) => !/favicon|ERR_ABORTED/.test(e));
   assert.equal(bad.length, 0, bad.join('\n'));

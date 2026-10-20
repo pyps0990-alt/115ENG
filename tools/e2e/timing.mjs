@@ -1,5 +1,6 @@
 // 量測「按下儲存」到各個階段的時間：node tools/e2e/timing.mjs
 import { startWorld, sleep } from './harness.mjs';
+import { adminReady, setVisible } from './admin-ui.mjs';
 const world = await startWorld({ scriptLatency: 1200 });
 const g = world.gas;
 g.api('saveAllSettings', [[], [
@@ -18,7 +19,7 @@ await student.evaluate(() => {
   window.addEventListener('config-updated', (e) => window.__log.push(['event', Math.round(performance.now()), e.detail.units['a-voc'].visible]));
 });
 const teacher = await world.newPage(ctx, { staff: 'teacher@example.com' });
-await teacher.goto(world.base + '/admin.html'); await teacher.waitForSelector('#units tr[data-i]');
+await teacher.goto(world.base + '/admin.html'); await adminReady(teacher);
 await teacher.evaluate(() => {
   window.__t = [];
   const mark = (k) => window.__t.push([k, Math.round(performance.now())]);
@@ -26,8 +27,7 @@ await teacher.evaluate(() => {
   document.getElementById('save').addEventListener('click', () => mark('click-handler'), true);
 });
 for (let i = 0; i < 4; i++) {
-  const box = teacher.locator('#units tr[data-i]').first().locator('input[data-k="visible"]');
-  if (i % 2 === 0) await box.uncheck(); else await box.check();
+  await setVisible(teacher, 'a-voc', i % 2 !== 0);
   await teacher.evaluate(() => { window.__t.length = 0; });
   await student.evaluate(() => { window.__seen = null; window.addEventListener('config-updated', () => { window.__seen = Math.round(performance.now()); }, { once: true }); });
   const t0 = Date.now();

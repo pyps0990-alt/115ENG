@@ -2,6 +2,7 @@
 // 1) 學生端各頁面沒有錯誤、沒有橫向捲動   2) 老師儲存 → 學生同步的速度與正確性（含失敗情境）
 import assert from 'node:assert';
 import { startWorld, sleep } from './harness.mjs';
+import { adminReady, setVisible, save, confirmAsk, openImport } from './admin-ui.mjs';
 
 const results = [];
 const step = async (name, fn) => {
@@ -89,8 +90,8 @@ await step('打開單字單元可以開始測驗', async () => {
 const teacherPage = await world.newPage(ctx, { staff: 'teacher@example.com' });
 await step('老師後台載入（單元清單、快速同步可用）', async () => {
   await teacherPage.goto(world.base + '/admin.html');
-  await teacherPage.waitForSelector('#units tr[data-i]', { timeout: 15000 });
-  assert.equal(await teacherPage.locator('#units tr[data-i]').count(), 3);
+  await adminReady(teacherPage);
+  assert.equal(await teacherPage.locator('.u-row[data-unit]').count(), 3);
   assert.ok(await teacherPage.evaluate(() => typeof window.fastPublish === 'function'));
   assert.ok(await teacherPage.evaluate(() => cfgBase && cfgBase.units && cfgBase.units['l1-voc']));
 });
@@ -100,9 +101,9 @@ const waitTile = (id) => studentPage.waitForSelector(`.unit-tile[data-id="${id}"
 
 await step('取消勾選「顯示」→ 學生首頁的單元很快消失', async () => {
   const before = world.directWrites;
-  await teacherPage.locator('#units tr').filter({ hasText: 'L2' }).locator('input[data-k="visible"]').uncheck();
+  await setVisible(teacherPage, 'l2-voc', false);
   const t0 = Date.now();
-  await teacherPage.click('#save');
+  await save(teacherPage);
   await waitTileGone('l2-voc');
   const studentMs = Date.now() - t0;
   await teacherPage.waitForFunction(() => /^✓ 已儲存/.test(document.getElementById('msg').textContent), null, { timeout: 15000 });
@@ -120,9 +121,9 @@ await step('取消勾選「顯示」→ 學生首頁的單元很快消失', asyn
 });
 
 await step('重新勾選顯示 → 單元回來', async () => {
-  await teacherPage.locator('#units tr').filter({ hasText: 'L2' }).locator('input[data-k="visible"]').check();
+  await setVisible(teacherPage, 'l2-voc', true);
   const t0 = Date.now();
-  await teacherPage.click('#save');
+  await save(teacherPage);
   const tClick = Date.now();
   await waitTile('l2-voc');
   console.log(`   學生看到變化：${Date.now() - t0}ms（寫入事件：${world.log.filter((x) => x.t >= tClick - 50).map((x) => `${x.from}+${x.t - t0}ms`).join('、') || '尚無'}）`);
@@ -130,8 +131,7 @@ await step('重新勾選顯示 → 單元回來', async () => {
 });
 
 await step('匯入內容 → 學生的設定與題目同步（同一個請求）', async () => {
-  await teacherPage.click('nav button[data-tab="import"]');
-  await teacherPage.selectOption('#imp-unit', 'l2-voc');
+  await openImport(teacherPage, 'l2-voc');
   await teacherPage.fill('#v-text', ['grape\tn.\t葡萄\tI ate a [grape].\t我吃了葡萄。', 'peach\tn.\t桃子\tThe [peach] is sweet.\t桃子很甜。', 'lemon\tn.\t檸檬\tA [lemon] is sour.\t檸檬很酸。', 'melon\tn.\t哈密瓜\tWe shared a [melon].\t我們分著吃。'].join('\n'));
   await teacherPage.click('#imp-check');
   await teacherPage.waitForFunction(() => !document.getElementById('imp-save').disabled);
@@ -157,22 +157,21 @@ await step('學生在首頁時，老師改單元設定 → 首頁不會閃爍重
   await studentPage.waitForSelector('.unit-tile');
   await sleep(500);
   await studentPage.evaluate(() => { window.__redraws = 0; new MutationObserver(() => { window.__redraws++; }).observe(document.getElementById('lessons'), { childList: true, subtree: false }); });
-  await teacherPage.click('nav button[data-tab="settings"]');
-  await teacherPage.locator('#units tr').filter({ hasText: 'l1-voc' }).locator('input[data-k="visible"]').uncheck();
-  await teacherPage.click('#save');
+  await setVisible(teacherPage, 'l1-voc', false);
+  await save(teacherPage);
   await teacherPage.waitForFunction(() => /^✓ 已儲存/.test(document.getElementById('msg').textContent), null, { timeout: 15000 });
   await sleep(600);
   const redraws = await studentPage.evaluate(() => window.__redraws);
   assert.ok(redraws <= 1, `首頁重畫了 ${redraws} 次（瀏覽器與伺服器先後寫入的同一份設定不該重畫兩次）`);
-  await teacherPage.locator('#units tr').filter({ hasText: 'l1-voc' }).locator('input[data-k="visible"]').check();
-  await teacherPage.click('#save');
+  await setVisible(teacherPage, 'l1-voc', true);
+  await save(teacherPage);
   await teacherPage.waitForFunction(() => /^✓ 已儲存/.test(document.getElementById('msg').textContent), null, { timeout: 15000 });
 });
 
 await step('試算表儲存失敗 → 顯示錯誤，學生網站還原成試算表的樣子', async () => {
   world.scriptFail = true;
-  await teacherPage.locator('#units tr').filter({ hasText: 'L2' }).locator('input[data-k="visible"]').uncheck();
-  await teacherPage.click('#save');
+  await setVisible(teacherPage, 'l2-voc', false);
+  await save(teacherPage);
   await teacherPage.waitForFunction(() => /儲存失敗/.test(document.getElementById('msg').textContent), null, { timeout: 15000 });
   world.scriptFail = false;
   await sleep(2600); // 還原：重新讀取試算表 → 寫回
@@ -180,13 +179,13 @@ await step('試算表儲存失敗 → 顯示錯誤，學生網站還原成試算
   assert.equal(cfg.units['l2-voc'].visible, true, '學生網站要還原成試算表現在的樣子');
   assert.equal(await studentPage.locator('.unit-tile').count(), 3);
   // 恢復畫面上的勾選狀態以便後面的測試
-  await teacherPage.reload(); await teacherPage.waitForSelector('#units tr[data-i]');
+  await teacherPage.reload(); await adminReady(teacherPage);
 });
 
 await step('Firestore 規則還沒更新（403）→ 退回原本的流程，仍然儲存成功並給提示', async () => {
   world.rulesAllowStaffWrite = false;
-  await teacherPage.locator('#units tr').filter({ hasText: 'L2' }).locator('input[data-k="visible"]').uncheck();
-  await teacherPage.click('#save');
+  await setVisible(teacherPage, 'l2-voc', false);
+  await save(teacherPage);
   await teacherPage.waitForFunction(() => /firestore\.rules/.test(document.getElementById('msg').textContent) || /^✓ 已儲存/.test(document.getElementById('msg').textContent), null, { timeout: 20000 });
   const cfg = JSON.parse(world.docs.config);
   assert.equal(cfg.units['l2-voc'].visible, false, '伺服器仍要把設定寫給學生');
@@ -194,7 +193,7 @@ await step('Firestore 規則還沒更新（403）→ 退回原本的流程，仍
 });
 
 await step('快速連按兩次儲存：第二次被擋住並提示，不會互相蓋掉', async () => {
-  await teacherPage.locator('#units tr').filter({ hasText: 'L2' }).locator('input[data-k="visible"]').check();
+  await setVisible(teacherPage, 'l2-voc', true);
   await teacherPage.evaluate(() => { document.getElementById('save').click(); document.getElementById('save').click(); });
   await teacherPage.waitForFunction(() => /^✓ 已儲存/.test(document.getElementById('msg').textContent) || /還沒完成/.test(document.getElementById('msg').textContent), null, { timeout: 15000 });
   await teacherPage.waitForFunction(() => /^✓ 已儲存/.test(document.getElementById('msg').textContent), null, { timeout: 15000 });
@@ -204,17 +203,17 @@ await step('快速連按兩次儲存：第二次被擋住並提示，不會互�
 await step('補作時間儲存', async () => {
   await teacherPage.evaluate(() => { exts = [{ unit: 'l1-voc', cls: '306', seat: '20', until: '2026-12-31T23:00', note: '' }]; exRender(); });
   const t0 = Date.now();
-  await teacherPage.click('#ex-save');
+  await teacherPage.evaluate(() => document.getElementById('ex-save').click()); // 新版的補作在單元的「補作」分頁，由儲存列觸發同一個儲存
   await teacherPage.waitForFunction(() => /^✓ 已儲存/.test(document.getElementById('ex-msg').textContent), null, { timeout: 15000 });
   console.log(`   ${Date.now() - t0}ms`);
   assert.equal(JSON.parse(world.docs.config).ext['l1-voc']['306-20'], '2026-12-31T23:00');
 });
 
 await step('清除單元題目', async () => {
-  await teacherPage.click('nav button[data-tab="import"]');
-  await teacherPage.selectOption('#imp-unit', 'l2-voc');
-  teacherPage.once('dialog', (d) => d.accept());
+  await openImport(teacherPage, 'l2-voc');
+  await teacherPage.click('#imp-more > summary');
   await teacherPage.click('#imp-reset');
+  await confirmAsk(teacherPage); // 新版用網站自己的確認對話框
   await teacherPage.waitForFunction(() => /已清除/.test(document.getElementById('imp-msg').textContent), null, { timeout: 15000 });
   assert.equal(JSON.parse(world.docs.config).content['l2-voc'], undefined);
 });
