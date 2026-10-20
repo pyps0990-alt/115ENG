@@ -85,7 +85,7 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
         <p class="gate-lead">${lead}</p>
         ${bestNow != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${bestNow}%</b></div>` : ''}
         ${timeNote ? `<p class="gate-note">${timeNote}</p>` : ''}
-        <div class="btn-row">${buttons}${soon ? '<span class="st-box st-deadline" data-deadline hidden></span>' : ''}</div>
+        <div class="btn-row">${buttons}</div>${soon ? '<p class="gate-dl"><span class="st-deadline" data-deadline hidden></span></p>' : ''}
         <p class="who-line">以 <b>${esc(s.name)}</b>（${esc(s.cls)} 班 ${esc(s.seat)} 號）的身分作答 <button class="link-btn edit" type="button">不是我？切換</button></p>
         <details class="gate-rules"${firstTime ? ' open' : ''}><summary>測驗規則</summary>
           <ul class="rules">${rules.map((r) => `<li>${r}</li>`).join('')}

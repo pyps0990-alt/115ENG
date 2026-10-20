@@ -1289,6 +1289,11 @@ body.integrity-block::after {
 .st-deadline { grid-area: dl; background: var(--amber-soft); color: var(--amber-ink); }
 .st-deadline.urgent { background: var(--bad-soft); color: var(--bad-ink); animation: st-urge 1.6s ease-in-out infinite; }
 .st-deadline[hidden] { display: none; }
+/* 入口頁的截止提醒：純文字，不做成像按鈕的膠囊（原則 6） */
+.gate-dl { margin: 10px 0 0; }
+.gate-dl .st-deadline { display: inline-flex; align-items: center; gap: 6px; background: none; padding: 0; height: auto; font-weight: 800; font-size: .95rem; animation: none; }
+.gate-dl .st-deadline.urgent { background: none; }
+.gate-dl .st-deadline .ic { width: 17px; height: 17px; }
 @keyframes st-urge { 50% { background: #FECACA; } }
 .st-note { margin: 0 0 14px; font-size: .86rem; font-weight: 700; color: var(--steel); }
 .st-note.official { color: var(--navy); }

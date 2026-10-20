@@ -147,7 +147,7 @@
     .br-steps li.done::before { content:''; display:inline-block; width:.9em; height:.9em; margin-right:4px; vertical-align:-.1em; background:currentColor; -webkit-mask:var(--ic-check) center/contain no-repeat; mask:var(--ic-check) center/contain no-repeat; }
     :root { --ic-check:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E"); }
     .br-track { height:8px; border-radius:999px; background:var(--line); overflow:hidden; }
-    .br-fill { height:100%; width:0; border-radius:999px; background:var(--ink); transition:width .6s ease; }
+    .br-fill { height:100%; width:100%; border-radius:999px; background:var(--ink); transform:scaleX(0); transform-origin:left; transition:transform .6s ease; }
     .br-info { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:.85rem; color:var(--muted); font-variant-numeric:tabular-nums; }
     .msg.ok { color:var(--good); } .msg.err { color:var(--bad); }
     .muted { color:var(--muted); }
@@ -1056,6 +1056,26 @@
       .rail .rail-ic { transform:scale(calc(var(--mag, 1) * var(--mini, 1))) !important; }
     }
     @media (max-width:900px) and (prefers-reduced-motion: reduce) { .lg-label { transition:none !important; } }
+    /* 確認對話框 */
+    dialog.ask { border:0; padding:0; border-radius:20px; width:min(420px, calc(100vw - 32px)); background:#fff; color:var(--ink); box-shadow:0 18px 40px -12px rgba(15,23,42,.35); animation:ask-in .2s var(--ease-out) both; }
+    dialog.ask::backdrop { background:rgba(15,23,42,.35); }
+    dialog.ask.closing { animation:ask-out .14s ease-in both; }
+    .ask-body { padding:22px 22px 6px; display:grid; gap:8px; }
+    .ask-title { font-size:1.05rem; line-height:1.45; }
+    .ask-body p { margin:0; color:var(--steel); font-size:.92rem; line-height:1.55; }
+    .ask-in { margin-top:6px; height:44px; padding:0 12px; border:1px solid var(--line); border-radius:12px; font:inherit; }
+    .ask-btns { display:flex; justify-content:flex-end; gap:8px; padding:14px 22px 20px; }
+    .ask-btns .btn { min-height:44px; padding:0 18px; }
+    .btn.danger-solid { background:var(--bad); color:#fff; border-color:var(--bad); }
+    @keyframes ask-in { from { opacity:0; transform:translateY(8px) scale(.98); } }
+    @keyframes ask-out { to { opacity:0; transform:scale(.98); } }
+    @media (prefers-reduced-motion: reduce) { dialog.ask, dialog.ask.closing { animation:none; } }
+    /* 成績不只靠顏色：未過加 ✗、通過加 ✓ */
+    .score-ok::before, .score-no::before, .usc-score.ok::before, .usc-score.no::before { content:""; display:inline-block; width:.8em; height:.8em; margin-right:3px; vertical-align:-.05em; background:currentColor; -webkit-mask:var(--ic-check) center/contain no-repeat; mask:var(--ic-check) center/contain no-repeat; }
+    .score-no::before, .usc-score.no::before { -webkit-mask-image:var(--ic-x); mask-image:var(--ic-x); }
+    :root { --ic-x:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M18 6L6 18M6 6l12 12'/%3E%3C/svg%3E"); }
+    /* 手機：讀取中的提示縮成一行，不要佔掉第一屏 */
+    @media (max-width:900px) { .stale-note { margin:0 0 8px; padding:6px 12px; font-size:.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-radius:10px; } }
   </style>
 </head>
 <body>
@@ -1672,11 +1692,11 @@
       $('msg').textContent = '尚未儲存'; $('msg').className = 'msg';
     });
 
-    $('units').addEventListener('click', function (e) {
+    $('units').addEventListener('click', async function (e) {
       var btn = e.target.closest('[data-del]'); if (!btn) return;
       var tr = btn.closest('tr'); var i = Number(tr.dataset.i);
       var u = units[i];
-      if (!confirm('確定要刪除「' + (u.title || u.id) + '」嗎？（按「儲存設定」後，這個單元的代號和匯入的題目會一起清除；學生成績會保留到「學期結算」時再決定要不要刪除）')) return;
+      if (!await ask('確定要刪除「' + (u.title || u.id) + '」嗎？（按「儲存設定」後，這個單元的代號和匯入的題目會一起清除；學生成績會保留到「學期結算」時再決定要不要刪除）')) return;
       units.splice(i, 1);
       render();
       impInit();
@@ -2364,7 +2384,7 @@
           for (var i = 0; i < step; i++) f += W[i];
           f += (W[step] || 0) * frac;
           for (var k = 0; k < steps.length; k++) steps[k].className = k < step ? 'done' : k === step ? 'on' : '';
-          $('br-fill').style.width = Math.round(Math.min(1, f) * 100) + '%';
+          $('br-fill').style.transform = 'scaleX(' + Math.min(1, f).toFixed(3) + ')';
           var now = !last ? '開機中，第一次或閒置後約需 1 分鐘…'
             : last.step === 0 ? last.stage
             : last.stage + (last.total ? '：' + last.done + ' / ' + last.total + ' 個字' + (last.word ? '（' + last.word + '）' : '') : '');
@@ -2420,7 +2440,7 @@
           var docs = {}; docs['analysis_' + u.id] = result;
           return window.fastPublish(docs).then(function () {
             for (var k = 0; k < steps.length; k++) steps[k].className = 'done';
-            $('br-fill').style.width = '100%';
+            $('br-fill').style.transform = 'scaleX(1)';
             $('br-now').textContent = '完成';
             msg('✓「' + (u.title || u.id) + '」分析完成（' + mmss((Date.now() - t0) / 1000) + '）並已存到 Firebase，學生重新打開單元就會用到', 'ok');
           });
@@ -2618,9 +2638,9 @@
         $('t-counts').innerHTML = '<label style="display:inline-flex;gap:6px;align-items:center;font-weight:400">題數 <select id="c-n"><option>5</option><option selected>10</option><option>15</option><option>20</option></select></label>';
       }
     }
-    $('t-example').onclick = function () {
+    $('t-example').onclick = async function () {
       var u = impUnit(); if (!u || !EXAMPLE[u.type]) return;
-      if ($('t-text').value.trim() && !confirm('會取代目前的內容，確定嗎？')) return;
+      if ($('t-text').value.trim() && !await ask('會取代目前的內容，確定嗎？')) return;
       $('t-text').value = EXAMPLE[u.type]; impDirty();
     };
 
@@ -2807,13 +2827,13 @@
       }).aiCheckAnswers(targets.map(function (t) { return { id: t.id, sentence: t.q, hint: t.hint, answer: t.obj.answer }; }));
     };
 
-    $('ai-text').onclick = function () {
+    $('ai-text').onclick = async function () {
       if (!needAi()) return;
       var u = impUnit(); if (!u) return;
       var topic = $('t-topic').value.trim(), hint = $('t-hint').value.trim();
       if (!topic && !hint) { $('imp-msg').textContent = '請先填「主題」或「AI 出題範圍」，讓 AI 知道要考什麼'; $('imp-msg').className = 'msg err'; return; }
       var appendMode = !!$('t-text').value.trim();
-      if (appendMode && !confirm('目前欄位已經有題目。AI 產生的題目會「附加」在後面，不會刪掉原本的；要繼續嗎？')) return;
+      if (appendMode && !await ask('目前欄位已經有題目。AI 產生的題目會「附加」在後面，不會刪掉原本的；要繼續嗎？')) return;
       var btn = $('ai-text'), label = btn.textContent;
       aiBusy(btn, true, label); impDirty();
       var fail = function (err) { aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err'; };
@@ -2875,8 +2895,8 @@
         .setAiPrompt(prType(), text);
     }
     $('pr-save').onclick = function () { prSave($('pr-text').value, '✓ 已儲存，下次 AI 出題就會用這份提示詞'); };
-    $('pr-reset').onclick = function () {
-      if (!prompts || !confirm('確定要把「' + TYPE_NAMES[prType()] + '」的提示詞還原成預設嗎？')) return;
+    $('pr-reset').onclick = async function () {
+      if (!prompts || !await ask('確定要把「' + TYPE_NAMES[prType()] + '」的提示詞還原成預設嗎？')) return;
       prSave('', '✓ 已還原預設');
     };
 
@@ -3120,9 +3140,9 @@
       });
       if (!started) $('imp-save').disabled = false;
     };
-    $('imp-reset').onclick = function () {
+    $('imp-reset').onclick = async function () {
       var u = impUnit(); if (!u) return;
-      if (!confirm('確定要刪除「' + (u.title || u.id) + '」的題目嗎？清除後學生暫時沒有題目可以做，直到重新匯入。')) return;
+      if (!await ask('確定要刪除「' + (u.title || u.id) + '」的題目嗎？清除後學生暫時沒有題目可以做，直到重新匯入。')) return;
       var reset = $('imp-progress').checked;
       syncSave({
         msg: 'imp-msg',
@@ -3179,18 +3199,18 @@
         .withFailureHandler(function (err) { $('ai-msg').textContent = err.message; $('ai-msg').className = 'msg err'; })
         .testLocalAi();
     };
-    $('ai-clear').onclick = function () {
+    $('ai-clear').onclick = async function () {
       var local = aiProv() === 'local';
-      if (!confirm(local ? '確定要清除本地模型設定、改回 Gemini 嗎？' : '確定要刪除 Gemini API 金鑰嗎？')) return;
+      if (!await ask(local ? '確定要清除本地模型設定、改回 Gemini 嗎？' : '確定要刪除 Gemini API 金鑰嗎？')) return;
       google.script.run.withSuccessHandler(function (st) { aiPaint(st); $('ai-msg').textContent = '已清除'; $('ai-msg').className = 'msg ok'; }).clearAiKey(local ? 'local' : 'gemini');
     };
 
-    $('ai-reading').onclick = function () {
+    $('ai-reading').onclick = async function () {
       if (!needAi()) return;
       var passage = $('r-passage').value.split(/\n\s*\n/).map(function (p) { return p.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean);
       if (!passage.length) { $('imp-msg').textContent = '請先貼上文章'; $('imp-msg').className = 'msg err'; return; }
       var hasQs = [].some.call($('r-qs').querySelectorAll('.q-text'), function (el) { return el.value.trim(); });
-      if (hasQs && !confirm('AI 產生的題目會取代目前的題目，確定嗎？')) return;
+      if (hasQs && !await ask('AI 產生的題目會取代目前的題目，確定嗎？')) return;
       var btn = $('ai-reading'), label = btn.textContent;
       aiBusy(btn, true, label); impDirty();
       google.script.run.withSuccessHandler(function (res) {
@@ -3206,7 +3226,7 @@
     };
 
     // 已經有的題目：請 AI 補上錯誤分析（干擾類型、題目關鍵字、同義改寫），不改題目與答案；已經填的會被取代
-    $('ai-reading-an').onclick = function () {
+    $('ai-reading-an').onclick = async function () {
       if (!needAi()) return;
       var passage = $('r-passage').value.split(/\n\s*\n/).map(function (p) { return p.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean);
       var boxes = [].slice.call($('r-qs').children);
@@ -3216,7 +3236,7 @@
           answer: checked ? Number(checked.value) : -1, key: box.querySelector('.q-key').value.trim() };
       });
       if (!passage.length || !qsNow.length || qsNow.some(function (q) { return !q.q || q.answer < 0; })) { $('imp-msg').textContent = '請先貼上文章，並把每一題的題目與正確答案填好'; $('imp-msg').className = 'msg err'; return; }
-      if (boxes.some(function (b) { return b.querySelector('.q-trap') && [].some.call(b.querySelectorAll('.q-trap'), function (x) { return x.value; }); }) && !confirm('已經填的錯誤分析會被 AI 的結果取代，確定嗎？')) return;
+      if (boxes.some(function (b) { return b.querySelector('.q-trap') && [].some.call(b.querySelectorAll('.q-trap'), function (x) { return x.value; }); }) && !await ask('已經填的錯誤分析會被 AI 的結果取代，確定嗎？')) return;
       var btn = $('ai-reading-an'), label = btn.textContent;
       aiBusy(btn, true, label); impDirty();
       google.script.run.withSuccessHandler(function (list) {
@@ -3329,10 +3349,10 @@
         $('ds-msg').textContent = err.message; $('ds-msg').className = 'msg err';
       }).lookupStudent(cls, seat, name);
     };
-    $('ds-go').onclick = function () {
+    $('ds-go').onclick = async function () {
       if (!dsFound) return;
-      if (!confirm('確定要刪除「' + dsFound.cls + ' 班 ' + dsFound.seat + ' 號 ' + dsFound.name + '」的所有 Firestore 資料嗎？這個動作無法復原。')) return;
-      if (prompt('請再輸入一次姓名確認：') !== dsFound.name) { $('ds-msg').textContent = '姓名不一致，已取消'; $('ds-msg').className = 'msg err'; return; }
+      if (!await ask('確定要刪除「' + dsFound.cls + ' 班 ' + dsFound.seat + ' 號 ' + dsFound.name + '」的所有 Firestore 資料嗎？這個動作無法復原。')) return;
+      if (await askText('請再輸入一次姓名確認：') !== dsFound.name) { $('ds-msg').textContent = '姓名不一致，已取消'; $('ds-msg').className = 'msg err'; return; }
       var btn = this; btn.disabled = true;
       $('ds-msg').textContent = '刪除中…'; $('ds-msg').className = 'msg';
       google.script.run.withSuccessHandler(function (r) {
@@ -3387,11 +3407,11 @@
     $('pu-list').onchange = puCheck; $('pu-id').oninput = puCheck; $('pu-pass').oninput = puCheck;
     $('pu-all').onclick = function () { Array.prototype.forEach.call(document.querySelectorAll('#pu-list input'), function (c) { c.checked = true; }); puCheck(); };
     $('pu-none').onclick = function () { Array.prototype.forEach.call(document.querySelectorAll('#pu-list input'), function (c) { c.checked = false; }); puCheck(); };
-    $('pu-go').onclick = function () {
+    $('pu-go').onclick = async function () {
       var ids = puIds();
       if (!ids.length) return;
-      if (!confirm('確定要刪除以下 ' + ids.length + ' 個單元的所有紀錄（單元、題目、成績）嗎？這個動作無法復原。\n\n' + ids.join('\n'))) return;
-      if (prompt('請輸入「確認刪除」才會開始：') !== '確認刪除') { $('pu-msg').textContent = '輸入不一致，已取消'; $('pu-msg').className = 'msg err'; return; }
+      if (!await ask('確定要刪除以下 ' + ids.length + ' 個單元的所有紀錄（單元、題目、成績）嗎？這個動作無法復原。\n\n' + ids.join('\n'))) return;
+      if (await askText('請輸入「確認刪除」才會開始：') !== '確認刪除') { $('pu-msg').textContent = '輸入不一致，已取消'; $('pu-msg').className = 'msg err'; return; }
       var btn = this; btn.disabled = true;
       var rows = 0, docs = 0, k = 0, doneIds = [];
       function finish(errMsg) {
@@ -3430,10 +3450,10 @@
         btn.disabled = false; $('sem-bmsg').textContent = '備份失敗：' + err.message; $('sem-bmsg').className = 'msg err';
       }).backupSpreadsheet();
     };
-    $('sem-reset').onclick = function () {
+    $('sem-reset').onclick = async function () {
       var opts = { sheets: $('sem-sheets').checked, attempts: $('sem-attempts').checked, roster: $('sem-roster').checked };
       if (!opts.sheets && !opts.attempts && !opts.roster) { $('sem-msg').textContent = '請至少勾選一項'; $('sem-msg').className = 'msg err'; return; }
-      if (!confirm('確定要清除勾選的資料嗎？清除後無法復原（備份檔不受影響）。')) return;
+      if (!await ask('確定要清除勾選的資料嗎？清除後無法復原（備份檔不受影響）。')) return;
       var btn = this; btn.disabled = true;
       var total = 0, sheets = 0;
       function run(o) {
@@ -3651,8 +3671,8 @@
     // 有沒有儲存的修改：離開這一頁、換單元前提醒
     var dirtyNow = function () { return /尚未儲存/.test($('msg').textContent) || /尚未儲存/.test(($('ex-msg') || {}).textContent || ''); };
     var lastHash = location.hash;
-    window.addEventListener('hashchange', function () {
-      if (dirtyNow() && !confirm('有未儲存的變更，確定要離開嗎？（修改會留在畫面上，回來再按儲存）')) { history.replaceState(null, '', lastHash); return; }
+    window.addEventListener('hashchange', async function () {
+      if (dirtyNow() && !await ask('有未儲存的變更，確定要離開嗎？（修改會留在畫面上，回來再按儲存）')) { history.replaceState(null, '', lastHash); return; }
       lastHash = location.hash; route();
     });
     window.addEventListener('beforeunload', function (e) { if (dirtyNow()) { e.preventDefault(); e.returnValue = ''; } });
@@ -3770,12 +3790,12 @@
       var old = cardOf('units'); old.hidden = true;
       var box = document.createElement('div'); box.id = 'us-form'; box.className = 'nv';
       slot('settings').appendChild(box);
-      box.addEventListener('click', function (e) {
+      box.addEventListener('click', async function (e) {
         var u = units[usIndex()]; if (!u) return;
         var b = e.target.closest('[data-us-set]');
         if (b) { var v = b.dataset.v; u[b.dataset.usSet] = v === 'now' ? twLocal(Date.now()) : v === '' ? '' : endOfDay(Number(v)); usDirty(); render(); return; }
         if (e.target.closest('[data-us-del]')) {
-          if (!confirm('確定要刪除「' + (u.title || u.id) + '」嗎？\n按「儲存」後，這個單元和匯入的題目會一起清除；學生成績保留到學期結算時再決定。')) return;
+          if (!await ask('確定要刪除「' + (u.title || u.id) + '」嗎？\n按「儲存」後，這個單元和匯入的題目會一起清除；學生成績保留到學期結算時再決定。')) return;
           units.splice(usIndex(), 1); usDirty(); render(); impInit(); location.hash = '#units';
         }
       });
@@ -3784,14 +3804,14 @@
         if (t.dataset.usK === 'title') { u.title = t.value; usDirty(); drawUnitList(); drawUnitHead(); }
         if (t.dataset.usName !== undefined) { quizReadUS(u); usDirty(); }
       });
-      box.addEventListener('change', function (e) {
+      box.addEventListener('change', async function (e) {
         var t = e.target, u = units[usIndex()]; if (!u) return;
         var k = t.dataset.usK;
         if (k === 'visible') u.visible = t.checked;
         else if (k === 'openAt' || k === 'closeAt') u[k] = t.value;
         else if (k === 'lesson') u.lesson = lessonNum(t.value);
         else if (k === 'title') return;
-        else if (t.dataset.usType !== undefined) { if (!confirm('改成「' + TYPE_NAMES[t.value] + '」？原本匯入的題目可能要重新匯入。')) { drawUnitSettings(); return; } u.type = t.value; impInit(); }
+        else if (t.dataset.usType !== undefined) { if (!await ask('改成「' + TYPE_NAMES[t.value] + '」？原本匯入的題目可能要重新匯入。')) { drawUnitSettings(); return; } u.type = t.value; impInit(); }
         else if (t.dataset.usModeOn !== undefined) { u.disabled = u.disabled.filter(function (m) { return m !== t.dataset.usModeOn; }); if (!t.checked) u.disabled.push(t.dataset.usModeOn); }
         else if (t.dataset.usAnnotate !== undefined) { var q0 = quizOf(u) || { mode: 'default' }; if (t.checked) q0.annotate = true; else delete q0.annotate; u.quiz = q0.mode === 'default' && !q0.annotate && !q0.count ? '' : JSON.stringify(q0); }
         else if (t.dataset.usStage !== undefined) { u.disabled = u.disabled.filter(function (m) { return m !== t.value; }); if (!t.checked) u.disabled.push(t.value); }
@@ -3918,7 +3938,7 @@
         dt.innerHTML = '<summary>格式說明</summary>';
         h.parentNode.insertBefore(dt, h); dt.appendChild(h);
       });
-      view.addEventListener('click', function (e) {
+      view.addEventListener('click', async function (e) {
         var b = e.target.closest('[data-uc]'); if (!b) return;
         var k = b.dataset.uc;
         if (k === 'all') { UC.all = !UC.all; drawContentView(); }
@@ -3926,7 +3946,7 @@
         else if (k === 'paste') ucEdit(false);
         else if (k === 'file') { ucEdit(false); $('imp-file').click(); }
         else if (k === 'ai') { ucEdit(false); var ai = card.querySelector('.btn.ai'); if (ai) ai.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
-        else if (k === 'close') { if (/尚未儲存|檢查通過/.test($('imp-msg').textContent) && !confirm('編輯中的內容還沒儲存，確定要離開嗎？')) return; UC.editing = false; drawContentView(); $('work').scrollTop = 0; }
+        else if (k === 'close') { if (/尚未儲存|檢查通過/.test($('imp-msg').textContent) && !await ask('編輯中的內容還沒儲存，確定要離開嗎？')) return; UC.editing = false; drawContentView(); $('work').scrollTop = 0; }
       });
       // 存好或清除題目後：回到總覽並重新讀一次
       new MutationObserver(function () {
@@ -4840,6 +4860,34 @@
         else if (mini && (acc < -24 || y < 40)) { rail.classList.remove('lg-mini'); track(); }
       }, { passive: true });
     })();
+
+    /* ----- 確認對話框：取代瀏覽器的 confirm／prompt（手機上好讀、危險動作用紅色按鈕）----- */
+    window.ask = function (msg, o) {
+      o = o || {};
+      return new Promise(function (done) {
+        var d = document.createElement('dialog'); d.className = 'ask';
+        var danger = o.danger != null ? o.danger : /刪除|清除|無法復原/.test(msg);
+        var parts = String(msg).split(/\n+/);
+        d.innerHTML = '<div class="ask-body"><b class="ask-title"></b>' + parts.slice(1).map(function () { return '<p></p>'; }).join('') +
+          (o.input ? '<input class="ask-in" type="text" autocomplete="off">' : '') + '</div>' +
+          '<div class="ask-btns"><button type="button" class="btn" data-a="0">取消</button><button type="button" class="btn ' + (danger ? 'danger-solid' : 'primary') + '" data-a="1"></button></div>';
+        d.querySelector('.ask-title').textContent = parts[0];
+        [].forEach.call(d.querySelectorAll('.ask-body p'), function (p, i) { p.textContent = parts[i + 1]; });
+        d.querySelector('[data-a="1"]').textContent = o.ok || (o.input ? '確認' : danger ? '確定刪除' : '確定');
+        var inp = d.querySelector('.ask-in');
+        var close = function (v) { d.classList.add('closing'); setTimeout(function () { d.close(); d.remove(); }, 140); done(v); };
+        d.addEventListener('click', function (e) {
+          var b = e.target.closest('[data-a]');
+          if (b) close(b.dataset.a === '1' ? (inp ? inp.value : true) : (inp ? null : false));
+          else if (e.target === d) close(inp ? null : false);
+        });
+        d.addEventListener('cancel', function (e) { e.preventDefault(); close(inp ? null : false); });
+        if (inp) inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') close(inp.value); });
+        document.body.appendChild(d); d.showModal();
+        (inp || d.querySelector(danger ? '[data-a="0"]' : '[data-a="1"]')).focus();
+      });
+    };
+    window.askText = function (msg) { return window.ask(msg, { input: true }); };
 
     // 開啟加速：先用這台電腦上次讀到的資料畫出畫面，同時向伺服器讀最新的（Apps Script 每次往返要 1～2 秒以上）。
     // 最新資料回來之前，各分頁暫時不能編輯（inert），避免在舊資料上修改後被覆蓋；回來後重畫並解除。
