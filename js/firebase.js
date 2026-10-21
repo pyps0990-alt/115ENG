@@ -22,10 +22,14 @@ const app = initializeApp({
 });
 // App Check：要在 Firestore、Realtime Database 第一次連線前啟用，之後的請求才會自動帶上憑證。
 // 載入失敗（例如網路擋掉 reCAPTCHA）不影響網站：主控台還沒「強制執行」前，沒有憑證的請求照樣放行
+// 學校網路慢或擋掉 reCAPTCHA 時不能卡住整個網站：最多等 4 秒，之後照常往下走
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('逾時')), ms))]);
 if (APP_CHECK_SITE_KEY) {
   try {
-    const ac = await import('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check.js');
-    ac.initializeAppCheck(app, { provider: new ac.ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true });
+    await withTimeout((async () => {
+      const ac = await import('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check.js');
+      ac.initializeAppCheck(app, { provider: new ac.ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true });
+    })(), 4000);
   } catch (e) { console.warn('App Check 無法啟用', e); }
 }
 // 學校網路（代理伺服器、防火牆）有時會擋掉即時連線：自動偵測，擋掉時改用長輪詢，即時同步才不會斷
@@ -58,9 +62,34 @@ export async function studentKey(cls, seat, name) {
 
 /* ---------------- 學生 ---------------- */
 
+// 登入確認名單：先用一般的 HTTPS 請求讀（學校網路最不容易擋、不用等 App Check 與長連線，全班同時登入也不會互相塞住），
+// 暫時失敗（429、5xx、逾時）等一下再試一次；還是不行才改用 Firestore SDK
+const REST_DOC = 'https://firestore.googleapis.com/v1/projects/eng-3385e/databases/(default)/documents';
+async function restGetDoc(path, ms = 8000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const r = await fetch(`${REST_DOC}/${path}`, { cache: 'no-store', credentials: 'omit', signal: ctrl.signal });
+    if (r.status === 404) return null;
+    if (!r.ok) { const e = new Error(`Firestore ${r.status}`); e.retry = r.status === 429 || r.status >= 500; throw e; }
+    return await r.json();
+  } finally { clearTimeout(timer); }
+}
+
 // 回傳 { ok: true, key, name } 或 { ok: false }
 export async function verifyStudent({ cls, seat, name }) {
   const key = await studentKey(cls, seat, name);
+  for (let i = 0; i < 2; i++) {
+    try {
+      const d = await restGetDoc(`vault/${key}`);
+      if (!d) return { ok: false };
+      const n = d.fields && d.fields.name && d.fields.name.stringValue;
+      return { ok: true, key, name: n || clean(name, 40) };
+    } catch (e) {
+      if (i === 0 && (e.retry || e.name === 'AbortError' || e instanceof TypeError)) { await new Promise((r) => setTimeout(r, 500 + Math.random() * 1500)); continue; }
+      break;
+    }
+  }
   const snap = await getDoc(doc(db, 'vault', key));
   if (!snap.exists()) return { ok: false };
   return { ok: true, key, name: snap.data().name };

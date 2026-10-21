@@ -90,6 +90,14 @@ async function routes(ctx, world) {
     const req = route.request();
     const url = req.url();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    // 登入確認名單（js/firebase.js verifyStudent 先用 REST 讀）：world.rosterKeys 沒設＝每個人都在名單上；world.rosterFail = 'down' 模擬學校網路擋掉
+    const vk = /\/documents\/vault\/([0-9a-f]{64})$/.exec(url);
+    if (req.method() === 'GET' && vk) {
+      if (world.rosterFail === 'down') return route.abort('failed');
+      world.rosterReads = (world.rosterReads || 0) + 1;
+      if (world.rosterKeys && !world.rosterKeys.has(vk[1])) return route.fulfill({ status: 404, headers: cors, contentType: 'application/json', body: '{"error":{"status":"NOT_FOUND"}}' });
+      return route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ fields: { name: { stringValue: '陳奕嘉' } } }) });
+    }
     const m = /\/documents\/public\/([^/?]+)$/.exec(url);
     if (req.method() === 'GET' && m) {
       if (world.firestoreDelay) await new Promise((r) => setTimeout(r, world.firestoreDelay));

@@ -57,7 +57,7 @@ await step('登入：按鈕依序顯示「確認中 → 已確認」，成功後
 await step('登入失敗：按鈕輕抖、提示為琥珀色小字（不是紅色），輸入後自動消失', async () => {
   const c2 = await world.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   const p = await world.newPage(c2);
-  await p.addInitScript(() => { window.__fb = window.__fb || {}; window.__fb.allowedKey = 'nobody'; });
+  world.rosterKeys = new Set(); // 名單上沒有任何人
   await p.goto(world.base + '/'); await p.waitForSelector('.welcome');
   await p.fill('#f-cls', '306'); await p.fill('#f-seat', '20'); await p.fill('#f-name', '不存在');
   await p.click('.welcome [type="submit"]');
@@ -67,8 +67,21 @@ await step('登入失敗：按鈕輕抖、提示為琥珀色小字（不是紅�
   assert.ok(info.shake && !info.disabled);
   assert.notEqual(info.color, 'rgb(153, 27, 27)');
   assert.match(info.text, /確認|開始練習/);
+  world.rosterKeys = null;
   await p.fill('#f-name', '陳'); 
   await p.waitForFunction(() => document.querySelector('.form-err').textContent === '');
+  await p.close();
+});
+
+await step('學校網路擋掉一般連線：登入改用 Firestore SDK 仍成功；暫時失敗會自動再試一次', async () => {
+  const c3 = await world.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const p = await world.newPage(c3);
+  await p.goto(world.base + '/'); await p.waitForSelector('.welcome');
+  world.rosterFail = 'down'; // REST 連不上（SDK 的假資料庫仍可用）
+  await p.fill('#f-cls', '306'); await p.fill('#f-seat', '20'); await p.fill('#f-name', '陳奕嘉');
+  await p.click('.welcome [type="submit"]');
+  await p.waitForFunction(() => /已確認，歡迎/.test(document.querySelector('.welcome [type="submit"]')?.textContent || '') || document.getElementById('student-chip') && !document.getElementById('student-chip').hidden, null, { timeout: 8000 });
+  world.rosterFail = null;
   await p.close();
 });
 
