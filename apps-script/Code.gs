@@ -662,11 +662,11 @@ function checkAttempt_(d) {
       var sum = details.reduce(function (a, x) { return a + (Number(x.points) || 0); }, 0);
       if (details.length <= 120 && Math.abs(sum - score) > 0.06 + details.length * 0.001) issues.push('明細總分與得分不符');
       // 單字測驗改成滿分 100 分（total＝100，不是題數）：不比題數
-      var hundred = d.mode === 'vocab' && total === 100;
+      var hundred = (d.mode === 'vocab' || d.flow === 'learn') && total === 100; // 句型循序漸進版也是滿分 100
       if (!hundred && total > 0 && details.length < Math.min(total, 120) - 0.5) issues.push('明細題數少於總題數');
     }
     var dur = Number(d.durationSec);
-    var nQ = d.mode === 'vocab' && total === 100 ? details.length : total; // 題數
+    var nQ = (d.mode === 'vocab' || d.flow === 'learn') && total === 100 ? details.length : total; // 題數
     if (nQ > 0 && dur >= 0 && dur < nQ * 1.2) issues.push('作答時間過短');
     // 對照題庫
     var content = readContentCached_(String(d.unit || ''));

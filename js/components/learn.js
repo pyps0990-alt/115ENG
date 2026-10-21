@@ -42,8 +42,11 @@ function buildSections(guides, items) {
 }
 
 // prefs：{ get(k), set(k, v) }（預覽用 localStorage；正式版接學生帳本）
-export function mountLearn(stage, { guides, items, prefs, onFinish }) {
-  const sections = buildSections(guides, items);
+// grade（可省略）：async (q, yours) => { got, q }：正式測驗的答案不在學生端，每段做完交給伺服器批改（第一次作答就鎖定），回傳得分與含答案的完整題目
+// sections（可省略）：接續作答時沿用原本抽好的段落
+export function mountLearn(stage, { guides, items, prefs, onFinish, grade = null, sections: saved = null }) {
+  const sections = saved || buildSections(guides, items);
+  const graded = {}; // 題目 id → { got, q }：已經批改（伺服器或本機）
   const answers = {}; // 題目 id → 學生的答案（驗收題）
   const states = {}; // 題目 id → 畫面狀態（回上一題時還原）
   let si = 0;
@@ -129,6 +132,7 @@ export function mountLearn(stage, { guides, items, prefs, onFinish }) {
 
   // ---------- ① 認識 ----------
   function learn(step = 0, ex = 0, dir = 1) {
+    if (!sections[si].examples.length) { check(0); return; } // 這個句型還沒有說明：直接檢測／驗收
     if (!modeOf()) { chooseMode(() => learn(step, ex, dir)); return; }
     const s = sections[si], g = s.g;
     const seenKey = `learnSeen:${s.tag}`;
@@ -262,7 +266,7 @@ export function mountLearn(stage, { guides, items, prefs, onFinish }) {
   // ---------- ② 檢測：馬上對答案，不計分；結果從下方滑出 ----------
   function check(ci, dir = 1) {
     const s = sections[si];
-    if (ci >= s.checks.length) { quiz(0); return; }
+    if (ci >= s.checks.length) { if (s.quiz.every((q) => graded[q.id])) sectionResult(); else quiz(0); return; }
     const q = s.checks[ci];
     show(1, `<div class="ln-note"><span class="ln-tag free">不計分</span>確認剛剛看懂了沒・第 ${ci + 1} / ${s.checks.length} 題</div><div data-q></div>`,
       `<button type="button" class="btn ghost" data-relearn>${icon.book} 看說明</button>`, dir);
@@ -311,11 +315,29 @@ export function mountLearn(stage, { guides, items, prefs, onFinish }) {
         const b = $('[data-next]');
         if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.innerHTML = `還有 ${left} 題沒作答，仍要看結果`; return; }
       }
-      sectionResult();
+      gradeSection();
     });
   }
 
-  const pointsOf = (q) => { const y = answers[q.id] || ''; return q.kind === 'apply' ? applyScore(q, y) : (judge(q, y) ? 1 : 0); };
+  // 批改這一段：正式測驗交給伺服器，預覽或沒鎖答案就在本機判斷
+  async function gradeSection() {
+    const s = sections[si];
+    const b = $('[data-next]');
+    if (b) { b.disabled = true; b.innerHTML = '<span class="spinner"></span>批改中…'; }
+    try {
+      await Promise.all(s.quiz.filter((q) => !graded[q.id]).map(async (q) => {
+        const y = answers[q.id] || '';
+        graded[q.id] = grade ? await grade(q, y) : { got: q.kind === 'apply' ? applyScore(q, y) : (judge(q, y) ? 1 : 0), q };
+      }));
+    } catch {
+      if (b) { b.disabled = false; b.innerHTML = '連不上伺服器，再試一次'; }
+      return;
+    }
+    sectionResult();
+  }
+
+  const pointsOf = (q) => Number((graded[q.id] || {}).got) || 0;
+  const fullOf = (q) => (graded[q.id] && graded[q.id].q) || q;
   const fmt = (n) => String(Math.round(n * 100) / 100);
 
   function sectionResult() {
@@ -325,9 +347,9 @@ export function mountLearn(stage, { guides, items, prefs, onFinish }) {
     const last = si === sections.length - 1;
     const verdict = ratio >= 1 ? '全部答對' : ratio >= 0.65 ? '大致掌握了' : '建議再看一次說明';
     const cards = s.quiz.map((q, i) => {
-      const card = reviewCardHTML(q, answers[q.id] || '', '', i + 1);
+      const card = reviewCardHTML(fullOf(q), answers[q.id] || '', '', i + 1);
       // 答對的收起來，答錯的直接展開
-      return judge(q, answers[q.id] || '') ? `<details class="ln-rv-ok"><summary>${icon.check} 第 ${i + 1} 題・答對</summary>${card}</details>` : card;
+      return pointsOf(q) === 1 ? `<details class="ln-rv-ok"><summary>${icon.check} 第 ${i + 1} 題・答對</summary>${card}</details>` : card;
     }).join('');
     show(3, `<div class="ln-card ln-sec ${ratio >= 0.65 ? 'good' : 'low'}">
         <div class="ln-sec-score"><b>${fmt(got)}</b><span>/ ${s.quiz.length}</span></div>
@@ -348,4 +370,5 @@ export function mountLearn(stage, { guides, items, prefs, onFinish }) {
 
   if (!sections.length) { stage.innerHTML = '<p class="muted">這個單元還沒有可以練習的句型。</p>'; return; }
   learn(0);
+  return { sections };
 }

@@ -133,9 +133,19 @@ function gradePattern(sub, data, config, unit, flags) {
     points += got;
     return d;
   });
-  if (used.size < n) flags.push(`少了 ${n - used.size} 題作答紀錄，以答錯計`);
   if (unknown) flags.push(`有 ${unknown} 題在題庫找不到（題庫可能改過），以答錯計`);
   if (dup) flags.push(`有 ${dup} 題重複作答，不計分`);
+  if (sub.flow === 'learn') {
+    // 循序漸進版：每個句型一段、每段抽 2～3 題，各句型平均配分，總分 100；沒作答到的句型算 0 分
+    const tags = [...new Set(all.map((q) => q.tag).filter(Boolean))];
+    const per = new Map(tags.map((t) => [t, { got: 0, n: 0 }]));
+    details.forEach((d) => { const q = byId.get(String(d.word || '')); const t = q && per.get(q.tag); if (t && used.has(q.id)) { t.n++; t.got += Number(d.points) || 0; } });
+    const missing = tags.filter((t) => !per.get(t).n).length;
+    if (missing) flags.push(`少了 ${missing} 個句型的作答紀錄，以 0 分計`);
+    const pct = tags.length ? tags.reduce((m, t) => { const x = per.get(t); return m + (x.n ? x.got / x.n : 0); }, 0) / tags.length * 100 : 0;
+    return { details, score: round2(pct), total: 100, pct: Math.round(pct), wrong: details.filter((d) => !d.ok).map((d) => String(d.word || '')) };
+  }
+  if (used.size < n) flags.push(`少了 ${n - used.size} 題作答紀錄，以答錯計`);
   points = round2(points);
   return {
     details, score: points, total: n, pct: n ? Math.round((points / n) * 100) : 0,

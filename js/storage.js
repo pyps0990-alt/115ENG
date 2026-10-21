@@ -27,6 +27,10 @@ export const store = {
   student: () => read('student', null),
   setStudent: (s) => write('student', s),
 
+  // 句型練習循序漸進版的偏好：{ mode: 'find' | 'read', seen: { 句型: 1 } }（雲端學生帳本也存一份）
+  learnPrefs: () => read('learnPrefs', null),
+  setLearnPrefs: (v) => write('learnPrefs', v),
+
   // 這台裝置上次從 Firestore 讀回紀錄的時間：剛讀過（重新整理、自動更新後重新載入）就不用再下載一次
   historyFresh(key, ms) {
     const h = read('histAt', null);
@@ -77,7 +81,7 @@ export const store = {
   // 登出並清除這台裝置上的學生資料（姓名、座號、成績、檢討、錯題、排隊中的成績）；老師的設定暫存保留
   clearAll() {
     try {
-      Object.keys(localStorage).filter((k) => /^b5p:(student|best|last|done|tried|first|reviewed|wrong|bag|outbox|rejected|histAt)/.test(k)).forEach((k) => localStorage.removeItem(k));
+      Object.keys(localStorage).filter((k) => /^b5p:(student|learnPrefs|best|last|done|tried|first|reviewed|wrong|bag|outbox|rejected|histAt)/.test(k)).forEach((k) => localStorage.removeItem(k));
     } catch { /* ignore */ }
   },
 

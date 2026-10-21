@@ -257,3 +257,14 @@ export async function publishPublic(docs, ms = 8000) {
     throw e;
   } finally { clearTimeout(timer); }
 }
+
+// 句型練習循序漸進版的偏好（學生帳本 vault/{key}/prefs/learn）
+export async function loadLearnPrefs(key) {
+  if (!key) return null;
+  const snap = await getDoc(doc(db, 'vault', key, 'prefs', 'learn'));
+  return snap.exists() ? snap.data() : null;
+}
+export async function saveLearnPrefs(key, { mode, seen }) {
+  if (!key) return;
+  await setDoc(doc(db, 'vault', key, 'prefs', 'learn'), { mode: mode === 'read' ? 'read' : 'find', seen: seen || {}, at: serverTimestamp() });
+}

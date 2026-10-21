@@ -70,6 +70,18 @@ service cloud.firestore {
         allow read, write: if false;
       }
 
+      // 句型練習循序漸進版的偏好（認識卡的模式、看過說明的句型）：知道 key 的學生自己讀寫
+      match /prefs/{doc} {
+        allow get: if doc == 'learn';
+        allow list, delete: if false;
+        allow create, update: if doc == 'learn'
+          && exists(/databases/$(database)/documents/vault/$(key))
+          && request.resource.data.keys().hasOnly(['mode', 'seen', 'at'])
+          && request.resource.data.mode in ['find', 'read']
+          && request.resource.data.seen is map && request.resource.data.seen.size() <= 200
+          && request.resource.data.at == request.time;
+      }
+
       // 已完成檢討的單元（文件 ID 是單元 id）；完成檢討後才能開始複習
       match /reviews/{unitId} {
         allow read: if true;

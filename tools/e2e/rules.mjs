@@ -59,6 +59,13 @@ await assertFails(setDoc(doc(anon, 'vault', KEY, 'sessions', 's1'), { answers: {
 // 檢討紀錄
 await assertSucceeds(setDoc(doc(anon, 'vault', KEY, 'reviews', 'u1'), { unit: 'u1', at: serverTimestamp() }));
 await assertFails(setDoc(doc(anon, 'vault', KEY, 'reviews', 'u2'), { unit: 'u2', at: new Date() }));
+// 句型練習偏好：學生自己讀寫 prefs/learn，欄位與模式固定
+await assertSucceeds(setDoc(doc(anon, 'vault', KEY, 'prefs', 'learn'), { mode: 'read', seen: { Alpha: 1 }, at: serverTimestamp() }));
+await assertSucceeds(getDoc(doc(anon, 'vault', KEY, 'prefs', 'learn')));
+await assertFails(setDoc(doc(anon, 'vault', KEY, 'prefs', 'learn'), { mode: 'hack', seen: {}, at: serverTimestamp() }));
+await assertFails(setDoc(doc(anon, 'vault', KEY, 'prefs', 'learn'), { mode: 'find', seen: {}, at: serverTimestamp(), score: 100 }));
+await assertFails(setDoc(doc(anon, 'vault', KEY, 'prefs', 'other'), { mode: 'find', seen: {}, at: serverTimestamp() }));
+await assertFails(setDoc(doc(anon, 'vault', 'nokey', 'prefs', 'learn'), { mode: 'find', seen: {}, at: serverTimestamp() }));
 
 // 班級路徑：學生讀不到
 await assertFails(getDoc(classAtt('306', '7', 'u1', 'a1')), '學生不能讀班級資料');

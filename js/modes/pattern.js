@@ -10,11 +10,13 @@ import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
-import { submitScore, fetchKey, cachedKey, newAttemptId } from '../submit.js';
+import { submitScore, fetchKey, cachedKey, newAttemptId, checkAnswer } from '../submit.js';
+import { mountLearn } from '../components/learn.js';
+import { learnPrefs } from '../learn-prefs.js';
 import { statusBarHTML, mountDeadline } from '../components/status.js';
 import { progress } from '../resume.js';
 import { PASS } from '../levels.js';
-import { flattenPattern, renderChoiceCard, renderFillCard, renderApplyCard, explainHTML, reviewCardHTML, correctText, KIND_LABEL } from '../components/items.js';
+import { flattenPattern, renderChoiceCard, renderFillCard, renderApplyCard, explainHTML, reviewCardHTML, correctText, KIND_LABEL, judge, applyScore } from '../components/items.js';
 
 const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ''));
 
@@ -54,6 +56,10 @@ export function mount(stage, ctx) {
     return;
   }
   const kindsIn = [...new Set(all.map((q) => KIND_LABEL[q.kind]))].join('、');
+  // 有句型說明：正式測驗走循序漸進版（認識 → 檢測 → 驗收，每個句型一段）
+  const guides = Array.isArray((ctx.data || {}).guides) ? ctx.data.guides : [];
+  const learnFlow = guides.length > 0;
+  const tagsIn = [...new Set(all.map((q) => q.tag).filter(Boolean))];
 
   function startReview(details) {
     if (!keyed) { withKey(() => startReview(details)); return; }
@@ -74,7 +80,12 @@ export function mount(stage, ctx) {
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
-    rules: [
+    rules: learnFlow ? [
+      `共 <b>${tagsIn.length}</b> 個句型，每個句型一段：先認識句型、做不計分的檢測，再做 2～3 題計分的驗收`,
+      '每一段做完驗收就看這段的結果；各句型平均配分，總分 100',
+      ...(all.some((q) => q.kind === 'apply') ? ['應用題（排句子）部分給分：排進去的單字越多、順序越接近，分數越高'] : []),
+      '全部句型做完就交卷，之後可以逐題檢討錯題',
+    ] : [
       `共 <b>${n}</b> 題，${esc(kindsIn)}混合出現，每次會從題庫（${all.length} 題）重新抽題`,
       '全部作答完再交卷，交卷前可以回上一題修改；交卷後看答案與解析',
       ...(all.some((q) => q.kind === 'apply') ? ['應用題（排句子）部分給分：排進去的單字越多、順序越接近，分數越高'] : []),
@@ -95,7 +106,7 @@ export function mount(stage, ctx) {
 
   // redo：只重練指定的題目（錯題重練），不計成績、不送出
   function play(student, review = false, redo = null, saved = null) {
-    if (!review && !redo) { playOfficial(student, saved && saved.official ? saved : null); return; }
+    if (!review && !redo) { if (learnFlow && !(saved && saved.official)) playLearn(student); else playOfficial(student, saved && saved.official ? saved : null); return; }
     const official = false;
     if (!official && !keyed) { withKey(() => play(student, review, redo, saved)); return; }
     // 正式測驗：這次作答的編號（也是成績的記錄編號），每題送伺服器判斷時帶著
@@ -188,7 +199,7 @@ export function mount(stage, ctx) {
       const passed = pct >= PASS;
       if (official) { if (passed) store.setDone(unitId); else store.setTried(unitId); }
       const byKind = {};
-      details.forEach((d) => { const k = (byKind[d.kind] = byKind[d.kind] || { ok: 0, n: 0 }); k.n++; k.ok = Math.round((k.ok + (Number(d.points) || 0)) * 100) / 100; });
+      details.forEach((d) => { const k = (byKind[d[barKey]] = byKind[d[barKey]] || { ok: 0, n: 0 }); k.n++; k.ok = Math.round((k.ok + (Number(d.points) || 0)) * 100) / 100; });
       const per = Object.entries(byKind).map(([k, v]) => `${k} ${fmt(v.ok)}/${v.n}`).join('・');
       const firstTest = !review && !redo;
       if (firstTest) store.setFirst(unitId, { mode: 'pattern', details });
@@ -336,47 +347,94 @@ export function mount(stage, ctx) {
         score: null, total: qs.length, pct: null, durationSec, wrong: [], details: mine,
       });
       if (!alive) return;
-      const result = res.result || null;
-      if (result && result.data) useKey(result.data);
-      const graded = !!result && typeof result.pct === 'number';
-      stage.innerHTML = '';
-      if (!graded) {
-        // 還沒拿到分數（離線、伺服器忙）：成績在這台裝置排隊，送出後才能檢討
-        store.setTried(unitId);
-        const box = document.createElement('div');
-        box.className = 'card gate-card';
-        box.innerHTML = `<h2>已交卷</h2><p class="gate-lead">成績會在送到伺服器後算出來（右下角會通知）。送出後回到這個單元，就能看答案與解析、逐題檢討。</p>
-          ${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML(res.status)}</div>
-          <div class="btn-row"><button class="btn primary" type="button" data-home>${icon.home} 返回首頁</button></div>`;
-        box.querySelector('[data-home]').addEventListener('click', () => { location.hash = '#/'; });
-        stage.append(box);
-        return;
-      }
-      const byWord = new Map((result.details || []).map((d) => [String(d.word), d]));
-      const details = mine.map((d) => { const r = byWord.get(d.word) || {}; return { ...d, correct: r.correct || '', ok: !!r.ok, points: Number(r.points) || 0 }; });
-      const pct = result.pct, points = result.score;
-      const prevBest = store.best(unitId).pattern ?? null;
-      store.setBest(unitId, 'pattern', pct);
-      const passed = pct >= PASS;
-      if (passed) store.setDone(unitId); else store.setTried(unitId);
-      store.setFirst(unitId, { mode: 'pattern', details });
-      const byKind = {};
-      details.forEach((d) => { const k = (byKind[d.kind] = byKind[d.kind] || { ok: 0, n: 0 }); k.n++; k.ok = Math.round((k.ok + (Number(d.points) || 0)) * 100) / 100; });
-      const bars = `<div class="stage-bars">${Object.entries(byKind).map(([k, v]) => `<div class="stage-bar"><span class="sb-name">${esc(k)}</span><span class="bar"><span style="--w:${Math.round((v.ok / v.n) * 100)}%"></span></span><span class="sb-score">${fmt(v.ok)}/${v.n}</span></div>`).join('')}</div>`;
-      const wrongN = details.filter((d) => !d.ok).length;
-      if (!wrongN) completeReview(unitId);
-      const actions = [!wrongN
-        ? { label: '返回首頁', icon: icon.home, primary: true, onClick: () => { location.hash = '#/'; } }
-        : { label: `看答案與解析（錯 ${wrongN} 題）`, icon: icon.bulb, primary: true, onClick: () => startReview(details) }];
-      renderResult(stage, {
-        title: passed ? '句型練習通過！' : '未通過',
-        pct, scoreText: `${fmt(points)} / ${qs.length}`,
-        pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, wrongN ? '接著看答案與解析，完成後才能複習' : '全部答對'],
-        passLine: true, prevBest, onRetake: () => playOfficial(student),
-        extraHTML: `${bars}${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML(res.status)}</div>`,
-        actions,
-      });
+      showSubmitted({ student, res, mine, stamp, durationSec, retake: () => playOfficial(student), barKey: 'kind' });
     }
+  }
+
+  // 交卷後：伺服器算好分數就顯示結果，還沒拿到就說明成績在排隊
+  function showSubmitted({ student, res, mine, stamp, durationSec, retake, barKey }) {
+    const result = res.result || null;
+    if (result && result.data) useKey(result.data);
+    const graded = !!result && typeof result.pct === 'number';
+    stage.innerHTML = '';
+    if (!graded) {
+      // 還沒拿到分數（離線、伺服器忙）：成績在這台裝置排隊，送出後才能檢討
+      store.setTried(unitId);
+      const box = document.createElement('div');
+      box.className = 'card gate-card';
+      box.innerHTML = `<h2>已交卷</h2><p class="gate-lead">成績會在送到伺服器後算出來（右下角會通知）。送出後回到這個單元，就能看答案與解析、逐題檢討。</p>
+        ${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML(res.status)}</div>
+        <div class="btn-row"><button class="btn primary" type="button" data-home>${icon.home} 返回首頁</button></div>`;
+      box.querySelector('[data-home]').addEventListener('click', () => { location.hash = '#/'; });
+      stage.append(box);
+      return;
+    }
+    const byWord = new Map((result.details || []).map((d) => [String(d.word), d]));
+    const details = mine.map((d) => { const r = byWord.get(d.word) || {}; return { ...d, correct: r.correct || '', ok: !!r.ok, points: Number(r.points) || 0 }; });
+    const pct = result.pct, points = result.score;
+    const prevBest = store.best(unitId).pattern ?? null;
+    store.setBest(unitId, 'pattern', pct);
+    const passed = pct >= PASS;
+    if (passed) store.setDone(unitId); else store.setTried(unitId);
+    store.setFirst(unitId, { mode: 'pattern', details });
+    const byKind = {};
+    details.forEach((d) => { const k = (byKind[d[barKey]] = byKind[d[barKey]] || { ok: 0, n: 0 }); k.n++; k.ok = Math.round((k.ok + (Number(d.points) || 0)) * 100) / 100; });
+    const bars = `<div class="stage-bars">${Object.entries(byKind).map(([k, v]) => `<div class="stage-bar"><span class="sb-name">${esc(k)}</span><span class="bar"><span style="--w:${Math.round((v.ok / v.n) * 100)}%"></span></span><span class="sb-score">${fmt(v.ok)}/${v.n}</span></div>`).join('')}</div>`;
+    const wrongN = details.filter((d) => !d.ok).length;
+    if (!wrongN) completeReview(unitId);
+    const actions = [!wrongN
+      ? { label: '返回首頁', icon: icon.home, primary: true, onClick: () => { location.hash = '#/'; } }
+      : { label: `看答案與解析（錯 ${wrongN} 題）`, icon: icon.bulb, primary: true, onClick: () => startReview(details) }];
+    renderResult(stage, {
+      title: passed ? '句型練習通過！' : '未通過',
+      pct, scoreText: `${fmt(points)} / ${result.total ?? mine.length}`,
+      pills: [`${icon.clock} ${Math.floor(durationSec / 60)} 分 ${durationSec % 60} 秒`, wrongN ? '接著看答案與解析，完成後才能複習' : '全部答對'],
+      passLine: true, prevBest, onRetake: retake,
+      extraHTML: `${bars}${stampHTML(student, ctx.unit.title, stamp)}<div data-submit role="status" aria-live="polite">${submitStateHTML(res.status)}</div>`,
+      actions,
+    });
+  }
+
+  // 循序漸進版正式測驗：每段驗收做完，交給伺服器批改（第一次作答就鎖定），全部句型做完交卷
+  function playLearn(student) {
+    const session = newAttemptId();
+    const t0 = Date.now();
+    progress.clear(unitId);
+    document.body.dataset.busy = '1';
+    document.getElementById('fx').replaceChildren();
+    window.addEventListener('beforeunload', unload);
+    stage.innerHTML = '';
+    const grade = async (q, yours) => {
+      if (keyed) return { got: q.kind === 'apply' ? applyScore(q, yours) : (judge(q, yours) ? 1 : 0), q };
+      const j = await checkAnswer({ unit: unitId, session, qid: q.id, yours });
+      return { got: Number(j.got) || 0, q: j.q || q };
+    };
+    const run = mountLearn(stage, {
+      guides, items: (ctx.data || {}).items, prefs: learnPrefs(), grade,
+      onFinish: async ({ details: done }) => {
+        delete document.body.dataset.busy;
+        window.removeEventListener('beforeunload', unload);
+        const durationSec = Math.round((Date.now() - t0) / 1000);
+        const stamp = nowStamp();
+        const wasTried = store.tried(unitId);
+        const nameOf = new Map(run.sections.flatMap((s) => s.quiz.map((q) => [q.id, s.g.name || s.tag])));
+        const byId = new Map(all.map((q) => [q.id, q]));
+        const mine = done.map((d, i) => {
+          const q = byId.get(d.word) || {};
+          return { stage: String(nameOf.get(d.word) || '句型練習').slice(0, 20), n: i + 1, kind: q.label || '', q: q.kind === 'apply' ? q.zh : q.stem, correct: '', yours: String(d.yours || ''), ok: false, points: 0, hints: 0, word: d.word, err: '' };
+        });
+        stage.innerHTML = '<div class="loading"><span class="spinner"></span>交卷中，伺服器正在計分…</div>';
+        window.scrollTo(0, 0);
+        const res = await submitScore({
+          clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
+          unit: unitId, unitTitle: ctx.unit.title, mode: 'pattern', flow: 'learn', review: false, attemptId: session,
+          level: `${wasTried ? '補考 · ' : ''}句型練習`.slice(0, 60),
+          score: null, total: 100, pct: null, durationSec, wrong: [], details: mine,
+        });
+        if (!alive) return;
+        showSubmitted({ student, res, mine, stamp, durationSec, retake: () => playLearn(student), barKey: 'stage' });
+      },
+    });
   }
 
   return () => {
