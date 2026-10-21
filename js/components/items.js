@@ -91,8 +91,9 @@ async function askServer(card, reveal, yours) {
     return false;
   } finally { card.classList.remove('checking'); }
 }
+// 作答時不顯示句型標籤（例如「倍數 + the N of」常常就是答案）；作答後的解析與檢討才顯示
 function head(q, meta, sentence) {
-  return `<div class="q-head"><div class="q-meta">${esc(meta)}</div>${q.tag ? `<span class="tagchip">${esc(q.tag)}</span>` : ''}${sentence}</div>`;
+  return `<div class="q-head"><div class="q-meta">${esc(meta)}</div>${sentence}</div>`;
 }
 
 // deferred：正式測驗先作答、交卷才看對錯（比照課文理解）。選了可以改，onPick(yours, state) 回報目前的答案；initial 是之前選的（回到這一題時還原）
@@ -279,7 +280,8 @@ export function renderApplyCard(host, q, { meta = '應用：把單字排成正�
 }
 
 export function explainHTML(q) {
-  return q.explain ? `<div class="explain xp slide-in"><div class="xp-head">${icon.bulb} 解析</div><p>${esc(q.explain)}</p></div>` : '';
+  if (!q.explain && !q.tag) return '';
+  return `<div class="explain xp slide-in"><div class="xp-head">${icon.bulb} 解析</div>${q.tag ? `<span class="tagchip">${esc(q.tag)}</span>` : ''}${q.explain ? `<p>${esc(q.explain)}</p>` : ''}</div>`;
 }
 
 /* ---------------- 檢討卡片 ---------------- */

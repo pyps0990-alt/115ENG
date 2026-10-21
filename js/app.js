@@ -318,8 +318,8 @@ function tileHTML(u) {
   const kind = TYPES[typeOf(u.type)].tile;
   // 主題（後台匯入內容時填的，課文理解沒填就是文章標題）：小字放在標題下面；空白或跟標題一樣就不顯示
   const topic = String(u.topic || '').trim();
-  const topicShown = topic && topic.toLowerCase() !== heading.toLowerCase() ? topic : '';
-  const catLine = [heading === kind || heading === typeLabel(u.type) ? '' : kind, tileMeta(u)].filter(Boolean).join(' · ');
+  // 主題跟類型名稱一樣（例如句型單元主題寫「句型練習」）也不重複顯示
+  const topicShown = topic && ![heading, kind, typeLabel(u.type)].some((x) => String(x || '').toLowerCase() === topic.toLowerCase()) ? topic : '';
   const chip = st.k === 'retake' && b != null && b < PASS ? `需補考 · 還差 ${PASS - b}%` : TILE_STATE[st.k];
   const sub = [b != null ? `最佳 ${b}%` : '', st.k === 'miss' ? '' : windowText(u.id, store.done(u.id))].filter(Boolean).join(' · ');
   // 最佳成績旁的小量尺：刻度就是及格線，每張卡片都看得到離通過還有多遠
@@ -328,7 +328,7 @@ function tileHTML(u) {
       <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span></div>
       <h3 class="en">${esc(u.title)}</h3>
       ${topicShown ? `<p class="tile-topic en">${esc(topicShown)}</p>` : ''}
-      ${vocab ? vocabMetaHTML(u, openLevels(u).map((l) => l.name)) : `<div class="tile-meta"><span class="tile-cat">${typeIcon(u.type)}</span>${catLine}</div>`}
+      ${vocab ? vocabMetaHTML(u, openLevels(u).map((l) => l.name)) : `<div class="tile-meta stack"><span><span class="tile-cat">${typeIcon(u.type)}</span>${kind}</span><span>${tileMeta(u)}</span></div>`}
       ${sub ? `<div class="tile-sub">${meter}<span>${esc(sub)}</span></div>` : ''}
     </a>`;
 }

@@ -50,6 +50,7 @@ for (const reduced of [false, true]) {
   await p.click('.unit-tile[data-id="a-pat"]'); await p.waitForSelector('[data-start]');
   await settled(p, tag + '單元頁', reduced);
   await p.click('[data-start]'); await p.waitForSelector('.opt');
+  await p.mouse.move(1, 1); // 滑鼠剛好停在選項上會有懸停位移，不算動畫停在中途
   await settled(p, tag + '作答中', reduced);
   await p.locator('.opt').first().click(); await sleep(200);
   await p.locator('[data-next]:not([hidden])').click(); await p.waitForSelector('.result');
