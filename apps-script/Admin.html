@@ -2499,7 +2499,36 @@
       if (!m) return null;
       return { ex: ex.slice(0, m.index) + '[' + m[0] + ']' + ex.slice(m.index + m[0].length), auto: true };
     }
+    // 外部 AI 的回覆：清單後面接「【拼寫提示】」，每行「英文 | 第 1 層 | 第 2 層」，自動填進清單的第 6、7 欄
+    function hintRules() {
+      var t = typeof prompts !== 'undefined' && prompts && prompts.hints && prompts.hints.text;
+      return t || '兩層都不能出現這個英文字本身、變化形或同字根的字，也不能直接說出中文意思；每層 45 字以內，用簡單的說法。';
+    }
+    function takeHints() {
+      var ta = $('v-text'), text = ta.value, at = text.indexOf('【拼寫提示】');
+      if (at < 0) return 0;
+      var hints = {};
+      text.slice(at + 6).split(/\r?\n/).forEach(function (l) {
+        var c = (l.indexOf('\t') >= 0 ? l.split('\t') : l.split('|')).map(function (x) { return x.trim(); });
+        if (c[0] && (c[1] || c[2])) hints[c[0].toLowerCase()] = [c[1] || '', c[2] || ''];
+      });
+      var got = 0;
+      var lines = text.slice(0, at).replace(/\s+$/, '').split(/\r?\n/).map(function (line) {
+        if (!line.trim()) return line;
+        var sep = line.indexOf('\t') >= 0 ? '\t' : '|';
+        var c = line.split(sep).map(function (x) { return x.trim(); });
+        var h = hints[(c[0] || '').toLowerCase()];
+        if (!h) return line;
+        while (c.length < 5) c.push('');
+        c[5] = h[0]; c[6] = h[1]; got++;
+        return c.slice(0, 7).join(sep === '\t' ? '\t' : ' | ');
+      });
+      ta.value = lines.join('\n') + '\n';
+      if (typeof impDirty === 'function') impDirty();
+      return got;
+    }
     function parseVocab() {
+      if (takeHints()) $('imp-msg').textContent = '';
       var lines = normalizeAI($('v-text').value).split('\n').map(function (l) { return l.replace(/\s+$/, ''); })
         .filter(function (l) { return l.trim() && !/^\s*\|?[\s:|-]+\|?\s*$/.test(l); })                  // 表格分隔線 |---|---|
         .map(function (l) { return /^\s*\|.*\|\s*$/.test(l) ? l.replace(/^\s*\|/, '').replace(/\|\s*$/, '') : l; }); // Markdown 表格的頭尾 |
@@ -3110,7 +3139,11 @@
           '【格式】每行一個單字或片語，共 5 個欄位，欄位之間用 Tab 或「 | 」隔開（整份請統一一種）：',
           '英文 | 詞性 | 中文 | 例句（' + nEx + (cloze ? '，句與句之間用「 ; 」隔開' : '') + '） | 例句翻譯（' + nEx + (cloze ? '，同樣用「 ; 」隔開，順序要和例句一一對應' : '') + '）', '',
           '【規則】'].concat(rules, [PROMPT_COMMON.split('\n').filter(function (l, i) { return i === 0 || /^(1|2|7)\./.test(l); }).join('\n'), '',
-          '【範例（兩行）】', VOCAB_EX, '',
+          '【範例（兩行）】', VOCAB_EX, ''], has('clozeSpell') ? [
+          '【第二部分：拼寫提示】清單全部寫完後，空一行，獨占一行寫「【拼寫提示】」，接著每個「單字」一行（片語不用寫），給卡住的學生兩層提示：',
+          '英文 | 第 1 層：使用情境 | 第 2 層：近義字和搭配',
+          '英文要和清單裡的一字不差。內容要求（context=第 1 層、near=第 2 層）：', typeof hintRules === 'function' ? hintRules() : '', '',
+          '例：resilient | 形容人或事物遇到困難後能很快恢復，常用來描述孩子、團隊或植物。 | 意思和 tough 接近，但更強調「恢復」；常說 be ___ to change', ''] : [], [
           '【我要的範圍】請在這裡填：單字或主題（例如：Lesson 5 的單字清單如下…）']).join('\n');
       }
       if (type === 'reading') {
@@ -5117,9 +5150,13 @@
       });
       ta.value = text.slice(0, at).replace(/\s+$/, '') + '\n';
       impDirty();
-      $('imp-msg').textContent = '已把 ' + got + ' 份句型說明移到下方「句型說明」，請展開確認'; $('imp-msg').className = 'msg ok';
+      setTimeout(function () { $('imp-msg').textContent = '已把 ' + got + ' 份句型說明移到下方「句型說明」，請展開確認'; $('imp-msg').className = 'msg ok'; }, 0);
       return got;
     }
+    $('v-text').addEventListener('input', function () {
+      var n = takeHints(); if (!n) return;
+      setTimeout(function () { $('imp-msg').textContent = '已把 ' + n + ' 個單字的拼寫提示填進第 6、7 欄，請按「預覽與檢查」確認'; $('imp-msg').className = 'msg ok'; }, 0);
+    });
     $('t-text').addEventListener('input', function () { takeGuides(); clearTimeout(gT); gT = setTimeout(drawGuides, 400); });
     $('ai-guides').onclick = function () {
       if (!needAi()) return;

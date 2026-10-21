@@ -224,6 +224,8 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   // 老師（或 AI）寫好的分層提示：第 1 次看使用情境、第 2 次看近義字和搭配，不再直接給字母
   const tips = shown ? (Array.isArray(w.hints) ? w.hints : []).map((t) => String(t || '').trim()).filter(Boolean).slice(0, MAX_HINTS) : [];
   const maxHints = tips.length ? tips.length : Math.max(0, Math.min(MAX_HINTS, n - 1 - shown - (shown && n > 3 ? 1 : 0)));
+  // 已經給出的字母數：用文字提示時一個字母都不給（hints 只算按了幾次提示）
+  const given = () => (tips.length ? 0 : hints);
   const hintBtn = card.querySelector('[data-hint]');
   const paintHint = () => {
     if (!hintBtn) return;
@@ -239,16 +241,16 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
     const focused = document.activeElement === input;
     boxes.forEach((b, i) => {
       b.textContent = l[i] || '';
-      b.classList.toggle('filled', !!l[i] && i >= hints);
-      b.classList.toggle('hinted', i < hints);
+      b.classList.toggle('filled', !!l[i] && i >= given());
+      b.classList.toggle('hinted', i < given());
       b.classList.toggle('cursor', focused && !checked && i === l.length);
     });
   };
   input.addEventListener('input', () => {
     if (checked) return;
     let l = lettersOf(input.value);
-    const prefix = target.slice(0, hints).join('');
-    if (!l.startsWith(prefix)) l = prefix + l.slice(hints);
+    const prefix = target.slice(0, given()).join('');
+    if (!l.startsWith(prefix)) l = prefix + l.slice(given());
     l = l.slice(0, n);
     if (input.value !== l) input.value = l;
     paint();

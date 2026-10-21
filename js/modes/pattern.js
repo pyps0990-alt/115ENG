@@ -124,7 +124,7 @@ export function mount(stage, ctx) {
 
     stage.innerHTML = `
       <div class="quiz">
-        ${statusBarHTML({ kind: redo ? 'redo' : 'review', note: redo ? '只練剛剛錯的題目，不計分也不送出。' : '複習不會改變你的成績，每題答完馬上看解析。', mid: `<div class="quiz-bar">
+        ${statusBarHTML({ kind: redo ? 'redo' : 'review', note: redo ? '只練剛剛錯的題目，不計分也不送出。' : '每題答完馬上看解析。', mid: `<div class="quiz-bar">
           <div class="bar"><span></span></div>
           <span class="quiz-stat" data-n></span>
           <span class="quiz-stat streak" data-streak title="連續答對">${icon.flame}<b>0</b></span>

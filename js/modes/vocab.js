@@ -149,7 +149,7 @@ export function mount(stage, ctx) {
     const stKind = !official ? 'redo' : review ? 'review' : 'official';
     stage.innerHTML = `
       <div class="quiz">
-        ${statusBarHTML({ kind: stKind, note: { official: '這次的分數會送給老師。', review: '複習不會改變你的成績。', redo: '只練剛剛錯的題目，不計分也不送出。' }[stKind], mid: `<ol class="stepper" aria-label="測驗進度">${stages.map((s, i) => `<li data-step="${i}">
+        ${statusBarHTML({ kind: stKind, note: { official: '這次的分數會送給老師。', review: '', redo: '只練剛剛錯的題目，不計分也不送出。' }[stKind], mid: `<ol class="stepper" aria-label="測驗進度">${stages.map((s, i) => `<li data-step="${i}">
           <span class="step-dot">${i + 1}</span><span class="step-name">${s.level.name}</span><span class="step-score"></span></li>`).join('')}</ol><div class="quiz-bar">
           <div class="bar"><span></span></div>
           <span class="quiz-stat" data-n></span>

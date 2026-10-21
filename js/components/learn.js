@@ -88,8 +88,8 @@ export function mountLearn(stage, { guides, items, prefs, onFinish, grade = null
     const oldH = view.offsetHeight; // 要在舊內容改成淡出（不佔空間）之前量
     [...view.children].forEach((old) => {
       if (calm || dir === 0) { old.remove(); return; }
-      old.classList.add('leaving'); old.setAttribute('aria-hidden', 'true'); old.inert = true;
-      setTimeout(() => old.remove(), 160);
+      old.classList.remove('in-r', 'in-l'); old.classList.add('leaving', dir > 0 ? 'out-l' : 'out-r'); old.setAttribute('aria-hidden', 'true'); old.inert = true;
+      setTimeout(() => old.remove(), 220);
     });
     const next = document.createElement('div');
     next.className = `ln-body${calm || dir === 0 ? '' : dir > 0 ? ' in-r' : ' in-l'}`;
@@ -101,11 +101,11 @@ export function mountLearn(stage, { guides, items, prefs, onFinish, grade = null
       if (Math.abs(newH - oldH) > 4) {
         view.style.height = `${oldH}px`; void view.offsetHeight;
         view.classList.add('resizing'); view.style.height = `${newH}px`;
-        clearTimeout(view._t); view._t = setTimeout(() => { view.classList.remove('resizing'); view.style.height = ''; }, 300);
+        clearTimeout(view._t); view._t = setTimeout(() => { view.classList.remove('resizing'); view.style.height = ''; }, 420);
       }
     }
     const b = $('.ln-bar');
-    b.className = 'ln-bar'; b.innerHTML = bar || ''; b.hidden = !bar;
+    b.className = `ln-bar${calm || dir === 0 ? '' : ' swap'}`; b.innerHTML = bar || ''; b.hidden = !bar;
     // 只有捲到下面時才回到頂端（不要每一步都捲動）
     const topY = stage.getBoundingClientRect().top + window.scrollY - 80;
     if (window.scrollY > topY + 40) window.scrollTo({ top: Math.max(0, topY), behavior: 'auto' });
@@ -292,15 +292,30 @@ export function mountLearn(stage, { guides, items, prefs, onFinish, grade = null
 
   // ---------- ③ 驗收：計分，這一段做完就看結果 ----------
   const hasAns = (q) => String(answers[q.id] || '').trim() !== '';
+  // 驗收中可以回頭看說明：收合的小抽屜（用途、結構、一句例句、易錯），不離開題目、不影響作答
+  let peekOpen = false;
+  const peekHTML = (s) => {
+    const g = s.g, parts = g.parts || [];
+    if (!g.use && !parts.length && !s.examples.length) return '';
+    const e = s.examples[0];
+    const ex = e ? parseExample(e.en).map((x) => (x.part >= 0 ? `<span class="ln-hl c${x.part % 5}">${esc(x.text)}</span>` : esc(x.text))).join('') : '';
+    return `<details class="ln-peek"${peekOpen ? ' open' : ''}><summary>${icon.book} 看說明</summary><div class="ln-peek-in">
+      ${g.use ? `<p class="ln-use">${esc(g.use)}</p>` : ''}
+      ${parts.length ? `<div class="ln-formula sm">${parts.map((p, i) => `<div class="ln-part c${i % 5}"><b>${esc(p.t)}</b></div>`).join('<span class="ln-plus" aria-hidden="true">+</span>')}</div>` : ''}
+      ${ex ? `<p class="ln-peek-ex en">${ex}</p>` : ''}
+      ${g.pitfall ? `<p class="ln-peek-pit">${icon.alert} ${esc(g.pitfall)}</p>` : ''}
+    </div></details>`;
+  };
   function quiz(qi, dir = 1) {
     const s = sections[si];
     const q = s.quiz[qi];
     const last = qi === s.quiz.length - 1;
     show(2, `<div class="ln-note"><span class="ln-tag score">計分</span>第 ${qi + 1} / ${s.quiz.length} 題</div>
       <div class="ln-qdots" role="group" aria-label="跳到第幾題">${s.quiz.map((x, i) => `<button type="button" class="${i === qi ? 'now' : ''}${hasAns(x) ? ' done' : ''}" data-goq="${i}" aria-label="第 ${i + 1} 題${hasAns(x) ? '（已作答）' : ''}">${i + 1}</button>`).join('')}</div>
-      <div data-q></div>`,
+      ${peekHTML(s)}<div data-q></div>`,
       `<button type="button" class="btn ghost" data-prev ${qi ? '' : 'disabled'}>${icon.back}</button><button type="button" class="btn primary" data-next>${last ? `看這段結果 ${icon.check}` : `下一題 ${icon.arrowR}`}</button>`, dir);
     const host = $('[data-q]');
+    $('.ln-peek')?.addEventListener('toggle', (e) => { peekOpen = e.target.open; });
     const paintDots = () => $$('[data-goq]').forEach((b, i) => b.classList.toggle('done', hasAns(s.quiz[i])));
     const opts = { meta: q.label, deferred: true, initial: states[q.id] ?? null, onPick: (yours, state) => { answers[q.id] = yours; states[q.id] = state; paintDots(); } };
     if (q.kind === 'mc') renderChoiceCard(host, q, opts);
