@@ -94,6 +94,20 @@ python3 -m http.server 8000
 - 課文理解的題目或選項，只要跟文章有**連續 6 個英文字以上相同**，就算照抄，會列為錯誤；連續 5 個字會列為警告。每一題都要有原文依據。
 - 單字片語的例句有沒有用 `[ ]` 標出目標字、有沒有重複的字，以及中文意思有沒有重複。
 
+## 自動部署（GitHub Actions）
+
+`.github/workflows/deploy.yml`：推上 `main`，或到 GitHub 的 **Actions → Deploy hosting → Run workflow**（可以選分支），就會自動部署網站（只有 Hosting）。沒有電腦時，用手機的瀏覽器也能按。
+
+一次性設定：
+
+1. Google Cloud 主控台（專案 `eng-3385e`）→ **IAM 與管理 → 服務帳戶 → 建立服務帳戶**，名稱例如 `github-deploy`。
+2. 授予角色：**Firebase Hosting 管理員**、**Service Usage 消費者**、**API Keys 檢視者**。
+3. 該服務帳戶 → **金鑰 → 新增金鑰 → JSON**，下載後把檔案**全文**複製起來。
+4. GitHub 專案 → **Settings → Secrets and variables → Actions → New repository secret**，名稱 `FIREBASE_SERVICE_ACCOUNT`，內容貼上 JSON 全文。
+5. 到 Actions 頁面執行一次 Deploy hosting，確認成功。
+
+金鑰等同密碼，不要放進程式碼或傳給別人；不用時到 Google Cloud 刪除。
+
 ## 發布到 Firebase Hosting
 
 專案已設定為部署到 Firebase 專案 `eng-3385e`（設定檔：`firebase.json`、`.firebaserc`）。
