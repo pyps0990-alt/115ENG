@@ -45,5 +45,25 @@ const txt = await p.locator('.result').textContent();
 assert.match(txt, /50%|50 \/ 100/, '各句型平均配分：A 全對、B 全錯應該 50 分：' + txt.slice(0, 200));
 const prefs = await p.evaluate(() => localStorage.getItem('b5p:learnPrefs'));
 assert.match(prefs, /"mode":"read"/, '模式要記住：' + prefs);
+// 通過後複習：題目上方有「看說明」，打開後顯示這個句型的說明
+g.api('saveAllSettings', [[], [{ id: 'l3-pat', title: 'L3 句型', type: 'pattern', lesson: 3, topic: '', visible: true, disabled: [], questionCount: 10, custom: true }, { id: 'l3-b', title: 'L3 單句型', type: 'pattern', lesson: 3, topic: '', visible: true, disabled: [], questionCount: 10, custom: true }]]);
+g.api('saveContent', ['l3-b', { items: mk('Alpha', 'AAA', 1), guides: [guide('Alpha', '甲句型')] }, true]);
+await p.goto(world.base + '/#/u/l3-b'); await p.waitForSelector('[data-start]'); await p.click('[data-start]');
+for (let i = 0; i < 120; i++) {
+  await sleep(300);
+  if (await p.locator('.result').count()) break;
+  if (await p.locator('.ln-bar [data-go]:not([disabled])').count()) { await p.locator('.ln-bar [data-go]').click(); continue; }
+  const v = p.locator('.ln-body:not(.leaving)').last();
+  const opts = v.locator('.opt:not([disabled])');
+  if (await opts.count()) { const isCheck = /Check/.test(await v.textContent()); await opts.nth(isCheck ? 0 : 1).click(); if (isCheck) continue; }
+  const nx = p.locator('.ln-bar [data-next]:not([disabled])'); if (await nx.count()) await nx.click();
+}
+assert.match(await p.locator('.result').textContent(), /100/);
+await p.goto(world.base + '/#/u/l3-b'); await p.reload(); await p.waitForSelector('[data-start]:not([disabled])');
+await p.click('[data-start]');
+await p.waitForSelector('.ln-peek', { timeout: 8000 });
+assert.equal(await p.locator('.ln-body').count(), 0, '複習不是循序漸進版');
+await p.locator('.ln-peek summary').click();
+assert.match(await p.locator('.ln-peek').textContent(), /甲句型[\s\S]*用途[\s\S]*易錯/);
 await world.close();
 console.log('句型練習循序漸進版測試通過');

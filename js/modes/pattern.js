@@ -11,7 +11,7 @@ import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore, fetchKey, cachedKey, newAttemptId, checkAnswer } from '../submit.js';
-import { mountLearn } from '../components/learn.js';
+import { mountLearn, guidePeekHTML } from '../components/learn.js';
 import { learnPrefs } from '../learn-prefs.js';
 import { statusBarHTML, mountDeadline } from '../components/status.js';
 import { progress } from '../resume.js';
@@ -115,6 +115,7 @@ export function mount(stage, ctx) {
     let qi = saved ? saved.qi : 0; let streak = saved ? saved.streak : 0; let bestStreak = saved ? saved.bestStreak : 0; let points = saved ? saved.points : 0;
     const details = saved ? saved.details : [];
     let current = null;
+    let peekOpen = false;
     const t0 = Date.now() - (saved ? saved.elapsed : 0);
     // 正式測驗與複習每換一題就存一次進度（錯題重練不存）
     const persist = () => { if (!redo) progress.save(unitId, 'pattern', { review, qs, qi, streak, bestStreak, points, details, elapsed: Date.now() - t0, ...(session ? { session } : {}) }); };
@@ -146,6 +147,9 @@ export function mount(stage, ctx) {
       host.innerHTML = '';
       const done = (ok, yours, score) => answered(q, ok, yours, score);
       const reveal = null; // 複習、錯題重練：題目有答案，直接在畫面上判斷
+      // 有句型說明：題目上方可以打開「看說明」（打開後換題仍保持打開）
+      const peek = guidePeekHTML(guides.find((g) => g.tag === q.tag), peekOpen);
+      if (peek) { host.insertAdjacentHTML('beforeend', peek); host.querySelector('.ln-peek').addEventListener('toggle', (e) => { peekOpen = e.target.open; }); }
       if (q.kind === 'mc') current = renderChoiceCard(host, q, { meta: `第 ${qi + 1} 題・選擇`, onAnswer: done, reveal });
       else if (q.kind === 'fill') current = renderFillCard(host, q, { meta: `第 ${qi + 1} 題・填空`, onAnswer: done, reveal });
       else current = renderApplyCard(host, q, { meta: `第 ${qi + 1} 題・應用`, onAnswer: done, reveal });
