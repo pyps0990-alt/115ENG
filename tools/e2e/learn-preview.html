@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>句型練習預覽</title>
+<script>document.write('<link rel="stylesheet" href="/css/style.css?v=' + Date.now() + '">');</script>
+<style>
+  body { background: var(--bg, #F6F8FB); }
+  main { width: 100%; max-width: 720px; box-sizing: border-box; margin: 0 auto; padding: 20px 16px 120px; }
+  #pv { position: fixed; right: 8px; top: 8px; opacity: .85; z-index: 50; display: flex; gap: 6px; padding: 6px; border-radius: 12px; background: #1E3A8A; font: 700 12px system-ui; }
+  #pv button { border: 0; border-radius: 8px; padding: 6px 10px; background: #fff; color: #1E3A8A; font: inherit; cursor: pointer; }
+</style>
+</head>
+<body>
+<!-- 本機預覽：循序漸進的句型練習（假資料，不連正式資料，也不送成績） -->
+<main><div id="stage"></div></main>
+<div id="pv"><button type="button" id="restart">重新開始</button><button type="button" id="reset">清除模式選擇</button></div>
+<script type="module">
+import { mountLearn } from '/js/components/learn.js';
+import { renderResult } from '/js/components/result.js';
+
+const guides = [
+  { tag: '倍數 + the N of', name: '倍數比較', use: '比較兩個東西「差幾倍」時用：A 是 B 的幾倍大／高／長。',
+    parts: [{ t: '倍數', eg: 'three times' }, { t: 'the + 名詞', eg: 'the size' }, { t: 'of', eg: 'of' }, { t: '比較的對象', eg: 'Taiwan' }],
+    examples: [
+      { en: 'Japan is about {0:ten times} {1:the size} {2:of} {3:Taiwan}.', zh: '日本大約是台灣的十倍大。' },
+      { en: 'This tower is {0:twice} {1:the height} {2:of} {3:that building}.', zh: '這座塔是那棟大樓的兩倍高。' },
+      { en: 'My new phone cost {0:three times} {1:the price} {2:of} {3:my old one}.', zh: '我的新手機是舊手機價格的三倍。' },
+      { en: 'The river is {0:five times} {1:the length} {2:of} {3:the bridge}.', zh: '這條河是那座橋的五倍長。' },
+    ],
+    pitfall: '名詞前面的 the 不能省略：說 three times the size of，不是 three times size of。',
+    checks: [
+      { type: 'mc', q: 'The park is four times ____ of our school.', options: ['the size', 'size', 'the sizes', 'a size'], answer: 0, explain: '倍數後面接 the + 名詞，名詞用單數：the size。' },
+    ] },
+  { tag: 'It is ... that ...', name: '強調句', use: '想特別強調句子裡的某一部分（人、事、時間、地點）時用。',
+    parts: [{ t: 'It is / was', eg: 'It was' }, { t: '要強調的部分', eg: 'Tom' }, { t: 'that', eg: 'that' }, { t: '句子其他部分', eg: 'broke the window' }],
+    examples: [
+      { en: '{0:It was} {1:Tom} {2:that} {3:broke the window}.', zh: '打破窗戶的正是湯姆。' },
+      { en: '{0:It is} {1:your effort} {2:that} {3:matters most}.', zh: '最重要的是你的努力。' },
+      { en: '{0:It was} {1:in 2019} {2:that} {3:we first met}.', zh: '我們是在 2019 年第一次見面的。' },
+    ],
+    pitfall: '強調的是過去的事，前面要用 It was，不是 It is。',
+    checks: [
+      { type: 'mc', q: '____ my mother that taught me to cook.', options: ['It was', 'There was', 'That was', 'It has'], answer: 0, explain: '強調句的開頭是 It is / It was；這是過去的事，用 It was。' },
+      { type: 'fill', q: 'It was in Tainan ____ I grew up.', answer: 'that', explain: '強調句的結構是 It was ＋ 強調部分 ＋ that ＋ 其他部分。' },
+    ] },
+  { tag: 'Not only ... but also ...', name: 'Not only 倒裝', use: '「不但……而且……」；Not only 放句首時，後面要倒裝（助動詞放到主詞前）。',
+    parts: [{ t: 'Not only', eg: 'Not only' }, { t: '助動詞＋主詞＋動詞', eg: 'did he pass' }, { t: 'but (also)', eg: 'but also' }, { t: '後半句', eg: 'he won a prize' }],
+    examples: [
+      { en: '{0:Not only} {1:did he pass} the test, {2:but} {3:he also got the highest score}.', zh: '他不但通過考試，還拿到最高分。' },
+      { en: '{0:Not only} {1:does she sing} well, {2:but} {3:she also dances beautifully}.', zh: '她不但唱得好，舞也跳得很美。' },
+      { en: '{0:Not only} {1:is it cheap}, {2:but also} {3:it is useful}.', zh: '它不但便宜，而且實用。' },
+    ],
+    pitfall: 'Not only 在句首時要倒裝：Not only did he pass，不是 Not only he passed。',
+    checks: [
+      { type: 'mc', q: 'Not only ____ the exam, but he also won a prize.', options: ['he passed', 'did he pass', 'he did pass', 'passed he'], answer: 1, explain: 'Not only 放句首要倒裝：助動詞 did 放到主詞前面。' },
+    ] },
+];
+const items = [
+  { type: 'mc', tag: '倍數 + the N of', q: 'The new library is three times ____ of the old one.', options: ['the size', 'size', 'bigger size', 'the sized'], answer: 0, explain: '倍數 + the + 名詞 + of。' },
+  { type: 'fill', tag: '倍數 + the N of', q: 'Our classroom is twice the ____ of the office. (大小)', answer: 'size', explain: '倍數 + the size of。' },
+  { type: 'apply', tag: '倍數 + the N of', zh: '這座山是那座山的兩倍高。', words: ['This', 'mountain', 'is', 'twice', 'the', 'height', 'of', 'that', 'one'], explain: 'twice the height of。' },
+  { type: 'mc', tag: '倍數 + the N of', q: 'His salary is ten times ____ mine.', options: ['that of', 'the of', 'than', 'as'], answer: 0, explain: '比較的對象是薪水，用 that of mine 或直接 mine 的結構；這裡選 that of。' },
+  { type: 'mc', tag: 'It is ... that ...', q: 'It was my sister ____ found the lost dog.', options: ['that', 'what', 'which', 'when'], answer: 0, explain: '強調句：It was ... that ...。' },
+  { type: 'fill', tag: 'It is ... that ...', q: '____ was at the station that I lost my wallet.', answer: 'It', explain: '強調地點：It was at the station that ...。' },
+  { type: 'apply', tag: 'It is ... that ...', zh: '正是她的努力讓她成功。', words: ['It', 'was', 'her hard work', 'that', 'made', 'her', 'succeed'], explain: 'It was + 強調部分 + that ...。' },
+  { type: 'mc', tag: 'Not only ... but also ...', q: 'Not only ____ fast, but she also runs far.', options: ['she runs', 'does she run', 'she does run', 'runs she'], answer: 1, explain: '倒裝：does she run。' },
+  { type: 'fill', tag: 'Not only ... but also ...', q: 'Not only ____ he smart, but he is also kind.', answer: 'is', explain: 'be 動詞直接倒裝：Not only is he smart。' },
+  { type: 'apply', tag: 'Not only ... but also ...', zh: '他不但會游泳，也會潛水。', words: ['Not only', 'can', 'he', 'swim', ',', 'but', 'he', 'can', 'also', 'dive'], explain: 'Not only can he swim, but he can also dive。' },
+];
+
+const prefs = { get: (k) => { try { return JSON.parse(localStorage.getItem('pv:' + k)); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('pv:' + k, JSON.stringify(v)); } catch {} } };
+const stage = document.getElementById('stage');
+function start() {
+  stage.innerHTML = '';
+  mountLearn(stage, { guides, items, prefs, onFinish: (r) => {
+    stage.innerHTML = '';
+    renderResult(stage, { title: r.pct >= 65 ? '句型練習通過！' : '', pct: r.pct, scoreText: r.sections.map((s) => `${s.name} ${Math.round(s.got * 10) / 10}/${s.n}`).join('・'), passLine: true,
+      actions: [{ label: '再練一次', primary: r.pct >= 65, onClick: start }], onRetake: start });
+  } });
+}
+document.getElementById('restart').onclick = start;
+document.getElementById('reset').onclick = () => { Object.keys(localStorage).filter((k) => k.startsWith('pv:')).forEach((k) => localStorage.removeItem(k)); start(); };
+start();
+</script>
+</body>
+</html>

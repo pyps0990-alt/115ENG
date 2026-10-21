@@ -135,7 +135,7 @@ function handleApi_(d) {
     syncGradebookRoster: syncGradebookRoster, syncAllGradebooks: syncAllGradebooks,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
     getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey, testLocalAi: testLocalAi,
-    aiGenerateReading: aiGenerateReading, aiAnalyzeReading: aiAnalyzeReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, getBrainConfig: getBrainConfig, setBrainConfig: setBrainConfig, aiFillVocab: aiFillVocab, aiVocabHints: aiVocabHints, aiAddExamples: aiAddExamples,
+    aiGenerateReading: aiGenerateReading, aiAnalyzeReading: aiAnalyzeReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, getBrainConfig: getBrainConfig, setBrainConfig: setBrainConfig, aiFillVocab: aiFillVocab, aiVocabHints: aiVocabHints, aiPatternGuides: aiPatternGuides, aiAddExamples: aiAddExamples,
     lookupStudent: lookupStudent, deleteStudent: deleteStudent,
     backupSpreadsheet: backupSpreadsheet, semesterReset: semesterReset, purgeUnitScores: purgeUnitScores, listPurgeUnits: listPurgeUnits,
     syncNow: syncNow, getSyncStatus: getSyncStatus, syncReport: syncReport,
@@ -2003,6 +2003,7 @@ var AI_PROMPT_DEFAULTS = {
   ].join('\n'),
   pattern: [
     '- Mostly mix "mc" (multiple choice) and "fill" (fill in the blank). Add an occasional "apply" item (about 1 in 6) — never more than a quarter of the set.',
+    '- Write 4–5 items for EVERY sentence pattern (students draw 2–3 per pattern each time), and spell the "tag" of each pattern exactly the same in all its items (same words, spacing, capitalisation and punctuation).',
     '- Focus on the grammar / sentence patterns of the topic. Put a short pattern name in "tag" (e.g. "not only…but also", "so…that", 倒裝句, 關係代名詞).',
     '- "mc": a sentence with one blank written as ____ in "q"; exactly 4 English options; "answerIndex" is the 0-based index of the correct one. Distractors must be tempting grammar mistakes (wrong tense, word form, word order), not nonsense.',
     '- "fill": a sentence with one blank ____ in "q"; "answerText" lists EVERY wording that is grammatically correct and natural in that exact sentence, separated by | (e.g. "has been|’s been"); use ( ) for words that may be left out (e.g. "look forward to (the)"). Never list a wording that would be wrong in the sentence (tense, agreement, word form, preposition). Put a hint such as the base word or a Chinese cue in "hint", e.g. "(succeed)" or "（完成）".',
@@ -2010,8 +2011,21 @@ var AI_PROMPT_DEFAULTS = {
     '- Every item needs "explain": a short explanation in Traditional Chinese (Taiwan usage) of the rule and why the answer is right.',
     '- Sentences must be natural, CEFR A2–B1, 8–16 words, about school life, daily life or social topics. Do not repeat the same sentence frame. ' + EASY_EN_,
   ].join('\n'),
+  hints: [
+    '- context（第 1 層：使用情境）：用繁體中文一到兩句，說明這個字通常用在什麼場合、形容或描述什麼樣的人事物、常和哪類字一起出現。',
+    '- near（第 2 層：近義字和搭配）：給一個意思接近的常見英文字並說明差別（例如「意思和 famous 接近，但更正式」），再給一個常見搭配，搭配中的目標字用 ___ 代替（例如「常說 be ___ for something」）。',
+    '規則：兩層都不能出現這個英文字本身或它的任何變化形、同字根的字，也不能出現它的中文翻譯（下面附上的中文意思不能照抄或換句話直接說出）；每層 45 字以內；用學生看得懂的簡單說法。',
+  ].join('\n'),
+  guides: [
+    '- name：句型的中文名稱，6 字以內（例如「倍數比較」「強調句」）。',
+    '- use：一句中文說明什麼時候用、表達什麼意思（30 字以內）。',
+    '- parts：把句型拆成 3～5 塊，依句子順序；t 是這一塊的中文或英文名稱（例如「倍數」「the + 名詞」「of」「比較的對象」），eg 是這一塊在例句裡的一個例子。',
+    '- examples：4 句不同情境的完整例句（CEFR A2–B1，8～14 字，' + EASY_EN_ + '），en 裡用 {編號:文字} 標出每一塊，編號對應 parts 的順序（從 0 開始），每一塊都要標到，例如 "Japan is about {0:ten times} {1:the size} {2:of} {3:Taiwan}."；句子其他部分不要標。zh 是自然的中文翻譯。',
+    '- pitfall：一句中文，學生最常犯的錯（30 字以內）。',
+    '- checks：2 題很簡單的四選一選擇題，確認學生看懂這個句型；q 是題目（空格用 ____），options 4 個選項，answer 是正確選項的索引（0～3），explain 是一句中文解析。',
+  ].join('\n'),
 };
-var AI_PROMPT_LABELS = { vocab: '單字片語', reading: '課文理解', pattern: '句型練習' };
+var AI_PROMPT_LABELS = { vocab: '單字片語', reading: '課文理解', pattern: '句型練習', hints: '拼寫提示', guides: '句型說明' };
 
 function aiGuidance_(type) {
   var v = PropertiesService.getScriptProperties().getProperty('AI_PROMPT_' + type);
@@ -2249,6 +2263,55 @@ function aiAddExamples(items) {
   return { items: out };
 }
 
+// 句型練習（循序漸進版）的句型說明：每個句型標籤一份。認識卡用（用途、公式拆塊、3～5 句標好每一塊的例句、易錯提醒），加上 1～2 題不計分的檢測題
+// items: [{ tag, samples: ['題目文字', ...] }]
+function aiPatternGuides(items) {
+  assertTeacher_();
+  items = (items || []).filter(function (x) { return x && x.tag; }).slice(0, 12);
+  if (!items.length) throw new Error('題目還沒有句型標籤');
+  var schema = {
+    type: 'OBJECT',
+    properties: {
+      guides: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: {
+            tag: { type: 'STRING' }, name: { type: 'STRING' }, use: { type: 'STRING' },
+            parts: { type: 'ARRAY', items: { type: 'OBJECT', properties: { t: { type: 'STRING' }, eg: { type: 'STRING' } }, required: ['t', 'eg'] } },
+            examples: { type: 'ARRAY', items: { type: 'OBJECT', properties: { en: { type: 'STRING' }, zh: { type: 'STRING' } }, required: ['en', 'zh'] } },
+            pitfall: { type: 'STRING' },
+            checks: { type: 'ARRAY', items: { type: 'OBJECT', properties: { q: { type: 'STRING' }, options: { type: 'ARRAY', items: { type: 'STRING' } }, answer: { type: 'INTEGER' }, explain: { type: 'STRING' } }, required: ['q', 'options', 'answer', 'explain'] } },
+          },
+          required: ['tag', 'name', 'use', 'parts', 'examples', 'pitfall', 'checks'],
+        },
+      },
+    },
+    required: ['guides'],
+  };
+  var prompt = [
+    '你是台灣高中英文老師，要為高二學生寫「句型說明卡」，學生先看懂句型再作答。下面每個句型標籤寫一份，tag 照原樣抄回。',
+    aiGuidance_('guides'),
+    '',
+    '句型（附上題庫裡的題目，讓你知道老師要考的用法）：',
+    items.map(function (x, i) { return (i + 1) + '. ' + x.tag + (x.samples && x.samples.length ? '\n   題目例：' + x.samples.slice(0, 3).join(' ／ ') : ''); }).join('\n'),
+  ].join('\n');
+  var clip = function (s, n) { return String(s || '').replace(/\s+/g, ' ').trim().slice(0, n); };
+  var out = (aiCall_(prompt, schema).guides || []).map(function (g) {
+    var parts = (g.parts || []).slice(0, 5).map(function (p) { return { t: clip(p.t, 30), eg: clip(p.eg, 40) }; }).filter(function (p) { return p.t; });
+    // 例句：每一塊都要標到，編號不能超過 parts
+    var examples = (g.examples || []).map(function (e) { return { en: clip(e.en, 200), zh: clip(e.zh, 120) }; }).filter(function (e) {
+      var nums = []; var re = /\{(\d+):[^}]+\}/g, m;
+      while ((m = re.exec(e.en))) nums.push(Number(m[1]));
+      return nums.length && nums.every(function (k) { return k < parts.length; });
+    }).slice(0, 5);
+    var checks = (g.checks || []).filter(function (c) { return c.q && c.options && c.options.length >= 2 && c.answer >= 0 && c.answer < c.options.length; }).slice(0, 2)
+      .map(function (c) { return { type: 'mc', q: clip(c.q, 200), options: c.options.slice(0, 4).map(function (o) { return clip(o, 80); }), answer: Number(c.answer), explain: clip(c.explain, 120) }; });
+    return { tag: clip(g.tag, 60), name: clip(g.name, 20), use: clip(g.use, 80), parts: parts, examples: examples, pitfall: clip(g.pitfall, 80), checks: checks };
+  }).filter(function (g) { return g.tag && g.parts.length && g.examples.length; });
+  return { guides: out };
+}
+
 // 例句拼寫的分層提示：每個字一組。第 1 層「使用情境」、第 2 層「近義字和搭配」；都不能出現答案、它的中文翻譯或同字根的字
 function aiVocabHints(items) {
   assertTeacher_();
@@ -2261,9 +2324,7 @@ function aiVocabHints(items) {
   };
   var prompt = [
     '你是台灣高中英文老師，要為「看例句、拼出空格中的英文單字」的題目寫兩層提示，給卡住的高二學生用。每個字寫一組：',
-    '- context（第 1 層：使用情境）：用繁體中文一到兩句，說明這個字通常用在什麼場合、形容或描述什麼樣的人事物、常和哪類字一起出現。',
-    '- near（第 2 層：近義字和搭配）：給一個意思接近的常見英文字並說明差別（例如「意思和 famous 接近，但更正式」），再給一個常見搭配，搭配中的目標字用 ___ 代替（例如「常說 be ___ for something」）。',
-    '規則：兩層都不能出現這個英文字本身或它的任何變化形、同字根的字，也不能出現它的中文翻譯（下面附上的中文意思不能照抄或換句話直接說出）；每層 45 字以內；用學生看得懂的簡單說法。',
+    aiGuidance_('hints'),
     '',
     '單字：',
     items.map(function (x, i) { return (i + 1) + '. ' + x.word + (x.pos ? '（' + x.pos + '）' : '') + (x.zh ? '　中文：' + x.zh : ''); }).join('\n'),

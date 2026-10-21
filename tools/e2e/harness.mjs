@@ -61,7 +61,8 @@ export async function startWorld({ scriptLatency = 1200, teachers = ['teacher@ex
     // 還沒產生分析的單元，讀 analysis_ 文件會得到 404：正式網站也一樣，屬於正常情況
     page.on('console', (m) => { if (m.type() === 'error' && !/\/public\/analysis_/.test((m.location() || {}).url || '')) errors.push(`console.error: ${m.text()}`); });
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message} ${process.env.STACK ? e.stack : ''}`));
-    page.on('requestfailed', (r) => errors.push(`requestfailed: ${r.url()} ${r.failure() && r.failure().errorText}`));
+    // 換頁時還沒載完的請求會被瀏覽器取消（ERR_ABORTED），不是錯誤
+    page.on('requestfailed', (r) => { const t = r.failure() && r.failure().errorText; if (!/ERR_ABORTED/.test(t || '')) errors.push(`requestfailed: ${r.url()} ${t}`); });
     page.errors = errors;
     page.setDefaultTimeout(8000);
     await page.addInitScript(([st, sf, key]) => {

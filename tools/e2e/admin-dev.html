@@ -32,6 +32,7 @@ const DATA = {
   },
   getAiPrompts: { vocab: { text: '' }, reading: { text: '' }, pattern: { text: '' } }, getBrainConfig: {},
   getSyncStatus: { last: new Date(Date.now() - 4 * 60000).toISOString(), trigger: true },
+  aiPatternGuides: { guides: [{ tag: 'It is ... that ...', name: '強調句', use: '想特別強調句子裡的某一部分時用。', parts: [{ t: 'It is / was', eg: 'It was' }, { t: '要強調的部分', eg: 'Tom' }, { t: 'that', eg: 'that' }, { t: '其他部分', eg: 'broke it' }], examples: [{ en: '{0:It was} {1:Tom} {2:that} {3:broke the window}.', zh: '打破窗戶的正是湯姆。' }, { en: '{0:It is} {1:your effort} {2:that} {3:matters}.', zh: '重要的是你的努力。' }, { en: '{0:It was} {1:in 2019} {2:that} {3:we met}.', zh: '我們是在 2019 年見面的。' }], pitfall: '過去的事用 It was。', checks: [{ type: 'mc', q: '____ my mom that taught me.', options: ['It was', 'There was', 'That was', 'It has'], answer: 0, explain: '強調句用 It was。' }] }] },
   getBestScores: { '301-5': { 'L1-2VOC': 88, L1R: 72 }, '302-9': { 'L1-2VOC': 30 } },
   listRoster: ['301', '302', '303', '304'].flatMap((c) => Array.from({ length: 32 }, (_, i) => ({ cls: c, seat: String(i + 1), name: '學生' + (i + 1) }))),
 };

@@ -1094,6 +1094,21 @@
     :root { --ic-x:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M18 6L6 18M6 6l12 12'/%3E%3C/svg%3E"); }
     /* 手機：讀取中的提示縮成一行，不要佔掉第一屏 */
     @media (max-width:900px) { .stale-note { margin:0 0 8px; padding:6px 12px; font-size:.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-radius:10px; } }
+    /* 句型說明面板 */
+    .g-panel { margin-top: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
+    .g-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .g-head b { margin-right: 8px; color: var(--navy); }
+    .g-item { border: 1px solid var(--line); border-radius: 12px; background: #fff; margin-top: 8px; }
+    .g-item > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 12px 14px; cursor: pointer; }
+    .g-st { margin-left: auto; font-size: .8rem; font-weight: 800; display: inline-flex; align-items: center; gap: 3px; }
+    .g-st.ok { color: var(--good-c); } .g-st.no { color: var(--steel); } .g-st.warn { color: var(--amber-ink); }
+    .g-preview { padding: 0 14px; }
+    .g-preview p { margin: 0 0 8px; }
+    .g-parts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+    .g-parts span { padding: 3px 10px; border-radius: 999px; font-size: .82rem; font-weight: 800; }
+    .g-parts i { font-style: normal; color: var(--steel); font-weight: 900; }
+    .g-parts .c0 { background: #DBEAFE; color: #1D4ED8; } .g-parts .c1 { background: #FEF3C7; color: #A16207; } .g-parts .c2 { background: #D1FAE5; color: #047857; } .g-parts .c3 { background: #FCE7F3; color: #BE185D; } .g-parts .c4 { background: #EDE9FE; color: #6D28D9; }
+    .g-text { display: block; width: calc(100% - 28px); margin: 6px 14px 14px; min-height: 180px; font: .85rem/1.6 ui-monospace, Menlo, Consolas, monospace; }
   </style>
 </head>
 <body>
@@ -1279,11 +1294,13 @@
         <details class="ai-box" id="pr-box">
           <summary>進階：修改 AI 出題規則<span class="pill">一般不用動</span></summary>
           <div class="imp-grid">
-            <div class="help">這是程式送給 AI 的「出題規則」（不是匯入格式提示；匯入格式提示在下方灰色區塊，會依上方選的單元自動切換），單字片語、課文理解、句型練習各有一份。可以改成自己的出題風格（例如難度、題型比例、解析語氣）；欄位名稱與格式由系統固定，不會被改壞。清空並儲存＝還原預設。課文理解裡的 <code>{{copy}}</code> 會自動換成「不可照抄的連續字數」。</div>
+            <div class="help">這是程式送給 AI 的「出題規則」（不是匯入格式提示；匯入格式提示在下方灰色區塊，會依上方選的單元自動切換），單字片語、課文理解、句型練習各有一份，另外「拼寫提示」與「句型說明」是那兩個 AI 按鈕用的規則。可以改成自己的出題風格（例如難度、題型比例、解析語氣）；欄位名稱與格式由系統固定，不會被改壞。清空並儲存＝還原預設。課文理解裡的 <code>{{copy}}</code> 會自動換成「不可照抄的連續字數」。</div>
             <div class="seg" role="radiogroup" aria-label="題型" id="pr-type">
               <label><input type="radio" name="pr-t" value="vocab"> 單字片語</label>
               <label><input type="radio" name="pr-t" value="reading"> 課文理解</label>
               <label><input type="radio" name="pr-t" value="pattern" checked> 句型練習</label>
+              <label><input type="radio" name="pr-t" value="hints"> 拼寫提示</label>
+              <label><input type="radio" name="pr-t" value="guides"> 句型說明</label>
             </div>
             <label>提示詞<textarea id="pr-text" spellcheck="false" style="min-height:200px"></textarea></label>
             <div class="bar"><button class="btn primary" id="pr-save" type="button">儲存提示詞</button><button class="btn" id="pr-reset" type="button">還原預設</button><span id="pr-state" class="pill"></span><span class="msg" id="pr-msg"></span></div>
@@ -1346,6 +1363,11 @@
           </div>
           <label>AI 出題範圍或提示（可空白，會和主題一起交給 AI）<input type="text" id="t-hint" placeholder="例：Lesson 3 的重點句型，難度中等"></label>
           <label>題目內容<textarea id="t-text" spellcheck="false" style="min-height:320px"></textarea></label>
+          <section class="g-panel" id="g-panel">
+            <div class="g-head"><div><b>句型說明</b><span class="muted small" id="g-count"></span></div><button class="btn ai" id="ai-guides" type="button">✦ AI 產生句型說明</button></div>
+            <p class="muted small" style="margin:4px 0 10px">學生會依句型分段練習：先看說明（用途、結構、例句、易錯提醒），做 1～2 題不計分的檢測，再做計分的驗收題。每個句型標籤一份說明。</p>
+            <div id="g-list"></div>
+          </section>
         </div>
 
         <div class="bar" style="margin-top:14px">
@@ -2263,6 +2285,7 @@
       } else if (u.type === 'pattern') {
         $('t-topic').value = d.topic || '';
         $('t-text').value = serPattern(d);
+        guidesNow = Array.isArray(d.guides) ? d.guides.slice() : []; drawGuides();
       } else {
         $('r-title').value = d.title || ''; $('r-topic').value = d.topic || '';
         $('r-passage').value = (d.passage || []).join('\n\n');
@@ -2776,9 +2799,17 @@
           var j = JSON.parse(trimmed);
           if (Array.isArray(j)) j = { items: j };
           data = { topic: j.topic || $('t-topic').value.trim(), items: j.items };
+          if (Array.isArray(j.guides) && typeof guidesNow !== 'undefined') guidesNow = j.guides.slice();
           if (!$('t-topic').value.trim() && j.topic) $('t-topic').value = j.topic;
         } catch (e) { issues.push(['err', 'JSON 格式錯誤：' + e.message]); }
-      } else data = parsePatternText(text, issues);
+      } else { if (typeof takeGuides === 'function' && takeGuides()) { text = $('t-text').value; drawGuides(); } data = parsePatternText(text, issues); }
+      // 句型說明：只留題目裡還有用到的句型
+      if (data && type === 'pattern' && Array.isArray(data.items) && typeof guidesNow !== 'undefined') {
+        var usedTags = data.items.map(function (it) { return String(it.tag || '').trim(); });
+        var gs = guidesNow.filter(function (g) { return usedTags.indexOf(g.tag) >= 0; });
+        if (gs.length) data.guides = gs; else delete data.guides;
+        if (typeof drawGuides === 'function') drawGuides();
+      }
       if (data && !issues.length) {
         var err = validatePE(type, data);
         if (err) issues.push(['err', err]);
@@ -3127,7 +3158,13 @@
           '[應用]：句型 / 中文 / 單字 / 答案 / 解析。中文是一句自然的中文；單字是把答案句拆開的單字或詞組（6–12 個，用 | 隔開，順序要打亂）；答案是完整英文句子（第一個字大寫、保留標點）。單字合起來必須剛好等於答案句，不可多也不可少。',
           '句型欄位寫這題考的句型名稱，例如 not only…but also、so…that、倒裝句、關係代名詞。', '',
           '【比例】選擇與填空為主，應用題約每 6 題 1 題，不要超過總題數的四分之一。每題句子 8–16 個字，程度 CEFR A2–B1，除了要考的句型都用國中程度的常用字（學生作答時不能查字典、不能翻譯），不要重複同樣的句型框架。', '',
-          '【範例】', ex, '', '【我要的範圍與題數】請在這裡填：例如「not only…but also 與倒裝句，10 題」'].join('\n');
+          '同一個句型的句型欄位要寫得一字不差（例如都寫 not only…but also），學生會依句型分段練習；每個句型出 4～5 題（每次練習從中隨機抽 2～3 題）。', '',
+          '【範例】', ex, '',
+          '【第二部分：句型說明】題目全部出完後，空一行，獨占一行寫「【句型說明】」，接著替題目用到的每一個句型各寫一份說明（份與份之間空一行）。「句型：」要和題目的句型欄位一字不差。每份的欄位如下（例句與檢測可以有多行）：',
+          typeof GUIDE_HELP === 'string' ? GUIDE_HELP : '', '',
+          '例句裡用 {編號:文字} 標出每一塊，編號從 0 開始、對應「結構」的順序，例如 Japan is about {0:ten times} {1:the size} {2:of} {3:Taiwan}.。檢測的答案寫第幾個選項（1～4）。',
+          '內容要求（name=名稱、use=用途、parts=結構、examples=例句、pitfall=易錯、checks=檢測）：', typeof guideRules === 'function' ? guideRules() : '', '',
+          '【我要的範圍與題數】請在這裡填：例如「not only…but also 與倒裝句，10 題」'].join('\n');
       }
     }
     function copyAiPrompt(btn) {
@@ -5008,6 +5045,119 @@
       });
     };
     window.askText = function (msg) { return window.ask(msg, { input: true }); };
+
+    /* ----- 句型說明（句型練習循序漸進版用）：每個句型標籤一份，存在題目資料的 guides。
+       老師可以按「AI 產生句型說明」，也可以直接改下面每一份的文字（一行一個欄位）。----- */
+    var guidesNow = [], GUIDE_MARK = '【句型說明】';
+    var GUIDE_HELP = '句型：（照題目的標籤）\n名稱：\n用途：\n結構：第一塊 = 例子 | 第二塊 = 例子 | …\n例句：英文句子，每一塊用 {0:文字} 標出（編號對應結構的順序） | 中文翻譯\n易錯：\n檢測：題目（空格用 ____） | 選項A / 選項B / 選項C / 選項D | 正確是第幾個（1～4） | 解析';
+    function serGuide(g) {
+      var o = ['句型：' + g.tag, '名稱：' + (g.name || ''), '用途：' + (g.use || ''),
+        '結構：' + (g.parts || []).map(function (p) { return p.t + (p.eg ? ' = ' + p.eg : ''); }).join(' | ')];
+      (g.examples || []).forEach(function (e) { o.push('例句：' + e.en + (e.zh ? ' | ' + e.zh : '')); });
+      o.push('易錯：' + (g.pitfall || ''));
+      (g.checks || []).forEach(function (c) { o.push('檢測：' + c.q + ' | ' + (c.options || []).join(' / ') + ' | ' + (Number(c.answer) + 1) + ' | ' + (c.explain || '')); });
+      return o.join('\n');
+    }
+    function parseGuide(text, tag) {
+      var g = { tag: tag, name: '', use: '', parts: [], examples: [], pitfall: '', checks: [] }, warn = [];
+      String(text || '').split(/\r?\n/).forEach(function (line) {
+        var m = /^\s*([^：:]+)[：:]\s*(.*)$/.exec(line); if (!m) return;
+        var k = m[1].trim(), v = m[2].trim();
+        if (k === '名稱') g.name = v;
+        else if (k === '用途') g.use = v;
+        else if (k === '易錯') g.pitfall = v;
+        else if (k === '結構') g.parts = v.split('|').map(function (x) { var p = x.split('='); return { t: (p[0] || '').trim(), eg: (p.slice(1).join('=') || '').trim() }; }).filter(function (p) { return p.t; });
+        else if (k === '例句' && v) { var e = v.split('|'); g.examples.push({ en: e[0].trim(), zh: (e.slice(1).join('|') || '').trim() }); }
+        else if (k === '檢測' && v) {
+          var c = v.split('|').map(function (x) { return x.trim(); });
+          var opts = (c[1] || '').split('/').map(function (x) { return x.trim(); }).filter(Boolean), ans = Number(c[2]) - 1;
+          if (c[0] && opts.length >= 2 && ans >= 0 && ans < opts.length) g.checks.push({ type: 'mc', q: c[0], options: opts, answer: ans, explain: c[3] || '' });
+          else warn.push('有一題檢測格式不對（題目 | 選項 / 選項 | 第幾個 | 解析）');
+        }
+      });
+      g.examples.forEach(function (e, i) {
+        var nums = [], re = /\{(\d+):[^}]+\}/g, mm;
+        while ((mm = re.exec(e.en))) nums.push(Number(mm[1]));
+        if (!nums.length) warn.push('第 ' + (i + 1) + ' 句例句沒有用 {0:文字} 標出句型的每一塊');
+        else if (nums.some(function (n) { return n >= g.parts.length; })) warn.push('第 ' + (i + 1) + ' 句例句的編號超過結構的塊數');
+      });
+      if (!g.parts.length) warn.push('缺少結構');
+      if (g.examples.length < 3) warn.push('例句至少要 3 句（目前 ' + g.examples.length + ' 句）');
+      return { g: g, warn: warn };
+    }
+    // 題目裡用到的句型標籤（依出現順序）與每個標籤的幾題題目文字（給 AI 參考）
+    function guideTags() {
+      var items = [];
+      try { var d = parsePatternText($('t-text').value, []); items = (d && d.items) || []; } catch (e) { items = []; }
+      var tags = [], samples = {};
+      items.forEach(function (it) { var t = String(it.tag || '').trim(); if (!t) return; if (tags.indexOf(t) < 0) { tags.push(t); samples[t] = []; } samples[t].push(it.q || it.zh || ''); });
+      return { tags: tags, samples: samples };
+    }
+    var guideOf = function (tag) { return guidesNow.filter(function (g) { return g.tag === tag; })[0]; };
+    function drawGuides() {
+      var box = $('g-list'); if (!box) return;
+      var info = guideTags();
+      if (!info.tags.length) { box.innerHTML = '<p class="muted small" style="margin:0">題目還沒有句型標籤。每題的「句型」欄（例如 倍數 + the N of）就是一個句型，學生會依句型分段練習。</p>'; $('g-count').textContent = ''; return; }
+      var have = info.tags.filter(function (t) { return guideOf(t); }).length;
+      $('g-count').textContent = have + ' / ' + info.tags.length + ' 個句型有說明';
+      box.innerHTML = info.tags.map(function (t) {
+        var g = guideOf(t), chk = g ? parseGuide(serGuide(g), t) : null;
+        var state = !g ? '<span class="g-st no">還沒有說明</span>' : chk.warn.length ? '<span class="g-st warn">' + esc(chk.warn[0]) + '</span>' : '<span class="g-st ok">' + icon_('check') + '完成</span>';
+        var n = info.samples[t].length;
+        return '<details class="g-item"' + (g && chk.warn.length ? ' open' : '') + '><summary><b>' + esc(g && g.name ? g.name : t) + '</b><span class="muted small en">' + esc(t) + '・題庫 ' + n + ' 題' + (n < 4 ? '（建議 4～5 題）' : '') + '</span>' + state + '</summary>' +
+          (g ? '<div class="g-preview">' + (g.use ? '<p>' + esc(g.use) + '</p>' : '') + '<div class="g-parts">' + g.parts.map(function (p, i) { return '<span class="c' + (i % 5) + '">' + esc(p.t) + '</span>'; }).join('<i>+</i>') + '</div><p class="muted small">例句 ' + g.examples.length + ' 句・檢測 ' + g.checks.length + ' 題' + (g.pitfall ? '・有易錯提醒' : '') + '</p></div>' : '') +
+          '<textarea class="g-text" data-g="' + esc(t) + '" spellcheck="false" placeholder="' + esc(GUIDE_HELP) + '">' + esc(g ? serGuide(g) : '') + '</textarea></details>';
+      }).join('');
+      [].forEach.call(box.querySelectorAll('.g-text'), function (ta) {
+        ta.addEventListener('change', function () {
+          var t = ta.dataset.g, text = ta.value.trim();
+          guidesNow = guidesNow.filter(function (g) { return g.tag !== t; });
+          if (text) guidesNow.push(parseGuide(text, t).g);
+          impDirty(); drawGuides();
+        });
+      });
+    }
+    var icon_ = function (k) { return k === 'check' ? '<svg class="ic-w" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>' : ''; };
+    var gT = null;
+    // 外部 AI 的回覆：題目後面接「【句型說明】」，貼上時自動把說明拆到下方，題目留在輸入框
+    function guideRules() {
+      var t = prompts && prompts.guides && prompts.guides.text;
+      return t || '- 名稱 6 字以內；用途一句 30 字以內；結構拆 3～5 塊；例句 4 句不同情境（CEFR A2–B1，8～14 字），每一塊都要標到；易錯一句；檢測 2 題很簡單的四選一。';
+    }
+    function takeGuides() {
+      var ta = $('t-text'), text = ta.value, at = text.indexOf(GUIDE_MARK);
+      if (at < 0) return 0;
+      var got = 0;
+      text.slice(at + GUIDE_MARK.length).split(/\r?\n(?=\s*句型[：:])/).forEach(function (block) {
+        var m = /^\s*句型[：:]\s*(.+)$/m.exec(block); if (!m) return;
+        var tag = m[1].trim(), g = parseGuide(block, tag).g;
+        if (!g.parts.length && !g.examples.length) return;
+        guidesNow = guidesNow.filter(function (x) { return x.tag !== tag; }); guidesNow.push(g); got++;
+      });
+      ta.value = text.slice(0, at).replace(/\s+$/, '') + '\n';
+      impDirty();
+      $('imp-msg').textContent = '已把 ' + got + ' 份句型說明移到下方「句型說明」，請展開確認'; $('imp-msg').className = 'msg ok';
+      return got;
+    }
+    $('t-text').addEventListener('input', function () { takeGuides(); clearTimeout(gT); gT = setTimeout(drawGuides, 400); });
+    $('ai-guides').onclick = function () {
+      if (!needAi()) return;
+      var info = guideTags();
+      var todo = info.tags.filter(function (t) { return !guideOf(t); });
+      if (!info.tags.length) { $('imp-msg').textContent = '題目還沒有句型標籤'; $('imp-msg').className = 'msg err'; return; }
+      if (!todo.length) { $('imp-msg').textContent = '每個句型都已經有說明了（要重做的話，先把那一份的文字清空）'; $('imp-msg').className = 'msg ok'; return; }
+      var btn = $('ai-guides'), label = btn.textContent;
+      aiBusy(btn, true, label); impDirty();
+      google.script.run.withSuccessHandler(function (res) {
+        aiBusy(btn, false, label);
+        var got = 0;
+        (res.guides || []).forEach(function (g) { if (todo.indexOf(g.tag) >= 0 && !guideOf(g.tag)) { guidesNow.push(g); got++; } });
+        drawGuides();
+        $('imp-msg').textContent = 'AI 寫好了 ' + got + ' 個句型的說明，請展開確認後按「預覽與檢查」、儲存'; $('imp-msg').className = 'msg ok';
+      }).withFailureHandler(function (err) {
+        aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
+      }).aiPatternGuides(todo.map(function (t) { return { tag: t, samples: info.samples[t].slice(0, 3) }; }));
+    };
 
     // 開啟加速：先用這台電腦上次讀到的資料畫出畫面，同時向伺服器讀最新的（Apps Script 每次往返要 1～2 秒以上）。
     // 最新資料回來之前，各分頁暫時不能編輯（inert），避免在舊資料上修改後被覆蓋；回來後重畫並解除。

@@ -21,8 +21,8 @@ export function formHTML(s = {}) {
 export function readForm(form) {
   const f = new FormData(form);
   const s = {
-    cls: String(f.get('cls') || '').trim(),
-    seat: String(f.get('seat') || '').trim().replace(/^0+(?=\d)/, ''),
+    cls: String(f.get('cls') || '').normalize('NFKC').trim(), // 全形數字（３０６）轉半形
+    seat: String(f.get('seat') || '').normalize('NFKC').trim().replace(/^0+(?=\d)/, ''),
     name: String(f.get('name') || '').trim(),
   };
   const err = form.querySelector('.form-err');

@@ -52,7 +52,7 @@ export function applyScore(q, built) {
 export const blankHTML = (s) => esc(s).replace(/_{2,}/g, '<span class="blank"></span>');
 
 export function flattenPattern(items) {
-  return (items || []).map((it, i) => ({ id: `i${i}`, kind: it.type, label: KIND_LABEL[it.type] || '', tag: it.tag || '', stem: it.q || it.zh || '', hint: it.hint || '', zh: it.zh || '', words: it.words || [], options: it.options || [], answer: it.answer, explain: it.explain || '' }));
+  return (items || []).map((it, i) => ({ id: `i${i}`, kind: it.type, label: KIND_LABEL[it.type] || '', tag: it.tag || '', stem: it.q || it.zh || '', hint: it.hint || '', zh: it.zh || '', words: it.words || [], options: it.options || [], answer: it.answer ?? (it.type === 'apply' && it.words ? it.words.join(' ') : undefined), explain: it.explain || '' })); // 應用題沒填答案：題目給的單字順序就是答案
 }
 
 // 答錯後顯示：你的答案（錯的地方標出來）＋正確答案（你漏掉的字標出來）
