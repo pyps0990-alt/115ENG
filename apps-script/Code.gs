@@ -135,7 +135,7 @@ function handleApi_(d) {
     syncGradebookRoster: syncGradebookRoster, syncAllGradebooks: syncAllGradebooks,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
     getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey, testLocalAi: testLocalAi,
-    aiGenerateReading: aiGenerateReading, aiAnalyzeReading: aiAnalyzeReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, getBrainConfig: getBrainConfig, setBrainConfig: setBrainConfig, aiFillVocab: aiFillVocab, aiAddExamples: aiAddExamples,
+    aiGenerateReading: aiGenerateReading, aiAnalyzeReading: aiAnalyzeReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, getBrainConfig: getBrainConfig, setBrainConfig: setBrainConfig, aiFillVocab: aiFillVocab, aiVocabHints: aiVocabHints, aiAddExamples: aiAddExamples,
     lookupStudent: lookupStudent, deleteStudent: deleteStudent,
     backupSpreadsheet: backupSpreadsheet, semesterReset: semesterReset, purgeUnitScores: purgeUnitScores, listPurgeUnits: listPurgeUnits,
     syncNow: syncNow, getSyncStatus: getSyncStatus, syncReport: syncReport,
@@ -2246,6 +2246,31 @@ function aiAddExamples(items) {
       examples: (x.examples || []).map(function (e) { return { example: String(e.example || '').trim(), exampleZh: String(e.exampleZh || '').trim() }; }).filter(function (e) { return e.example; }),
     };
   }).filter(function (x) { return x.word && x.examples.length; });
+  return { items: out };
+}
+
+// 例句拼寫的分層提示：每個字一組。第 1 層「使用情境」、第 2 層「近義字和搭配」；都不能出現答案、它的中文翻譯或同字根的字
+function aiVocabHints(items) {
+  assertTeacher_();
+  items = (items || []).filter(function (x) { return x && x.word; }).slice(0, 60);
+  if (!items.length) throw new Error('請先填好單字');
+  var schema = {
+    type: 'OBJECT',
+    properties: { items: { type: 'ARRAY', items: { type: 'OBJECT', properties: { word: { type: 'STRING' }, context: { type: 'STRING' }, near: { type: 'STRING' } }, required: ['word', 'context', 'near'] } } },
+    required: ['items'],
+  };
+  var prompt = [
+    '你是台灣高中英文老師，要為「看例句、拼出空格中的英文單字」的題目寫兩層提示，給卡住的高二學生用。每個字寫一組：',
+    '- context（第 1 層：使用情境）：用繁體中文一到兩句，說明這個字通常用在什麼場合、形容或描述什麼樣的人事物、常和哪類字一起出現。',
+    '- near（第 2 層：近義字和搭配）：給一個意思接近的常見英文字並說明差別（例如「意思和 famous 接近，但更正式」），再給一個常見搭配，搭配中的目標字用 ___ 代替（例如「常說 be ___ for something」）。',
+    '規則：兩層都不能出現這個英文字本身或它的任何變化形、同字根的字，也不能出現它的中文翻譯（下面附上的中文意思不能照抄或換句話直接說出）；每層 45 字以內；用學生看得懂的簡單說法。',
+    '',
+    '單字：',
+    items.map(function (x, i) { return (i + 1) + '. ' + x.word + (x.pos ? '（' + x.pos + '）' : '') + (x.zh ? '　中文：' + x.zh : ''); }).join('\n'),
+  ].join('\n');
+  var out = (aiCall_(prompt, schema).items || []).map(function (x) {
+    return { word: String(x.word || '').trim(), context: String(x.context || '').replace(/\s+/g, ' ').trim().slice(0, 120), near: String(x.near || '').replace(/\s+/g, ' ').trim().slice(0, 120) };
+  }).filter(function (x) { return x.word && (x.context || x.near); });
   return { items: out };
 }
 

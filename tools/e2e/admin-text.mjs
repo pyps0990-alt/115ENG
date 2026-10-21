@@ -82,6 +82,16 @@ assert.match(els['imp-report'].innerHTML, /2–5 個片語/);
   assert.match(els['imp-report'].innerHTML, /1 個字的中文意思和前面的字相同或重疊（第 2 行/);
   els['v-text'] = { value: ph };
 }
+// 第 6、7 欄：例句拼寫的分層提示（使用情境、近義字和搭配）；提示裡寫出答案要提醒；輸出時保留兩欄
+{
+  els['v-text'] = { value: ['renown\tn.\t名聲\tHer [renown] grew.\t她的名聲變大。\t常用來說一個人被很多人知道的程度\t意思接近 fame；常說 win ___', 'cat\tn.\t貓\tA [cat] runs.\t貓跑。\t家裡常養的動物\t這是 cat 的提示', 'dog\tn.\t狗\tA [dog] barks.\t狗叫。', 'sun\tn.\t太陽\tThe [sun] is hot.\t太陽很熱。'].join('\n') };
+  const d = plain(parseVocab());
+  assert.deepEqual(d.words[0].hints, ['常用來說一個人被很多人知道的程度', '意思接近 fame；常說 win ___']);
+  assert.equal(d.words[2].hints, undefined, '沒填提示就不存');
+  assert.match(els['imp-report'].innerHTML, /提示裡出現了答案/);
+  assert.match(serVocab(d).split('\n')[0], /\t常用來說一個人被很多人知道的程度\t意思接近 fame/);
+  els['v-text'] = { value: ph };
+}
 // 超過 30 個：預覽要說明每次抽 30 個出題
 {
   const many = Array.from({ length: 34 }, (_, i) => `word${(String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26)))}x | n. | 字${i} | The [word${(String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26)))}x] is here. | 這個字在這裡。`).join(String.fromCharCode(10));

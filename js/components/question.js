@@ -202,6 +202,7 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   card.className = 'q-card slide-in';
   card.innerHTML = `
     <div class="q-head">${head}</div>
+    <div class="spell-tips" aria-live="polite" hidden></div>
     <div class="spell-area">
       <div class="boxes" style="--n:${Math.max(slots.length, 6)};--long:${Math.max(6, ...String(q.answer).split(/\s+/).map((x) => x.length))}">${wordGroups(slots)}</div>
       <input class="spell-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="輸入答案">
@@ -218,7 +219,11 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   const boxes = [...card.querySelectorAll('.lbox')];
   let hints = 0;
   let checked = false;
-  const maxHints = Math.min(MAX_HINTS, n - 1);
+  // 例句拼寫的單字：題目已經顯示頭尾字母，提示從第 2 個字母開始給（不重複給已經看得到的第一個字母）
+  const shown = q.variant === 'cloze' && !phrase && n > 1 ? 1 : 0;
+  // 老師（或 AI）寫好的分層提示：第 1 次看使用情境、第 2 次看近義字和搭配，不再直接給字母
+  const tips = shown ? (Array.isArray(w.hints) ? w.hints : []).map((t) => String(t || '').trim()).filter(Boolean).slice(0, MAX_HINTS) : [];
+  const maxHints = tips.length ? tips.length : Math.max(0, Math.min(MAX_HINTS, n - 1 - shown - (shown && n > 3 ? 1 : 0)));
   const hintBtn = card.querySelector('[data-hint]');
   const paintHint = () => {
     if (!hintBtn) return;
@@ -276,8 +281,16 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
     if (checked || hints >= maxHints) return;
     hints++;
     paintHint();
-    const rest = letters().slice(hints);
-    input.value = (target.slice(0, hints).join('') + rest).slice(0, n);
+    if (tips.length) {
+      const box = card.querySelector('.spell-tips');
+      const p = document.createElement('p');
+      p.className = 'spell-tip';
+      p.innerHTML = `<b>${hints === 1 ? '使用情境' : '近義字和搭配'}</b>${esc(tips[hints - 1])}`;
+      box.append(p); box.hidden = false;
+      input.focus();
+      return;
+    }
+    input.value = (target.slice(0, hints + shown).join('') + letters().slice(hints + shown)).slice(0, n);
     paint();
     input.focus();
   };
