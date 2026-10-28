@@ -984,12 +984,13 @@
       .savebar { bottom:calc(88px + env(safe-area-inset-bottom, 0px)) !important; }
       html:has(#app-root:not([hidden])), html:has(#app-root:not([hidden])) body { background:var(--paper) !important; }
       .m-top { box-shadow:0 -60px 0 var(--navy); } /* 往上拉超過頂端時露出深藍 */
-      /* 狀態列（時間、訊號）那一帶固定鋪深藍：iOS 會依畫面最上緣的顏色決定狀態列的底色，背景是淺色時會看到一片模糊的淺灰 */
+      /* Safari 26 不看 theme-color，狀態列的底色取自「貼著畫面頂端、全寬、不透明、position:fixed 的真實元素」（偽元素不算），
+         找不到才用頁面背景（淺色）。所以標題列本身固定在頂端；它佔的那一列高度由 .shell 的第一列保留，版面不變 */
+      .m-top { position:fixed !important; top:0; left:0; right:0; }
       html:has(#app-root:not([hidden])) {
         background-image:linear-gradient(var(--navy), var(--navy)) !important;
         background-repeat:no-repeat !important; background-size:100% calc(56px + env(safe-area-inset-top, 0px)) !important;
       }
-      body:has(#app-root:not([hidden]))::before { content:""; position:fixed; top:0; left:0; right:0; height:max(env(safe-area-inset-top, 0px), 1px); background:var(--navy); z-index:60; pointer-events:none; }
     }
     @media (max-width:900px) and (prefers-reduced-motion: reduce) { .lg-ink { transition:opacity .2s !important; } }
     /* 不支援模糊效果的瀏覽器：改用不透明的白色 */
