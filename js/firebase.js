@@ -130,6 +130,26 @@ export async function listAttempts({ cls = '', days = 14, max = 500, since = 0 }
 
 /* ---------------- 老師 ---------------- */
 
+// 「需要確認」的作答，老師看過按「已確認」：acks/{attemptId} = { unit, at, by }。只有老師讀寫（firestore.rules）
+export async function listAcks() {
+  const snap = await getDocs(collection(db, 'acks'));
+  return snap.docs.map((d) => d.id);
+}
+// items: [{ attemptId, unit }]；on=false 取消確認
+export async function setAcks(items, on = true) {
+  const { auth } = await authKit();
+  const by = String((auth.currentUser && auth.currentUser.email) || '').toLowerCase();
+  const batch = writeBatch(db);
+  items.slice(0, 400).forEach((x) => {
+    const id = clean(x.attemptId, 64);
+    if (!id) return;
+    const ref = doc(db, 'acks', id);
+    if (on) batch.set(ref, { unit: clean(x.unit, 60), at: serverTimestamp(), by });
+    else batch.delete(ref);
+  });
+  await batch.commit();
+}
+
 // 老師後台直接讀 Firestore 的公開文件（設定 config、題目 content_<單元>）：約 0.1 秒，不用等 Apps Script 的 1～3 秒。沒有這份文件回傳 null
 export async function readPublic(id) {
   // 題目：先讀只有老師讀得到的完整版（含答案、解析）；讀不到（還沒分開存的舊題目）才讀公開版

@@ -101,7 +101,7 @@ python3 -m http.server 8000
 一次性設定：
 
 1. Google Cloud 主控台（專案 `eng-3385e`）→ **IAM 與管理 → 服務帳戶 → 建立服務帳戶**，名稱例如 `github-deploy`。
-2. 授予角色：**Firebase Hosting 管理員**、**Service Usage 消費者**、**API Keys 檢視者**。
+2. 授予角色：**Firebase Hosting 管理員**、**Service Usage 消費者**、**API Keys 檢視者**。要一起部署 Firestore 規則，再加 **Firebase Rules 管理員**（沒有這個角色時，規則那一步只會顯示警告，網站照常部署）。
 3. 該服務帳戶 → **金鑰 → 新增金鑰 → JSON**，下載後把檔案**全文**複製起來。
 4. GitHub 專案 → **Settings → Secrets and variables → Actions → New repository secret**，名稱 `FIREBASE_SERVICE_ACCOUNT`，內容貼上 JSON 全文。
 5. 到 Actions 頁面執行一次 Deploy hosting，確認成功。

@@ -86,6 +86,16 @@ await assertFails(setDoc(doc(stranger, 'public', 'config'), { json: '{}' }), '�
 await assertFails(getDoc(doc(stranger, 'secure', 'content_r1')), '不在老師名單的帳號讀不到完整題目');
 await assertFails(getDoc(doc(stranger, 'admins', 'teacher@example.com')), '不能查別人是不是老師');
 
+// 「需要確認」的已確認紀錄：只有老師讀寫，欄位固定、by 必須是自己、時間用伺服器時間
+await assertSucceeds(setDoc(doc(teacher, 'acks', 'a1'), { unit: 'u1', at: serverTimestamp(), by: 'teacher@example.com' }));
+await assertSucceeds(getDocs(collection(teacher, 'acks')), '老師讀得到已確認清單');
+await assertFails(setDoc(doc(teacher, 'acks', 'a2'), { unit: 'u1', at: serverTimestamp(), by: 'other@example.com' }), '不能冒用別的老師');
+await assertFails(setDoc(doc(teacher, 'acks', 'a3'), { unit: 'u1', at: serverTimestamp(), by: 'teacher@example.com', x: 1 }), '多出來的欄位');
+await assertFails(setDoc(doc(teacher, 'acks', 'a4'), { unit: 'u1', at: new Date(), by: 'teacher@example.com' }), '時間要用伺服器時間');
+await assertFails(setDoc(doc(anon, 'acks', 'a5'), { unit: 'u1', at: serverTimestamp(), by: '' }), '學生不能寫');
+await assertFails(getDocs(collection(anon, 'acks')), '學生讀不到');
+await assertFails(setDoc(doc(stranger, 'acks', 'a6'), { unit: 'u1', at: serverTimestamp(), by: 'someone@gmail.com' }), '不在老師名單的帳號');
+
 await env.cleanup();
 assert.ok(true);
 console.log('Firestore 安全規則測試通過');

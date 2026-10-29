@@ -547,6 +547,10 @@
     .usc-item:last-child { border-bottom:0; }
     .usc-item b { color:var(--ink); margin-right:8px; }
     .usc-item .flag { font-size:.8rem; }
+    .usc-act { display:inline-flex; align-items:center; gap:10px; }
+    .usc-acked { margin-top:10px; }
+    .usc-acked summary { cursor:pointer; padding:4px 0; }
+    .usc-acked .usc-item { opacity:.75; }
     .usc-score { font-weight:900; font-variant-numeric:tabular-nums; }
     .usc-score.ok { color:var(--good-c); } .usc-score.no { color:var(--bad-ink); }
     #work .chips { display:flex; flex-wrap:wrap; gap:6px; }
@@ -3709,10 +3713,35 @@
       file: '<svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6"/></svg>',
       cal: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
     };
+    // 需要確認：伺服器核對有標記、而且老師還沒按「已確認」的作答（已確認的存在 Firestore acks/{attemptId}）
+    function needsCheck(x) { return !!(x && x.check && x.check !== '—' && !(x.attemptId && SH.acks && SH.acks[x.attemptId])); }
+    function redrawFlags() {
+      drawUnitList(); drawOverview(); if (SH.view === 'unit') drawUnitHead();
+      if (SH.view === 'unit' && SH.tab === 'scores' && typeof drawUnitScores === 'function') drawUnitScores();
+      if (typeof drawAllScores === 'function') drawAllScores();
+    }
+    function loadAcks() {
+      if (!window.fbAcks) return;
+      window.fbAcks().then(function (ids) { var m = {}; (ids || []).forEach(function (id) { m[id] = 1; }); SH.acks = m; redrawFlags(); }, function () {});
+    }
+    // items: [{ attemptId, unit }]。畫面先變，寫入失敗再改回來並提示
+    function ackAttempts(items, on) {
+      items = items.filter(function (x) { return x && x.attemptId; });
+      if (!items.length || !window.fbSetAcks) return;
+      SH.acks = SH.acks || {};
+      var before = {}; items.forEach(function (x) { before[x.attemptId] = SH.acks[x.attemptId]; if (on) SH.acks[x.attemptId] = 1; else delete SH.acks[x.attemptId]; });
+      redrawFlags();
+      window.fbSetAcks(items, on).catch(function (err) {
+        items.forEach(function (x) { if (before[x.attemptId]) SH.acks[x.attemptId] = 1; else delete SH.acks[x.attemptId]; });
+        redrawFlags();
+        var msg = '「已確認」沒有存成功（' + (err && err.message || err) + '）。' + (/permission/i.test(String(err && err.message || err)) ? 'Firestore 規則可能還沒更新，請發布 firestore.rules。' : '請再按一次。');
+        if (typeof notice === 'function') notice('ack', 'bad', msg); else alert(msg);
+      });
+    }
     function drawOverview() {
       var d = new Date(); $('ov-date').textContent = (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日（' + '日一二三四五六'[d.getDay()] + '）';
       var items = [];
-      var flagged = (SH.attempts || []).filter(function (x) { return x.check && x.check !== '—' && Date.now() - x.at < 7 * 86400000; });
+      var flagged = (SH.attempts || []).filter(function (x) { return needsCheck(x) && Date.now() - x.at < 7 * 86400000; });
       if (flagged.length) {
         var byU = {}; flagged.forEach(function (x) { byU[x.unit] = (byU[x.unit] || 0) + 1; });
         Object.keys(byU).forEach(function (id) { var u = units.filter(function (x) { return x.id === id; })[0]; items.push({ ic: 'alert', text: '<b>' + esc(u ? u.title : id) + '</b> 有 <b>' + byU[id] + ' 筆</b>成績需要確認（最近 7 天）', unit: id, tab: 'scores', act: '查看' }); });
@@ -3738,7 +3767,7 @@
           var t = new Date(x.at), hm = String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
           var u = units.filter(function (y) { return y.id === x.unit; })[0];
           return '<div class="stream-row"><span class="muted">' + hm + '</span><span><b>' + esc(x.cls + '-' + x.seat + ' ' + x.name) + '</b> <span class="muted small">' + esc(u ? u.title : x.unit) + (x.review ? '・複習' : '') + '</span>' +
-            (x.check && x.check !== '—' ? '<br><span class="flag"><svg class="ic-w" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>' + esc(x.check) + '</span>' : '') + '</span><span class="' + (Number(x.pct) >= PASS_PCT ? 'score-ok' : 'score-no') + '">' + esc(x.pct) + '</span></div>';
+            (needsCheck(x) ? '<br><span class="flag"><svg class="ic-w" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>' + esc(x.check) + '</span>' : '') + '</span><span class="' + (Number(x.pct) >= PASS_PCT ? 'score-ok' : 'score-no') + '">' + esc(x.pct) + '</span></div>';
         }).join('') : '<p class="muted" style="margin:0">最近 24 小時沒有人交卷。</p>';
     }
     function loadAttempts() {
@@ -4194,14 +4223,24 @@
         }).join('') + '<p class="small muted" style="margin:10px 0 0">點一個班級，下方只看那一班。每人以最高分計算，' + PASS_PCT + ' 分以上算通過。</p></section>';
       var inCls = function (x) { return !US.cls || x.cls === US.cls; };
       // 需要確認
-      var flagged = rows.filter(function (x) { return inCls(x) && x.check && x.check !== '—'; }).sort(function (a, b) { return b.at - a.at; });
+      var flagged = rows.filter(function (x) { return inCls(x) && needsCheck(x); }).sort(function (a, b) { return b.at - a.at; });
+      var acked = rows.filter(function (x) { return inCls(x) && x.check && x.check !== '—' && !needsCheck(x); }).sort(function (a, b) { return b.at - a.at; });
+      US.flagged = flagged; US.acked = acked;
+      var canAck = !!window.fbSetAcks;
       // 最常答錯
       var miss = {}; rows.filter(inCls).forEach(function (x) { (x.wrong || []).forEach(function (w) { miss[w] = (miss[w] || 0) + 1; }); });
       var missList = Object.keys(miss).sort(function (a, b) { return miss[b] - miss[a]; }).slice(0, 10);
-      h += '<div class="usc-grid"><section class="card"><div class="nv-panel-h"><h2>需要確認</h2>' + (flagged.length ? '<span class="pill warn">' + flagged.length + '</span>' : '') + '</div>' +
-        (flagged.length ? '<div class="usc-list">' + flagged.slice(0, 30).map(function (x) {
-          return '<div class="usc-item"><div><b>' + esc(x.cls + '-' + x.seat + ' ' + (x.name || '')) + '</b><span class="flag">' + esc(x.check) + '</span></div><span class="usc-score ' + (Number(x.pct) >= PASS_PCT ? 'ok' : 'no') + '">' + esc(x.pct) + '</span></div>';
-        }).join('') + '</div>' : '<p class="muted" style="margin:0">沒有需要確認的作答。作答時間過短、離開畫面、翻譯工具、截止後交卷會列在這裡。</p>') + '</section>' +
+      var ackBtn = function (x, on) { return canAck && x.attemptId ? '<button class="btn sm' + (on ? '' : ' ghost') + '" type="button" data-usc-ack="' + esc(x.attemptId) + '" data-on="' + (on ? 1 : 0) + '">' + (on ? '已確認' : '取消') + '</button>' : ''; };
+      var flagRow = function (x, on) {
+        return '<div class="usc-item"><div><b>' + esc(x.cls + '-' + x.seat + ' ' + (x.name || '')) + '</b><span class="flag">' + esc(x.check) + '</span></div><span class="usc-act"><span class="usc-score ' + (Number(x.pct) >= PASS_PCT ? 'ok' : 'no') + '">' + esc(x.pct) + '</span>' + ackBtn(x, on) + '</span></div>';
+      };
+      h += '<div class="usc-grid"><section class="card"><div class="nv-panel-h"><h2>需要確認</h2>' + (flagged.length ? '<span class="pill warn">' + flagged.length + '</span>' : '') +
+        (canAck && flagged.length > 1 ? '<div class="r"><button class="btn sm" type="button" data-usc-ackall="1">全部已確認</button></div>' : '') + '</div>' +
+        (flagged.length ? '<div class="usc-list">' + flagged.slice(0, 30).map(function (x) { return flagRow(x, true); }).join('') + '</div>' +
+          (flagged.length > 30 ? '<p class="small muted" style="margin:8px 0 0">只列出最新 30 筆；按「全部已確認」會一起處理 ' + flagged.length + ' 筆。</p>' : '')
+          : '<p class="muted" style="margin:0">沒有需要確認的作答。作答時間過短、離開畫面、翻譯工具、截止後交卷會列在這裡。</p>') +
+        (acked.length ? '<details class="usc-acked"><summary class="small muted">已確認 ' + acked.length + ' 筆</summary><div class="usc-list">' + acked.slice(0, 50).map(function (x) { return flagRow(x, false); }).join('') + '</div></details>' : '') +
+        '</section>' +
         '<section class="card"><div class="nv-panel-h"><h2>最常答錯</h2></div>' +
         (missList.length ? '<div class="usc-list">' + missList.map(function (w) { return '<div class="usc-item"><span class="en"><b>' + esc(w) + '</b></span><span class="muted small">' + miss[w] + ' 人次</span></div>'; }).join('') + '</div>'
           : '<p class="muted" style="margin:0">還沒有答錯紀錄。</p>') + '</section></div>';
@@ -4223,7 +4262,14 @@
       var s = slot('uscores'); s.appendChild(view); s.appendChild(adv);
       view.addEventListener('click', function (e) {
         var c = e.target.closest('[data-usc-cls]'); if (c) { US.cls = US.cls === c.dataset.uscCls ? '' : c.dataset.uscCls; drawUnitScores(); return; }
-        var b = e.target.closest('[data-usc-copy]'); if (b && US.lists) usCopy(b, US.lists[b.dataset.uscCopy].join('\n'));
+        var b = e.target.closest('[data-usc-copy]'); if (b && US.lists) { usCopy(b, US.lists[b.dataset.uscCopy].join('\n')); return; }
+        var unitId = SH.unit;
+        var a = e.target.closest('[data-usc-ack]');
+        if (a) { var on = a.dataset.on === '1'; ackAttempts([{ attemptId: a.dataset.uscAck, unit: unitId }], on); return; }
+        if (e.target.closest('[data-usc-ackall]') && US.flagged && US.flagged.length) {
+          var list = US.flagged.map(function (x) { return { attemptId: x.attemptId, unit: unitId }; });
+          ask('把這 ' + list.length + ' 筆都標成已確認？\n之後還可以在「已確認」裡取消。', { danger: false, ok: '全部已確認' }).then(function (yes) { if (yes) ackAttempts(list, true); });
+        }
       });
     })();
     var showTabSC = showTab;
@@ -4402,7 +4448,7 @@
         var n = 0, ok = 0; (st ? st.classes : []).forEach(function (c) { n += c.n; ok += c.ok; });
         var no = n - ok, none = rosterN ? Math.max(0, rosterN - n) : 0, total = rosterN || n;
         var pc = function (k) { return total ? (k / total * 100).toFixed(1) + '%' : '0'; };
-        var flagged = {}; SH.attempts.forEach(function (x) { if (x.unit === u.id && !x.review && x.check && x.check !== '—' && Date.now() - x.at < 7 * 86400000) flagged[x.cls + '-' + x.seat] = 1; });
+        var flagged = {}; SH.attempts.forEach(function (x) { if (x.unit === u.id && !x.review && needsCheck(x) && Date.now() - x.at < 7 * 86400000) flagged[x.cls + '-' + x.seat] = 1; });
         var fN = Object.keys(flagged).length;
         return '<button type="button" class="sc-card" data-sc="' + esc(u.id) + '">' +
           '<span class="sc-head"><span class="dot ' + s[0] + '" aria-hidden="true"></span><b class="sc-title">' + esc(u.title || u.id) + '</b><span class="sc-pct">' + (n ? Math.round(ok / n * 100) + '<small>%</small>' : '<small>還沒有人作答</small>') + '</span></span>' +
@@ -5279,7 +5325,7 @@
       cfgBase = d.config || null;
       exts = d.extensions || [];
       content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit(); exRender(); puRender();
-      if (!SH.started) { SH.started = true; route(); loadAttempts(); } else { drawUnitList(); if (SH.view === 'overview') drawOverview(); if (SH.view === 'unit') drawUnitHead(); }
+      if (!SH.started) { SH.started = true; route(); loadAttempts(); loadAcks(); } else { drawUnitList(); if (SH.view === 'overview') drawOverview(); if (SH.view === 'unit') drawUnitHead(); }
     }
     var staleNote = null;
     function lockTabs(text) {
