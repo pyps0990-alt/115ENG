@@ -17,9 +17,6 @@ service cloud.firestore {
       allow read: if isStaff();
     }
 
-    // 老師後台儲存時寫入的公開設定與題目（學生網站只讀）。
-    // 寫入者有兩個：老師的瀏覽器（登入後直接寫，學生幾乎立刻收到）與 Apps Script（專案擁有者權限，
-    // 存進試算表後再寫一次做最後確認）。
     // 老師看過「需要確認」的作答後按「已確認」（文件 ID 是 attemptId）：只有老師讀寫
     match /acks/{attemptId} {
       allow read, delete: if isStaff();
@@ -30,6 +27,9 @@ service cloud.firestore {
         && request.resource.data.at == request.time;
     }
 
+    // 老師後台儲存時寫入的公開設定與題目（學生網站只讀）。
+    // 寫入者有兩個：老師的瀏覽器（登入後直接寫，學生幾乎立刻收到）與 Apps Script（專案擁有者權限，
+    // 存進試算表後再寫一次做最後確認）。
     match /public/{doc} {
       allow get: if true;
       allow list, delete: if false;

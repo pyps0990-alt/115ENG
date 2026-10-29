@@ -2012,7 +2012,7 @@
       $('smsg').textContent = '';
       $('rows').innerHTML = rows.map(function (r) {
         return '<tr><td>' + esc(r.time) + '</td><td>' + esc(r.cls) + '</td><td>' + esc(r.seat) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.unitTitle || r.unit) +
-          '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td><td style="white-space:normal">' + (r.check === '—' ? '<span class="muted" title="還沒同步到試算表，尚未用題庫核對（每 10 分鐘自動同步）">—</span>' : r.check ? '<span class="chk-warn"><svg class="ic-w" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>' + esc(r.check) + '</span>' : '<span class="muted">✓</span>') + '</td></tr>';
+          '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td><td style="white-space:normal">' + (r.check === '—' ? '<span class="muted" title="還沒同步到試算表，尚未用題庫核對（每 10 分鐘自動同步）">—</span>' : r.check ? (r.id && SH.acks && SH.acks[r.id] ? '<span class="muted">已確認：' + esc(r.check) + '</span>' : '<span class="chk-warn"><svg class="ic-w" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>' + esc(r.check) + '</span>') : '<span class="muted">✓</span>') + '</td></tr>';
       }).join('') || '<tr><td colspan="12" class="muted">沒有資料</td></tr>';
       var n = rows.length;
       var avg = n ? Math.round(rows.reduce(function (a, r) { return a + Number(r.pct || 0); }, 0) / n) : 0;
@@ -4455,7 +4455,7 @@
         var x = best[r.cls + '-' + r.seat + '|' + u.id];
         var last = all.filter(function (y) { return y.unit === u.id; }).sort(function (a, b) { return b.at - a.at; })[0];
         if (!x && !u.visible) return '';
-        return '<tr><td>' + esc(u.title || u.id) + (u.visible ? '' : ' <span class="pill muted">隱藏</span>') + '</td><td class="r">' + (x ? '<span class="usc-score ' + (Number(x.pct) >= PASS_PCT ? 'ok' : 'no') + '">' + esc(x.pct) + '</span>' : '<span class="muted">還沒作答</span>') + '</td><td class="muted small">' + (last ? fmtTw(twLocal(last.at)) : '') + (last && last.check && last.check !== '—' ? ' <span class="flag">' + esc(last.check) + '</span>' : '') + '</td></tr>';
+        return '<tr><td>' + esc(u.title || u.id) + (u.visible ? '' : ' <span class="pill muted">隱藏</span>') + '</td><td class="r">' + (x ? '<span class="usc-score ' + (Number(x.pct) >= PASS_PCT ? 'ok' : 'no') + '">' + esc(x.pct) + '</span>' : '<span class="muted">還沒作答</span>') + '</td><td class="muted small">' + (last ? fmtTw(twLocal(last.at)) : '') + (last && needsCheck(last) ? ' <span class="flag">' + esc(last.check) + '</span>' : last && last.check && last.check !== '—' ? ' <span class="muted small">已確認</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>';
       return h;
     }
