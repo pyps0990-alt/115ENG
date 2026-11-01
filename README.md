@@ -316,6 +316,8 @@ tools/e2e/               自動化測試（Playwright）
 
 ## 老師後台（網站版）
 
+**使用導覽（引導模式）**：第一次登入會自動跑 4 步的「認識後台」；之後從頭像選單、手機的「更多」或總覽右上角的「使用導覽」挑任務導覽：出一份題目、看成績與處理需要確認、匯入學生名單、用 AI 出題。導覽會框出要按的地方，動作步驟要真的按下去才會往下，隨時可以按 × 或 Esc 結束。看過哪些導覽記在這台電腦。導覽內容在 `Admin.html` 的 `TOURS`，改了後台畫面記得一起改，並執行 `node tools/e2e/tour.mjs`（電腦版、手機版都會走一遍）。
+
 老師後台現在放在網站上：`https://eng-3385e.web.app/admin.html`（先到 `#/teacher` 用 Google 帳號登入）。
 畫面跟 Apps Script 版是同一份，由 `tools/build-admin.py` 從 `apps-script/Admin.html` 產生 `admin.html`；
 改了 `Admin.html` 之後要執行一次 `python3 tools/build-admin.py`，網站和 Apps Script 兩邊都要部署。

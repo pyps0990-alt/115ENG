@@ -1125,6 +1125,31 @@
     .g-parts i { font-style: normal; color: var(--steel); font-weight: 900; }
     .g-parts .c0 { background: #DBEAFE; color: #1D4ED8; } .g-parts .c1 { background: #FEF3C7; color: #A16207; } .g-parts .c2 { background: #D1FAE5; color: #047857; } .g-parts .c3 { background: #FCE7F3; color: #BE185D; } .g-parts .c4 { background: #EDE9FE; color: #6D28D9; }
     .g-text { display: block; width: calc(100% - 28px); margin: 6px 14px 14px; min-height: 180px; font: .85rem/1.6 ui-monospace, Menlo, Consolas, monospace; }
+
+    /* 引導模式：框出要看的地方（四周變暗）＋說明卡 */
+    .tour-ring { position:fixed; z-index:990; border-radius:14px; border:3px solid var(--primary); box-shadow:0 0 0 9999px rgba(15, 23, 42, .5); pointer-events:none;
+      transition:left .28s var(--ease-out), top .28s var(--ease-out), width .28s var(--ease-out), height .28s var(--ease-out); }
+    .tour-card { position:fixed; z-index:1000; width:min(360px, calc(100vw - 24px)); background:#fff; color:var(--ink); border-radius:16px; padding:14px 16px 12px;
+      box-shadow:0 18px 50px rgba(15, 23, 42, .28); animation:menu-in .22s var(--ease-out) both; }
+    .tour-card.center { left:50% !important; top:50% !important; transform:translate(-50%, -50%); }
+    .tour-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .tour-step { font-size:.78rem; font-weight:800; color:var(--steel); letter-spacing:.02em; }
+    .tour-x { width:32px; height:32px; margin:-6px -8px 0 0; border:0; border-radius:10px; background:none; color:var(--steel); font-size:1.3rem; line-height:1; cursor:pointer; }
+    .tour-x:hover, .tour-x:focus-visible { background:var(--wash); }
+    .tour-title { display:block; margin:2px 0 4px; font-size:1.05rem; color:var(--navy); }
+    .tour-text { margin:0 0 12px; font-size:.92rem; line-height:1.6; }
+    .tour-btns { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+    .tour-btns .btn { height:34px; padding:0 14px; font-size:.86rem; border-radius:10px; }
+    .tour-hint { margin-left:auto; font-size:.8rem; font-weight:800; color:var(--amber-ink); }
+    @media (max-width:900px) { .tour-card { left:12px; } }
+    @media (prefers-reduced-motion: reduce) { .tour-ring { transition:none; } .tour-card { animation:none; } }
+    .tour-list { display:grid; gap:8px; margin-top:6px; }
+    .tour-item { display:grid; gap:2px; text-align:left; border:1px solid var(--line-strong); background:#fff; border-radius:12px; padding:10px 12px; font:inherit; cursor:pointer; }
+    .tour-item:hover, .tour-item:focus-visible { border-color:var(--navy); background:var(--paper); outline:none; }
+    .tour-item b { color:var(--navy); display:flex; align-items:center; gap:8px; }
+    .tour-item span { color:var(--steel); font-size:.84rem; }
+    .tour-done { font-size:.72rem; font-weight:800; color:var(--good-c, #15803d); background:#ECFDF3; border-radius:999px; padding:1px 8px; }
+    .tour-ov { margin-left:auto; align-self:center; }
   </style>
 </head>
 <body>
@@ -4491,7 +4516,11 @@
       // 新增單元
       var nb = slot('newunit'); var oldNew = nb.firstElementChild; if (oldNew) oldNew.hidden = true;
       var nu = document.createElement('div'); nu.id = 'nu2'; nb.appendChild(nu);
-      $('ulist-add').onclick = function () { location.hash = '#units'; setTimeout(function () { var t = $('nu2-title'); if (t) t.focus(); }, 80); };
+      // 手機版的「單元」頁是單元清單，新增單元的表單在另一個畫面：按了要切過去（網址本來就是 #units 時不會觸發換頁）
+      $('ulist-add').onclick = function () {
+        location.hash = '#units';
+        setTimeout(function () { if (SH.view === 'units') { $('shell').dataset.pane = 'work'; if (window.paintMobileTop) paintMobileTop(); } var t = $('nu2-title'); if (t) t.focus(); }, 80);
+      };
       // 學生
       var ss = slot('students');
       var sv = document.createElement('div'); sv.id = 'st-view'; ss.insertBefore(sv, ss.firstChild);
@@ -4940,12 +4969,14 @@
       sheet.addEventListener('click', function (e) { if (e.target.closest('[data-close]')) open(false); });
       rail.addEventListener('click', function (e) { if (!sheet.hidden && !e.target.closest('#rail-more')) open(false); }, true);
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !sheet.hidden) { open(false); more.focus(); } });
-      $('m-top-back').onclick = function () { location.hash = '#units'; };
+      rail.addEventListener('click', function (e) { if (e.target.closest('a[data-view="units"]') && SH.view === 'units' && shell.dataset.pane === 'work') { shell.dataset.pane = 'list'; paintMobileTop(); } });
+      $('m-top-back').onclick = function () { if (SH.view === 'units') { shell.dataset.pane = 'list'; paintMobileTop(); } else location.hash = '#units'; };
       var NAMES = { overview: '總覽', units: '單元', live: '即時監控', students: '學生', scores: '成績', settings: '設定' };
       window.paintMobileTop = function () {
         var v = SH.view, u = v === 'unit' ? curUnit() : null;
         $('m-top-title').textContent = u ? (u.title || u.id) : NAMES[v] || '';
-        $('m-top-back').hidden = v !== 'unit';
+        $('m-top-back').hidden = !(v === 'unit' || (v === 'units' && shell.dataset.pane === 'work'));
+        if (v === 'units' && shell.dataset.pane === 'work') $('m-top-title').textContent = '新增單元';
         more.classList.toggle('on', v === 'students' || v === 'settings');
       };
     })();
@@ -5344,13 +5375,191 @@
       };
       if (BKEY) window.loadSheetBest();
     })();
+
+    /* ----- 引導模式（導覽）：框出要看的地方＋一張說明卡，一步一步帶老師做一件事 -----
+       - 第一次登入：4 步認識環境；之後從頭像選單、手機「更多」或總覽右上角的「使用導覽」挑一個任務導覽
+       - 步驟 act：'click' 要老師真的按框起來的地方才往下（until 判斷做完了沒）；沒有 act 就按「下一步」
+       - 找不到要框的東西（例如還沒有單元）：說明卡照樣出現在畫面中間，不會卡住
+       - 看過哪些導覽記在這台電腦（b5a:tours:<帳號>）；隨時可以按「結束導覽」或 Esc 離開 */
+    var TOURS = (function () {
+      var mobile = function () { return window.innerWidth <= 900; };
+      var vis = function (el) { if (!el) return false; var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+      var q = function (sel) { var list = document.querySelectorAll(sel); for (var i = 0; i < list.length; i++) if (vis(list[i])) return list[i]; return null; };
+      var cardWith = function (title) { // 有某個標題的卡片
+        var hs = document.querySelectorAll('#work h2'); for (var i = 0; i < hs.length; i++) if (vis(hs[i]) && hs[i].textContent.trim().indexOf(title) === 0) return hs[i].closest('section, .card'); return null;
+      };
+      var firstUnit = function (pred) { return units.filter(function (u) { return !pred || pred(u); })[0]; };
+      var pickUnit = function () { return (SH.view === 'unit' && curUnit()) || firstUnit(); };
+      var openEditor = function () { return q('#imp-check'); };
+      return {
+        intro: { name: '認識後台', desc: '30 秒看懂每個分頁在做什麼', steps: [
+          { el: '.rail a[data-view="overview"]', title: '總覽', text: '每天打開先看這裡：「需要處理」列出要你處理的事（例如需要確認的成績、快截止的單元），「剛交卷」是最近 24 小時交的成績。' },
+          { el: '.rail a[data-view="units"]', title: '單元', text: '出題、設定開放與截止時間、看單一單元的成績，都在單元裡。電腦版左邊是單元清單，點一個就打開。' },
+          { el: '.rail a[data-view="scores"]', title: '成績', text: '所有單元的通過率一次看完；點卡片可以看各班情形、需要確認的作答，以及還沒通過、還沒作答的名單。' },
+          { el: function () { return q('#who-btn') || q('#rail-more'); }, title: '想學某件事？', text: '按這裡打開選單，選「使用導覽」，有出題、看成績、匯入名單、AI 出題四個導覽，邊做邊學。' },
+        ] },
+        create: { name: '出一份題目', desc: '新增單元 → 放進題目 → 開放給學生', steps: [
+          { go: '#units', skip: function () { return vis($('nu2-title')); }, el: '#ulist-add', act: 'click', until: function () { return vis($('nu2-title')); }, title: '新增單元', text: '按「新增單元」。' },
+          { el: function () { var b = $('nu2-go'); return b && b.closest('section'); }, act: 'click', target: '#nu2-go', until: function () { return SH.view === 'unit' && SH.tab === 'content'; },
+            title: '填單元資料', text: '選這個單元要考什麼（單字、課文、句型），填名稱和課次，按「建立單元」。會自動儲存，並帶你到這個單元的「題目」。' },
+          { el: function () { return q('.uc-ways') || q('[data-uc="edit"]'); }, act: 'click', until: function () { return !!openEditor(); },
+            title: '放進題目', text: '選一種方式：貼上文字（從 Word、Excel 複製）、從檔案匯入，或用 AI 產生。已經有題目的單元按「編輯題目」。' },
+          { el: function () { var b = openEditor(); return b && b.closest('.bar'); }, title: '檢查後儲存', text: '題目填好後先按「預覽與檢查」，看過沒有問題，再按「儲存到網站」。' },
+          { el: '[data-utab="settings"]', title: '開放給學生', text: '新單元一開始是隱藏的。題目存好後，到「出題設定」打開「顯示在學生首頁」，需要的話設定開放與截止時間，學生就看得到了。' },
+        ] },
+        scores: { name: '看成績、處理需要確認', desc: '通過率、各班情形、需要確認、複製名單', steps: [
+          { go: '#scores', el: function () { return q('#sc-view .sc-card') ? q('#sc-view .sc-grid') : q('#sc-view'); }, act: function () { return !!q('#sc-view .sc-card'); }, target: '#sc-view .sc-card',
+            until: function () { return SH.view === 'unit' && SH.tab === 'scores'; }, title: '各單元的成績', text: '每個單元一張卡片：通過率、還沒通過與還沒作答的人數；有「⚠ 需要確認」代表有作答要看一下。點一張卡片看詳細。' },
+          { el: function () { return cardWith('各班完成情形'); }, title: '各班完成情形', text: '每人以最高分計算。點一個班級，下面就只看那一班。' },
+          { el: function () { return cardWith('需要確認'); }, title: '需要確認', text: '作答時間過短、離開畫面、使用翻譯工具、截止後交卷會列在這裡，只是提醒，不會扣分。看過沒問題按「已確認」，就不會再出現在總覽。' },
+          { el: function () { return cardWith('還沒通過') || cardWith('還沒作答'); }, title: '還沒通過、還沒作答', text: '按「複製名單」，貼到聯絡簿或 LINE 提醒學生補考、補做。' },
+        ] },
+        roster: { name: '匯入學生名單', desc: '學生要在名單上才能登入', steps: [
+          { go: function () { location.hash = '#students'; var d = $('st-import'); if (d) d.open = true; }, el: function () { var d = $('st-import'); if (d) d.open = true; var c = $('ro-cls'); return c && c.closest('label'); }, title: '班級', text: '先填班級，例如 306。（在「學生」頁下方的「匯入學生名單」）' },
+          { el: function () { var c = $('ro-text'); return c && c.closest('label'); }, title: '名單', text: '每行一位：座號　姓名。可以從試算表直接選取「座號、姓名」兩欄複製貼上。' },
+          { el: '#ro-go', title: '匯入', text: '按「匯入」就完成了。學生登入時要輸入跟名單一模一樣的班級、座號、姓名；同一個班重新匯入只會補上新的學生，不會刪掉原本的。' },
+        ] },
+        ai: { name: '用 AI 出題', desc: '在單元的題目分頁讓 AI 產生題目', steps: [
+          { go: function () { var u = pickUnit(); if (u) location.hash = '#unit/' + encodeURIComponent(u.id) + '/content'; },
+            el: function () { return q('.uc-ways [data-uc="ai"]') || q('[data-uc="edit"]') || openEditor() && openEditor().closest('.bar'); },
+            act: function () { return !openEditor(); }, until: function () { return !!openEditor(); },
+            title: '打開題目編輯', text: 'AI 出題在每個單元的「題目」分頁。還沒有題目按「用 AI 產生」，已經有題目按「編輯題目」。（要換單元，先在單元清單點一個再開始導覽。）' },
+          { el: function () { return q('#imp-vocab .btn.ai') ? q('#imp-vocab .bar') : q('#imp-reading .btn.ai') ? q('#ai-reading').closest('.bar') : q('#imp-text .btn.ai') ? q('#ai-text').closest('.bar') : null; },
+            title: '讓 AI 出題', text: function () {
+              var u = curUnit() || {};
+              return u.type === 'vocab' ? '先在下方貼上要考的單字（只有英文也可以），再按「✦ AI 補齊詞性、中文與 3 句例句」。已經填好的欄位不會被改。'
+                : u.type === 'reading' ? '先貼上文章，選好題數，再按「✦ AI 產生題目」。每一題都會附原文依據。'
+                : '先填主題和「AI 出題範圍」（例如 Lesson 3 的重點句型），再按「✦ AI 產生題目」。';
+            } },
+          { el: function () { var b = openEditor(); return b && b.closest('.bar'); }, title: '一定要看過再存', text: 'AI 可能出錯：產生後請逐題確認答案與解析，按「預覽與檢查」，沒問題再按「儲存到網站」。' },
+          { el: function () { return q('.rail a[data-view="settings"]') || q('#rail-more'); }, title: 'AI 設定', text: 'AI 金鑰、出題規則（提示詞）在「設定」裡（手機在「更多 → 設定」）。按鈕顯示錯誤時，先到這裡確認金鑰。' },
+        ] },
+      };
+    })();
+    var tour = (function () {
+      var KEY = me ? 'b5a:tours:' + me : 'b5a:tours';
+      var seen = function () { try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { return {}; } };
+      var markSeen = function (id) { var s = seen(); s[id] = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} };
+      var ring = document.createElement('div'); ring.className = 'tour-ring'; ring.hidden = true; ring.setAttribute('aria-hidden', 'true');
+      var card = document.createElement('div'); card.className = 'tour-card'; card.hidden = true; card.setAttribute('role', 'dialog'); card.setAttribute('aria-live', 'polite');
+      document.body.appendChild(ring); document.body.appendChild(card);
+      var cur = null; // { id, i, target, raf, poll, clickOff }
+      var resolve = function (s) { var e = typeof s.el === 'function' ? s.el() : document.querySelector(s.el); return e && e.getBoundingClientRect().width ? e : null; };
+      var place = function () {
+        if (!cur) return;
+        var t = cur.target, mob = window.innerWidth <= 900, pad = 6;
+        if (t && t.isConnected) {
+          var r = t.getBoundingClientRect();
+          ring.hidden = false;
+          ring.style.left = (r.left - pad) + 'px'; ring.style.top = (r.top - pad) + 'px'; ring.style.width = (r.width + pad * 2) + 'px'; ring.style.height = (r.height + pad * 2) + 'px';
+          var cw = card.offsetWidth, ch = card.offsetHeight, vw = window.innerWidth, vh = window.innerHeight, x, y;
+          if (mob) { x = 12; y = r.top + r.height / 2 > vh / 2 ? Math.max(12, r.top - ch - 16) : Math.min(vh - ch - 12, r.bottom + 16); }
+          else {
+            x = Math.min(Math.max(12, r.left), vw - cw - 12);
+            y = r.bottom + 14 + ch < vh - 12 ? r.bottom + 14 : r.top - ch - 14 > 12 ? r.top - ch - 14 : vh - ch - 12;
+            if (r.right + 16 + cw < vw && r.height > vh * 0.45) { x = r.right + 16; y = Math.min(Math.max(12, r.top), vh - ch - 12); } // 很高的目標（側邊欄）：卡片放右邊
+            if (r.width < 120 && r.right + 16 + cw < vw) { x = r.right + 16; y = Math.min(Math.max(12, r.top - 10), vh - ch - 12); } // 左側選單的小按鈕：卡片放在旁邊
+          }
+          card.style.left = x + 'px'; card.style.top = y + 'px'; card.classList.remove('center');
+        } else {
+          ring.hidden = true; card.classList.add('center'); card.style.left = ''; card.style.top = '';
+        }
+      };
+      var loop = function () { if (!cur) return; place(); cur.raf = requestAnimationFrame(loop); };
+      var cleanup = function () {
+        if (!cur) return;
+        cancelAnimationFrame(cur.raf); clearInterval(cur.poll); clearTimeout(cur.wait);
+        if (cur.clickOff) cur.clickOff();
+      };
+      var stop = function (done) {
+        if (!cur) return;
+        var id = cur.id; cleanup(); cur = null;
+        ring.hidden = true; card.hidden = true; document.body.classList.remove('touring');
+        markSeen(id);
+      };
+      var show = function (i) {
+        cleanup();
+        var t = TOURS[cur.id], s = t.steps[i];
+        if (!s) { stop(true); return; }
+        cur.i = i; cur.target = null; cur.clicked = false;
+        if (s.go) { if (typeof s.go === 'function') s.go(); else if (location.hash !== s.go) location.hash = s.go; }
+        var my = cur, tries = 0;
+        // 換頁後畫面要一點時間畫好：等到找得到要框的東西（最多約 4 秒），再決定這一步要不要等老師按
+        var find = function () {
+          if (cur !== my || cur.i !== i) return;
+          if (s.skip && s.skip()) { show(i + 1); return; }
+          var el = resolve(s);
+          if (!el && tries++ < 25) { cur.wait = setTimeout(find, 160); return; }
+          var act = typeof s.act === 'function' ? (s.act() ? 'click' : '') : s.act || '';
+          var title = typeof s.title === 'function' ? s.title() : s.title, text = typeof s.text === 'function' ? s.text() : s.text;
+          var last = i === t.steps.length - 1;
+          card.innerHTML = '<div class="tour-top"><span class="tour-step">' + esc(t.name) + '・' + (i + 1) + '／' + t.steps.length + '</span><button type="button" class="tour-x" data-tour="stop" aria-label="結束導覽">×</button></div>' +
+            '<b class="tour-title"></b><p class="tour-text"></p>' +
+            '<div class="tour-btns">' + (i ? '<button type="button" class="btn sm ghost" data-tour="prev">上一步</button>' : '<span></span>') +
+            (act && el ? '<span class="tour-hint">請按框起來的地方</span><button type="button" class="btn sm ghost" data-tour="next">略過這步</button>'
+              : '<button type="button" class="btn sm primary" data-tour="next">' + (last ? '完成' : '下一步') + '</button>') + '</div>';
+          card.querySelector('.tour-title').textContent = title; card.querySelector('.tour-text').textContent = text;
+          card.hidden = false; document.body.classList.add('touring');
+          cur.target = el;
+          if (el) { var r = el.getBoundingClientRect(); if (r.top < 70 || r.bottom > window.innerHeight - 90) el.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }
+          if (act && el) {
+            var onClick = function (e) { if (s.target ? e.target.closest(s.target) : el.contains(e.target)) cur.clicked = true; };
+            document.addEventListener('click', onClick, true);
+            cur.clickOff = function () { document.removeEventListener('click', onClick, true); };
+            cur.poll = setInterval(function () { if (cur === my && cur.i === i && (s.until ? s.until() : cur.clicked)) show(i + 1); }, 250);
+          }
+          (card.querySelector('[data-tour="next"]') || card).focus({ preventScroll: true });
+          cancelAnimationFrame(cur.raf); cur.raf = requestAnimationFrame(loop);
+        };
+        find();
+      };
+      card.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-tour]'); if (!b || !cur) return;
+        if (b.dataset.tour === 'stop') stop(false);
+        else if (b.dataset.tour === 'prev') show(Math.max(0, cur.i - 1));
+        else show(cur.i + 1);
+      });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && cur) stop(false); });
+      var start = function (id) { if (!TOURS[id]) return; if (cur) stop(false); cur = { id: id, i: 0 }; show(0); };
+      // 挑導覽的小視窗
+      var pick = function () {
+        var s = seen();
+        var d = document.createElement('dialog'); d.className = 'ask tour-pick';
+        d.innerHTML = '<div class="ask-body"><b class="ask-title">使用導覽</b><p>選一件想做的事，導覽會框出要按的地方，一步一步帶你做。</p><div class="tour-list">' +
+          Object.keys(TOURS).map(function (id) { return '<button type="button" class="tour-item" data-pick="' + id + '"><b>' + esc(TOURS[id].name) + (s[id] ? '<span class="tour-done">看過了</span>' : '') + '</b><span>' + esc(TOURS[id].desc) + '・' + TOURS[id].steps.length + ' 步</span></button>'; }).join('') +
+          '</div></div><div class="ask-btns"><button type="button" class="btn" data-pick="">關閉</button></div>';
+        var close = function () { d.close(); d.remove(); };
+        d.addEventListener('click', function (e) { var b = e.target.closest('[data-pick]'); if (b) { close(); if (b.dataset.pick) start(b.dataset.pick); } else if (e.target === d) close(); });
+        d.addEventListener('cancel', function (e) { e.preventDefault(); close(); });
+        document.body.appendChild(d); d.showModal();
+      };
+      // 入口：頭像選單、手機「更多」、總覽右上角
+      if ($('who-menu')) {
+        var mi = document.createElement('button'); mi.type = 'button'; mi.setAttribute('role', 'menuitem'); mi.id = 'tour-open'; mi.textContent = '使用導覽';
+        $('who-menu').insertBefore(mi, $('switch-acct') || null);
+        mi.onclick = function () { $('who-menu').hidden = true; $('who-btn').setAttribute('aria-expanded', 'false'); pick(); };
+      }
+      var sheetPanel = document.querySelector('#m-sheet .m-panel');
+      if (sheetPanel) {
+        var mt = document.createElement('button'); mt.type = 'button'; mt.className = 'm-item'; mt.setAttribute('data-close', '');
+        mt.innerHTML = '<span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.2-1.5 2.3M12 17.2v.3"/></svg></span><span><b>使用導覽</b><small>一步一步教你出題、看成績</small></span>';
+        sheetPanel.insertBefore(mt, sheetPanel.querySelector('.m-cancel'));
+        mt.addEventListener('click', function () { setTimeout(pick, 220); });
+      }
+      var ovHead = document.querySelector('[data-pane-view="overview"] .w-head');
+      if (ovHead) { var ob = document.createElement('button'); ob.type = 'button'; ob.className = 'btn small ghost tour-ov'; ob.textContent = '使用導覽'; ob.onclick = pick; ovHead.appendChild(ob); }
+      // 第一次登入：自動跑「認識後台」（自動化測試的瀏覽器不跑，免得蓋住按鈕）
+      var autoIntro = function () { if (!seen().intro && !navigator.webdriver) setTimeout(function () { if (!cur) start('intro'); }, 900); };
+      return { start: start, pick: pick, stop: stop, autoIntro: autoIntro, seen: seen, active: function () { return cur && { id: cur.id, step: cur.i }; } };
+    })();
+    window.adminTour = tour;
     var tabSections = function () { return document.querySelectorAll('#work .view'); };
     function applyAdminData(d) {
       units = (d.units || []).concat(d.customUnits || []);
       cfgBase = d.config || null;
       exts = d.extensions || [];
       content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit(); exRender(); puRender();
-      if (!SH.started) { SH.started = true; route(); loadAttempts(); loadAcks(); } else { drawUnitList(); if (SH.view === 'overview') drawOverview(); if (SH.view === 'unit') drawUnitHead(); }
+      if (!SH.started) { SH.started = true; route(); loadAttempts(); loadAcks(); tour.autoIntro(); } else { drawUnitList(); if (SH.view === 'overview') drawOverview(); if (SH.view === 'unit') drawUnitHead(); }
     }
     var staleNote = null;
     function lockTabs(text) {
