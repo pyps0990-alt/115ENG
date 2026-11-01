@@ -3765,7 +3765,8 @@
     function drawOverview() {
       var d = new Date(); $('ov-date').textContent = (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日（' + '日一二三四五六'[d.getDay()] + '）';
       var items = [];
-      var flagged = (SH.attempts || []).filter(function (x) { return needsCheck(x) && Date.now() - x.at < 7 * 86400000; });
+      // 跟單元頁的「需要確認」同一套條件：只算正式測驗（複習不計，單元頁也不會列出來，按不到「已確認」）
+      var flagged = (SH.attempts || []).filter(function (x) { return !x.review && needsCheck(x) && Date.now() - x.at < 7 * 86400000; });
       if (flagged.length) {
         var byU = {}; flagged.forEach(function (x) { byU[x.unit] = (byU[x.unit] || 0) + 1; });
         Object.keys(byU).forEach(function (id) { var u = units.filter(function (x) { return x.id === id; })[0]; items.push({ ic: 'alert', text: '<b>' + esc(u ? u.title : id) + '</b> 有 <b>' + byU[id] + ' 筆</b>成績需要確認（最近 7 天）', unit: id, tab: 'scores', act: '查看' }); });

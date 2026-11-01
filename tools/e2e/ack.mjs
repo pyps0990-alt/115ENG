@@ -9,12 +9,13 @@ const ctx = await world.newContext({ viewport: { width: 1280, height: 900 } });
 const t = await world.newPage(ctx, { staff: 'teacher@example.com' });
 await t.addInitScript(() => {
   const now = Date.now();
-  const mk = (id, seat, name, check, ago) => ({ id, attemptId: id, cls: '306', seat, name, unit: 'u1', unitTitle: 'U1 單字', mode: 'vocab', pct: 80, score: 8, total: 10, review: false,
+  const mk = (id, seat, name, check, ago, review = false) => ({ id, attemptId: id, cls: '306', seat, name, unit: 'u1', unitTitle: 'U1 單字', mode: 'vocab', pct: 80, score: 8, total: 10, review,
     serverGraded: true, check, wrong: [], createdAt: { toMillis: () => now - ago } });
   window.__fb = window.__fb || {};
   window.__fb.attempts = [
     mk('a1', '1', '甲', '作答時間過短', 60000), mk('a2', '2', '乙', '離開作答畫面 3 次（共 40 秒）', 120000),
     mk('a3', '3', '丙', '截止後才交卷', 180000), mk('a4', '4', '丁', '', 240000),
+    mk('a5', '5', '戊', '作答時間過短', 200000, true), // 複習：單元頁不列，總覽也不能算（不然永遠消不掉）
   ];
 });
 let bad = 0;
