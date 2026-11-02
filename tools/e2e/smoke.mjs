@@ -187,8 +187,10 @@ await step('Firestore 規則還沒更新（403）→ 退回原本的流程，仍
   await setVisible(teacherPage, 'l2-voc', false);
   await save(teacherPage);
   await teacherPage.waitForFunction(() => /firestore\.rules/.test(document.getElementById('msg').textContent) || /^✓ 已儲存/.test(document.getElementById('msg').textContent), null, { timeout: 20000 });
-  const cfg = JSON.parse(world.docs.config);
-  assert.equal(cfg.units['l2-voc'].visible, false, '伺服器仍要把設定寫給學生');
+  // 伺服器寫入跟畫面的「已儲存」幾乎同時：最多等 5 秒（不是馬上讀，避免兩者先後順序造成的誤判）
+  let vis = true;
+  for (let k = 0; k < 50 && (vis = JSON.parse(world.docs.config).units['l2-voc'].visible) !== false; k++) await sleep(100);
+  assert.equal(vis, false, '伺服器仍要把設定寫給學生');
   world.rulesAllowStaffWrite = true;
 });
 
