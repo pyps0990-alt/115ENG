@@ -5414,8 +5414,15 @@
     })();
     var tour = (function () {
       var KEY = me ? 'b5a:tours:' + me : 'b5a:tours';
+      // 看過哪些導覽：記在帳號上（Firestore staffPrefs，換電腦也記得），這台電腦另外存一份，讀不到帳號資料時先用
       var seen = function () { try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { return {}; } };
-      var markSeen = function (id) { var s = seen(); s[id] = Date.now(); try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} };
+      var keep = function (m) { try { localStorage.setItem(KEY, JSON.stringify(m)); } catch (e) {} };
+      var merge = function (a, b) { var o = {}; [a, b].forEach(function (m) { Object.keys(m || {}).forEach(function (k) { o[k] = Math.max(o[k] || 0, Number(m[k]) || 1); }); }); return o; };
+      var remote = window.fbStaffPrefs ? window.fbStaffPrefs().then(function (p) { var m = merge(seen(), p && p.tours); keep(m); return m; }, function () { return seen(); }) : Promise.resolve(seen());
+      var markSeen = function (id) {
+        var s = seen(); s[id] = Date.now(); keep(s);
+        if (window.fbSaveTours) window.fbSaveTours(s).catch(function () {}); // 存不到帳號（例如規則還沒更新）只是換電腦會再跳，不影響使用
+      };
       var ring = document.createElement('div'); ring.className = 'tour-ring'; ring.hidden = true; ring.setAttribute('aria-hidden', 'true');
       var card = document.createElement('div'); card.className = 'tour-card'; card.hidden = true; card.setAttribute('role', 'dialog'); card.setAttribute('aria-live', 'polite');
       document.body.appendChild(ring); document.body.appendChild(card);
@@ -5525,7 +5532,12 @@
       var ovHead = document.querySelector('[data-pane-view="overview"] .w-head');
       if (ovHead) { var ob = document.createElement('button'); ob.type = 'button'; ob.className = 'btn small ghost tour-ov'; ob.textContent = '使用導覽'; ob.onclick = pick; ovHead.appendChild(ob); }
       // 第一次登入：自動跑「認識後台」（自動化測試的瀏覽器不跑，免得蓋住按鈕）
-      var autoIntro = function () { if (!seen().intro && !navigator.webdriver) setTimeout(function () { if (!cur) start('intro'); }, 900); };
+      // 先等帳號上的紀錄（最多 4 秒），在別台電腦看過就不再跳
+      var autoIntro = function () {
+        if (navigator.webdriver && !window.__tourAuto) return;
+        var wait = new Promise(function (r) { setTimeout(r, 4000); });
+        Promise.race([remote, wait]).then(function () { if (!seen().intro && !cur) setTimeout(function () { if (!cur && !seen().intro) start('intro'); }, 600); });
+      };
       return { start: start, pick: pick, stop: stop, autoIntro: autoIntro, seen: seen, active: function () { return cur && { id: cur.id, step: cur.i }; } };
     })();
     window.adminTour = tour;

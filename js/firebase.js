@@ -130,6 +130,26 @@ export async function listAttempts({ cls = '', days = 14, max = 500, since = 0 }
 
 /* ---------------- 老師 ---------------- */
 
+// 老師自己的偏好（目前只有看過哪些導覽）：staffPrefs/{email}，換電腦也記得。只有本人讀寫（firestore.rules）
+async function myEmail() {
+  const { auth } = await authKit();
+  return String((auth.currentUser && auth.currentUser.email) || '').toLowerCase();
+}
+export async function getStaffPrefs() {
+  const email = await myEmail();
+  if (!email) return {};
+  const snap = await getDoc(doc(db, 'staffPrefs', email));
+  return snap.exists() ? snap.data() : {};
+}
+// tours：{ 導覽代號: 看過的時間（毫秒） }，跟帳號上原本的合併
+export async function saveTours(tours) {
+  const email = await myEmail();
+  if (!email) return;
+  const clean2 = {};
+  Object.keys(tours || {}).slice(0, 30).forEach((k) => { if (/^[a-z0-9-]{1,30}$/.test(k)) clean2[k] = Number(tours[k]) || Date.now(); });
+  await setDoc(doc(db, 'staffPrefs', email), { tours: clean2, updatedAt: serverTimestamp() }, { merge: true });
+}
+
 // 「需要確認」的作答，老師看過按「已確認」：acks/{attemptId} = { unit, at, by }。只有老師讀寫（firestore.rules）
 export async function listAcks() {
   const snap = await getDocs(collection(db, 'acks'));

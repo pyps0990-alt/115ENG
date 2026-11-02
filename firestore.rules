@@ -17,6 +17,15 @@ service cloud.firestore {
       allow read: if isStaff();
     }
 
+    // 老師自己的偏好（看過哪些導覽）：文件 ID 是自己的 email，只有本人讀寫
+    match /staffPrefs/{email} {
+      allow read, delete: if isStaff() && request.auth.token.email.lower() == email;
+      allow create, update: if isStaff() && request.auth.token.email.lower() == email
+        && request.resource.data.keys().hasOnly(['tours', 'updatedAt'])
+        && request.resource.data.tours is map && request.resource.data.tours.size() <= 30
+        && request.resource.data.updatedAt == request.time;
+    }
+
     // 老師看過「需要確認」的作答後按「已確認」（文件 ID 是 attemptId）：只有老師讀寫
     match /acks/{attemptId} {
       allow read, delete: if isStaff();

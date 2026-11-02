@@ -96,6 +96,14 @@ await assertFails(setDoc(doc(anon, 'acks', 'a5'), { unit: 'u1', at: serverTimest
 await assertFails(getDocs(collection(anon, 'acks')), '學生讀不到');
 await assertFails(setDoc(doc(stranger, 'acks', 'a6'), { unit: 'u1', at: serverTimestamp(), by: 'someone@gmail.com' }), '不在老師名單的帳號');
 
+// 老師的偏好（看過哪些導覽）：只有本人讀寫
+await assertSucceeds(setDoc(doc(teacher, 'staffPrefs', 'teacher@example.com'), { tours: { intro: 1 }, updatedAt: serverTimestamp() }));
+await assertSucceeds(getDoc(doc(teacher, 'staffPrefs', 'teacher@example.com')));
+await assertFails(setDoc(doc(teacher, 'staffPrefs', 'other@example.com'), { tours: {}, updatedAt: serverTimestamp() }), '不能寫別人的');
+await assertFails(setDoc(doc(teacher, 'staffPrefs', 'teacher@example.com'), { tours: {}, updatedAt: serverTimestamp(), x: 1 }), '多出來的欄位');
+await assertFails(getDoc(doc(anon, 'staffPrefs', 'teacher@example.com')), '學生讀不到');
+await assertFails(setDoc(doc(stranger, 'staffPrefs', 'someone@gmail.com'), { tours: {}, updatedAt: serverTimestamp() }), '不在老師名單的帳號');
+
 await env.cleanup();
 assert.ok(true);
 console.log('Firestore 安全規則測試通過');

@@ -103,6 +103,27 @@ for (const [label, vp] of [['電腦', { width: 1280, height: 860 }], ['手機', 
   await step(`${label}：沒有 JS 錯誤`, async () => { const e = t.errors.filter((x) => !/favicon|404/.test(x)); assert.equal(e.length, 0, e.join('\n')); });
   await ctx.close();
 }
+// 看過的導覽記在帳號上：別台電腦看過就不再自動跳；在這台看完會存回帳號
+for (const [label, preset] of [['帳號上已看過', { intro: 1 }], ['新帳號', null]]) {
+  const ctx = await world.newContext({ viewport: { width: 1280, height: 860 } });
+  const t = await world.newPage(ctx, { staff: 'teacher@example.com' });
+  await t.addInitScript((p) => { window.__tourAuto = true; window.__fb = window.__fb || {}; window.__fb.docs = window.__fb.docs || {}; if (p) window.__fb.docs['staffPrefs/teacher@example.com'] = { tours: p }; }, preset);
+  await t.goto(world.base + '/admin.html');
+  await t.waitForSelector('#app-root:not([hidden])', { timeout: 15000 });
+  await sleep(2500);
+  const a = await t.evaluate(() => window.adminTour.active());
+  if (preset) {
+    await step(`${label}：換一台電腦也不會再跳出「認識後台」`, async () => { assert.equal(a, null); assert.ok(await t.evaluate(() => !!window.adminTour.seen().intro)); });
+  } else {
+    await step(`${label}：第一次登入自動跳出「認識後台」，結束後存到帳號`, async () => {
+      assert.ok(a && a.id === 'intro', JSON.stringify(a));
+      await t.click('.tour-card [data-tour="stop"]'); await sleep(500);
+      const d = await t.evaluate(() => window.__fb.docs['staffPrefs/teacher@example.com']);
+      assert.ok(d && d.tours && d.tours.intro, JSON.stringify(d));
+    });
+  }
+  await ctx.close();
+}
 await world.close();
 console.log(bad ? `${bad} 項失敗` : '引導模式測試通過');
 process.exit(bad ? 1 : 0);

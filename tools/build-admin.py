@@ -180,6 +180,9 @@ bootstrap = r'''
       // 「需要確認」的已確認紀錄
       window.fbAcks = () => fb.listAcks();
       window.fbSetAcks = (items, on) => fb.setAcks(items, on);
+      // 看過哪些導覽，記在帳號上（換電腦不會再跳）
+      window.fbStaffPrefs = () => fb.getStaffPrefs();
+      window.fbSaveTours = (map) => fb.saveTours(map);
       // 開啟加速與讀題目：直接讀 Firestore 的 public/config、public/content_<單元>
       window.fbPublic = (id) => fb.readPublic(id);
       // Apps Script 閒置一陣子會「睡著」，下一次儲存要多等 1～3 秒開機：頁面開著時每 4 分鐘敲一下，保持清醒
