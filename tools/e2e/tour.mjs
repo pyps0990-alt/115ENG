@@ -39,6 +39,7 @@ for (const [label, vp] of [['電腦', { width: 1280, height: 860 }], ['手機', 
     else { await t.click('#who-btn'); await sleep(200); await t.click('#tour-open'); }
     await t.waitForSelector('dialog.tour-pick[open]');
     assert.equal(await t.locator('dialog.tour-pick .tour-item').count(), 5);
+    assert.match(await t.textContent('dialog.tour-pick'), /看完整教學/);
     await t.click('dialog.tour-pick [data-pick="intro"]');
     await waitStep(0);
   });
@@ -92,6 +93,31 @@ for (const [label, vp] of [['電腦', { width: 1280, height: 860 }], ['手機', 
     await waitStep(-1);
   });
 
+  await step(`${label}：教學頁：9 章、截圖載得出來、搜尋、帶我做一次`, async () => {
+    if (rest.isMobile) { await tap('#rail-more'); await sleep(400); await tap('#m-sheet a[href="#help"]'); }
+    else await t.click('.rail a[data-view="help"]');
+    await t.waitForSelector('#help-view .help-ch');
+    assert.equal(await t.locator('#help-view .help-ch').count(), 9);
+    const imgs = await t.evaluate(async () => {
+      const list = [...document.querySelectorAll('#help-view img')];
+      list.forEach((i) => { i.loading = 'eager'; });
+      await Promise.all(list.map((i) => (i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; }))));
+      return { n: list.length, bad: list.filter((i) => !i.naturalWidth).map((i) => i.getAttribute('src')) };
+    });
+    assert.ok(imgs.n >= 12, '截圖數量 ' + imgs.n); assert.deepEqual(imgs.bad, [], '有截圖載不出來');
+    await t.fill('#help-q', '補作');
+    await sleep(200);
+    const shown = await t.$$eval('#help-view .help-ch h2', (a) => a.map((x) => x.textContent));
+    assert.ok(shown.includes('開放與截止') && shown.length < 9, JSON.stringify(shown));
+    assert.ok(await t.locator('#help-view mark').count() > 0, '關鍵字要標亮');
+    await t.fill('#help-q', '');
+    await t.click('#help-view [data-help-tour="roster"]');
+    await waitStep(0); await ringOn('教學頁啟動的導覽');
+    await t.click('.tour-card [data-tour="stop"]'); await waitStep(-1);
+    const overflow = await t.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+    assert.equal(overflow, false, '不能有橫向捲動');
+  });
+
   await step(`${label}：隨時可以結束（×、Esc）`, async () => {
     await t.evaluate(() => window.adminTour.start('roster')); await waitStep(0);
     await t.click('.tour-card [data-tour="stop"]'); await waitStep(-1);
@@ -104,22 +130,26 @@ for (const [label, vp] of [['電腦', { width: 1280, height: 860 }], ['手機', 
   await ctx.close();
 }
 // 看過的導覽記在帳號上：別台電腦看過就不再自動跳；在這台看完會存回帳號
-for (const [label, preset] of [['帳號上已看過', { intro: 1 }], ['新帳號', null]]) {
+for (const [label, preset] of [['帳號上已看過', { welcome: 1 }], ['新帳號', null]]) {
   const ctx = await world.newContext({ viewport: { width: 1280, height: 860 } });
   const t = await world.newPage(ctx, { staff: 'teacher@example.com' });
   await t.addInitScript((p) => { window.__tourAuto = true; window.__fb = window.__fb || {}; window.__fb.docs = window.__fb.docs || {}; if (p) window.__fb.docs['staffPrefs/teacher@example.com'] = { tours: p }; }, preset);
   await t.goto(world.base + '/admin.html');
   await t.waitForSelector('#app-root:not([hidden])', { timeout: 15000 });
   await sleep(2500);
-  const a = await t.evaluate(() => window.adminTour.active());
+  const open = await t.evaluate(() => !!document.querySelector('dialog.welcome[open]'));
   if (preset) {
-    await step(`${label}：換一台電腦也不會再跳出「認識後台」`, async () => { assert.equal(a, null); assert.ok(await t.evaluate(() => !!window.adminTour.seen().intro)); });
+    await step(`${label}：換一台電腦也不會再跳出歡迎畫面`, async () => { assert.equal(open, false); assert.ok(await t.evaluate(() => !!window.adminTour.seen().welcome)); });
   } else {
-    await step(`${label}：第一次登入自動跳出「認識後台」，結束後存到帳號`, async () => {
-      assert.ok(a && a.id === 'intro', JSON.stringify(a));
-      await t.click('.tour-card [data-tour="stop"]'); await sleep(500);
+    await step(`${label}：第一次登入出現 3 頁歡迎畫面，最後可以去看完整教學，看過的紀錄存到帳號`, async () => {
+      assert.ok(open, '要出現歡迎畫面');
+      await t.click('dialog.welcome [data-wc="next"]'); await sleep(300);
+      await t.click('dialog.welcome [data-wc="next"]'); await sleep(300);
+      assert.match(await t.textContent('dialog.welcome .wc-btns'), /看完整教學/);
+      await t.click('dialog.welcome [data-wc="help"]'); await sleep(600);
+      assert.equal(await t.evaluate(() => location.hash), '#help');
       const d = await t.evaluate(() => window.__fb.docs['staffPrefs/teacher@example.com']);
-      assert.ok(d && d.tours && d.tours.intro, JSON.stringify(d));
+      assert.ok(d && d.tours && d.tours.welcome, JSON.stringify(d));
     });
   }
   await ctx.close();

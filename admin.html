@@ -905,7 +905,7 @@
       .rail { position:fixed; left:0; right:0; bottom:0; top:auto; z-index:30; height:calc(64px + env(safe-area-inset-bottom, 0px)); padding:4px 4px env(safe-area-inset-bottom, 0px); display:flex; flex-direction:row; align-items:stretch; justify-content:space-around; gap:0; overflow:visible; border-top:1px solid rgba(255,255,255,.12); }
       .rail .brand, .rail-ink { display:none !important; }
       .rail a[data-view], .rail-more { flex:1 1 0; min-width:0; width:auto !important; min-height:56px; padding:6px 0 4px !important; display:flex !important; flex-direction:column; align-items:center; justify-content:center; gap:3px; border:0; border-radius:12px; background:transparent; color:var(--navy-ink); font:inherit; font-size:.74rem !important; font-weight:800; white-space:nowrap; cursor:pointer; }
-      .rail a[data-view="students"], .rail a[data-view="settings"] { display:none !important; }
+      .rail a[data-view="students"], .rail a[data-view="settings"], .rail a[data-view="help"] { display:none !important; }
       .rail a[data-view="overview"] { order:1; } .rail a[data-view="units"] { order:2; } .rail a[data-view="scores"] { order:3; } .rail a[data-view="live"] { order:4; } .rail-more { order:5; }
       .rail .rail-ic { margin:0 !important; }
       .rail a[aria-current="page"], .rail-more.on { color:#fff; background:rgba(255,255,255,.1) !important; }
@@ -1126,6 +1126,64 @@
     .g-parts .c0 { background: #DBEAFE; color: #1D4ED8; } .g-parts .c1 { background: #FEF3C7; color: #A16207; } .g-parts .c2 { background: #D1FAE5; color: #047857; } .g-parts .c3 { background: #FCE7F3; color: #BE185D; } .g-parts .c4 { background: #EDE9FE; color: #6D28D9; }
     .g-text { display: block; width: calc(100% - 28px); margin: 6px 14px 14px; min-height: 180px; font: .85rem/1.6 ui-monospace, Menlo, Consolas, monospace; }
 
+    /* 第一次登入的歡迎畫面（APP 式，3 頁左右滑） */
+    dialog.welcome { width:min(520px, calc(100vw - 32px)); padding:0; border:0; border-radius:24px; background:#fff; color:var(--ink); overflow:hidden; box-shadow:0 30px 80px rgba(15, 23, 42, .35); animation:menu-in .25s var(--ease-out) both; }
+    dialog.welcome::backdrop { background:rgba(15, 23, 42, .55); }
+    dialog.welcome.closing { animation:drop-out .15s ease-in both; }
+    .wc-track { display:flex; align-items:center; transition:transform .38s var(--ease-out); touch-action:pan-y; }
+    .wc-b5 { color:var(--primary); font-weight:900; font-size:2rem; letter-spacing:-.02em; font-family:var(--font-en); }
+    .wc-page { flex:0 0 100%; padding:40px 32px 8px; text-align:center; box-sizing:border-box; }
+    .wc-ic { width:88px; height:88px; margin:0 auto 18px; border-radius:26px; background:var(--navy); display:grid; place-items:center; }
+    .wc-ic svg { width:52px; height:52px; fill:none; stroke:#fff; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+    .wc-page h2 { margin:0 0 10px; color:var(--navy); font-size:1.45rem; }
+    .wc-page p { margin:0 auto; max-width:380px; line-height:1.75; color:var(--text); }
+    .wc-list { list-style:none; margin:4px auto 0; padding:0; max-width:340px; display:grid; gap:10px; text-align:left; counter-reset:wc; }
+    .wc-list li { display:grid; grid-template-columns:32px 1fr; gap:2px 12px; align-items:center; padding:12px 14px; border-radius:14px; background:var(--paper); counter-increment:wc; }
+    .wc-list li::before { content:counter(wc); grid-row:1 / 3; width:32px; height:32px; border-radius:50%; background:var(--primary); color:var(--navy); font-weight:900; display:grid; place-items:center; }
+    .wc-list b { color:var(--navy); }
+    .wc-list span { color:var(--steel); font-size:.88rem; }
+    .wc-dots { display:flex; justify-content:center; gap:8px; padding:18px 0 4px; }
+    .wc-dots i { width:8px; height:8px; border-radius:99px; background:var(--line-strong); transition:width .25s var(--ease-out), background .25s; }
+    .wc-dots i.on { width:24px; background:var(--navy); }
+    .wc-btns { display:flex; justify-content:space-between; gap:10px; padding:16px 24px 24px; }
+    .wc-btns .btn { min-width:120px; }
+    @media (max-width:900px) { dialog.welcome { width:100vw; max-width:100vw; height:100dvh; max-height:100dvh; border-radius:0; display:flex; flex-direction:column; } dialog.welcome:not([open]) { display:none; } .wc-track { flex:1; align-items:center; } .wc-btns { padding-bottom:calc(24px + env(safe-area-inset-bottom, 0px)); } }
+    @media (prefers-reduced-motion: reduce) { .wc-track, .wc-dots i { transition:none; } dialog.welcome { animation:none; } }
+    /* 教學頁：左邊章節目錄（手機改成橫向捲動的標籤），右邊內容；截圖點一下放大 */
+    .help-page { display:grid; grid-template-columns:180px minmax(0, 1fr); gap:6px 24px; align-items:start; }
+    .help-search { grid-column:1 / -1; display:flex; align-items:center; gap:8px; max-width:520px; height:44px; padding:0 14px; border:1px solid var(--line-strong); border-radius:12px; background:#fff; margin-bottom:10px; }
+    .help-search svg { width:18px; height:18px; fill:none; stroke:var(--steel); stroke-width:2; flex:none; }
+    #work .help-search input { border:0; outline:0; box-shadow:none; flex:1; font:inherit; background:none; min-width:0; height:auto; padding:0; }
+    .help-search:focus-within { border-color:var(--navy); box-shadow:0 0 0 3px var(--navy-soft); }
+    .help-toc { position:sticky; top:12px; display:grid; gap:2px; }
+    #work .help-toc a { display:block; padding:8px 12px; border-radius:10px; color:var(--ink); text-decoration:none; font-weight:800; font-size:.92rem; }
+    .help-toc a:hover, .help-toc a:focus-visible { background:var(--wash); outline:none; }
+    .help-toc a.dim { color:var(--edge); font-weight:600; }
+    .help-body { display:grid; gap:16px; min-width:0; }
+    .help-ch { scroll-margin-top:16px; }
+    .help-ch h2 { margin:0 0 4px; color:var(--navy); }
+    .help-lead { margin:0 0 14px; color:var(--text); font-size:1rem; }
+    .help-steps { margin:14px 0 0; padding-left:1.4em; display:grid; gap:10px; line-height:1.7; }
+    .help-steps li::marker { color:var(--navy); font-weight:900; }
+    .help-fig { margin:10px 0 4px; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--paper); cursor:zoom-in; max-width:720px; }
+    .help-fig img { display:block; width:100%; height:auto; max-height:360px; object-fit:contain; object-position:top left; }
+    .help-fig.zoom { cursor:zoom-out; max-width:none; }
+    .help-fig.zoom img { max-height:none; }
+    .help-notes { margin-top:16px; padding:12px 14px; border-radius:12px; background:var(--amber-soft); }
+    .help-notes b { color:var(--amber-ink); }
+    .help-notes ul { margin:6px 0 0; padding-left:1.2em; display:grid; gap:6px; line-height:1.65; }
+    .help-faq { display:grid; gap:8px; margin-top:6px; }
+    .help-faq details { border:1px solid var(--line); border-radius:12px; padding:10px 14px; background:#fff; }
+    .help-faq summary { cursor:pointer; font-weight:800; color:var(--ink); }
+    .help-faq p { margin:8px 0 0; line-height:1.7; }
+    .help-go { margin-top:16px; }
+    .help-page mark { background:#FDE68A; color:inherit; border-radius:3px; padding:0 1px; }
+    @media (max-width:900px) {
+      .help-page { grid-template-columns:1fr; }
+      .help-toc { position:static; display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
+      #work .help-toc a { flex:none; border:1px solid var(--line-strong); background:#fff; border-radius:999px; padding:6px 12px; font-size:.86rem; }
+      .help-fig img { max-height:260px; }
+    }
     /* 引導模式：框出要看的地方（四周變暗）＋說明卡 */
     .tour-ring { position:fixed; z-index:990; border-radius:14px; border:3px solid var(--primary); box-shadow:0 0 0 9999px rgba(15, 23, 42, .5); pointer-events:none;
       transition:left .28s var(--ease-out), top .28s var(--ease-out), width .28s var(--ease-out), height .28s var(--ease-out); }
@@ -1168,6 +1226,7 @@
       <a href="#students" data-view="students"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M16 4.5a3.5 3.5 0 010 7"/><path d="M18 14a6 6 0 013.5 6"/></svg></span>學生</a>
       <a href="#scores" data-view="scores"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg></span>成績</a>
       <a href="#settings" data-view="settings"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span>設定</a>
+      <a href="#help" data-view="help"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.2-1.5 2.3M12 17.2v.3"/></svg></span>教學</a>
       <div class="rail-who"><span class="who"><button type="button" class="avatar" id="who-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="who-menu" title="帳號"><span id="who-av" aria-hidden="true"></span><span class="sr">帳號選單</span></button><div class="who-menu" id="who-menu" role="menu" hidden><div class="who-id"><b id="who-name"></b><span id="who-email"></span></div><button type="button" role="menuitem" id="switch-acct">切換帳號</button><button type="button" role="menuitem" id="sign-out">登出</button></div></span></div>
     </nav>
 
@@ -1231,6 +1290,10 @@
         <div class="view" data-pane-view="scores" hidden>
           <div class="w-head"><div><h1>成績</h1><div class="w-sub muted">所有單元的成績；即時資料直接讀 Firebase</div></div></div>
           <div data-slot="scores"></div>
+        </div>
+
+        <div class="view" data-pane-view="help" hidden>
+          <div class="w-head"><div><h1>教學</h1><div class="w-sub muted">每一章講一件事；按「帶我做一次」會在畫面上一步一步帶你做</div></div></div>
         </div>
 
         <div class="view" data-pane-view="settings" hidden>
@@ -3877,7 +3940,7 @@
     function route() {
       var h = decodeURIComponent((location.hash || '#overview').slice(1)).split('/');
       if (h[0] === 'unit' && h[1]) { if (units.some(function (u) { return u.id === h[1]; })) { openUnit(h[1], h[2]); return; } }
-      var v = ['overview', 'units', 'live', 'students', 'scores', 'settings'].indexOf(h[0]) >= 0 ? h[0] : 'overview';
+      var v = ['overview', 'units', 'live', 'students', 'scores', 'settings', 'help'].indexOf(h[0]) >= 0 ? h[0] : 'overview';
       showView(v);
       shell.dataset.pane = v === 'units' ? 'list' : 'work';
     }
@@ -4957,6 +5020,7 @@
       sheet.innerHTML = '<div class="m-scrim" data-close></div><div class="m-panel" role="dialog" aria-label="更多"><span class="m-grip" aria-hidden="true"></span>' +
         '<a href="#students" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M16 4.5a3.5 3.5 0 010 7"/><path d="M18 14a6 6 0 013.5 6"/></svg></span><span><b>學生</b><small>名單、補作延長、個別學生的成績</small></span></a>' +
         '<a href="#settings" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span><span><b>設定</b><small>AI 出題、錯誤分析引擎、學期結算</small></span></a>' +
+        '<a href="#help" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 21V5M8 7h7M8 11h7"/></svg></span><span><b>教學</b><small>完整說明：出題、成績、名單、AI</small></span></a>' +
         '<button class="btn m-cancel" type="button" data-close>關閉</button></div>';
       document.body.appendChild(sheet);
       var open = function (on) {
@@ -4971,13 +5035,13 @@
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !sheet.hidden) { open(false); more.focus(); } });
       rail.addEventListener('click', function (e) { if (e.target.closest('a[data-view="units"]') && SH.view === 'units' && shell.dataset.pane === 'work') { shell.dataset.pane = 'list'; paintMobileTop(); } });
       $('m-top-back').onclick = function () { if (SH.view === 'units') { shell.dataset.pane = 'list'; paintMobileTop(); } else location.hash = '#units'; };
-      var NAMES = { overview: '總覽', units: '單元', live: '即時監控', students: '學生', scores: '成績', settings: '設定' };
+      var NAMES = { overview: '總覽', units: '單元', live: '即時監控', students: '學生', scores: '成績', settings: '設定', help: '教學' };
       window.paintMobileTop = function () {
         var v = SH.view, u = v === 'unit' ? curUnit() : null;
         $('m-top-title').textContent = u ? (u.title || u.id) : NAMES[v] || '';
         $('m-top-back').hidden = !(v === 'unit' || (v === 'units' && shell.dataset.pane === 'work'));
         if (v === 'units' && shell.dataset.pane === 'work') $('m-top-title').textContent = '新增單元';
-        more.classList.toggle('on', v === 'students' || v === 'settings');
+        more.classList.toggle('on', v === 'students' || v === 'settings' || v === 'help');
       };
     })();
     var showViewMN = showView;
@@ -4998,7 +5062,7 @@
       var ink = document.createElement('span'); ink.className = 'lg-ink'; ink.setAttribute('aria-hidden', 'true');
       rail.appendChild(ink);
       var tabs = function () { return [].slice.call(rail.querySelectorAll('a[data-view], .rail-more')).filter(function (t) { return t.offsetParent !== null; }).sort(function (a, b) { return a.getBoundingClientRect().left - b.getBoundingClientRect().left; }); };
-      var current = function () { return rail.querySelector('.rail-more.on, .rail-more[aria-expanded="true"]') || rail.querySelector('a[data-view][aria-current="page"]:not([data-view="students"]):not([data-view="settings"])'); };
+      var current = function () { return rail.querySelector('.rail-more.on, .rail-more[aria-expanded="true"]') || rail.querySelector('a[data-view][aria-current="page"]:not([data-view="students"]):not([data-view="settings"]):not([data-view="help"])'); };
       var box = function (el) { var r = el.getBoundingClientRect(), rr = rail.getBoundingClientRect(); return { l: r.left - rr.left, r: r.right - rr.left }; };
 
       // 彈簧：位置 x、速度 v、目標 to；stiffness 越大越快，damping 越小越會彈
@@ -5534,9 +5598,9 @@
         var d = document.createElement('dialog'); d.className = 'ask tour-pick';
         d.innerHTML = '<div class="ask-body"><b class="ask-title">使用導覽</b><p>選一件想做的事，導覽會框出要按的地方，一步一步帶你做。</p><div class="tour-list">' +
           Object.keys(TOURS).map(function (id) { return '<button type="button" class="tour-item" data-pick="' + id + '"><b>' + esc(TOURS[id].name) + (s[id] ? '<span class="tour-done">看過了</span>' : '') + '</b><span>' + esc(TOURS[id].desc) + '・' + TOURS[id].steps.length + ' 步</span></button>'; }).join('') +
-          '</div></div><div class="ask-btns"><button type="button" class="btn" data-pick="">關閉</button></div>';
+          '</div></div><div class="ask-btns"><button type="button" class="btn ghost" data-pick="#help">看完整教學</button><button type="button" class="btn" data-pick="">關閉</button></div>';
         var close = function () { d.close(); d.remove(); };
-        d.addEventListener('click', function (e) { var b = e.target.closest('[data-pick]'); if (b) { close(); if (b.dataset.pick) start(b.dataset.pick); } else if (e.target === d) close(); });
+        d.addEventListener('click', function (e) { var b = e.target.closest('[data-pick]'); if (b) { close(); var k = b.dataset.pick; if (k.charAt(0) === '#') location.hash = k; else if (k) start(k); } else if (e.target === d) close(); });
         d.addEventListener('cancel', function (e) { e.preventDefault(); close(); });
         document.body.appendChild(d); d.showModal();
       };
@@ -5556,15 +5620,160 @@
       var ovHead = document.querySelector('[data-pane-view="overview"] .w-head');
       if (ovHead) { var ob = document.createElement('button'); ob.type = 'button'; ob.className = 'btn small ghost tour-ov'; ob.textContent = '使用導覽'; ob.onclick = pick; ovHead.appendChild(ob); }
       // 第一次登入：自動跑「認識後台」（自動化測試的瀏覽器不跑，免得蓋住按鈕）
+      // 第一次登入：APP 式的歡迎畫面（3 頁，可以左右滑），最後選「看完整教學」或「開始使用」
+      var PAGES = [
+        { ic: '<span class="wc-b5">B5</span>', t: '歡迎使用 B5 老師後台', d: '出題、開放單元、看成績、管理學生名單，都在這裡完成。學生在網站上作答，成績會自動回到這裡和試算表。' },
+        { ic: '<svg viewBox="0 0 48 48"><path d="M24 6l18 10-18 10L6 16z"/><path d="M6 26l18 10 18-10"/></svg>', t: '最常做的三件事', list: [['出題', '單元 → 新增單元 → 放進題目'], ['看成績', '成績 → 點單元卡片'], ['學生名單', '學生 → 匯入學生名單']] },
+        { ic: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="18"/><path d="M19 19a5 5 0 018 4c-1.8 1.2-3 2.4-3 4.6M24 34v.5"/></svg>', t: '不知道怎麼做？', d: '「教學」有每個功能的完整說明和截圖。每一章都有「帶我做一次」，會在畫面上框出要按的地方，一步一步帶你做。' },
+      ];
+      var welcome = function () {
+        var d = document.createElement('dialog'); d.className = 'welcome'; d.setAttribute('aria-label', '歡迎');
+        d.innerHTML = '<div class="wc-track">' + PAGES.map(function (p, i) {
+          return '<section class="wc-page" aria-hidden="' + (i ? 'true' : 'false') + '"><div class="wc-ic" aria-hidden="true">' + p.ic + '</div><h2>' + esc(p.t) + '</h2>' +
+            (p.d ? '<p>' + esc(p.d) + '</p>' : '') +
+            (p.list ? '<ol class="wc-list">' + p.list.map(function (x) { return '<li><b>' + esc(x[0]) + '</b><span>' + esc(x[1]) + '</span></li>'; }).join('') + '</ol>' : '') + '</section>';
+        }).join('') + '</div>' +
+          '<div class="wc-dots" aria-hidden="true">' + PAGES.map(function () { return '<i></i>'; }).join('') + '</div>' +
+          '<div class="wc-btns"><button type="button" class="btn ghost" data-wc="skip">略過</button><button type="button" class="btn primary" data-wc="next">下一步</button></div>';
+        document.body.appendChild(d); d.showModal();
+        var i = 0, track = d.querySelector('.wc-track'), pages = d.querySelectorAll('.wc-page'), dots = d.querySelectorAll('.wc-dots i');
+        var paint = function () {
+          track.style.transform = 'translateX(' + (-100 * i) + '%)';
+          [].forEach.call(pages, function (p, k) { p.setAttribute('aria-hidden', String(k !== i)); });
+          [].forEach.call(dots, function (x, k) { x.className = k === i ? 'on' : ''; });
+          var last = i === PAGES.length - 1;
+          d.querySelector('.wc-btns').innerHTML = last
+            ? '<button type="button" class="btn" data-wc="help">看完整教學</button><button type="button" class="btn primary" data-wc="done">開始使用</button>'
+            : '<button type="button" class="btn ghost" data-wc="skip">略過</button><button type="button" class="btn primary" data-wc="next">下一步</button>';
+          var f = d.querySelector('.wc-btns .primary'); if (f) f.focus({ preventScroll: true });
+        };
+        var close = function (go) { markSeen('welcome'); d.classList.add('closing'); setTimeout(function () { d.close(); d.remove(); if (go) location.hash = go; }, 160); };
+        d.addEventListener('click', function (e) {
+          var b = e.target.closest('[data-wc]'); if (!b) return;
+          var k = b.dataset.wc;
+          if (k === 'next') { i = Math.min(PAGES.length - 1, i + 1); paint(); }
+          else if (k === 'help') close('#help');
+          else close('');
+        });
+        d.addEventListener('cancel', function (e) { e.preventDefault(); close(''); });
+        d.addEventListener('keydown', function (e) { if (e.key === 'ArrowRight') { i = Math.min(PAGES.length - 1, i + 1); paint(); } if (e.key === 'ArrowLeft') { i = Math.max(0, i - 1); paint(); } });
+        // 左右滑動換頁
+        var x0 = null;
+        track.addEventListener('pointerdown', function (e) { x0 = e.clientX; });
+        track.addEventListener('pointerup', function (e) { if (x0 === null) return; var dx = e.clientX - x0; x0 = null; if (Math.abs(dx) > 40) { i = Math.max(0, Math.min(PAGES.length - 1, i + (dx < 0 ? 1 : -1))); paint(); } });
+        paint();
+        return d;
+      };
       // 先等帳號上的紀錄（最多 4 秒），在別台電腦看過就不再跳
       var autoIntro = function () {
         if (navigator.webdriver && !window.__tourAuto) return;
         var wait = new Promise(function (r) { setTimeout(r, 4000); });
-        Promise.race([remote, wait]).then(function () { if (!seen().intro && !cur) setTimeout(function () { if (!cur && !seen().intro) start('intro'); }, 600); });
+        Promise.race([remote, wait]).then(function () { if (!seen().welcome && !cur && !document.querySelector('dialog.welcome')) setTimeout(function () { if (!cur && !seen().welcome && !document.querySelector('dialog.welcome')) welcome(); }, 600); });
       };
-      return { start: start, pick: pick, stop: stop, autoIntro: autoIntro, seen: seen, active: function () { return cur && { id: cur.id, step: cur.i }; } };
+      return { start: start, pick: pick, stop: stop, autoIntro: autoIntro, welcome: welcome, seen: seen, active: function () { return cur && { id: cur.id, step: cur.i }; } };
     })();
     window.adminTour = tour;
+
+    /* ----- 教學（#help）：完整說明，依任務分章節；每章：一句話、步驟（附截圖）、注意事項、「帶我做一次」接到導覽 -----
+       截圖由 tools/tutorial-shots.mjs 用假資料產生在 img/tutorial/（後台改版後重跑一次） */
+    var HELP_IMG = window.fbAttempts ? 'img/tutorial/' : 'https://eng-3385e.web.app/img/tutorial/'; // Apps Script 版本的後台從網站讀圖
+    var HELP = [
+      { id: 'start', title: '開始之前', lead: '後台分成總覽、單元、成績、學生、即時、設定。每天打開先看「總覽」。', img: 'overview',
+        steps: ['「總覽」的「需要處理」列出你該處理的事：需要確認的成績、快截止的單元、還沒有題目的單元。按右邊的按鈕直接過去。',
+          '「剛交卷」是最近 24 小時交的成績，有標記的會顯示原因。',
+          '電腦版左邊是選單和單元清單；手機版在下方，「學生」「設定」「教學」收在「更多」。',
+          '上方出現「有新版本了」時，先把正在編輯的東西存好，再按「立即更新」。'],
+        notes: ['學生網站的網址是 eng-3385e.web.app；老師後台要用老師名單上的 Google 帳號登入。'], tour: 'intro' },
+      { id: 'create', title: '出題', lead: '新增一個單元，放進題目，再開放給學生。', img: 'new-unit',
+        steps: ['在單元清單按「新增單元」。', '選這個單元要考什麼：單字片語、課文理解或句型練習。', '填名稱（學生看得到）和課次，按「建立單元」。會自動儲存，並帶你到這個單元的「題目」。',
+          { img: 'content-ways', text: '選一種方式放題目：「貼上文字」（從 Word、Excel 或講義複製）、「從檔案匯入」（CSV、TXT、JSON；Excel 請另存成 CSV），或「用 AI 產生」。' },
+          { img: 'check-save', text: '填好後按「預覽與檢查」，看過沒有問題，再按「儲存到網站」。' }],
+        notes: ['單字片語每行一個字：英文、詞性、中文、例句、例句翻譯；例句裡要考的部分用 [ ] 括起來。每個單元 4～100 個字。完整格式在編輯器的「格式說明」。',
+          '課文理解每一題都要有原文依據（關鍵字句或段落句子）。',
+          '新單元一開始是隱藏的，下一章「開放與截止」說明怎麼讓學生看到。',
+          '修改已經有人作答的題目：只改錯字時，把「重製學生在這個單元的進度」取消勾選，學生的完成與檢討狀態會保留。'], tour: 'create' },
+      { id: 'open', title: '開放與截止', lead: '決定學生什麼時候看得到、什麼時候截止；個別學生可以延長。', img: 'unit-open',
+        steps: ['打開單元，切到「出題設定」。', '打開「顯示在學生首頁」，學生就看得到這個單元。', '開放時間空白＝一顯示就能作答；截止時間可以按「今天 23:59」「一週後」「兩週後」快速設定。', '改完按下方的「儲存」。',
+          { img: 'makeup', text: '個別學生要延長（病假、公假）：切到「補作」分頁，選學生、填「補作到」的時間和備註，按「加入」，再按「儲存補作名單」。' }],
+        notes: ['截止後不能做正式測驗；已經做過的學生仍然可以檢討和複習。', '總分 65 分以上算通過；沒通過可以一直補考，成績以最高分計。'] },
+      { id: 'roster', title: '學生名單', lead: '學生要在名單上才能登入；登入時輸入的班級、座號、姓名要跟名單完全一樣。', img: 'roster',
+        steps: ['到「學生」，打開下方的「匯入學生名單」。', '填班級（例如 306）。', '名單每行一位：座號　姓名。可以從試算表直接選取兩欄複製貼上。', '按「匯入」。'],
+        notes: ['同一個班重新匯入只會補上新的學生，不會刪掉原本的，也不會重複。', '匯入後會自動在試算表建立「成績單 班級」分頁。', '轉學、畢業或家長要求刪除資料：用「刪除單一學生的資料」，刪除後無法復原。'], tour: 'roster' },
+      { id: 'scores', title: '看成績', lead: '每個單元一張卡片，點進去看各班情形、需要確認的作答和還沒通過的名單。', img: 'scores',
+        steps: ['到「成績」，每張卡片顯示通過率、還沒通過與還沒作答的人數。', { img: 'unit-scores', text: '點一張卡片：「各班完成情形」點一個班級，下面就只看那一班；每人以最高分計算。' },
+          { img: 'needs-check', text: '「需要確認」列出作答時間過短、離開作答畫面、使用翻譯工具、截止後才交卷的作答。只是提醒，不會扣分。看過沒問題按「已確認」（或「全部已確認」），按錯可以在「已確認」裡取消。' },
+          '「還沒通過」「還沒作答」按「複製名單」，貼到聯絡簿或 LINE 提醒學生。',
+          '要逐筆查詢、做錯題分析或打開試算表：展開成績頁下方的「查詢作答紀錄」。'],
+        notes: ['成績先存在網站的資料庫，後台馬上看得到；試算表每 10 分鐘同步一次（晚上 10 點到早上 7 點不同步）。急著登記可以在「試算表同步」按「立即同步到試算表」。', '試算表的「成績單 班級」分頁是一人一列、一個單元一欄，只留最高分，最適合登記。'], tour: 'scores' },
+      { id: 'ai', title: '用 AI 出題', lead: 'AI 可以幫你補齊單字資料、出課文題目和句型題，但產生後一定要看過再存。', img: 'ai-vocab',
+        steps: ['打開單元的「題目」，按「用 AI 產生」（已經有題目按「編輯題目」）。', '單字片語：貼上要考的單字（只有英文也可以），按「AI 補齊詞性、中文與 3 句例句」。已經填好的欄位不會被改。',
+          '課文理解：貼上文章、選題數，按「AI 產生題目」，每一題都會附原文依據。', '句型練習：填主題和「AI 出題範圍」（例如 Lesson 3 的重點句型），按「AI 產生題目」；「AI 產生句型說明」會寫好每個句型的說明。',
+          '逐題確認答案與解析，按「預覽與檢查」，沒問題再「儲存到網站」。'],
+        notes: [{ img: 'settings-ai', text: 'AI 金鑰和出題規則（提示詞）在「設定」。按鈕顯示錯誤時先確認金鑰；額度用完時會自動改用其他模型。' }, '段考複習的題目比較長，AI 有時會分批產生，部分沒成功時再按一次即可。'], tour: 'ai' },
+      { id: 'live', title: '即時監控', lead: '上課時看現在有多少人在線上、正在做哪個單元、交卷是否順利。', img: 'live',
+        steps: ['到「即時」（手機在下方分頁）。', '上方是現在在線、作答中的人數；下面列出在哪個畫面、正在做的單元。', '「交卷是否順利」列出最近 24 小時交卷成功、排隊後送出、還在排隊的數量。'],
+        notes: ['即時資料是匿名的，不含學生姓名；看個別學生的成績請到「成績」。', '交卷時網路不穩，成績會先存在學生的裝置上，連上網會自動補送，不會遺失。'] },
+      { id: 'semester', title: '學期結算', lead: '學期結束時先備份，再清除這學期的資料。', img: 'semester',
+        steps: ['到「設定」最下方的「危險區」。', '先按「建立成績備份」，會在你的雲端硬碟複製一份完整的試算表。', '勾選要清除的資料：試算表成績、學生作答紀錄、學生名單（換班級時才勾）。', '輸入「確認刪除」，按「清除資料」。'],
+        notes: ['清除後無法復原，一定要先備份。', '「刪除單元的所有紀錄」需要管理者設定的通關密語，平常用不到。'] },
+      { id: 'faq', title: '常見問題', lead: '學生登不進去、成績沒出現、題目要修改…', faq: [
+        ['學生說「名單裡找不到」', '請學生確認班級、座號、姓名跟名單完全一樣（姓名不能有錯字或空白）。還是不行，到「學生」查詢這位學生，或重新匯入名單。'],
+        ['學生說「連線失敗」', '多半是學校網路擋住連線。請學生改用手機行動網路試試；或打開 eng-3385e.web.app/#/diag 做連線測試，把結果截圖給管理者。'],
+        ['試算表還沒有剛交的成績', '試算表每 10 分鐘同步一次。後台的「成績」是即時的；急著登記可以按「立即同步到試算表」。'],
+        ['學生說題目有錯', '打開單元的「題目」→「編輯題目」，改好後把「重製學生在這個單元的進度」取消勾選，再按「預覽與檢查」、「儲存到網站」。'],
+        ['「需要確認」是什麼？會扣分嗎？', '不會扣分。作答時間過短、離開作答畫面、使用翻譯工具、截止後交卷會被標記，請看過後按「已確認」。'],
+        ['學生看不到新單元', '新單元一開始是隱藏的：到「出題設定」打開「顯示在學生首頁」並儲存，也確認開放時間已經到了。'],
+        ['上方出現「有新版本了」', '網站剛更新。先把正在編輯的內容存好，再按「立即更新」。']] },
+    ];
+    var helpText = function (c) {
+      var t = [c.title, c.lead];
+      (c.steps || []).concat(c.notes || []).forEach(function (s) { t.push(typeof s === 'string' ? s : s.text); });
+      (c.faq || []).forEach(function (f) { t.push(f[0], f[1]); });
+      return t.join(' ');
+    };
+    var helpQ = '';
+    function drawHelp() {
+      var box = $('help-view'); if (!box) return;
+      var q = helpQ.trim().toLowerCase();
+      var list = HELP.filter(function (c) { return !q || helpText(c).toLowerCase().indexOf(q) >= 0; });
+      var mark = function (s) { var h = esc(s); if (!q) return h; var i = h.toLowerCase().indexOf(esc(q).toLowerCase()); return i < 0 ? h : h.slice(0, i) + '<mark>' + h.slice(i, i + esc(q).length) + '</mark>' + h.slice(i + esc(q).length); };
+      var img = function (name, alt) { return name ? '<figure class="help-fig"><img src="' + HELP_IMG + name + '.jpg" alt="' + esc(alt) + '" loading="lazy" decoding="async"></figure>' : ''; };
+      var item = function (s) { return typeof s === 'string' ? '<li>' + mark(s) + '</li>' : '<li>' + mark(s.text) + img(s.img, s.text) + '</li>'; };
+      box.querySelector('.help-toc').innerHTML = HELP.map(function (c) { return '<a href="#help/' + c.id + '" data-help-go="' + c.id + '"' + (list.indexOf(c) < 0 ? ' class="dim"' : '') + '>' + esc(c.title) + '</a>'; }).join('');
+      box.querySelector('.help-body').innerHTML = list.length ? list.map(function (c) {
+        return '<section class="card help-ch" id="help-' + c.id + '"><h2>' + esc(c.title) + '</h2><p class="help-lead">' + mark(c.lead) + '</p>' +
+          img(c.img, c.title) +
+          (c.steps ? '<ol class="help-steps">' + c.steps.map(item).join('') + '</ol>' : '') +
+          (c.faq ? '<div class="help-faq">' + c.faq.map(function (f) { return '<details' + (q ? ' open' : '') + '><summary>' + mark(f[0]) + '</summary><p>' + mark(f[1]) + '</p></details>'; }).join('') + '</div>' : '') +
+          (c.notes ? '<div class="help-notes"><b>注意</b><ul>' + c.notes.map(item).join('') + '</ul></div>' : '') +
+          (c.tour && window.adminTour ? '<button class="btn primary help-go" type="button" data-help-tour="' + c.tour + '">帶我做一次</button>' : '') +
+          '</section>';
+      }).join('') : '<section class="card"><p class="muted" style="margin:0">找不到「' + esc(helpQ) + '」，換個關鍵字試試。</p></section>';
+    }
+    (function helpMount() {
+      var v = document.querySelector('[data-pane-view="help"]'); if (!v) return;
+      var box = document.createElement('div'); box.id = 'help-view'; box.className = 'help-page';
+      box.innerHTML = '<label class="help-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="sr">搜尋教學</span><input type="search" id="help-q" placeholder="搜尋，例如：截止、名單、需要確認"></label>' +
+        '<nav class="help-toc" aria-label="教學章節"></nav><div class="help-body"></div>';
+      v.appendChild(box);
+      box.addEventListener('input', function (e) { if (e.target.id === 'help-q') { helpQ = e.target.value; drawHelp(); } });
+      box.addEventListener('click', function (e) {
+        var t = e.target.closest('[data-help-tour]');
+        if (t) { window.adminTour.start(t.dataset.helpTour); return; }
+        var a = e.target.closest('[data-help-go]');
+        if (a) { e.preventDefault(); var s = $('help-' + a.dataset.helpGo); if (s) s.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }
+        var f = e.target.closest('.help-fig'); if (f) f.classList.toggle('zoom');
+      });
+    })();
+    var showViewHP = showView;
+    showView = function (v) {
+      showViewHP(v);
+      if (v === 'help') {
+        drawHelp();
+        var part = decodeURIComponent((location.hash || '').slice(1)).split('/')[1];
+        if (part && $('help-' + part)) setTimeout(function () { $('help-' + part).scrollIntoView({ block: 'start' }); }, 50);
+      }
+    };
     var tabSections = function () { return document.querySelectorAll('#work .view'); };
     function applyAdminData(d) {
       units = (d.units || []).concat(d.customUnits || []);
