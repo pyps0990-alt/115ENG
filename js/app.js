@@ -84,6 +84,7 @@ async function route() {
   if (teacher) document.getElementById('student-chip').hidden = true;
   else renderStudentChip();
   if (kind === 'u' && !loggedIn) { location.replace('#/'); return; }
+  syncDock(loggedIn && (!kind || kind === 'me') ? (kind || 'home') : null);
   updateNav(kind === 'u' && id ? (findUnit(id) || {}).id : null);
   if (kind === 'u' && id && changed && !(await assignGuard(id))) return;
   const render = async () => {
@@ -102,6 +103,18 @@ async function route() {
   reportView();
   if (!first) await settleFonts(); // 剛開啟網站不等字型、也不強制排版：開啟速度優先
   pageIn(changed, first);
+}
+
+// 底部浮動分頁列（單元、我的成績）：登入後的首頁與我的成績才出現，作答時不會擋到畫面
+function syncDock(on) {
+  const dock = document.getElementById('dock');
+  if (!dock) return;
+  dock.hidden = !on;
+  document.body.classList.toggle('has-dock', !!on);
+  dock.querySelectorAll('a').forEach((a) => {
+    const cur = a.dataset.dock === on;
+    if (cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
 }
 
 // 單元選單是否顯示：老師頁、還沒登入、沒有可用單元時隱藏。登入成功（不換頁）時也要更新，不然選單會一直藏著
@@ -190,22 +203,17 @@ function renderHome() {
   document.title = 'B5 Practice';
   const s = store.student();
   app.innerHTML = s
-    ? `<section class="hero compact">
+    ? `<section class="hero compact cover">
+        <div class="cover-eyebrow">${esc(index.book || 'Book 5')} · ${esc(s.cls)} 班</div>
         <h1>${esc(maskName(s.name))}，今天從哪一課開始？</h1>
         <p id="progress-slot"></p>
       </section>
       <div id="next-slot"></div>
-      <details class="legend"><summary>狀態是什麼意思？</summary>
-        <dl>
-          <dt>需補考</dt><dd>總分還沒到 ${PASS}%。可以隨時重做，沒有次數限制。</dd>
-          <dt>待檢討</dt><dd>已經通過，先逐題檢討，才能開始複習。</dd>
-          <dt>缺交</dt><dd>單元已截止，還沒有正式測驗紀錄，請找老師。</dd>
-        </dl>
-      </details>
       <div id="lessons"></div>`
-    : `<section class="hero">
+    : `<section class="hero cover">
+        <div class="cover-eyebrow">${esc(gradeOf(index.book || 'Book 5'))} · ${esc(index.book || 'Book 5')}</div>
         <h1>B5 Practice</h1>
-        <p>${esc(gradeOf(index.book || 'Book 5'))}英文 ${esc(index.book || 'Book 5')}：單字片語、課文理解、句型練習。總分達 ${PASS}% 就通過，沒通過可以一直補考。</p>
+        <p>單字片語、課文理解、句型練習。總分達 ${PASS}% 就通過，沒通過可以一直補考。</p>
       </section>
       <div id="welcome-slot"></div>
       <div id="lessons"></div>`;
@@ -269,7 +277,14 @@ function renderHome() {
       <h2 class="lesson-head">${icon.pin}<span>老師指派</span><small>完成 ${asg.filter(asgDone).length} / ${asg.length}</small></h2>
       <div class="unit-grid">${asg.map((a) => tileHTML(a.u, a)).join('')}</div>
     </section><p class="free-head">其他單元 · 自由練習</p>` : '';
-  host.innerHTML = filterHTML + asgHTML + lessons.map((n) => {
+  const legendHTML = `<details class="legend"><summary>${icon.info}狀態說明</summary>
+        <dl>
+          <dt>需補考</dt><dd>總分還沒到 ${PASS}%。可以隨時重做，沒有次數限制。</dd>
+          <dt>待檢討</dt><dd>已經通過，先逐題檢討，才能開始複習。</dd>
+          <dt>缺交</dt><dd>單元已截止，還沒有正式測驗紀錄，請找老師。</dd>
+        </dl>
+      </details>`;
+  host.innerHTML = `<div class="list-head">${filterHTML}${legendHTML}</div>` + asgHTML + lessons.map((n) => {
     const units = visible.filter((u) => u.lesson === n && !asgIds.has(u.id));
     if (!units.length) return '';
     return `<section class="lesson">
@@ -373,25 +388,33 @@ function tileHTML(u, asg = null) {
   const sub = [b != null ? `最佳 ${b}%` : '', st.k === 'miss' ? '' : windowText(u.id, store.done(u.id))].filter(Boolean).join(' · ');
   // 最佳成績旁的小量尺：刻度就是及格線，每張卡片都看得到離通過還有多遠
   const meter = b != null ? `<span class="meter${b >= PASS ? ' ok' : ''}" role="img" aria-label="最佳 ${b}%，及格線 ${PASS}%"><i style="width:${Math.min(100, b)}%"></i><b style="left:${PASS}%"></b></span>` : '';
+  // 左邊的成績環：做過就是最佳成績（環的長度＝分數），還沒做過放類型圖示
+  const ring = b != null
+    ? `<span class="tile-ring has" style="--p:${Math.max(0, Math.min(100, b))}" aria-hidden="true"><b>${b}</b></span>`
+    : `<span class="tile-ring" aria-hidden="true">${typeIcon(u.type)}</span>`;
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
+      ${ring}<span class="tile-body">
       <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span>${asg ? `<span class="tile-asg">${icon.pin}${esc(dueLabel(asg.due).split(' · ')[0])}</span>` : ''}</div>
       <h3 class="en">${esc(u.title)}</h3>
       ${topicShown ? `<p class="tile-topic en">${esc(topicShown)}</p>` : ''}
       ${vocab ? vocabMetaHTML(u, openLevels(u).map((l) => l.name)) : `<div class="tile-meta stack"><span><span class="tile-cat">${typeIcon(u.type)}</span>${kind}</span><span>${tileMeta(u)}</span></div>`}
       ${sub ? `<div class="tile-sub">${meter}<span>${esc(sub)}</span></div>` : ''}
+      </span>
     </a>`;
 }
 
 /* ---------------- unit ---------------- */
 // 轉場用的單元標題外框（資料載入前先顯示，版面和正式標題一致）
 function unitShellHTML(meta) {
-  return `<div class="unit-head shell">
+  return `<div class="unit-head shell"${markAttr(meta)}>
       <a class="back" href="#/">${icon.back} 所有單元</a>
       <div class="eyebrow">${typeIcon(meta.type)}${lessonLabel(meta.lesson)} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
     </div><div class="loading"><span class="spinner"></span>載入中…</div>`;
 }
 
+// 封面右邊的大字課次（L3）：課次是數字才放
+const markAttr = (meta) => (typeof meta.lesson === 'number' || /^\d+$/.test(String(meta.lesson || '')) ? ` data-mark="L${esc(String(meta.lesson))}"` : '');
 function headHTML(meta, data) {
   const vocab = meta.type === 'vocab';
   const words = data.words || [];
@@ -399,7 +422,7 @@ function headHTML(meta, data) {
   const sub = vocab ? `單字 ${words.length - phrases} 個 · 片語 ${phrases} 個`
     : meta.type === 'pattern' ? `${(data.items || []).length} 題`
     : `${(data.questions || []).length} 題`;
-  return `<div class="unit-head">
+  return `<div class="unit-head"${markAttr(meta)}>
       <a class="back" href="#/">${icon.back} 所有單元</a>
       <div class="eyebrow">${typeIcon(meta.type)}${lessonLabel(meta.lesson)} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
@@ -486,8 +509,8 @@ async function renderMe() {
   const count = (k) => rows.filter((r) => r.k === k).length;
   const masked = maskName(s.name);
   app.innerHTML = `
-    <a class="back" href="#/">${icon.back} 所有單元</a>
     <section class="me-head">
+      <a class="back" href="#/">${icon.back} 所有單元</a>
       <div class="eyebrow">My records</div>
       <h1>${esc(masked)} 的成績</h1>
       <p class="muted" style="margin:0">${esc(s.cls)} 班 ${esc(s.seat)} 號</p>
