@@ -1145,6 +1145,7 @@
     .help-search:focus-within { border-color:var(--navy); box-shadow:0 0 0 3px var(--navy-soft); }
     .help-tours { grid-column:1 / -1; margin-bottom:6px; }
     .help-tour-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:10px; margin-top:12px; }
+    @media (min-width:1180px) { .help-tour-list { grid-template-columns:repeat(5, minmax(0, 1fr)); } }
     .help-toc { position:sticky; top:12px; display:grid; gap:2px; }
     #work .help-toc a { display:block; padding:8px 12px; border-radius:10px; color:var(--ink); text-decoration:none; font-weight:800; font-size:.92rem; }
     .help-toc a:hover, .help-toc a:focus-visible { background:var(--wash); outline:none; }
@@ -1201,6 +1202,48 @@
     .tour-item span { color:var(--steel); font-size:.84rem; }
     .tour-done { font-size:.72rem; font-weight:800; color:var(--good-c, #15803d); background:#ECFDF3; border-radius:999px; padding:1px 8px; }
     .tour-ov { margin-left:auto; align-self:center; }
+
+    /* ================= 液態玻璃（全面版）：只用在浮在內容上的那一層（標題列、選單、對話框、儲存列、導覽說明卡），
+       卡片、表格、表單維持不透明，字才好讀。電腦版是收斂版：沒有標題列玻璃，左側選單只加一點光澤。
+       不支援模糊的瀏覽器自動退回不透明（最下面的 @supports） ================= */
+    :root {
+      --gl-bg:linear-gradient(180deg, rgba(255,255,255,.80), rgba(255,255,255,.62));
+      --gl-fx:blur(26px) saturate(190%);
+      --gl-edge:inset 0 1px 0 rgba(255,255,255,.95), inset 0 -1px 0 rgba(255,255,255,.3), inset 0 0 0 1px rgba(255,255,255,.55);
+      --gl-shadow:0 18px 50px rgba(15, 23, 42, .22), 0 2px 6px rgba(15, 23, 42, .08);
+      --gl-navy:linear-gradient(180deg, rgba(37, 66, 150, .84), rgba(30, 58, 138, .78));
+    }
+    .who-menu, .sys-panel, dialog.ask, dialog.welcome, .tour-card {
+      background:var(--gl-bg) !important; -webkit-backdrop-filter:var(--gl-fx); backdrop-filter:var(--gl-fx);
+      border:0 !important; box-shadow:var(--gl-shadow), var(--gl-edge) !important; }
+    dialog.ask::backdrop, dialog.welcome::backdrop { background:rgba(15, 23, 42, .28); -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); }
+    .savebar { background:var(--gl-navy) !important; -webkit-backdrop-filter:var(--gl-fx); backdrop-filter:var(--gl-fx);
+      box-shadow:0 14px 40px rgba(15, 23, 42, .3), inset 0 1px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(255,255,255,.12) !important; }
+    .savebar[data-state="done"] { background:linear-gradient(180deg, rgba(22, 128, 61, .86), rgba(21, 128, 61, .8)) !important; }
+    .savebar[data-state="fail"] { background:linear-gradient(180deg, rgba(200, 38, 38, .88), rgba(185, 28, 28, .82)) !important; }
+    /* 電腦版左側選單：不透明深藍，加一道由上往下的光澤 */
+    @media (min-width:901px) {
+      .rail { background:linear-gradient(180deg, #2A4AA8 0%, var(--navy) 38%, #1A3378 100%) !important; box-shadow:inset -1px 0 0 rgba(255,255,255,.08); }
+      .rail a[aria-current="page"] { box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 4px 14px rgba(0,0,0,.18); }
+    }
+    @media (max-width:900px) {
+      /* 標題列：深藍玻璃，內容捲到它底下會透出來（夠不透明，iPhone Safari 的狀態列仍然是深藍） */
+      .m-top { background:linear-gradient(180deg, rgba(30, 58, 138, .94), rgba(30, 58, 138, .86)) !important; -webkit-backdrop-filter:blur(20px) saturate(180%); backdrop-filter:blur(20px) saturate(180%);
+        box-shadow:0 -60px 0 var(--navy), inset 0 -1px 0 rgba(255,255,255,.14), 0 6px 20px rgba(15, 23, 42, .12) !important; }
+      .shell, .shell.list-off { grid-template-rows:0 minmax(0, 1fr) !important; }
+      .work { padding-top:calc(56px + env(safe-area-inset-top, 0px)); scroll-padding-top:calc(68px + env(safe-area-inset-top, 0px)); }
+      .ulist { padding-top:calc(56px + env(safe-area-inset-top, 0px)); }
+      /* 分頁列：更亮的高光（上緣一道光、底部一點反光） */
+      .rail::before { background:radial-gradient(120% 90% at 50% -20%, rgba(255,255,255,.75), rgba(255,255,255,0) 60%), linear-gradient(180deg, rgba(255,255,255,.6), rgba(255,255,255,.4)) !important; }
+      .rail, .rail a[data-view], .rail-more { touch-action:none !important; } /* 分頁列可以上下拉（橡皮筋），不讓瀏覽器捲動頁面 */
+    }
+    /* 可以拖的浮動元件：拖動中不做轉場；放開時由程式加上彈回的轉場 */
+    .el-drag { transition:none !important; }
+    @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+      .who-menu, .sys-panel, dialog.ask, dialog.welcome, .tour-card { background:#fff !important; }
+      .savebar { background:var(--navy) !important; }
+      @media (max-width:900px) { .m-top { background:var(--navy) !important; } }
+    }
   </style>
 </head>
 <body>
@@ -5126,6 +5169,7 @@
       });
       rail.addEventListener('pointermove', function (e) {
         if (pid !== e.pointerId) return;
+        if (rail.dataset.vdrag) return; // 正在上下拉整個分頁列
         if (!dragging) {
           if (Math.abs(e.clientX - startX) < 6) return;
           dragging = true; moved = true;
@@ -5646,6 +5690,88 @@
       return { start: start, pick: pick, stop: stop, autoIntro: autoIntro, welcome: welcome, seen: seen, active: function () { return cur && { id: cur.id, step: cur.i }; } };
     })();
     window.adminTour = tour;
+
+    /* ----- 可以拖的浮動元件（液態玻璃的手感）：
+       分頁列、儲存列：手指拖會跟著走一點，越拉阻力越大（橡皮筋），放開彈回原位
+       「更多」選單、確認視窗：往下拉跟著手指，拉夠遠或甩一下就關閉；往上拉有極限，放開彈回 ----- */
+    var elastic = (function () {
+      var calm = function () { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; };
+      var rubber = function (d, lim) { var a = Math.abs(d); return (d < 0 ? -1 : 1) * lim * (1 - 1 / (a * 0.55 / lim + 1)); };
+      return function (el, o) {
+        o = o || {};
+        var handle = o.handle || el, lim = o.limit || 28, pid = null, x0 = 0, y0 = 0, t0 = 0, on = false, moved = false, last = { x: 0, y: 0, t: 0, vy: 0 };
+        var target = function () { return typeof el === 'function' ? el() : el; };
+        var set = function (x, y) { var t = target(); if (t) t.style.translate = x || y ? x.toFixed(1) + 'px ' + y.toFixed(1) + 'px' : ''; };
+        var back = function () {
+          var t = target(); if (!t) return;
+          t.classList.remove('el-drag');
+          t.style.transition = calm() ? 'translate .15s ease-out' : 'translate .55s cubic-bezier(.22, 1.5, .4, 1)';
+          set(0, 0);
+          setTimeout(function () { if (!on) t.style.transition = ''; }, 600);
+        };
+        handle.addEventListener('pointerdown', function (e) {
+          if (e.button > 0 || (o.when && !o.when()) || e.target.closest('input, textarea, select, [contenteditable]')) return;
+          pid = e.pointerId; x0 = e.clientX; y0 = e.clientY; t0 = Date.now(); on = false; moved = false; last = { x: x0, y: y0, t: t0, vy: 0 };
+        });
+        handle.addEventListener('pointermove', function (e) {
+          if (pid !== e.pointerId) return;
+          var dx = e.clientX - x0, dy = e.clientY - y0;
+          if (!on) {
+            if (Math.hypot(dx, dy) < 7) return;
+            if (o.axis === 'y' && Math.abs(dy) < Math.abs(dx) * 1.2) { pid = null; return; } // 橫向留給別的手勢（例如分頁列的膠囊）
+            if (o.canStart && !o.canStart()) { pid = null; return; }
+            on = true; moved = true;
+            try { handle.setPointerCapture(pid); } catch (err) {}
+            var t = target(); if (t) { t.style.transition = ''; t.classList.add('el-drag'); }
+            if (o.onStart) o.onStart();
+          }
+          e.preventDefault();
+          var now = Date.now(); last.vy = (e.clientY - last.y) / Math.max(1, now - last.t); last.x = e.clientX; last.y = e.clientY; last.t = now;
+          var x = o.axis === 'y' ? 0 : rubber(dx, lim);
+          var y = o.dismiss && dy > 0 ? dy : rubber(dy, lim); // 可以關閉的面板：往下照手指走
+          set(x, y);
+          if (o.dismiss) { var tt = target(); if (tt) tt.style.opacity = dy > 0 ? String(Math.max(.35, 1 - dy / 400)) : ''; }
+        }, { passive: false });
+        var end = function (e) {
+          if (pid !== e.pointerId) return;
+          pid = null;
+          if (!on) return;
+          on = false;
+          if (o.onEnd) o.onEnd();
+          var dy = e.clientY - y0, t = target();
+          if (o.dismiss && e.type !== 'pointercancel' && (dy > (o.dismissAt || 90) || (dy > 24 && last.vy > 0.6))) {
+            if (t) { t.classList.remove('el-drag'); t.style.transition = 'translate .2s ease-in, opacity .2s ease-in'; t.style.translate = '0 ' + (dy + 160) + 'px'; t.style.opacity = '0'; }
+            setTimeout(function () { if (t) { t.style.transition = ''; t.style.translate = ''; t.style.opacity = ''; } o.dismiss(); }, 190);
+            return;
+          }
+          if (t) t.style.opacity = '';
+          back();
+        };
+        handle.addEventListener('pointerup', end);
+        handle.addEventListener('pointercancel', end);
+        handle.addEventListener('dragstart', function (e) { e.preventDefault(); }); // 裡面的連結不要被瀏覽器當成拖曳連結（會中斷手勢）
+        // 拖完放開時瀏覽器補的 click 擋掉（不要誤按到儲存、選單項目）
+        handle.addEventListener('click', function (e) { if (moved) { moved = false; e.preventDefault(); e.stopPropagation(); } }, true);
+      };
+    })();
+    (function elasticMount() {
+      var mob = function () { return window.innerWidth <= 900; };
+      // 分頁列：上下拉（橫向是原本的膠囊拖曳）
+      var rail = document.querySelector('.rail');
+      if (rail) elastic(rail, { axis: 'y', limit: 22, when: mob, canStart: function () { return !rail.classList.contains('lg-drag'); },
+        onStart: function () { rail.dataset.vdrag = '1'; }, onEnd: function () { setTimeout(function () { delete rail.dataset.vdrag; }, 0); } });
+      // 儲存列：任何方向都可以推一下
+      if ($('savebar')) elastic($('savebar'), { limit: 26 });
+      // 「更多」選單：往下拉關閉
+      var sheet = $('m-sheet'), panel = sheet && sheet.querySelector('.m-panel');
+      if (panel) elastic(panel, { axis: 'y', limit: 24, when: mob, dismiss: function () { var s = sheet.querySelector('.m-scrim'); if (s) s.click(); } });
+      // 確認視窗（自製對話框）：手機上往下拉＝取消
+      new MutationObserver(function (ms) {
+        ms.forEach(function (m) { [].forEach.call(m.addedNodes, function (n) {
+          if (n.nodeType === 1 && n.matches('dialog.ask') && mob()) elastic(n, { axis: 'y', limit: 24, dismiss: function () { n.dispatchEvent(new Event('cancel', { cancelable: true })); } });
+        }); });
+      }).observe(document.body, { childList: true });
+    })();
 
     /* ----- 教學（#help）：完整說明，依任務分章節；每章：一句話、步驟（附截圖）、注意事項、「帶我做一次」接到導覽 -----
        截圖由 tools/tutorial-shots.mjs 用假資料產生在 img/tutorial/（後台改版後重跑一次） */
