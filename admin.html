@@ -1200,6 +1200,7 @@
       .help-tour-list { grid-template-columns:1fr 1fr; gap:8px; }
       .help-tour-list .tour-item { padding:10px 12px; }
       .help-tour-list .tour-item > span { display:none; }
+      .help-tour-list .tour-item b { flex-direction:column; align-items:flex-start; } /* 手機：「看過了」放名稱下面，不跟名稱擠同一行 */
     }
     /* 引導模式：框出要看的地方（四周變暗）＋說明卡 */
     .tour-ring { position:fixed; z-index:990; border-radius:14px; border:3px solid var(--primary); box-shadow:0 0 0 9999px rgba(15, 23, 42, .5); pointer-events:none;
@@ -1223,7 +1224,8 @@
     .tour-item:hover, .tour-item:focus-visible { border-color:var(--navy); background:var(--paper); outline:none; }
     .tour-item b { color:var(--navy); display:flex; align-items:center; gap:8px; }
     .tour-item span { color:var(--steel); font-size:.84rem; }
-    .tour-done { font-size:.72rem; font-weight:800; color:var(--good-c, #15803d); background:#ECFDF3; border-radius:999px; padding:1px 8px; }
+    .tour-item b { flex-wrap:wrap; row-gap:4px; }
+    .tour-done { flex:none; white-space:nowrap; font-size:.72rem; font-weight:800; color:var(--good-c, #15803d); background:#ECFDF3; border-radius:999px; padding:1px 8px; }
     .tour-ov { margin-left:auto; align-self:center; }
 
     /* ================= 液態玻璃（全面版）：只用在浮在內容上的那一層（標題列、選單、對話框、儲存列、導覽說明卡），
