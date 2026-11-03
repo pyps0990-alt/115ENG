@@ -1247,7 +1247,7 @@
       .ulist { padding-top:calc(56px + env(safe-area-inset-top, 0px)); }
       /* 分頁列：更亮的高光（上緣一道光、底部一點反光） */
       .rail::before { background:radial-gradient(120% 90% at 50% -20%, rgba(255,255,255,.75), rgba(255,255,255,0) 60%), linear-gradient(180deg, rgba(255,255,255,.6), rgba(255,255,255,.4)) !important; }
-      .rail, .rail a[data-view], .rail-more { touch-action:none !important; } /* 分頁列可以上下拉（橡皮筋），不讓瀏覽器捲動頁面 */
+      .rail, .rail a[data-view], .rail-more { touch-action:none !important; } /* 選取膠囊可以上下拉（橡皮筋），不讓瀏覽器捲動頁面 */
     }
     /* 可以拖的浮動元件：拖動中不做轉場；放開時由程式加上彈回的轉場 */
     .el-drag { transition:none !important; }
@@ -5119,10 +5119,12 @@
       Spring.prototype.done = function () { return Math.abs(this.x - this.to) < .05 && Math.abs(this.v) < .05; };
       var L = new Spring(420, 30), R = new Spring(420, 30), S = new Spring(520, 22); // 左邊、右邊、大小
       S.x = S.to = 1;
+      var Y = new Spring(300, 13); // 上下：只有膠囊動，分頁列不動；放開時彈回
+      var rubber = function (d, lim) { var a = Math.abs(d); return (d < 0 ? -1 : 1) * lim * (1 - 1 / (a * 0.55 / lim + 1)); };
       var raf = null, last = 0, ready = false;
       var render = function () {
         var w = Math.max(20, R.x - L.x);
-        ink.style.transform = 'translateX(' + L.x.toFixed(2) + 'px) scale(' + S.x.toFixed(4) + ')';
+        ink.style.transform = 'translate(' + L.x.toFixed(2) + 'px, ' + Y.x.toFixed(2) + 'px) scale(' + S.x.toFixed(4) + ')';
         ink.style.width = w.toFixed(2) + 'px';
         // 拉長時變扁一點（體積感）；高光跟著膠囊移動
         var stretch = Math.max(0, w / (baseW || w) - 1);
@@ -5132,9 +5134,9 @@
       };
       var tick = function (t) {
         var dt = Math.min(.032, (t - last) / 1000 || .016); last = t;
-        L.step(dt); R.step(dt); S.step(dt);
+        L.step(dt); R.step(dt); S.step(dt); Y.step(dt);
         render();
-        if (L.done() && R.done() && S.done()) { L.x = L.to; R.x = R.to; S.x = S.to; render(); raf = null; return; }
+        if (L.done() && R.done() && S.done() && Y.done()) { L.x = L.to; R.x = R.to; S.x = S.to; Y.x = Y.to; Y.v = 0; render(); raf = null; return; }
         raf = requestAnimationFrame(tick);
       };
       var run = function () { if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); } };
@@ -5174,7 +5176,7 @@
       };
 
       // 按住、拖動、放開
-      var dragging = false, startX = 0, pid = null, grab = 0, hover = null, moved = false, pressT = null;
+      var dragging = false, startX = 0, startY = 0, pid = null, grab = 0, hover = null, moved = false, pressT = null;
       var nearest = function (x) {
         var best = null, d = Infinity, rr = rail.getBoundingClientRect();
         tabs().forEach(function (t) { var b = box(t), c = rr.left + (b.l + b.r) / 2; if (Math.abs(c - x) < d) { d = Math.abs(c - x); best = t; } });
@@ -5183,7 +5185,7 @@
       rail.addEventListener('pointerdown', function (e) {
         if (!mq.matches || e.button > 0 || e.target.closest('.rail-who')) return;
         var t = e.target.closest('a[data-view], .rail-more'); if (!t) return;
-        pid = e.pointerId; startX = e.clientX; moved = false;
+        pid = e.pointerId; startX = e.clientX; startY = e.clientY; moved = false;
         var rr = rail.getBoundingClientRect(), x = e.clientX - rr.left;
         var onInk = x >= L.x && x <= R.x;
         grab = onInk ? x - L.x : (R.x - L.x) / 2;
@@ -5193,9 +5195,8 @@
       });
       rail.addEventListener('pointermove', function (e) {
         if (pid !== e.pointerId) return;
-        if (rail.dataset.vdrag) return; // 正在上下拉整個分頁列
         if (!dragging) {
-          if (Math.abs(e.clientX - startX) < 6) return;
+          if (Math.hypot(e.clientX - startX, e.clientY - startY) < 6) return;
           dragging = true; moved = true;
           try { rail.setPointerCapture(pid); } catch (err) {}
           rail.classList.add('lg-drag'); ink.classList.add('lifted');
@@ -5203,7 +5204,10 @@
         }
         e.preventDefault();
         var rr = rail.getBoundingClientRect(), w = baseW || (R.x - L.x);
-        var x = Math.max(4, Math.min(rr.width - w - 4, e.clientX - rr.left - grab));
+        // 拖到兩端外面、或往上往下拉：膠囊跟著手指但越拉越緊（橡皮筋，有極限），分頁列本身不動
+        var fx = e.clientX - rr.left - grab, lo = 4, hi = rr.width - w - 4;
+        var x = fx < lo ? lo + rubber(fx - lo, 22) : fx > hi ? hi + rubber(fx - hi, 22) : fx;
+        Y.k = 900; Y.c = 60; Y.to = calm() ? 0 : rubber(e.clientY - startY, 16);
         // 拖動時兩邊都追手指（前面那邊快、後面那邊慢），手指甩得快膠囊就拉長
         var right = x > L.to;
         L.k = right ? 260 : 700; R.k = right ? 700 : 260; L.c = R.c = 30;
@@ -5214,7 +5218,7 @@
       var end = function (e) {
         if (pid !== e.pointerId) return;
         pid = null;
-        S.to = 1; S.k = 380; S.c = 16; run(); // 放開：縮回原大小，稍微過衝
+        S.to = 1; S.k = 380; S.c = 16; Y.to = 0; Y.k = 300; Y.c = 13; run(); // 放開：縮回原大小、彈回原位，稍微過衝
         if (!dragging) return;
         dragging = false;
         rail.classList.remove('lg-drag'); ink.classList.remove('lifted');
@@ -5227,6 +5231,7 @@
       };
       rail.addEventListener('pointerup', end);
       rail.addEventListener('pointercancel', end);
+      rail.addEventListener('dragstart', function (e) { e.preventDefault(); }); // 分頁是連結：不要被瀏覽器當成拖曳連結（會中斷手勢）
       // 拖完放開時瀏覽器會補一個 click：擋掉，避免重複切換
       rail.addEventListener('click', function (e) { if (moved && e.isTrusted) { moved = false; e.preventDefault(); e.stopPropagation(); } }, true);
 
@@ -5780,10 +5785,7 @@
     })();
     (function elasticMount() {
       var mob = function () { return window.innerWidth <= 900; };
-      // 分頁列：上下拉（橫向是原本的膠囊拖曳）
-      var rail = document.querySelector('.rail');
-      if (rail) elastic(rail, { axis: 'y', limit: 22, when: mob, canStart: function () { return !rail.classList.contains('lg-drag'); },
-        onStart: function () { rail.dataset.vdrag = '1'; }, onEnd: function () { setTimeout(function () { delete rail.dataset.vdrag; }, 0); } });
+      // 分頁列本身不動：拖的是裡面的選取膠囊（見 glassTabs）
       // 儲存列：任何方向都可以推一下
       if ($('savebar')) elastic($('savebar'), { limit: 26 });
       // 「更多」選單：往下拉關閉

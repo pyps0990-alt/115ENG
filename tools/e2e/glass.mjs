@@ -1,4 +1,4 @@
-// 後台液態玻璃的拖拉手感（手機版）：分頁列、儲存列拉了有極限、放開彈回；「更多」選單、確認視窗往下拉會關閉：node tools/e2e/glass.mjs
+// 後台液態玻璃的拖拉手感（手機版）：選取膠囊、儲存列拉了有極限、放開彈回；「更多」選單、確認視窗往下拉會關閉：node tools/e2e/glass.mjs
 import assert from 'node:assert';
 import { startWorld, sleep } from './harness.mjs';
 
@@ -17,14 +17,23 @@ const drag = async (x, y, dx, dy, holdCheck) => {
   await p.mouse.up(); return mid;
 };
 
-await step('分頁列往上拉：跟著走但有極限（橡皮筋），放開彈回原位，也不會切換分頁', async () => {
-  const b = await p.locator('.rail a[data-view="scores"]').boundingBox();
+await step('選取膠囊往上拉、往兩端外拖：只有膠囊動（有極限），分頁列不動，放開彈回、不切換分頁', async () => {
+  await p.evaluate(() => { location.hash = '#overview'; }); await sleep(600);
+  const b = await p.locator('.rail a[data-view="overview"]').boundingBox();
   const before = await p.evaluate(() => location.hash);
-  const mid = await drag(b.x + b.width / 2, b.y + b.height / 2, 0, -200, () => ty('.rail'));
-  assert.ok(mid < -5 && mid > -23, `拉 200px 只能移動不到 22px，實際 ${mid}`);
-  await sleep(800);
-  assert.equal(Math.round(await ty('.rail')), 0, '放開要彈回原位');
+  const inkY = () => p.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelector('.lg-ink')).transform).m42);
+  const inkX = () => p.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelector('.lg-ink')).transform).m41);
+  const x0 = await inkX();
+  const mid = await drag(b.x + b.width / 2, b.y + b.height / 2, 0, -200, async () => { await sleep(250); return { ink: await inkY(), rail: await ty('.rail') }; });
+  assert.ok(mid.ink < -5 && mid.ink > -17, `膠囊拉 200px 只能移動不到 16px，實際 ${mid.ink}`);
+  assert.equal(Math.round(mid.rail), 0, '分頁列本身不能動');
+  await sleep(900);
+  assert.ok(Math.abs(await inkY()) < 1, '放開要彈回原位');
   assert.equal(await p.evaluate(() => location.hash), before, '上下拉不能切換分頁');
+  const left = await drag(b.x + b.width / 2, b.y + b.height / 2, -150, 0, async () => { await sleep(250); return inkX(); });
+  assert.ok(left < x0 && left > x0 - 26, `往左拖出界只能多走不到 22px，實際 ${left - x0}`);
+  await sleep(900);
+  assert.ok(Math.abs((await inkX()) - x0) < 1.5, '放開回到目前分頁');
 });
 await step('分頁列橫向拖曳（原本的膠囊）照樣可以切換分頁', async () => {
   const a = await p.locator('.rail a[data-view="overview"]').boundingBox();
