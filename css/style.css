@@ -1558,3 +1558,15 @@ html { scroll-padding-top: var(--sticky-h, 0px); }
 @media (min-width: 640px) { .ln-modes { grid-template-columns: 1fr 1fr; } .ln-mode { grid-template-columns: 1fr; } .ln-mode-ic { grid-row: auto; margin-bottom: 6px; } }
 @media (prefers-reduced-motion: reduce) { .ln-where.swap, .ln-fb, .ln-fb-btns, .ln-steps li.done .ln-st-ok { animation: none !important; } .ln-view.resizing, .ln-steps li, .ln-st-t, .ln-sent .ln-seg { transition: none !important; } }
 @media (prefers-reduced-motion: reduce) { .ln-peek-in, .ln-body, .ln-body .ln-card > *, .ln-bar.swap > *, .ln-part, .ln-bar.fb, .ln-sent .shake, .ln-sent .ln-seg.pop, .ln-ask.nudge, .ln-sec-bar i { animation: none !important; } .ln-sent .ln-seg, .ln-prog i { transition: none; } }
+
+/* ================= 老師指派的作業 ================= */
+.asg-rail { display: grid; grid-auto-flow: column; grid-auto-columns: 100%; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 16px 0 12px; }
+.asg-rail::-webkit-scrollbar { display: none; }
+.asg-rail.many { grid-auto-columns: 92%; }
+.asg-rail .next-card { margin: 0; scroll-snap-align: start; }
+.next-card.asg .nc-lead { color: var(--amber-ink); }
+.asg-hint { margin: -4px 0 10px; text-align: center; font-size: .85rem; font-weight: 700; color: var(--steel); }
+.asg-sec .lesson-head small { margin-left: auto; font-family: inherit; font-size: .9rem; font-weight: 800; color: var(--steel); }
+.free-head { margin: 8px 0 14px; font-weight: 900; font-size: 1.05rem; color: var(--steel); }
+.tile-asg { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding: 3px 10px; border-radius: 999px; background: var(--navy); color: var(--white); font-size: .78rem; font-weight: 800; white-space: nowrap; }
+.tile-asg .ic { width: 13px; height: 13px; stroke-width: 2.6; }

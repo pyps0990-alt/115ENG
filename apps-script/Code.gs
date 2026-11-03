@@ -40,6 +40,9 @@ var SHEET_CUSTOM_UNITS = 'custom_units';
 // 個別學生的補作時間：這些學生在單元截止後，可以做正式測驗到指定時間
 var SHEET_EXTENSIONS = 'extensions';
 var EXTENSIONS_HEADER = ['單元代號', '班級', '座號', '補作到', '備註'];
+// 老師指派的作業：班級可以寫好幾個（逗號隔開），或寫 all（全部班級）；提醒＝學生點到別的單元時要不要提醒
+var SHEET_ASSIGN = 'assignments';
+var ASSIGN_HEADER = ['單元代號', '班級', '截止', '提醒', '指派時間'];
 var CUSTOM_UNITS_FIELDS = ['id', 'title', 'type', 'lesson', 'topic', 'visible', 'disabled', 'questionCount', 'createdAt', 'openAt', 'closeAt', 'quiz'];
 var CUSTOM_UNITS_HEADER = ['單元代號', '標題', '類型', '課次', '主題', '顯示', '停用的段落', '每段題數', '建立時間', '開放時間', '截止時間', '出題設定'];
 
@@ -130,7 +133,7 @@ function handleApi_(d) {
   // 網站版後台可以呼叫的函式（每一個函式內部都會再檢查一次老師身分）
   var fns = {
     whoami: function () { return { email: assertTeacher_() }; },
-    getAdminData: getAdminData, saveAllSettings: saveAllSettings, saveExtensions: saveExtensions, listRoster: listRoster, getBestScores: getBestScores, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
+    getAdminData: getAdminData, saveAllSettings: saveAllSettings, saveExtensions: saveExtensions, saveAssignments: saveAssignments, listRoster: listRoster, getBestScores: getBestScores, saveSettings: saveSettings, saveCustomUnits: saveCustomUnits,
     getScores: getScores, getChecks: getChecks, getWrongStats: getWrongStats,
     syncGradebookRoster: syncGradebookRoster, syncAllGradebooks: syncAllGradebooks,
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
@@ -756,6 +759,7 @@ function setup() {
   sheet_(SHEET_INBOX, INBOX_HEADER);
   sheet_(SHEET_CUSTOM_UNITS, CUSTOM_UNITS_HEADER);
   sheet_(SHEET_EXTENSIONS, EXTENSIONS_HEADER);
+  sheet_(SHEET_ASSIGN, ASSIGN_HEADER);
   CacheService.getScriptCache().remove(CONFIG_CACHE_KEY);
   Logger.log('完成。老師名單：' + me);
 }
@@ -843,10 +847,45 @@ function getAdminData() {
     customUnits: readCustomUnitsRows_(),
     content: readContentMeta_().map(function (r) { return { id: r.id, updated: r.updated, updatedBy: r.updatedBy, count: r.count }; }),
     extensions: readExtensions_(),
+    assignments: readAssignments_(),
     config: readConfigCached_(), // 目前學生網站上的設定：老師的瀏覽器據此算出新設定，儲存時直接寫給學生
     siteUrl: SITE_URL,
     sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl(),
   };
+}
+
+// 指派作業：[{ unit, cls: ['306', '307'] 或 ['all'], due: '2026-11-06T23:59', warn: true, at }]
+function assignCls_(v) {
+  var t = String(v || '').trim().toLowerCase();
+  if (!t || t === 'all' || t === '全部') return ['all'];
+  return t.split(/[,，、\s]+/).filter(function (c) { return /^\d{3,4}$/.test(c); });
+}
+function readAssignments_() {
+  var sh = sheet_(SHEET_ASSIGN, ASSIGN_HEADER);
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+  return sh.getRange(2, 1, last - 1, ASSIGN_HEADER.length).getValues()
+    .map(function (r) {
+      return { unit: String(r[0]).trim(), cls: assignCls_(r[1]), due: timeCell_(r[2]), warn: !(r[3] === false || String(r[3]).toUpperCase() === 'FALSE'), at: String(r[4] || '') };
+    })
+    .filter(function (x) { return x.unit && x.cls.length && x.due; });
+}
+// 整批覆寫指派作業，並同步到學生網站
+function saveAssignments(list, fast) {
+  assertTeacher_();
+  var rows = (list || []).slice(0, 60).map(function (x) {
+    var cls = Array.isArray(x.cls) ? x.cls.join(',') : String(x.cls || '');
+    var c = assignCls_(cls);
+    return [String(x.unit || '').trim(), c[0] === 'all' ? 'all' : c.join(','), timeCell_(x.due), x.warn !== false, String(x.at || new Date().toISOString())];
+  }).filter(function (r) { return r[0] && r[1] && r[2]; });
+  var sh = sheet_(SHEET_ASSIGN, ASSIGN_HEADER);
+  var last = sh.getLastRow();
+  if (last > 1) sh.getRange(2, 1, last - 1, ASSIGN_HEADER.length).clearContent();
+  if (rows.length) sh.getRange(2, 1, rows.length, ASSIGN_HEADER.length).setNumberFormat('@').setValues(rows.map(function (r) { return [r[0], r[1], r[2], r[3] ? 'TRUE' : 'FALSE', r[4]]; }));
+  audit_('儲存指派作業', '', rows.length + ' 筆');
+  LAST_SYNC_ERROR = '';
+  var cfg = publishConfig_();
+  return { ok: true, count: rows.length, updated: cfg.updated, config: cfg, syncError: LAST_SYNC_ERROR };
 }
 
 function readExtensions_() {
@@ -1255,7 +1294,7 @@ function semesterReset(opts) {
       var ss = SpreadsheetApp.getActiveSpreadsheet();
       ss.getSheets().forEach(function (sh) {
         var n = sh.getName();
-        if (n === SHEET_SCORES || n === SHEET_DETAILS || n === SHEET_EXTENSIONS || n === SHEET_INBOX) {
+        if (n === SHEET_SCORES || n === SHEET_DETAILS || n === SHEET_EXTENSIONS || n === SHEET_ASSIGN || n === SHEET_INBOX) {
           if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
           out.sheets++;
         } else if (n.indexOf(CLASS_SHEET_PREFIX) === 0 || n.indexOf(GRADEBOOK_PREFIX) === 0) {
@@ -2686,6 +2725,8 @@ function readConfigCached_() {
     cfg.ext[x.unit] = cfg.ext[x.unit] || {};
     cfg.ext[x.unit][x.cls + '-' + x.seat] = x.until;
   });
+  // 老師指派的作業（學生首頁最上面的主卡、點錯單元時提醒）
+  cfg.assign = readAssignments_().map(function (x) { return { unit: x.unit, cls: x.cls, due: x.due, warn: x.warn }; });
   // 老師後台新增的全新單元：網站前端會把這些併進課次清單（見 js/data.js 的 addCustomUnits）
   var customUnits = readCustomUnitsRows_();
   cfg.customUnits = customUnits.map(function (u) {

@@ -1102,6 +1102,41 @@
     }
     @media (max-width:900px) and (prefers-reduced-motion: reduce) { .lg-label { transition:none !important; } }
     /* 確認對話框 */
+    /* 指派作業 */
+    .u-assign { margin-left:auto; display:inline-flex; align-items:center; gap:6px; }
+    .u-assign svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+    .asg-list { display:grid; gap:12px; }
+    .asg-item { display:grid; gap:8px; padding:12px 14px; border:1px solid var(--line); border-radius:16px; background:#fff; }
+    .asg-top { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+    .asg-top b { font-size:1rem; color:var(--ink); }
+    .asg-due { font-size:.85rem; font-weight:800; color:var(--amber-ink, #B45309); }
+    .asg-due.past { color:var(--steel); }
+    .asg-top .btn { margin-left:auto; }
+    .asg-bar { display:grid; grid-template-columns:44px minmax(0,1fr) 56px; gap:10px; align-items:center; font-size:.85rem; }
+    .asg-bar i { display:block; height:10px; border-radius:5px; background:#E6EAF3; overflow:hidden; }
+    .asg-bar i::before { content:""; display:block; height:100%; width:var(--p); border-radius:5px; background:var(--navy, #1E3A8A); }
+    .asg-bar span:last-child { text-align:right; color:var(--steel); font-weight:800; }
+    .asg-left { font-size:.85rem; font-weight:800; justify-self:start; }
+    dialog.asg-sheet { width:min(460px, calc(100vw - 20px)); }
+    .asg-form { padding:20px 22px 6px; display:grid; gap:16px; }
+    .asg-form h2 { margin:0; font-size:1.2rem; color:var(--ink); }
+    .asg-form .lab { font-weight:900; color:var(--ink); font-size:.95rem; margin-bottom:8px; display:block; }
+    .asg-form select, .asg-form input[type=datetime-local] { width:100%; height:44px; padding:0 12px; border:1px solid var(--line); border-radius:12px; font:inherit; background:#fff; }
+    .asg-chips { display:flex; flex-wrap:wrap; gap:8px; }
+    .asg-chips label { position:relative; display:inline-flex; align-items:center; min-height:42px; padding:0 16px; border-radius:21px; border:1px solid var(--line-strong); background:#fff; font-weight:800; cursor:pointer; }
+    .asg-chips input { position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
+    .asg-chips label:has(input:checked) { background:var(--navy, #1E3A8A); border-color:var(--navy, #1E3A8A); color:#fff; }
+    .asg-chips label:has(input:focus-visible) { outline:3px solid var(--primary); outline-offset:2px; }
+    .asg-due-pick { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; }
+    .asg-due-pick label { position:relative; display:grid; place-items:center; min-height:44px; border-radius:14px; border:1px solid var(--line-strong); background:#fff; font-weight:800; cursor:pointer; }
+    .asg-due-pick input { position:absolute; opacity:0; inset:0; margin:0; cursor:pointer; }
+    .asg-due-pick label:has(input:checked) { background:var(--amber-soft, #FEF3C7); border:2px solid var(--primary); }
+    .asg-due-pick label:has(input:focus-visible) { outline:3px solid var(--navy, #1E3A8A); outline-offset:2px; }
+    .asg-note { margin:6px 0 0; font-size:.85rem; color:var(--steel); }
+    .asg-warn { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-radius:16px; background:var(--paper, #F5F7FB); font-weight:800; }
+    .asg-warn small { display:block; font-weight:600; color:var(--steel); }
+    .asg-warn input { width:22px; height:22px; flex:none; }
+    .asg-form .msg:empty { display:none; }
     dialog.ask { border:0; padding:0; border-radius:20px; width:min(420px, calc(100vw - 32px)); background:#fff; color:var(--ink); box-shadow:0 18px 40px -12px rgba(15,23,42,.35); animation:ask-in .2s var(--ease-out) both; }
     dialog.ask::backdrop { background:rgba(15,23,42,.35); }
     dialog.ask.closing { animation:ask-out .14s ease-in both; }
@@ -1312,6 +1347,7 @@
           <div class="w-head"><div><h1>總覽</h1><div class="w-sub muted" id="ov-date"></div></div></div>
           <div class="ov-grid">
             <section class="card"><div class="card-h"><h2>需要處理</h2><span class="pill" id="ov-att-n"></span></div><div id="ov-att" class="att"><p class="muted">讀取中…</p></div></section>
+            <section class="card ov-asg-card" id="ov-asg-card"><div class="card-h"><h2>指派作業</h2><button class="btn small" type="button" id="ov-asg-add" style="margin-left:auto">＋ 指派作業</button></div><div id="ov-asg" class="asg-list"><p class="muted" style="margin:0">讀取中…</p></div></section>
             <section class="card"><div class="card-h"><h2>剛交卷</h2><span class="muted small" id="ov-today"></span><a class="btn small" href="#live" style="margin-left:auto">即時監控</a></div><div id="ov-stream" class="stream"><p class="muted">讀取中…</p></div></section>
           </div>
         </div>
@@ -1325,6 +1361,7 @@
           <div class="w-head">
             <button class="btn small ghost m-back" type="button" id="m-back">‹ 單元</button>
             <div><h1 id="u-title"></h1><div class="w-sub" id="u-sub"></div></div>
+            <button class="btn u-assign" type="button" id="u-assign"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6l-1 6 4 3H6l4-3zM12 13v8"/></svg>指派作業</button>
           </div>
           <div class="u-tabs" role="tablist" aria-label="單元">
             <button role="tab" type="button" data-utab="content">題目</button>
@@ -3932,6 +3969,7 @@
       }).join('') : '<p class="muted" style="margin:0">目前沒有需要處理的事。</p>';
       $('ov-att').onclick = function (e) { var b = e.target.closest('[data-att]'); if (!b) return; var a = items[Number(b.dataset.att)]; location.hash = a.view ? '#' + a.view : '#unit/' + encodeURIComponent(a.unit) + '/' + a.tab; };
       $('ov-att-n').textContent = String(items.length);
+      drawAssign();
       $('ov-count').hidden = !items.length; $('ov-count').textContent = items.length;
       $('rail-badge').setAttribute('data-badge', items.length ? String(items.length) : '');
       var today = (SH.attempts || []).filter(function (x) { return Date.now() - x.at < 86400000; });
@@ -3952,13 +3990,151 @@
       }, function () { SH.attempts = []; drawOverview(); });
     }
 
+    /* ----- 老師指派的作業：哪些班、什麼時候截止；學生首頁最上面的主卡會先放這些，點到別的單元時提醒 ----- */
+    var assigns = [];
+    function normAssign(a) {
+      var cls = Array.isArray(a.cls) ? a.cls.map(String) : String(a.cls || 'all').split(/[,，、\s]+/);
+      cls = cls.filter(function (c) { return c === 'all' || /^\d{3,4}$/.test(c); });
+      return { unit: String(a.unit || ''), cls: cls.length && cls.indexOf('all') < 0 ? cls : ['all'], due: String(a.due || ''), warn: a.warn !== false, at: a.at || '' };
+    }
+    function cfgForAssign(now) {
+      var cfg = clone(cfgBase); cfg.updated = now;
+      cfg.assign = assigns.map(function (a) { return { unit: a.unit, cls: a.cls.slice(), due: a.due, warn: a.warn !== false }; });
+      return cfg;
+    }
+    // 台灣時間：今天、這週五、下週一的 23:59
+    function twDay(addDays) {
+      var t = new Date(Date.now() + 8 * 3600000 + addDays * 86400000);
+      return t.getUTCFullYear() + '-' + String(t.getUTCMonth() + 1).padStart(2, '0') + '-' + String(t.getUTCDate()).padStart(2, '0') + 'T23:59';
+    }
+    function duePicks() {
+      var dow = new Date(Date.now() + 8 * 3600000).getUTCDay(); // 0＝週日
+      var toFri = (5 - dow + 7) % 7, toMon = (1 - dow + 7) % 7 || 7;
+      return [['tonight', '今晚', twDay(0)], ['fri', toFri ? '週五' : '今天週五', twDay(toFri)], ['mon', '下週一', twDay(toMon)], ['custom', '自訂', '']];
+    }
+    function dueText(due) {
+      var ms = twMs(due); if (!(ms > 0)) return '';
+      var left = ms - Date.now();
+      if (left <= 0) return fmtTw(due) + ' 已截止';
+      var days = Math.floor(left / 86400000);
+      return fmtTw(due) + ' 截止' + (days >= 1 ? '・還剩 ' + days + ' 天' : '・今天');
+    }
+    function knownClasses() {
+      var set = {};
+      (roster || []).forEach(function (r) { if (r.cls) set[r.cls] = 1; });
+      (SH.attempts || []).forEach(function (x) { if (x.cls) set[x.cls] = 1; });
+      assigns.forEach(function (a) { a.cls.forEach(function (c) { if (c !== 'all') set[c] = 1; }); });
+      return Object.keys(set).filter(function (c) { return /^\d{3,4}$/.test(c); }).sort();
+    }
+    function clsText(a) { return a.cls[0] === 'all' ? '全部班級' : a.cls.join('、'); }
+    // 總覽：每份指派作業各班完成幾個人（完成＝正式測驗最高分達及格線）
+    function drawAssign() {
+      var box = $('ov-asg'); if (!box) return;
+      var now = Date.now();
+      var list = assigns.filter(function (a) { return twMs(a.due) > now - 3 * 86400000; }).sort(function (a, b) { return twMs(a.due) - twMs(b.due); });
+      if (!list.length) { box.innerHTML = '<p class="muted" style="margin:0">還沒有指派作業。指派後，學生首頁最上面會先放這份作業，點錯單元時也會提醒。</p>'; return; }
+      var best = bestByStudent();
+      box.innerHTML = list.map(function (a) {
+        var u = units.filter(function (x) { return x.id === a.unit; })[0];
+        var classes = a.cls[0] === 'all' ? knownClasses() : a.cls;
+        var left = 0;
+        var bars = classes.map(function (c) {
+          var people = (roster || []).filter(function (r) { return r.cls === c; });
+          var ok = 0;
+          var keys = people.length ? people.map(function (r) { return c + '-' + r.seat; }) : Object.keys(best).filter(function (k) { return k.split('|')[1] === a.unit && k.split('-')[0] === c; }).map(function (k) { return k.split('|')[0]; });
+          keys.forEach(function (k) { var b = best[k + '|' + a.unit]; if (b && Number(b.pct) >= PASS_PCT) ok++; });
+          var n = people.length || keys.length;
+          left += Math.max(0, n - ok);
+          return '<div class="asg-bar"><b>' + esc(c) + '</b><i style="--p:' + (n ? Math.round(ok / n * 100) : 0) + '%"></i><span>' + ok + ' / ' + (people.length ? n : '?') + '</span></div>';
+        }).join('');
+        return '<div class="asg-item"><div class="asg-top"><b>' + esc(u ? u.title : a.unit) + '</b><span class="asg-due' + (twMs(a.due) <= now ? ' past' : '') + '">' + esc(dueText(a.due)) + '</span>' +
+          '<button class="btn small" type="button" data-asg-edit="' + esc(a.unit) + '">編輯</button></div>' + bars +
+          (roster && left ? '<a class="asg-left" href="#unit/' + encodeURIComponent(a.unit) + '/scores">看還沒通過的 ' + left + ' 人 ›</a>' : '') + '</div>';
+      }).join('');
+      if (!roster && !SH.asgRosterAsked) { SH.asgRosterAsked = true; askRoster(function () { if (SH.view === 'overview') drawAssign(); }); }
+    }
+    // 指派面板：選單元（從總覽打開時）、班級、截止時間、要不要提醒
+    function openAssign(unitId) {
+      var cur = assigns.filter(function (a) { return a.unit === unitId; })[0] || null;
+      var classes = knownClasses();
+      var picks = duePicks();
+      var d = document.createElement('dialog'); d.className = 'ask asg-sheet';
+      var pickOn = cur ? (picks.filter(function (p) { return p[2] === cur.due; })[0] || picks[3])[0] : 'fri';
+      var unitOpts = units.filter(function (u) { return content.some(function (c) { return c.id === u.id; }); });
+      d.innerHTML = '<form class="asg-form" method="dialog">' +
+        '<div><div class="muted small" style="font-weight:900;letter-spacing:1px">' + (cur ? '編輯指派作業' : '指派作業') + '</div>' +
+        (unitId ? '<h2>' + esc((units.filter(function (u) { return u.id === unitId; })[0] || {}).title || unitId) + '</h2>' :
+          '<label class="lab" for="asg-unit" style="margin-top:8px">哪個單元</label><select id="asg-unit">' + unitOpts.map(function (u) { return '<option value="' + esc(u.id) + '">' + esc(lessonLabel(u) + '・' + (u.title || u.id)) + '</option>'; }).join('') + '</select>') + '</div>' +
+        '<fieldset style="margin:0;padding:0;border:0"><legend class="lab">給哪些班</legend><div class="asg-chips">' +
+          '<label><input type="checkbox" value="all"' + (!cur || cur.cls[0] === 'all' ? ' checked' : '') + '>全部班級</label>' +
+          classes.map(function (c) { return '<label><input type="checkbox" value="' + esc(c) + '"' + (cur && cur.cls.indexOf(c) >= 0 ? ' checked' : '') + '>' + esc(c) + '</label>'; }).join('') +
+        '</div></fieldset>' +
+        '<fieldset style="margin:0;padding:0;border:0"><legend class="lab">什麼時候截止</legend><div class="asg-due-pick">' +
+          picks.map(function (p) { return '<label><input type="radio" name="asg-due" value="' + p[0] + '"' + (p[0] === pickOn ? ' checked' : '') + '>' + p[1] + '</label>'; }).join('') +
+        '</div><input type="datetime-local" id="asg-custom" style="margin-top:8px" value="' + esc(cur ? cur.due : '') + '"' + (pickOn === 'custom' ? '' : ' hidden') + '><p class="asg-note" id="asg-when"></p></fieldset>' +
+        '<label class="asg-warn"><span>學生點到別的單元時提醒<small>只提醒，學生還是可以做其他單元</small></span><input type="checkbox" id="asg-warn"' + (!cur || cur.warn ? ' checked' : '') + '></label>' +
+        '<div class="msg" id="asg-msg" role="status"></div></form>' +
+        '<div class="ask-btns">' + (cur ? '<button type="button" class="btn" data-a="del" style="margin-right:auto">取消指派</button>' : '') + '<button type="button" class="btn" data-a="0">關閉</button><button type="button" class="btn primary" data-a="1">指派</button></div>';
+      var q = function (s) { return d.querySelector(s); };
+      var unitOf = function () { return unitId || (q('#asg-unit') && q('#asg-unit').value) || ''; };
+      var dueOf = function () { var v = (d.querySelector('[name="asg-due"]:checked') || {}).value; if (v === 'custom') return timeOf(q('#asg-custom').value); var p = picks.filter(function (x) { return x[0] === v; })[0]; return p ? p[2] : ''; };
+      var clsOf = function () { var all = q('.asg-chips input[value="all"]').checked; var c = [].map.call(d.querySelectorAll('.asg-chips input:checked'), function (i) { return i.value; }).filter(function (v) { return v !== 'all'; }); return all || !c.length ? ['all'] : c; };
+      var paint = function () {
+        q('#asg-custom').hidden = (d.querySelector('[name="asg-due"]:checked') || {}).value !== 'custom';
+        var due = dueOf(); q('#asg-when').textContent = due ? dueText(due) + '。截止後單元照樣開放，只是不再列為優先。' : '選一個截止時間';
+        var c = clsOf(); q('[data-a="1"]').textContent = '指派給' + (c[0] === 'all' ? '全部班級' : ' ' + c.join('、'));
+      };
+      d.addEventListener('change', function (e) {
+        var t = e.target;
+        if (t.closest && t.closest('.asg-chips')) {
+          if (t.value === 'all' && t.checked) [].forEach.call(d.querySelectorAll('.asg-chips input'), function (i) { if (i !== t) i.checked = false; });
+          else if (t.value !== 'all' && t.checked) q('.asg-chips input[value="all"]').checked = false;
+        }
+        paint();
+      });
+      var close = function () { d.classList.add('closing'); setTimeout(function () { d.close(); d.remove(); }, 140); };
+      var save = function (next, okText) {
+        var keep = assigns; assigns = next;
+        var started = syncSave({
+          msg: 'asg-msg',
+          build: function (now) { return { cfg: cfgForAssign(now) }; },
+          call: function (fastArg, resolve, reject) { google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).saveAssignments(assigns, fastArg); },
+          slow: function () {},
+          done: function () { drawAssign(); if (SH.view === 'unit') drawUnitHead(); $('asg-msg').textContent = '✓ ' + okText; $('asg-msg').className = 'msg ok'; setTimeout(close, 900); },
+          fail: function (err) { assigns = keep; $('asg-msg').textContent = '儲存失敗：' + (err && err.message || err); $('asg-msg').className = 'msg err'; },
+        });
+        if (!started) assigns = keep;
+      };
+      d.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-a]');
+        if (!b) { if (e.target === d) close(); return; }
+        if (b.dataset.a === '0') { close(); return; }
+        var id = unitOf();
+        if (b.dataset.a === 'del') { save(assigns.filter(function (a) { return a.unit !== id; }), '已取消指派'); return; }
+        var due = dueOf();
+        if (!id) { $('asg-msg').textContent = '請選一個單元'; $('asg-msg').className = 'msg err'; return; }
+        if (!due) { $('asg-msg').textContent = '請選截止時間'; $('asg-msg').className = 'msg err'; return; }
+        var next = assigns.filter(function (a) { return a.unit !== id; }).concat([{ unit: id, cls: clsOf(), due: due, warn: q('#asg-warn').checked, at: new Date().toISOString() }]);
+        save(next, '已指派，學生首頁會把這份作業放在最上面');
+      });
+      d.addEventListener('cancel', function (e) { e.preventDefault(); close(); });
+      document.body.appendChild(d); d.showModal(); paint();
+      if (!roster) askRoster(function () { /* 名單到了之後，下次打開就有完整班級 */ });
+    }
+    $('ov-asg-add').onclick = function () { openAssign(''); };
+    $('ov-asg').addEventListener('click', function (e) { var b = e.target.closest('[data-asg-edit]'); if (b) openAssign(b.dataset.asgEdit); });
+    $('u-assign').onclick = function () { if (SH.unit) openAssign(SH.unit); };
+
     /* ----- 單元頁 ----- */
     function curUnit() { return units.filter(function (u) { return u.id === SH.unit; })[0]; }
     function drawUnitHead() {
       var u = curUnit(); if (!u) return;
       var s = unitState(u), st = passStats(u.id);
       $('u-title').textContent = u.title || u.id;
-      $('u-sub').innerHTML = '<span class="pill' + (s[0] === 'open' ? ' on' : '') + '"><span class="dot ' + s[0] + '"></span> ' + s[1] + '</span><span class="muted" title="單元代號：' + esc(u.id) + '">' + (TYPE_NAME[u.type] || '') + '</span><span class="muted">' + esc(windowText(u)) + '</span>' + (st ? '<span class="muted">作答的人通過率 ' + st.pct + '%</span>' : '');
+      $('u-sub').innerHTML = '<span class="pill' + (s[0] === 'open' ? ' on' : '') + '"><span class="dot ' + s[0] + '"></span> ' + s[1] + '</span><span class="muted" title="單元代號：' + esc(u.id) + '">' + (TYPE_NAME[u.type] || '') + '</span><span class="muted">' + esc(windowText(u)) + '</span>' + (st ? '<span class="muted">作答的人通過率 ' + st.pct + '%</span>' : '') +
+        assigns.filter(function (a) { return a.unit === u.id; }).map(function (a) { return '<span class="pill warn">已指派 ' + esc(clsText(a)) + '・' + esc(dueText(a.due)) + '</span>'; }).join('');
+      $('u-assign').textContent = '';
+      $('u-assign').insertAdjacentHTML('beforeend', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6l-1 6 4 3H6l4-3zM12 13v8"/></svg>' + (assigns.some(function (a) { return a.unit === u.id; }) ? '編輯指派' : '指派作業'));
     }
     function markSettingsRow() {
       [].forEach.call(document.querySelectorAll('#units tr[data-i]'), function (tr) { var u = units[Number(tr.dataset.i)]; tr.classList.toggle('cur', !!u && u.id === SH.unit); });
@@ -5924,6 +6100,7 @@
       units = (d.units || []).concat(d.customUnits || []);
       cfgBase = d.config || null;
       exts = d.extensions || [];
+      assigns = (d.assignments || (d.config && d.config.assign) || []).map(normAssign);
       content = d.content || []; siteUrl = d.siteUrl || ''; $('sheet').href = d.sheetUrl; render(); impInit(); exRender(); puRender();
       if (!SH.started) { SH.started = true; route(); loadAttempts(); loadAcks(); tour.autoIntro(); } else { drawUnitList(); if (SH.view === 'overview') drawOverview(); if (SH.view === 'unit') drawUnitHead(); }
     }
@@ -5950,7 +6127,7 @@
     }
     // 後台畫面用到的資料（比對 Apps Script 回來的和畫面上的是否一樣）
     function dataKey(d) {
-      return stable({ units: d.units || [], customUnits: d.customUnits || [], extensions: d.extensions || [], content: (d.content || []).map(function (c) { return [c.id, c.count, c.updated]; }) });
+      return stable({ units: d.units || [], customUnits: d.customUnits || [], extensions: d.extensions || [], assignments: (d.assignments || []).map(function (a) { return [a.unit, a.cls, a.due, a.warn]; }), content: (d.content || []).map(function (c) { return [c.id, c.count, c.updated]; }) });
     }
     // 沒有這台電腦的快取時，用 Firestore 的學生網站設定先畫出畫面（只能看：補作備註、題目更新者等設定裡沒有，要等 Apps Script）
     function fromConfig(cfg, old) {
@@ -5972,7 +6149,7 @@
             questionCount: s.questionCount || 10, createdAt: '', openAt: s.openAt || '', closeAt: s.closeAt || '', quiz: s.quiz || '', custom: true };
         }),
         content: Object.keys(cfg.content || {}).map(function (id) { return { id: id, updated: cfg.content[id].updated, count: cfg.content[id].count, updatedBy: '' }; }),
-        extensions: ext, config: cfg, siteUrl: old.siteUrl || '', sheetUrl: old.sheetUrl || '#',
+        extensions: ext, assignments: (cfg.assign || []).map(normAssign), config: cfg, siteUrl: old.siteUrl || '', sheetUrl: old.sheetUrl || '#',
       };
     }
     // 開啟後開始編輯過：Apps Script 晚到的資料不覆蓋畫面

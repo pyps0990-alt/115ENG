@@ -155,6 +155,22 @@ export function unitWindow(c, id, now = Date.now()) {
 const TW_FMT = (() => {
   try { return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }); } catch { return null; }
 })();
+// 老師指派給這個班的作業（還沒截止的），依截止時間先後排：[{ unit, due（毫秒）, warn }]
+export function assignmentsFor(c, cls, now = Date.now()) {
+  if (!c || !Array.isArray(c.assign) || !cls) return [];
+  return c.assign
+    .filter((a) => a && a.unit && Array.isArray(a.cls) && a.cls.some((x) => x === 'all' || String(x) === String(cls)))
+    .map((a) => ({ unit: String(a.unit), due: twTime(a.due), warn: a.warn !== false }))
+    .filter((a) => a.due > now)
+    .sort((a, b) => a.due - b.due);
+}
+// 「11/6（五）23:59 截止 · 還剩 2 天」
+export function dueLabel(ms, now = Date.now()) {
+  const wd = '日一二三四五六'[new Date(ms + 8 * 3600000).getUTCDay()];
+  const [md, hm] = fmtWhen(ms).split(' ');
+  const days = Math.floor((ms - now) / 86400000);
+  return `${md}（${wd}）${hm} 截止${days >= 1 ? ` · 還剩 ${days} 天` : ' · 今天'}`;
+}
 export function fmtWhen(ms) {
   const d = new Date(ms);
   if (TW_FMT) {

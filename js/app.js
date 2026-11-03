@@ -1,5 +1,5 @@
 import { loadIndex, loadUnit, applyImported, addCustomUnits, loadAnalysis, analysisSig } from './data.js';
-import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow, fmtWhen, unitCfg } from './remote-config.js';
+import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow, fmtWhen, unitCfg, assignmentsFor, dueLabel } from './remote-config.js';
 import { store } from './storage.js';
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
@@ -85,6 +85,7 @@ async function route() {
   else renderStudentChip();
   if (kind === 'u' && !loggedIn) { location.replace('#/'); return; }
   updateNav(kind === 'u' && id ? (findUnit(id) || {}).id : null);
+  if (kind === 'u' && id && changed && !(await assignGuard(id))) return;
   const render = async () => {
     try {
       if (kind === 'u' && id) await renderUnit(id, sub);
@@ -116,6 +117,35 @@ const hasContent = (id) => !!(config && config.content && config.content[id]);
 const visibleUnits = () => index.units.filter((u) => unitVisible(config, u.id) && hasContent(u.id)
   && (u.type === 'vocab' ? openLevels(u).length : modeOn(config, u.id, u.type)))
   .sort((a, b) => lessonCmp(a.lesson, b.lesson));
+
+/* ---------------- 老師指派的作業 ---------------- */
+// 這位學生（班級）還沒截止的指派作業；完成＝正式測驗已通過（待檢討、已完成）
+const myAssign = () => {
+  const s = store.student();
+  if (!s || !index) return [];
+  const vis = visibleUnits();
+  return assignmentsFor(config, s.cls).map((a) => ({ ...a, u: vis.find((u) => u.id === a.unit) })).filter((a) => a.u);
+};
+const asgDone = (a) => ['ok', 'todo'].includes(unitStatus(a.u).k);
+// 還有指派作業沒做完，卻點進別的單元：先問一次要做哪一個（只提醒、不擋；同一個單元這次開網頁只問一次）
+async function assignGuard(id) {
+  const target = findUnit(id);
+  if (!target || !store.student()) return true;
+  const pending = myAssign().filter((a) => !asgDone(a));
+  if (!pending.length || pending.some((a) => a.unit === target.id) || !pending.some((a) => a.warn)) return true;
+  const key = `b5p:asg-ok:${target.id}`;
+  try { if (sessionStorage.getItem(key)) return true; } catch { /* ignore */ }
+  const a = pending.find((x) => x.warn);
+  const go = await confirmDialog({
+    title: '要做的是這個嗎？',
+    body: `老師指派的是 <b>${esc(unitName(a.u))}</b>（${esc(dueLabel(a.due))}），你點的是 <b>${esc(unitName(target))}</b>。`,
+    ok: '去做指派的作業',
+    cancel: `還是做 ${unitName(target)}`,
+  });
+  if (go) { location.hash = `#/u/${encodeURIComponent(a.unit)}`; return false; }
+  try { sessionStorage.setItem(key, '1'); } catch { /* ignore */ }
+  return true;
+}
 
 /* ---------------- 錯誤頁 ---------------- */
 // 依類型顯示學生看得懂的說明，不直接把程式的錯誤訊息丟給學生；完整訊息寫在 console，並給一個錯誤編號方便回報給老師
@@ -208,8 +238,20 @@ function renderHome() {
   const upcoming = visible.map((u) => ({ u, ...unitStatus(u) })).filter((r) => r.k in order)
     .sort((a, b) => order[a.k] - order[b.k] || lessonCmp(a.u.lesson, b.u.lesson));
   const nextRow = upcoming[0];
-  prefetchUnits(upcoming.slice(0, 6).map((r) => r.u));
-  if (nextRow) {
+  const asg = myAssign();
+  const asgPending = asg.filter((a) => !asgDone(a));
+  prefetchUnits([...asgPending.map((a) => a.u), ...upcoming.slice(0, 6).map((r) => r.u)]);
+  if (asgPending.length) {
+    // 老師指派的作業優先：主卡放還沒做完的指派作業（好幾份就左右滑）
+    app.querySelector('#next-slot').innerHTML = `<div class="asg-rail${asgPending.length > 1 ? ' many' : ''}">${asgPending.map((a) => {
+      const st = unitStatus(a.u);
+      return `<a class="next-card asg ${st.k}" href="#/u/${esc(a.u.id)}">
+        <span class="nc-ic">${icon.pin}</span>
+        <span class="nc-txt"><span class="nc-lead">老師指派 · ${esc(dueLabel(a.due))}</span><b class="en">${esc(a.u.title)}</b><span class="nc-note">${lessonLabel(a.u.lesson)} · ${esc(st.note)}</span></span>
+        <span class="nc-go">${icon.arrowR}</span>
+      </a>`;
+    }).join('')}</div>${asgPending.length > 1 ? `<p class="asg-hint">${asgPending.length} 份指派作業，左右滑動看下一份</p>` : ''}`;
+  } else if (nextRow) {
     const lead = { retake: '需要補考', todo: '待檢討', open: '下一個單元' }[nextRow.k];
     app.querySelector('#next-slot').innerHTML = `<a class="next-card ${nextRow.k}" href="#/u/${esc(nextRow.u.id)}">
         <span class="nc-ic">${nextRow.ic}</span>
@@ -221,8 +263,15 @@ function renderHome() {
   app.querySelector('#progress-slot').innerHTML = nOk || nTodo || nMiss
     ? `<a class="hp-link" href="#/me">已完成 ${nOk} / ${visible.length}${nTodo ? ` · 待檢討 ${nTodo}` : ''}${nMiss ? ` · 缺交 ${nMiss}` : ''} · 詳細 ${icon.arrowR}</a>` : '';
   const filterHTML = `<div class="seg seg-glide" role="group" aria-label="顯示哪些單元"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-filter="all">全部</button><button type="button" data-filter="todo">現在要做的</button></div>`;
-  host.innerHTML = filterHTML + lessons.map((n) => {
-    const units = visible.filter((u) => u.lesson === n);
+  // 有指派作業：最上面一段「老師指派」，其他單元放在下面「自由練習」
+  const asgIds = new Set(asg.map((a) => a.u.id));
+  const asgHTML = asg.length ? `<section class="lesson asg-sec">
+      <h2 class="lesson-head">${icon.pin}<span>老師指派</span><small>完成 ${asg.filter(asgDone).length} / ${asg.length}</small></h2>
+      <div class="unit-grid">${asg.map((a) => tileHTML(a.u, a)).join('')}</div>
+    </section><p class="free-head">其他單元 · 自由練習</p>` : '';
+  host.innerHTML = filterHTML + asgHTML + lessons.map((n) => {
+    const units = visible.filter((u) => u.lesson === n && !asgIds.has(u.id));
+    if (!units.length) return '';
     return `<section class="lesson">
       <h2 class="lesson-head">${icon.book}<span>${lessonHeading(n)}</span></h2>
       <div class="unit-grid">${units.map((u) => tileHTML(u)).join('')}</div>
@@ -309,7 +358,7 @@ function tileMeta(u) {
 // 卡片狀態：狀態標籤放最前面（文字＋圖示，用標籤的顏色區分），標題與主題第二；類型與字數、最佳成績與時段收在下面。
 // 「下一步」只由首頁上方的大卡片表達，格子裡不再重複標記。
 const TILE_STATE = { ok: '已完成', retake: '需補考', todo: '待檢討', miss: '缺交', wait: '未開放', open: '尚未開始' };
-function tileHTML(u) {
+function tileHTML(u, asg = null) {
   const vocab = u.type === 'vocab';
   const b = store.best(u.id)[bestKey(u.type)];
   const st = unitStatus(u);
@@ -325,7 +374,7 @@ function tileHTML(u) {
   // 最佳成績旁的小量尺：刻度就是及格線，每張卡片都看得到離通過還有多遠
   const meter = b != null ? `<span class="meter${b >= PASS ? ' ok' : ''}" role="img" aria-label="最佳 ${b}%，及格線 ${PASS}%"><i style="width:${Math.min(100, b)}%"></i><b style="left:${PASS}%"></b></span>` : '';
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
-      <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span></div>
+      <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span>${asg ? `<span class="tile-asg">${icon.pin}${esc(dueLabel(asg.due).split(' · ')[0])}</span>` : ''}</div>
       <h3 class="en">${esc(u.title)}</h3>
       ${topicShown ? `<p class="tile-topic en">${esc(topicShown)}</p>` : ''}
       ${vocab ? vocabMetaHTML(u, openLevels(u).map((l) => l.name)) : `<div class="tile-meta stack"><span><span class="tile-cat">${typeIcon(u.type)}</span>${kind}</span><span>${tileMeta(u)}</span></div>`}
