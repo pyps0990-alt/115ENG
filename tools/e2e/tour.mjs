@@ -34,13 +34,15 @@ for (const [label, vp] of [['電腦', { width: 1280, height: 860 }], ['手機', 
 
   await step(`${label}：自動化測試的瀏覽器不自動跳出導覽`, async () => { assert.equal(await st(), null); });
 
-  await step(`${label}：從選單打開「使用導覽」，列出 5 個導覽`, async () => {
-    if (rest.isMobile) { await tap('#rail-more'); await sleep(400); await tap('#m-sheet .m-item:has-text("使用導覽")'); }
-    else { await t.click('#who-btn'); await sleep(200); await t.click('#tour-open'); }
-    await t.waitForSelector('dialog.tour-pick[open]');
-    assert.equal(await t.locator('dialog.tour-pick .tour-item').count(), 5);
-    assert.match(await t.textContent('dialog.tour-pick'), /看完整教學/);
-    await t.click('dialog.tour-pick [data-pick="intro"]');
+  await step(`${label}：從選單打開「教學」，最上方列出 5 個導覽（沒有另外重複的「使用導覽」入口）`, async () => {
+    if (rest.isMobile) {
+      await tap('#rail-more'); await sleep(400);
+      assert.equal(await t.locator('#m-sheet .m-item:has-text("使用導覽")').count(), 0, '「更多」不該再有重複的使用導覽');
+      await tap('#m-sheet a[href="#help"]');
+    } else { await t.click('#who-btn'); await sleep(200); await t.click('#tour-open'); }
+    await t.waitForSelector('#help-tours .tour-item');
+    assert.equal(await t.locator('#help-tours .tour-item').count(), 5);
+    await t.click('#help-tours [data-help-tour="intro"]');
     await waitStep(0);
   });
 

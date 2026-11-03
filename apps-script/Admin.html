@@ -1143,6 +1143,8 @@
     .help-search svg { width:18px; height:18px; fill:none; stroke:var(--steel); stroke-width:2; flex:none; }
     #work .help-search input { border:0; outline:0; box-shadow:none; flex:1; font:inherit; background:none; min-width:0; height:auto; padding:0; }
     .help-search:focus-within { border-color:var(--navy); box-shadow:0 0 0 3px var(--navy-soft); }
+    .help-tours { grid-column:1 / -1; margin-bottom:6px; }
+    .help-tour-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px; margin-top:12px; }
     .help-toc { position:sticky; top:12px; display:grid; gap:2px; }
     #work .help-toc a { display:block; padding:8px 12px; border-radius:10px; color:var(--ink); text-decoration:none; font-weight:800; font-size:.92rem; }
     .help-toc a:hover, .help-toc a:focus-visible { background:var(--wash); outline:none; }
@@ -1171,6 +1173,9 @@
       .help-toc { position:static; display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
       #work .help-toc a { flex:none; border:1px solid var(--line-strong); background:#fff; border-radius:999px; padding:6px 12px; font-size:.86rem; }
       .help-fig img { max-height:260px; }
+      .help-tour-list { grid-template-columns:1fr 1fr; gap:8px; }
+      .help-tour-list .tour-item { padding:10px 12px; }
+      .help-tour-list .tour-item > span { display:none; }
     }
     /* 引導模式：框出要看的地方（四周變暗）＋說明卡 */
     .tour-ring { position:fixed; z-index:990; border-radius:14px; border:3px solid var(--primary); box-shadow:0 0 0 9999px rgba(15, 23, 42, .5); pointer-events:none;
@@ -4996,7 +5001,7 @@
       sheet.innerHTML = '<div class="m-scrim" data-close></div><div class="m-panel" role="dialog" aria-label="更多"><span class="m-grip" aria-hidden="true"></span>' +
         '<a href="#students" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M16 4.5a3.5 3.5 0 010 7"/><path d="M18 14a6 6 0 013.5 6"/></svg></span><span><b>學生</b><small>名單、補作延長、個別學生的成績</small></span></a>' +
         '<a href="#settings" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span><span><b>設定</b><small>AI 出題、錯誤分析引擎、學期結算</small></span></a>' +
-        '<a href="#help" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 21V5M8 7h7M8 11h7"/></svg></span><span><b>教學</b><small>完整說明：出題、成績、名單、AI</small></span></a>' +
+        '<a href="#help" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 21V5M8 7h7M8 11h7"/></svg></span><span><b>教學</b><small>完整說明與一步一步的導覽</small></span></a>' +
         '<button class="btn m-cancel" type="button" data-close>關閉</button></div>';
       document.body.appendChild(sheet);
       var open = function (on) {
@@ -5447,7 +5452,7 @@
           { el: function () { var b = openEditor(); return b && b.closest('.bar'); }, title: '檢查後儲存', text: '題目填好後先按「預覽與檢查」，看過沒有問題，再按「儲存到網站」。' },
           { el: '[data-utab="settings"]', title: '開放給學生', text: '新單元一開始是隱藏的。題目存好後，到「出題設定」打開「顯示在學生首頁」，需要的話設定開放與截止時間，學生就看得到了。' },
         ] },
-        scores: { name: '看成績、處理需要確認', desc: '通過率、各班情形、需要確認、複製名單', steps: [
+        scores: { name: '看成績與需要確認', desc: '通過率、各班情形、需要確認、複製名單', steps: [
           { go: '#scores', el: function () { return q('#sc-view .sc-card') ? q('#sc-view .sc-grid') : q('#sc-view'); }, act: function () { return !!q('#sc-view .sc-card'); }, target: '#sc-view .sc-card',
             until: function () { return SH.view === 'unit' && SH.tab === 'scores'; }, title: '各單元的成績', text: '每個單元一張卡片：通過率、還沒通過與還沒作答的人數；有「⚠ 需要確認」代表有作答要看一下。點一張卡片看詳細。' },
           { el: function () { return cardWith('各班完成情形'); }, title: '各班完成情形', text: '每人以最高分計算。點一個班級，下面就只看那一班。' },
@@ -5580,22 +5585,14 @@
         d.addEventListener('cancel', function (e) { e.preventDefault(); close(); });
         document.body.appendChild(d); d.showModal();
       };
-      // 入口：頭像選單、手機「更多」、總覽右上角
+      // 入口統一是「教學」（#help）：頭像選單、總覽右上角、手機「更多 → 教學」；導覽列在教學頁最上方
       if ($('who-menu')) {
-        var mi = document.createElement('button'); mi.type = 'button'; mi.setAttribute('role', 'menuitem'); mi.id = 'tour-open'; mi.textContent = '使用導覽';
+        var mi = document.createElement('button'); mi.type = 'button'; mi.setAttribute('role', 'menuitem'); mi.id = 'tour-open'; mi.textContent = '教學與導覽';
         $('who-menu').insertBefore(mi, $('switch-acct') || null);
-        mi.onclick = function () { $('who-menu').hidden = true; $('who-btn').setAttribute('aria-expanded', 'false'); pick(); };
-      }
-      var sheetPanel = document.querySelector('#m-sheet .m-panel');
-      if (sheetPanel) {
-        var mt = document.createElement('button'); mt.type = 'button'; mt.className = 'm-item'; mt.setAttribute('data-close', '');
-        mt.innerHTML = '<span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.2-1.5 2.3M12 17.2v.3"/></svg></span><span><b>使用導覽</b><small>一步一步教你出題、看成績</small></span>';
-        sheetPanel.insertBefore(mt, sheetPanel.querySelector('.m-cancel'));
-        mt.addEventListener('click', function () { setTimeout(pick, 220); });
+        mi.onclick = function () { $('who-menu').hidden = true; $('who-btn').setAttribute('aria-expanded', 'false'); location.hash = '#help'; };
       }
       var ovHead = document.querySelector('[data-pane-view="overview"] .w-head');
-      if (ovHead) { var ob = document.createElement('button'); ob.type = 'button'; ob.className = 'btn small ghost tour-ov'; ob.textContent = '使用導覽'; ob.onclick = pick; ovHead.appendChild(ob); }
-      // 第一次登入：自動跑「認識後台」（自動化測試的瀏覽器不跑，免得蓋住按鈕）
+      if (ovHead) { var ob = document.createElement('a'); ob.href = '#help'; ob.className = 'btn small ghost tour-ov'; ob.textContent = '教學'; ovHead.appendChild(ob); }
       // 第一次登入：APP 式的歡迎畫面（3 頁，可以左右滑），最後選「看完整教學」或「開始使用」
       var PAGES = [
         { ic: '<span class="wc-b5">B5</span>', t: '歡迎使用 B5 老師後台', d: '出題、開放單元、看成績、管理學生名單，都在這裡完成。學生在網站上作答，成績會自動回到這裡和試算表。' },
@@ -5715,6 +5712,11 @@
       var mark = function (s) { var h = esc(s); if (!q) return h; var i = h.toLowerCase().indexOf(esc(q).toLowerCase()); return i < 0 ? h : h.slice(0, i) + '<mark>' + h.slice(i, i + esc(q).length) + '</mark>' + h.slice(i + esc(q).length); };
       var img = function (name, alt) { return name ? '<figure class="help-fig"><img src="' + HELP_IMG + name + '.jpg" alt="' + esc(alt) + '" loading="lazy" decoding="async"></figure>' : ''; };
       var item = function (s) { return typeof s === 'string' ? '<li>' + mark(s) + '</li>' : '<li>' + mark(s.text) + img(s.img, s.text) + '</li>'; };
+      var seenT = window.adminTour ? window.adminTour.seen() : {};
+      box.querySelector('.help-tour-list').innerHTML = window.adminTour ? Object.keys(TOURS).map(function (id) {
+        return '<button type="button" class="tour-item" data-help-tour="' + id + '"><b>' + esc(TOURS[id].name) + (seenT[id] ? '<span class="tour-done">看過了</span>' : '') + '</b><span>' + esc(TOURS[id].desc) + '・' + TOURS[id].steps.length + ' 步</span></button>';
+      }).join('') : '';
+      box.querySelector('.help-tours').hidden = !window.adminTour || !!q;
       box.querySelector('.help-toc').innerHTML = HELP.map(function (c) { return '<a href="#help/' + c.id + '" data-help-go="' + c.id + '"' + (list.indexOf(c) < 0 ? ' class="dim"' : '') + '>' + esc(c.title) + '</a>'; }).join('');
       box.querySelector('.help-body').innerHTML = list.length ? list.map(function (c) {
         return '<section class="card help-ch" id="help-' + c.id + '"><h2>' + esc(c.title) + '</h2><p class="help-lead">' + mark(c.lead) + '</p>' +
@@ -5730,6 +5732,7 @@
       var v = document.querySelector('[data-pane-view="help"]'); if (!v) return;
       var box = document.createElement('div'); box.id = 'help-view'; box.className = 'help-page';
       box.innerHTML = '<label class="help-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="sr">搜尋教學</span><input type="search" id="help-q" placeholder="搜尋，例如：截止、名單、需要確認"></label>' +
+        '<section class="card help-tours" id="help-tours"><div class="nv-panel-h"><h2>一步一步帶你做</h2><span class="muted small">會在畫面上框出要按的地方，隨時可以結束</span></div><div class="help-tour-list"></div></section>' +
         '<nav class="help-toc" aria-label="教學章節"></nav><div class="help-body"></div>';
       v.appendChild(box);
       box.addEventListener('input', function (e) { if (e.target.id === 'help-q') { helpQ = e.target.value; drawHelp(); } });
