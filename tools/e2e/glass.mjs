@@ -42,8 +42,8 @@ await step('分頁列橫向拖曳（原本的膠囊）照樣可以切換分頁',
   await drag(a.x + a.width / 2, a.y + a.height / 2, c.x - a.x, 0);
   await p.waitForFunction(() => location.hash === '#scores', null, { timeout: 3000 });
 });
-await step('「更多」選單往上拉有極限、往下拉就關閉', async () => {
-  await p.click('#rail-more'); await sleep(600);
+await step('頭像打開的下方面板往上拉有極限、往下拉就關閉', async () => {
+  await p.click('#who-btn'); await sleep(600);
   const b = await p.locator('#m-sheet .m-panel').boundingBox();
   const mid = await drag(b.x + 30, b.y + 20, 0, -150, () => ty('#m-sheet .m-panel'));
   assert.ok(mid < 0 && mid > -25, `往上拉有極限，實際 ${mid}`);

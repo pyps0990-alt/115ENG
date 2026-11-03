@@ -1304,6 +1304,44 @@
       .savebar { background:var(--navy) !important; }
       @media (max-width:900px) { .m-top { background:var(--navy) !important; } }
     }
+    /* ================= 「課本封面」排版（2026-11）=================
+       每頁標題做成深藍封面（左下大圓角），第一張卡片疊在封面邊緣；手機版下方分頁列旁有圓形 ＋（新增單元），
+       「更多」收進頭像（從右上角往下展開：學生、設定、教學、帳號）。 */
+    #work .w-head { position:relative; isolation:isolate; margin:-26px -34px 0; padding:30px 34px 86px; background:var(--navy); color:#C7D2FE; border-radius:0 0 28px 56px; align-items:flex-end; }
+    #work .w-head h1 { display:block; color:#fff; font-size:2rem; }
+    #work .w-head .w-sub, #work .w-head .muted { color:#C7D2FE !important; }
+    #work .w-head .w-sub .pill.warn { background:#FEF3C7; color:#92400E; }
+    #work .w-head + * { position:relative; z-index:1; margin-top:-60px; }
+    #work [data-pane-view="unit"] .w-head { padding-bottom:30px; margin-bottom:16px; }
+    #work [data-pane-view="unit"] .w-head + * { margin-top:0; }
+    #work .w-head .btn { background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.3); box-shadow:inset 0 1px 0 rgba(255,255,255,.3); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+    #work .w-head .btn:hover { background:rgba(255,255,255,.24); }
+    #work .w-head .pill.u-state.open { background:#DCFCE7; color:#166534; }
+    #work .w-head + .ov-grid > .card, #work .w-head + .card { box-shadow:0 16px 36px rgba(30, 58, 138, .14); border-color:transparent; }
+    .shell.list-off #work .w-head { margin-left:-68px; padding-left:68px; }
+    @media (max-width:900px) {
+      #work .w-head { margin:-18px -14px 0; padding:18px 20px 78px; border-radius:0 0 0 48px; }
+      #work .w-head h1 { font-size:1.75rem; }
+      #work .w-head + * { margin-top:-56px; }
+      .m-top-title { opacity:0; transform:translateY(4px); transition:opacity .2s, transform .2s; }
+      .shell.m-scrolled .m-top-title, .shell[data-pane="list"] .m-top-title { opacity:1; transform:none; }
+      .rail-more { display:none !important; }
+      .rail { right:calc(12px + 66px + 10px) !important; }
+      .rail.lg-mini { left:14% !important; right:calc(14% + 62px) !important; }
+      .m-fab { position:fixed; z-index:31; right:12px; bottom:calc(10px + env(safe-area-inset-bottom, 0px)); width:66px; height:66px; border:0; border-radius:50%; background:var(--primary); color:var(--navy); display:grid; place-items:center; cursor:pointer;
+        box-shadow:0 10px 24px rgba(245, 158, 11, .38), inset 0 1px 0 rgba(255,255,255,.5); transition:width .3s cubic-bezier(.22,1.2,.36,1), height .3s cubic-bezier(.22,1.2,.36,1), transform .15s; }
+      .m-fab:active { transform:scale(.92); }
+      .m-fab svg { width:28px; height:28px; fill:none; stroke:currentColor; stroke-width:2.6; stroke-linecap:round; }
+      .rail.lg-mini + .m-fab { width:52px; height:52px; }
+      .m-panel { top:calc(62px + env(safe-area-inset-top, 0px)) !important; bottom:auto !important; transform-origin:calc(100% - 26px) -24px !important; } /* 從右上角的頭像往下展開 */
+      .m-acct { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; padding:12px 10px 4px; border-top:1px solid var(--line); }
+      .m-acct[hidden] { display:none; }
+      .m-acct-id { flex:1 1 160px; min-width:0; display:grid; }
+      .m-acct-id b { color:var(--ink); }
+      .m-acct-id small { color:var(--steel); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .m-out { color:var(--bad-ink) !important; }
+    }
+    @media (min-width:901px) { .m-fab { display:none; } }
   </style>
 </head>
 <body>
@@ -5259,12 +5297,30 @@
         '<a href="#students" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M16 4.5a3.5 3.5 0 010 7"/><path d="M18 14a6 6 0 013.5 6"/></svg></span><span><b>學生</b><small>名單、補作延長、個別學生的成績</small></span></a>' +
         '<a href="#settings" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span><span><b>設定</b><small>AI 出題、錯誤分析引擎、學期結算</small></span></a>' +
         '<a href="#help" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 21V5M8 7h7M8 11h7"/></svg></span><span><b>教學</b><small>完整說明與一步一步的導覽</small></span></a>' +
+        '<div class="m-acct" id="m-acct" hidden><span class="m-acct-id"><b id="m-acct-name"></b><small id="m-acct-email"></small></span><button class="btn small" type="button" id="m-switch">切換帳號</button><button class="btn small m-out" type="button" id="m-out">登出</button></div>' +
         '<button class="btn m-cancel" type="button" data-close>關閉</button></div>';
       document.body.appendChild(sheet);
+      // 圓形 ＋：新增單元（放在下方分頁列旁邊）
+      var fab = document.createElement('button'); fab.type = 'button'; fab.className = 'm-fab'; fab.id = 'm-fab'; fab.setAttribute('aria-label', '新增單元'); fab.title = '新增單元';
+      fab.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+      rail.parentNode.insertBefore(fab, rail.nextSibling);
+      fab.onclick = function () { if (SH.view !== 'units') location.hash = '#units'; setTimeout(function () { if ($('ulist-add')) $('ulist-add').click(); }, 60); };
+      // 手機：頭像不再跳出小選單，改從下方滑出面板（學生、設定、教學、帳號）
+      var mqM = window.matchMedia('(max-width: 900px)');
+      document.addEventListener('click', function (e) {
+        var w = e.target.closest && e.target.closest('#who-btn');
+        if (!w || !mqM.matches) return;
+        e.preventDefault(); e.stopPropagation();
+        var ac = $('m-acct'), em = $('who-email');
+        if (ac && em && em.textContent.trim()) { ac.hidden = false; $('m-acct-email').textContent = em.textContent; $('m-acct-name').textContent = ($('who-name') && $('who-name').textContent) || '帳號'; }
+        open(sheet.hidden);
+      }, true);
+      $('m-switch').onclick = function () { open(false); if ($('switch-acct')) $('switch-acct').click(); };
+      $('m-out').onclick = function () { open(false); if ($('sign-out')) $('sign-out').click(); };
       var open = function (on) {
         more.setAttribute('aria-expanded', String(on));
         if (window.placeInks) requestAnimationFrame(window.placeInks); // 膠囊跟著滑到「更多」，關掉選單時滑回原本的分頁
-        if (on) { sheet.classList.remove('closing'); sheet.hidden = false; var mr = more.getBoundingClientRect(); sheet.style.setProperty('--more-r', Math.max(12, window.innerWidth - mr.right) + 'px'); sheet.querySelector('.m-item').focus({ preventScroll: true }); }
+        if (on) { sheet.classList.remove('closing'); sheet.hidden = false; sheet.style.setProperty('--more-r', '12px'); sheet.querySelector('.m-item').focus({ preventScroll: true }); }
         else if (!sheet.hidden) { sheet.classList.add('closing'); setTimeout(function () { sheet.hidden = true; sheet.classList.remove('closing'); }, 200); }
       };
       more.onclick = function () { open(sheet.hidden); };
@@ -5443,6 +5499,7 @@
         if (!mq.matches) return;
         var y = this.scrollTop, dy = y - lastY; lastY = y;
         acc = (dy > 0) === (acc > 0) ? acc + dy : dy;
+        $('shell').classList.toggle('m-scrolled', y > 70);
         var mini = rail.classList.contains('lg-mini');
         if (!mini && acc > 48 && y > 80) { rail.classList.add('lg-mini'); track(); }
         else if (mini && (acc < -24 || y < 40)) { rail.classList.remove('lg-mini'); track(); }
@@ -6011,6 +6068,9 @@
         steps: ['打開單元，切到「出題設定」。', '打開「顯示在學生首頁」，學生就看得到這個單元。', '開放時間空白＝一顯示就能作答；截止時間可以按「今天 23:59」「一週後」「兩週後」快速設定。', '改完按下方的「儲存」。',
           { img: 'makeup', text: '個別學生要延長（病假、公假）：切到「補作」分頁，選學生、填「補作到」的時間和備註，按「加入」，再按「儲存補作名單」。' }],
         notes: ['截止後不能做正式測驗；已經做過的學生仍然可以檢討和複習。', '總分 65 分以上算通過；沒通過可以一直補考，成績以最高分計。'] },
+      { id: 'assign', title: '指派作業', lead: '告訴學生「這週先做這一份」：學生首頁最上面會放這份作業，點錯單元時也會提醒。',
+        steps: ['打開單元，按標題右邊的「指派作業」（或在「總覽」的「指派作業」卡按「＋ 指派作業」）。', '選要給哪些班；預設是全部班級。', '選截止時間：今晚、週五、下週一，或自訂。', '按「指派」。學生首頁的主卡就會換成這份作業，列表也會分成「老師指派」和「自由練習」。'],
+        notes: ['指派只是提醒，不會鎖住其他單元：學生點到別的單元會先問一次，還是可以選擇繼續做。', '學生通過正式測驗就算完成；「總覽」的指派作業卡會顯示各班完成幾個人。', '截止後單元照樣開放，只是不再列為優先。要改時間或班級，按「編輯」；不需要了按「取消指派」。'] },
       { id: 'roster', title: '學生名單', lead: '學生要在名單上才能登入；登入時輸入的班級、座號、姓名要跟名單完全一樣。', img: 'roster',
         steps: ['到「學生」，打開下方的「匯入學生名單」。', '填班級（例如 306）。', '名單每行一位：座號　姓名。可以從試算表直接選取兩欄複製貼上。', '按「匯入」。'],
         notes: ['同一個班重新匯入只會補上新的學生，不會刪掉原本的，也不會重複。', '匯入後會自動在試算表建立「成績單 班級」分頁。', '轉學、畢業或家長要求刪除資料：用「刪除單一學生的資料」，刪除後無法復原。'], tour: 'roster' },

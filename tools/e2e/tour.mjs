@@ -36,7 +36,7 @@ for (const [label, vp] of [['電腦', { width: 1280, height: 860 }], ['手機', 
 
   await step(`${label}：從選單打開「教學」，最上方列出 5 個導覽（沒有另外重複的「使用導覽」入口）`, async () => {
     if (rest.isMobile) {
-      await tap('#rail-more'); await sleep(400);
+      await tap('#who-btn'); await sleep(400);
       assert.equal(await t.locator('#m-sheet .m-item:has-text("使用導覽")').count(), 0, '「更多」不該再有重複的使用導覽');
       await tap('#m-sheet a[href="#help"]');
     } else { await t.click('#who-btn'); await sleep(200); await t.click('#tour-open'); }
@@ -95,11 +95,11 @@ for (const [label, vp] of [['電腦', { width: 1280, height: 860 }], ['手機', 
     await waitStep(-1);
   });
 
-  await step(`${label}：教學頁：9 章、截圖載得出來、搜尋、帶我做一次`, async () => {
-    if (rest.isMobile) { await tap('#rail-more'); await sleep(400); await tap('#m-sheet a[href="#help"]'); }
+  await step(`${label}：教學頁：10 章（含指派作業）、截圖載得出來、搜尋、帶我做一次`, async () => {
+    if (rest.isMobile) { await tap('#who-btn'); await sleep(400); await tap('#m-sheet a[href="#help"]'); }
     else await t.click('.rail a[data-view="help"]');
     await t.waitForSelector('#help-view .help-ch');
-    assert.equal(await t.locator('#help-view .help-ch').count(), 9);
+    assert.equal(await t.locator('#help-view .help-ch').count(), 10);
     const imgs = await t.evaluate(async () => {
       const list = [...document.querySelectorAll('#help-view img')];
       list.forEach((i) => { i.loading = 'eager'; });
@@ -110,7 +110,7 @@ for (const [label, vp] of [['電腦', { width: 1280, height: 860 }], ['手機', 
     await t.fill('#help-q', '補作');
     await sleep(200);
     const shown = await t.$$eval('#help-view .help-ch h2', (a) => a.map((x) => x.textContent));
-    assert.ok(shown.includes('開放與截止') && shown.length < 9, JSON.stringify(shown));
+    assert.ok(shown.includes('開放與截止') && shown.length < 10, JSON.stringify(shown));
     assert.ok(await t.locator('#help-view mark').count() > 0, '關鍵字要標亮');
     await t.fill('#help-q', '');
     await t.click('#help-view [data-help-tour="roster"]');
