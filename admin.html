@@ -348,6 +348,9 @@
     .ov-grid { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:16px; align-items:start; }
     .att-row { display:grid; grid-template-columns:36px minmax(0,1fr) auto; gap:12px; align-items:center; padding:12px 2px; border-bottom:1px solid #EEF1F6; }
     .att-row:last-child { border-bottom:0; }
+    .att-row[data-att] { cursor:pointer; border-radius:12px; transition:background .15s; }
+    .att-row[data-att]:hover { background:var(--wash, #F1F4F9); }
+    @media (max-width:600px) { .att-row { padding:12px 6px; } .att-row > div { font-size:.92rem; line-height:1.45; } .att-more { display:none; } } /* 手機：整列可以點，次要說明收起來，兩行內 */
     .att-ic { width:36px; height:36px; border-radius:11px; display:grid; place-items:center; background:var(--amber-soft); color:var(--amber-ink); }
     .att-ic.navy { background:var(--navy-soft); color:var(--navy); }
     .att-ic svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
@@ -539,6 +542,7 @@
     #br-pending { margin:0 0 10px; }
     /* ----- 成績與錯題 ----- */
     .usc-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(96px, 1fr)); gap:12px; margin-bottom:16px; }
+    @media (max-width:600px) { .usc-stats { grid-template-columns:1fr 1fr; } .usc-stats > :last-child:nth-child(odd) { grid-column:1 / -1; } } /* 手機 2 欄；單數張時最後一張撐滿 */
     .usc-stat { background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px 16px; display:grid; gap:2px; }
     .usc-stat b { font-size:1.6rem; font-weight:900; color:var(--navy); line-height:1.1; font-variant-numeric:tabular-nums; }
     .usc-stat span { font-size:.82rem; font-weight:800; color:var(--steel); }
@@ -573,6 +577,7 @@
     .usc-all > summary::before { content:"▸"; color:var(--steel); }
     .usc-all[open] > summary::before { content:"▾"; }
     .usc-all[open] > summary { margin-bottom:14px; }
+    @media (max-width:600px) { .usc-all > summary { display:grid; grid-template-columns:auto minmax(0,1fr); gap:2px 10px; } .usc-all > summary > .muted { grid-column:2; } } /* 手機：說明放標題下一行 */
     #work .usc-all .card { border:0; padding:0; }
     @media (max-width:900px) { .usc-grid { grid-template-columns:1fr; } .usc-row { grid-template-columns:48px minmax(0, 1fr); } .usc-row > span:last-child { grid-column:2; } }
     /* ----- 補作 ----- */
@@ -820,6 +825,12 @@
     @keyframes sys-blink { 50% { opacity:.35; } }
     .sys-btn b { position:absolute; top:-5px; right:-5px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--primary); color:var(--navy); font-size:.68rem; font-weight:900; display:grid; place-items:center; }
     .sys-btn b:empty { display:none; }
+    .sys-txt { display:none; font-style:normal; }
+    @media (max-width:900px) {
+      .sys-btn:not([data-level="ok"]) { width:auto !important; padding:0 12px; gap:7px; display:inline-flex; align-items:center; font-size:.8rem; font-weight:800; color:#fff; border-radius:22px; }
+      .sys-btn:not([data-level="ok"]) b { display:none; }
+      .sys-btn:not([data-level="ok"]) .sys-txt { display:inline; white-space:nowrap; }
+    }
     .sys-btn[data-level="bad"] b { background:#F87171; color:#fff; }
     .sys-panel { position:absolute; left:calc(100% + 10px); bottom:54px; z-index:41; width:340px; background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:16px; box-shadow:0 12px 32px rgba(15,23,42,.22); padding:8px; text-align:left; }
     .sys-panel:not([hidden]) { animation:menu-in .2s var(--ease-out) both; transform-origin:bottom left; }
@@ -3905,17 +3916,17 @@
       var flagged = (SH.attempts || []).filter(function (x) { return !x.review && needsCheck(x) && Date.now() - x.at < 7 * 86400000; });
       if (flagged.length) {
         var byU = {}; flagged.forEach(function (x) { byU[x.unit] = (byU[x.unit] || 0) + 1; });
-        Object.keys(byU).forEach(function (id) { var u = units.filter(function (x) { return x.id === id; })[0]; items.push({ ic: 'alert', text: '<b>' + esc(u ? u.title : id) + '</b> 有 <b>' + byU[id] + ' 筆</b>成績需要確認（最近 7 天）', unit: id, tab: 'scores', act: '查看' }); });
+        Object.keys(byU).forEach(function (id) { var u = units.filter(function (x) { return x.id === id; })[0]; items.push({ ic: 'alert', text: '<b>' + esc(u ? u.title : id) + '</b> 有 <b>' + byU[id] + ' 筆</b>成績需要確認<span class="att-more">（最近 7 天）</span>', unit: id, tab: 'scores', act: '查看' }); });
       }
       units.forEach(function (u) {
         var s = unitState(u)[0];
         if (s === 'soon') { var st = passStats(u.id); items.push({ ic: 'clock', text: '<b>' + esc(u.title) + '</b> ' + fmtTw(u.closeAt) + ' 截止' + (st ? '，作答的人通過率 ' + st.pct + '%' : ''), unit: u.id, tab: 'scores', act: '看成績' }); }
-        if (s === 'empty' && u.visible) items.push({ ic: 'file', tone: 'navy', text: '<b>' + esc(u.title) + '</b> 還沒有匯入題目，學生看到的是「尚未開放」', unit: u.id, tab: 'content', act: '匯入' });
+        if (s === 'empty' && u.visible) items.push({ ic: 'file', tone: 'navy', text: '<b>' + esc(u.title) + '</b> 還沒有匯入題目<span class="att-more">，學生看到的是「尚未開放」</span>', unit: u.id, tab: 'content', act: '匯入' });
         if (s === 'later' && twMs(u.openAt) - Date.now() < 7 * 86400000) items.push({ ic: 'cal', tone: 'navy', text: '<b>' + esc(u.title) + '</b> ' + fmtTw(u.openAt) + ' 開放', unit: u.id, tab: 'settings', act: '檢查設定' });
       });
-      var pend = $('br-pending-list'); if (pend && !$('br-pending').hidden && pend.textContent.trim()) items.push({ ic: 'cpu', tone: 'navy', text: '錯誤分析待處理：<b>' + esc(pend.textContent.trim()) + '</b>（題目改過，還沒重新分析）', view: 'settings', act: '前往' });
+      var pend = $('br-pending-list'); if (pend && !$('br-pending').hidden && pend.textContent.trim()) items.push({ ic: 'cpu', tone: 'navy', text: '錯誤分析待處理：<b>' + esc(pend.textContent.trim()) + '</b><span class="att-more">（題目改過，還沒重新分析）</span>', view: 'settings', act: '前往' });
       $('ov-att').innerHTML = items.length ? items.map(function (a, i) {
-        return '<div class="att-row"><span class="att-ic ' + (a.tone || '') + '">' + IC[a.ic] + '</span><div>' + a.text + '</div><button class="btn small" type="button" data-att="' + i + '">' + a.act + ' ›</button></div>';
+        return '<div class="att-row" data-att="' + i + '"><span class="att-ic ' + (a.tone || '') + '">' + IC[a.ic] + '</span><div>' + a.text + '</div><button class="btn small" type="button" data-att="' + i + '">' + a.act + ' ›</button></div>';
       }).join('') : '<p class="muted" style="margin:0">目前沒有需要處理的事。</p>';
       $('ov-att').onclick = function (e) { var b = e.target.closest('[data-att]'); if (!b) return; var a = items[Number(b.dataset.att)]; location.hash = a.view ? '#' + a.view : '#unit/' + encodeURIComponent(a.unit) + '/' + a.tab; };
       $('ov-att-n').textContent = String(items.length);
@@ -3945,7 +3956,7 @@
       var u = curUnit(); if (!u) return;
       var s = unitState(u), st = passStats(u.id);
       $('u-title').textContent = u.title || u.id;
-      $('u-sub').innerHTML = '<span class="pill' + (s[0] === 'open' ? ' on' : '') + '"><span class="dot ' + s[0] + '"></span> ' + s[1] + '</span><span class="muted">' + (TYPE_NAME[u.type] || '') + '・' + esc(u.id) + '</span><span class="muted">' + esc(windowText(u)) + '</span>' + (st ? '<span class="muted">作答的人通過率 ' + st.pct + '%</span>' : '');
+      $('u-sub').innerHTML = '<span class="pill' + (s[0] === 'open' ? ' on' : '') + '"><span class="dot ' + s[0] + '"></span> ' + s[1] + '</span><span class="muted" title="單元代號：' + esc(u.id) + '">' + (TYPE_NAME[u.type] || '') + '</span><span class="muted">' + esc(windowText(u)) + '</span>' + (st ? '<span class="muted">作答的人通過率 ' + st.pct + '%</span>' : '');
     }
     function markSettingsRow() {
       [].forEach.call(document.querySelectorAll('#units tr[data-i]'), function (tr) { var u = units[Number(tr.dataset.i)]; tr.classList.toggle('cur', !!u && u.id === SH.unit); });
@@ -4888,6 +4899,7 @@
       btn.title = lv === 'ok' ? '系統狀態：一切正常' : lv === 'warn' ? '系統狀態：有事要注意' : '系統狀態：出錯了';
       var n = SYS.order.filter(function (k) { return SYS.items[k] && SYS.items[k].level !== 'ok'; }).length;
       btn.querySelector('b').textContent = n || '';
+      btn.querySelector('.sys-txt').textContent = lv === 'ok' ? '' : lv === 'bad' ? '系統出錯' : n + ' 則提醒'; // 手機上直接寫出來（沒有滑鼠提示可看）
       var list = $('sys-list'); if (!list) return;
       list.innerHTML = SYS.order.filter(function (k) { return SYS.items[k]; }).map(function (k) {
         var it = SYS.items[k];
@@ -4904,7 +4916,7 @@
       var who = document.querySelector('.rail-who');
       var b = document.createElement('button'); b.type = 'button'; b.id = 'sys-btn'; b.className = 'sys-btn'; b.dataset.level = 'warn';
       b.setAttribute('aria-haspopup', 'dialog'); b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-controls', 'sys-panel');
-      b.innerHTML = '<span class="sys-light" aria-hidden="true"></span><b></b><span class="sr">系統狀態</span>';
+      b.innerHTML = '<span class="sys-light" aria-hidden="true"></span><b></b><i class="sys-txt"></i><span class="sr">系統狀態</span>';
       who.insertBefore(b, who.firstChild);
       var p = document.createElement('div'); p.id = 'sys-panel'; p.className = 'sys-panel'; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', '系統狀態'); p.hidden = true;
       p.innerHTML = '<div class="sys-top"><b id="sys-head">檢查中…</b><span class="muted small">點按鈕直接處理</span></div><div id="sys-list"></div>';

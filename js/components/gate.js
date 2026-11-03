@@ -4,7 +4,7 @@ import { store } from '../storage.js';
 import { esc, confirmDialog } from '../util.js';
 import { icon } from '../icons.js';
 import { fmtWhen } from '../remote-config.js';
-import { mountInlineForm, openStudentDialog, studentLabel } from '../student.js';
+import { mountInlineForm, openStudentDialog, studentLabel, maskName } from '../student.js';
 import { SCRIPT_URL } from '../config.js';
 import { PASS } from '../types.js';
 
@@ -86,7 +86,7 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
         ${bestNow != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${bestNow}%</b></div>` : ''}
         ${timeNote ? `<p class="gate-note">${timeNote}</p>` : ''}
         <div class="btn-row">${buttons}</div>${soon ? '<p class="gate-dl"><span class="st-deadline" data-deadline hidden></span></p>' : ''}
-        <p class="who-line">以 <b>${esc(s.name)}</b>（${esc(s.cls)} 班 ${esc(s.seat)} 號）的身分作答 <button class="link-btn edit" type="button">不是我？切換</button></p>
+        <p class="who-line">以 <b>${esc(maskName(s.name))}</b>（${esc(s.cls)} 班 ${esc(s.seat)} 號）的身分作答 <button class="link-btn edit" type="button">不是我？切換</button></p>
         <details class="gate-rules"${firstTime ? ' open' : ''}><summary>測驗規則</summary>
           <ul class="rules">${rules.map((r) => `<li>${r}</li>`).join('')}
             <li>${SCRIPT_URL ? '完成後成績會自動傳送給老師' : '完成後請截圖成績單繳交給老師'}</li></ul></details>

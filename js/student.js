@@ -141,7 +141,7 @@ export function openStudentDialog(onSave) {
 }
 
 // 上方名牌：只顯示名字（第二個字用〇代替，旁人看螢幕不會看到全名）；點下去展開個人選單：我的成績與缺交、切換學生
-const maskName = (n) => (n.length >= 2 ? `${n[0]}〇${n.slice(2)}` : n);
+export const maskName = (n) => (n.length >= 2 ? `${n[0]}〇${n.slice(2)}` : n);
 const panelEl = () => document.getElementById('chip-panel');
 export function closeChipPanel() {
   const panel = panelEl();

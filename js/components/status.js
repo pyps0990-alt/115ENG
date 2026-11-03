@@ -13,12 +13,17 @@ const MODES = {
 };
 
 // kind：official／review／redo；mid：中間進度的 HTML；note：狀態列下面一句白話說明
+// note 的第一句（例如「這次的分數會送給老師。」）收進狀態列裡；後面的說明才放在狀態列下方
 export function statusBarHTML({ kind, mid, note = '' }) {
-  return `<div class="st-bar" data-st-bar>
+  const cut = note.indexOf('。');
+  const head = cut >= 0 ? note.slice(0, cut + 1) : note;
+  const tail = cut >= 0 ? note.slice(cut + 1).trim() : '';
+  return `<div class="st-bar${head ? ' has-tag' : ''}" data-st-bar>
       <span class="st-box mode-badge ${kind}">${MODES[kind] || ''}</span>
+      ${head ? `<span class="st-tag ${kind}">${head}</span>` : ''}
       <div class="st-mid">${mid}</div>
       <span class="st-box st-deadline" data-deadline hidden></span>
-    </div>${note ? `<p class="st-note ${kind}">${note}</p>` : ''}`;
+    </div>${tail ? `<p class="st-note ${kind}">${tail}</p>` : ''}`;
 }
 
 // 截止倒數：24 小時內才顯示；每 30 秒更新一次。回傳停止更新的函式

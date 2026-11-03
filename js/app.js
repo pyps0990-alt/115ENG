@@ -3,7 +3,7 @@ import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow,
 import { store } from './storage.js';
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
-import { renderStudentChip, mountInlineForm, historyReady, closeChipPanel } from './student.js';
+import { renderStudentChip, mountInlineForm, historyReady, closeChipPanel, maskName } from './student.js';
 import { LEVELS, PASS, levelsFor, quizCount } from './levels.js';
 import { initNav, updateNav } from './nav.js';
 import { flushOutbox, pendingItems, clearOutbox, outboxStatus, rejectedItems } from './submit.js';
@@ -161,7 +161,7 @@ function renderHome() {
   const s = store.student();
   app.innerHTML = s
     ? `<section class="hero compact">
-        <h1>${esc(s.name)}，今天從哪一課開始？</h1>
+        <h1>${esc(maskName(s.name))}，今天從哪一課開始？</h1>
         <p id="progress-slot"></p>
       </section>
       <div id="next-slot"></div>
@@ -435,7 +435,7 @@ async function renderMe() {
   await historyReady();
   const rows = visibleUnits().map((u) => ({ u, ...unitStatus(u) })).sort((a, b) => a.rank - b.rank || lessonCmp(a.u.lesson, b.u.lesson));
   const count = (k) => rows.filter((r) => r.k === k).length;
-  const masked = s.name.length >= 2 ? `${s.name[0]}〇${s.name.slice(2)}` : s.name;
+  const masked = maskName(s.name);
   app.innerHTML = `
     <a class="back" href="#/">${icon.back} 所有單元</a>
     <section class="me-head">

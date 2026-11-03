@@ -156,6 +156,8 @@ main.container { padding-block: 24px 56px; outline: none; flex: 1 0 auto; }
 .hint-left { font-variant-numeric: tabular-nums; opacity: .8; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
 .btn-row.center { justify-content: center; }
+/* 手機上主要動作按鈕撐滿整排，好按 */
+@media (max-width: 560px) { .gate-card .btn-row > .btn, form.welcome .btn-row > .btn { flex: 1 1 100%; justify-content: center; } }
 
 .card { background: var(--surface); border-radius: var(--radius); padding: 20px; }
 .eyebrow { font-family: var(--font-en); font-size: .76rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--steel); }
@@ -869,6 +871,7 @@ button.menu-item { width: 100%; border: 0; background: none; font: inherit; text
 .me-sum .sum.miss b { color: var(--bad-ink); }
 .me-sum .sum.retake b { color: var(--amber-ink); }
 .me-sum .sum.todo b { color: var(--amber-ink); }
+@media (max-width: 560px) { .me-sum { display: grid; grid-template-columns: 1fr 1fr; } } /* 手機 2×2，不會剩一張掉到下一行 */
 .me-list { display: grid; gap: 10px; }
 .me-row { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; background: var(--surface); border: 1.5px solid transparent; text-decoration: none; color: var(--navy); transition: transform var(--dur-1) var(--ease), border-color .2s, background .2s; }
 .me-row:hover { border-color: var(--navy); background: var(--white); }
@@ -1042,7 +1045,7 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .hp-link { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; font-weight: 700; color: var(--navy); text-decoration: none; font-variant-numeric: tabular-nums; }
 .hp-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .hp-link .ic { width: 16px; height: 16px; }
-.auto-opt { display: flex; align-items: center; justify-content: space-between; gap: 4px 14px; }
+.auto-opt { margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 4px 14px; }
 .auto-opt .link-btn { font-size: .88rem; font-weight: 600; color: var(--steel); }
 .kb-hint, .auto-cue { font-size: .85rem; color: var(--steel); }
 .auto-cue { font-weight: 700; color: var(--navy); }
@@ -1306,10 +1309,15 @@ body.integrity-block::after {
 .gate-dl .st-deadline .ic { width: 17px; height: 17px; }
 @keyframes st-urge { 50% { background: #FECACA; } }
 .st-note { margin: 0 0 14px; font-size: .86rem; font-weight: 700; color: var(--steel); }
+/* 狀態列裡的一句話（算不算分）：桌機在進度下方一行，手機跟模式標籤同一行 */
+.st-bar.has-tag { grid-template-areas: "mode mid dl" "tag tag tag"; row-gap: 6px; }
+.st-tag { grid-area: tag; min-width: 0; font-size: .82rem; font-weight: 800; color: var(--steel); line-height: 1.35; }
+.st-tag.official { color: var(--navy); }
 .st-note.official { color: var(--navy); }
 @media (max-width: 720px) {
   .st-bar { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "mode dl" "mid mid"; gap: 10px 12px; }
   .st-deadline { justify-self: end; }
+  .st-bar.has-tag { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "mode tag dl" "mid mid mid"; row-gap: 10px; }
 }
 @media (max-width: 420px) {
   :root { --st-h: 36px; }
