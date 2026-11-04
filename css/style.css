@@ -1700,17 +1700,18 @@ html { scroll-padding-top: var(--sticky-h, 0px); }
 }
 .dock a { white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 50px; height: 50px; padding: 0 14px; border-radius: 999px; color: var(--steel); text-decoration: none; font-weight: 900; font-size: .92rem; transition: background .25s var(--ease), color .25s; }
 .dock a .ic { width: 22px; height: 22px; }
-.dock a:not([aria-current]) span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } /* 沒選到的只留圖示（文字給讀螢幕） */
+.dock a { width: 124px; padding: 0; transition: color .3s var(--ease); }
 .dock { touch-action: none; user-select: none; -webkit-user-select: none; }
 .dock a { position: relative; z-index: 1; -webkit-tap-highlight-color: transparent; }
-.dock a[aria-current] { color: var(--white); padding: 0 20px; }
+.dock a[aria-current] { color: var(--white); }
 /* 選取膠囊：深藍、在分頁後面，換頁時滑過去（稍微過衝），拖動時跟著手指 */
 .dock-ink { position: absolute; z-index: 0; left: 0; top: 6px; height: 50px; width: 0; border-radius: 999px; background: var(--navy);
-  box-shadow: 0 4px 12px rgba(30, 58, 138, .25); transition: transform .5s cubic-bezier(.22, 1.35, .36, 1), width .35s var(--ease); pointer-events: none; }
+  box-shadow: 0 4px 12px rgba(30, 58, 138, .25); transition: transform .42s cubic-bezier(.3, 1.22, .4, 1), box-shadow .2s; pointer-events: none; }
 .dock.dragging .dock-ink { box-shadow: 0 10px 22px rgba(30, 58, 138, .3); }
 @media (prefers-reduced-motion: reduce) { .dock-ink { transition: none; } }
-.dock a:not([aria-current]):hover { background: rgba(30, 58, 138, .08); color: var(--navy); }
+.dock a:not([aria-current]):hover { color: var(--navy); }
 body.has-dock main.container { padding-bottom: 110px; }
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) { .dock { background: var(--white); } }
 @media (prefers-reduced-transparency: reduce) { .dock { background: var(--white); -webkit-backdrop-filter: none; backdrop-filter: none; } }
-.dock.dragging a[aria-current] { color: var(--steel); } /* 拖動時膠囊離開原本的分頁：文字改深色才看得到 */
+.dock.dragging a { color: var(--steel); } /* 拖動時：膠囊底下的分頁字是白的，其他是深灰 */
+.dock.dragging a.over { color: var(--white); }

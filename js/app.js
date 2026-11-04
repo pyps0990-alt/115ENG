@@ -143,6 +143,7 @@ function initDockDrag(dock) {
     if (pid === null) return;
     pid = null;
     dock.classList.remove('dragging');
+    links().forEach((a) => a.classList.remove('over'));
     if (!dragging) return;
     dragging = false;
     const dx = Math.abs(e.clientX - sx); const dy = Math.abs(e.clientY - sy);
@@ -174,8 +175,10 @@ function initDockDrag(dock) {
     e.preventDefault();
     const lo = 6; const hi = dock.clientWidth - w - 6; const fx = x0 + (e.clientX - sx);
     const x = fx < lo ? lo + rubber(fx - lo, 18) : fx > hi ? hi + rubber(fx - hi, 18) : fx;
-    const y = reduceMotion.matches ? 0 : rubber(e.clientY - sy, 12);
-    ink.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(1.08)`;
+    const y = reduceMotion.matches ? 0 : rubber(e.clientY - sy, 10);
+    ink.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(1.06)`;
+    const cx = x + w / 2;
+    links().forEach((a) => a.classList.toggle('over', Math.abs(a.offsetLeft + a.offsetWidth / 2 - cx) < a.offsetWidth / 2));
   }, { passive: false });
   dock.addEventListener('pointerup', (e) => finish(e, false));
   dock.addEventListener('pointercancel', (e) => finish(e, true));

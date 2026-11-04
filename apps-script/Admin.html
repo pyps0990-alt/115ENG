@@ -5398,7 +5398,7 @@
       };
 
       // 按住、拖動、放開
-      var dragging = false, startX = 0, startY = 0, pid = null, grab = 0, hover = null, moved = false, pressT = null;
+      var axis = '', dragging = false, startX = 0, startY = 0, pid = null, grab = 0, hover = null, moved = false, pressT = null;
       var nearest = function (x) {
         var g = geo || measure(), best = null, d = Infinity;
         g.tabs.forEach(function (t) { var c = g.left + t.c; if (Math.abs(c - x) < d) { d = Math.abs(c - x); best = t.el; } });
@@ -5420,16 +5420,20 @@
         if (!dragging) {
           if (Math.hypot(e.clientX - startX, e.clientY - startY) < 6) return;
           dragging = true; moved = true;
+          // 一開始往哪個方向拖就鎖定那個方向：上下拉時膠囊只上下動，不會因為手指左右飄而忽長忽短
+          axis = Math.abs(e.clientY - startY) > Math.abs(e.clientX - startX) ? 'y' : 'x';
           try { rail.setPointerCapture(pid); } catch (err) {}
           rail.classList.add('lg-drag'); ink.classList.add('lifted');
-          S.to = 1.2; S.k = 480; S.c = 20;
+          S.to = axis === 'y' ? 1.08 : 1.16; S.k = 420; S.c = 36; // 鼓起來但不晃
         }
         e.preventDefault();
         var g = geo || measure(), w = baseW || (R.x - L.x);
         // 拖到兩端外面、或往上往下拉：膠囊跟著手指但越拉越緊（橡皮筋，有極限），分頁列本身不動
         var fx = e.clientX - g.left - grab, lo = 4, hi = g.width - w - 4;
         var x = fx < lo ? lo + rubber(fx - lo, 22) : fx > hi ? hi + rubber(fx - hi, 22) : fx;
-        Y.k = 900; Y.c = 60; Y.to = calm() ? 0 : rubber(e.clientY - startY, 16);
+        // 上下直接跟著手指（不經過彈簧，不會延遲或晃動）；左右拖時上下只留一點點
+        Y.to = Y.x = calm() ? 0 : rubber(e.clientY - startY, axis === 'y' ? 16 : 6); Y.v = 0;
+        if (axis === 'y') { run(); return; }
         // 拖動時兩邊都追手指（前面那邊快、後面那邊慢），手指甩得快膠囊就拉長
         var right = x > L.to;
         L.k = right ? 260 : 700; R.k = right ? 700 : 260; L.c = R.c = 30;
@@ -5440,13 +5444,13 @@
       var end = function (e) {
         if (pid !== e.pointerId) return;
         pid = null;
-        S.to = 1; S.k = 380; S.c = 16; Y.to = 0; Y.k = 300; Y.c = 13; run(); // 放開：縮回原大小、彈回原位，稍微過衝
+        S.to = 1; S.k = 380; S.c = 26; Y.to = 0; Y.k = 320; Y.c = 22; run(); // 放開：縮回原大小、彈回原位，只輕輕過衝一次
         if (!dragging) return;
         dragging = false;
         rail.classList.remove('lg-drag'); ink.classList.remove('lifted');
         if (hover) hover.classList.remove('lg-hover');
         var dx = Math.abs(e.clientX - startX), dy = Math.abs(e.clientY - startY);
-        var target = e.type !== 'pointerup' || (dx < 28 && dy > dx) ? current() : nearest(e.clientX);
+        var target = e.type !== 'pointerup' || axis === 'y' || (dx < 28 && dy > dx) ? current() : nearest(e.clientX);
         hover = null;
         moveTo(target);
         if (target && target !== current()) setTimeout(function () { target.click(); }, 40);
