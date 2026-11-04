@@ -157,7 +157,7 @@ async function myEmail() {
 export async function getStaffPrefs() {
   const email = await myEmail();
   if (!email) return {};
-  const snap = await getDoc(doc(db, 'staffPrefs', email));
+  const snap = await withRetry(() => getDoc(doc(db, 'staffPrefs', email)));
   return snap.exists() ? snap.data() : {};
 }
 // tours：{ 導覽代號: 看過的時間（毫秒） }，跟帳號上原本的合併
@@ -166,7 +166,7 @@ export async function saveTours(tours) {
   if (!email) return;
   const clean2 = {};
   Object.keys(tours || {}).slice(0, 30).forEach((k) => { if (/^[a-z0-9-]{1,30}$/.test(k)) clean2[k] = Number(tours[k]) || Date.now(); });
-  await setDoc(doc(db, 'staffPrefs', email), { tours: clean2, updatedAt: serverTimestamp() }, { merge: true });
+  await withRetry(() => setDoc(doc(db, 'staffPrefs', email), { tours: clean2, updatedAt: serverTimestamp() }, { merge: true }));
 }
 
 // 「需要確認」的作答，老師看過按「已確認」：acks/{attemptId} = { unit, at, by }。只有老師讀寫（firestore.rules）
@@ -178,25 +178,29 @@ export async function listAcks() {
 export async function setAcks(items, on = true) {
   const { auth } = await authKit();
   const by = String((auth.currentUser && auth.currentUser.email) || '').toLowerCase();
-  const batch = writeBatch(db);
-  items.slice(0, 400).forEach((x) => {
-    const id = clean(x.attemptId, 64);
-    if (!id) return;
-    const ref = doc(db, 'acks', id);
-    if (on) batch.set(ref, { unit: clean(x.unit, 60), at: serverTimestamp(), by });
-    else batch.delete(ref);
+  await withRetry(() => {
+    const batch = writeBatch(db);
+    items.slice(0, 400).forEach((x) => {
+      const id = clean(x.attemptId, 64);
+      if (!id) return;
+      const ref = doc(db, 'acks', id);
+      if (on) batch.set(ref, { unit: clean(x.unit, 60), at: serverTimestamp(), by });
+      else batch.delete(ref);
+    });
+    return batch.commit();
   });
-  await batch.commit();
 }
 
 // 老師後台直接讀 Firestore 的公開文件（設定 config、題目 content_<單元>）：約 0.1 秒，不用等 Apps Script 的 1～3 秒。沒有這份文件回傳 null
 export async function readPublic(id) {
   // 題目：先讀只有老師讀得到的完整版（含答案、解析）；讀不到（還沒分開存的舊題目）才讀公開版
   if (/^content_/.test(id)) {
+    // 被拒（閒置太久、登入憑證過期）時先換新憑證重試；還是被拒就丟出錯誤，讓後台改問 Apps Script（拿到的也是完整版）。
+    // 不能退回公開版：公開版拿掉了答案，老師拿去編輯再存，答案就不見了
     try {
-      const full = await getDoc(doc(db, 'secure', id));
+      const full = await withRetry(() => getDoc(doc(db, 'secure', id)));
       if (full.exists()) return JSON.parse(full.data().json);
-    } catch { /* 改讀公開版 */ }
+    } catch (e) { if (denied(e)) throw e; /* 其他錯誤（離線等）：改讀公開版 */ }
   }
   const snap = await getDoc(doc(db, 'public', id));
   if (!snap.exists()) return null;
@@ -204,6 +208,16 @@ export async function readPublic(id) {
 }
 
 // cb(null) 未登入；cb({ email, role }) 已登入，role 為 'teacher'、'admin' 或 null（不在名單）
+// 後台分頁閒置一段時間（切到別的分頁、電腦休眠）再回來：先換新登入憑證，接下來的讀寫就不會因為憑證過期被拒
+let hiddenAt = 0;
+export function keepCredsFresh(onBack) {
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+    if (hiddenAt && Date.now() - hiddenAt > 10 * 60000) { await refreshCreds(); if (onBack) onBack(); }
+    hiddenAt = 0;
+  });
+}
+
 export function watchStaff(cb) {
   let unsub = () => {};
   let dead = false;
@@ -265,15 +279,20 @@ export const staffIdToken = async () => {
 // rows: [{ seat, name }]；只有 admins 名單內的帳號能寫入 vault
 export async function importRoster(cls, rows) {
   const c = clean(cls, 8);
-  const batch = writeBatch(db);
+  const list = [];
   for (const r of rows) {
     const seat = clean(r.seat, 4);
     const name = clean(r.name, 40);
-    const key = await studentKey(c, seat, name);
-    batch.set(doc(db, 'vault', key), { cls: c, seat, name, updatedAt: serverTimestamp() });
-    batch.set(doc(db, 'classes', c, 'seats', seat), { cls: c, seat, name, updatedAt: serverTimestamp() }, { merge: true });
+    list.push({ seat, name, key: await studentKey(c, seat, name) });
   }
-  await batch.commit();
+  await withRetry(() => {
+    const batch = writeBatch(db);
+    for (const { seat, name, key } of list) {
+      batch.set(doc(db, 'vault', key), { cls: c, seat, name, updatedAt: serverTimestamp() });
+      batch.set(doc(db, 'classes', c, 'seats', seat), { cls: c, seat, name, updatedAt: serverTimestamp() }, { merge: true });
+    }
+    return batch.commit();
+  });
 }
 
 /* ---------------- 老師設定即時同步 ---------------- */
@@ -289,6 +308,14 @@ export function watchPublicConfig(cb) {
 // 學生端幾乎同時就收到。docs: { config: {...}, content_l1: { v, data } }，一個請求寫完，要嘛全成功要嘛全不寫。
 // 用 REST 而不是 SDK 的寫入：可以設逾時、斷線時不會把舊的修改排在佇列裡，之後才突然蓋掉新的設定。
 export async function publishPublic(docs, ms = 8000) {
+  try { return await publishOnce(docs, ms); } catch (e) {
+    // 401／403：閒置太久登入憑證過期，換一張新的再送一次
+    if (!/^(401|403|UNAUTHENTICATED|PERMISSION_DENIED)$/.test(String(e.code))) throw e;
+    await refreshCreds();
+    return publishOnce(docs, ms);
+  }
+}
+async function publishOnce(docs, ms) {
   const idToken = await staffIdToken();
   const root = 'projects/eng-3385e/databases/(default)/documents';
   const ctrl = new AbortController();

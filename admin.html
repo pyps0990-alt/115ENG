@@ -4162,6 +4162,7 @@
             (needsCheck(x) ? '<br><span class="flag"><svg class="ic-w" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>' + esc(x.check) + '</span>' : '') + '</span><span class="' + (Number(x.pct) >= PASS_PCT ? 'score-ok' : 'score-no') + '">' + esc(x.pct) + '</span></div>';
         }).join('') : '<p class="muted" style="margin:0">最近 24 小時沒有人交卷。</p>';
     }
+    window.loadAttempts = function () { loadAttempts(); }; // 閒置後回到後台時重新抓成績（admin.html 的 keepCredsFresh 會呼叫）
     function loadAttempts() {
       if (!window.fbAttempts) { drawOverview(); return; }
       window.fbAttempts({ days: 120, max: 3000 }).then(function (list) {
@@ -6575,6 +6576,8 @@
       // 成績分頁「即時（Firebase）」：直接讀 Firestore（老師帳號才讀得到）
       window.fbAttempts = (opts) => fb.listAttempts(opts);
       window.staffInfo = { email: staff.email, inAdmins: staff.inAdmins };
+      // 閒置超過 10 分鐘再回來：先換新登入憑證，再重新抓成績（數字不會停在上次的資料）
+      fb.keepCredsFresh(() => { if (typeof window.loadAttempts === 'function') window.loadAttempts(); });
       // 「需要確認」的已確認紀錄
       window.fbAcks = () => fb.listAcks();
       window.fbSetAcks = (items, on) => fb.setAcks(items, on);

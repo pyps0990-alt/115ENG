@@ -17,6 +17,8 @@ export async function getDoc(ref) {
   await new Promise((r) => setTimeout(r, 20));
   if (ref.path.startsWith('vault/')) return snap(S.allowedKey === null || ref.path === `vault/${S.allowedKey}` ? { name: S.studentName } : undefined);
   if (ref.path.startsWith('admins/')) return snap(S.staff && S.staff.includes(ref.path.slice(7)) ? { role: 'teacher' } : undefined);
+  // 測試可以讓讀完整版題目（secure/）一直被拒：window.__fb.denySecure = true
+  if (ref.path.startsWith('secure/') && S.denySecure) { const e = new Error('Missing or insufficient permissions.'); e.code = 'permission-denied'; throw e; }
   return snap(S.docs[ref.path]);
 }
 export function onSnapshot(ref, cb) {
