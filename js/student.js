@@ -142,9 +142,10 @@ export function openStudentDialog(onSave) {
 // 名字只顯示第一和第三個字（第二個字用〇代替，旁人看螢幕不會看到全名）
 export const maskName = (n) => (n.length >= 2 ? `${n[0]}〇${n.slice(2)}` : n);
 
-// 「我的成績」頁最下方的帳號區：切換學生、登出（上方導覽列只有 B5，不放名牌與選單）
+// 「帳號」頁（底部分頁列的頭像）的帳號區：切換學生、登出（上方導覽列只有 B5，不放名牌與選單）
 export const accountHTML = (s) => `<section class="me-acct" aria-label="帳號">
     <h2>不是 ${esc(maskName(s.name))}？</h2>
+    <p class="muted">用別人的手機或共用電腦時，做完記得登出。</p>
     <button class="btn" type="button" data-switch>切換學生</button>
     <button class="btn ghost danger-ghost" type="button" data-logout>登出並清除這台裝置</button>
   </section>`;

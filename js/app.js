@@ -77,7 +77,7 @@ async function route() {
   // 還沒確認身分：單元網址一律導回首頁填資料（上方只有 B5，沒有選單與名牌；切換學生、登出在「我的成績」頁）
   const loggedIn = !!store.student();
   if (kind === 'u' && !loggedIn) { location.replace('#/'); return; }
-  syncDock(loggedIn && (!kind || kind === 'me') ? (kind || 'home') : null);
+  syncDock(loggedIn && (!kind || kind === 'me' || kind === 'account') ? (kind || 'home') : null);
   paintTopLeft(kind, loggedIn);
   if (kind === 'u' && id && changed && !(await assignGuard(id))) return;
   const render = async () => {
@@ -85,6 +85,7 @@ async function route() {
       if (kind === 'u' && id) await renderUnit(id, sub);
       else if (kind === 'teacher') renderTeacher();
       else if (kind === 'me') await renderMe();
+      else if (kind === 'account') renderAccount();
       else if (kind === 'privacy') renderPrivacy();
       else if (kind === 'diag') renderDiag();
       else renderHome();
@@ -102,7 +103,7 @@ async function route() {
 function paintTopLeft(kind, loggedIn) {
   const box = document.getElementById('top-left');
   if (!box) return;
-  const top = !kind || kind === 'me';
+  const top = !kind || kind === 'me' || kind === 'account';
   if (top && !loggedIn) { box.innerHTML = ''; return; }
   if (top) {
     box.innerHTML = `<button class="top-btn" type="button" data-search aria-label="搜尋單元" title="搜尋單元">${icon.search}</button>`;
@@ -148,13 +149,11 @@ function syncDock(on) {
     const cur = a.dataset.dock === on;
     if (cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
-  // 我的成績這一格換成學生的頭像（名字第一個字）：使用者資訊合併在分頁列裡
-  const s = store.student(), me = dock.querySelector('a[data-dock="me"]');
-  if (s && me) {
-    const av = me.querySelector('.dock-av') || me.appendChild(Object.assign(document.createElement('span'), { className: 'dock-av' }));
-    av.textContent = (s.name || '?').trim().charAt(0);
-    me.setAttribute('aria-label', `${maskName(s.name)}：我的成績與帳號`); me.title = `${maskName(s.name)}・我的成績`;
-    me.classList.add('has-av');
+  // 帳號分頁：學生的頭像（名字第一個字）
+  const s = store.student(), acc = dock.querySelector('a[data-dock="account"]');
+  if (s && acc) {
+    acc.querySelector('.dock-av').textContent = (s.name || '?').trim().charAt(0);
+    acc.setAttribute('aria-label', `帳號：${maskName(s.name)}`); acc.title = `帳號・${maskName(s.name)}`;
   }
   if (on) requestAnimationFrame(() => placeDockInk(wasHidden));
   initDockDrag(dock);
@@ -596,7 +595,21 @@ async function renderMe() {
         <span class="txt"><b>${esc(unitName(r.u))}</b><span>${typeLabel(r.u.type)}・${esc(r.note)}</span></span>
         <span class="st">${esc(r.st)}</span></a>`).join('')}</div>`
       : `<div class="empty"><div class="big">${icon.inbox}</div><p>老師目前沒有開放任何單元。</p></div>`}
-    <p class="me-note">缺交是指：單元有截止時間、已經過了，而且沒有正式測驗紀錄。缺交的單元如果需要補作，請找老師。總分未達 ${PASS}% 的單元顯示「需補考」，重新做一次正式測驗，達標就通過。</p>
+    <p class="me-note">缺交是指：單元有截止時間、已經過了，而且沒有正式測驗紀錄。缺交的單元如果需要補作，請找老師。總分未達 ${PASS}% 的單元顯示「需補考」，重新做一次正式測驗，達標就通過。</p>`;
+}
+
+/* ---------------- 帳號（底部分頁列的頭像） ---------------- */
+function renderAccount() {
+  const s = store.student();
+  if (!s) { location.replace('#/'); return; }
+  document.title = '帳號 — B5 Practice';
+  app.innerHTML = `
+    <section class="me-head acct-head">
+      <span class="acct-av" aria-hidden="true">${esc((s.name || '?').trim().charAt(0))}</span>
+      <div><div class="eyebrow">Account</div>
+      <h1>${esc(maskName(s.name))}</h1>
+      <p class="muted" style="margin:0">${esc(s.cls)} 班 ${esc(s.seat)} 號</p></div>
+    </section>
     ${accountHTML(s)}`;
   bindAccount(app);
 }

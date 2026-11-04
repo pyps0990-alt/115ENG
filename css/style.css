@@ -1711,9 +1711,10 @@ body { background: var(--bg); }
 .dock a { position: relative; z-index: 1; -webkit-tap-highlight-color: transparent; }
 .dock a[aria-current] { color: var(--white); }
 /* 選取膠囊：深藍、在分頁後面，換頁時滑過去（稍微過衝），拖動時跟著手指 */
-.dock-ink { position: absolute; z-index: 0; left: 0; top: 6px; bottom: 6px; width: calc(50% - 8px); border-radius: 999px; background: var(--navy); transform: translateX(6px);
+.dock-ink { position: absolute; z-index: 0; left: 0; top: 6px; bottom: 6px; width: 76px; border-radius: 999px; background: var(--navy); transform: translateX(6px);
   box-shadow: 0 4px 12px rgba(30, 58, 138, .25); transition: transform .42s cubic-bezier(.3, 1.22, .4, 1), box-shadow .2s; pointer-events: none; }
-.dock[data-cur="1"] .dock-ink { transform: translateX(calc(100% + 10px)); }
+.dock[data-cur="1"] .dock-ink { transform: translateX(86px); }
+.dock[data-cur="2"] .dock-ink { transform: translateX(166px); }
 /* 往下滑時縮小（整列等比例縮小，只用 transform：不會讓版面移動，也比改寬高順） */
 .dock { transform-origin: 50% 100%; transition: transform .4s cubic-bezier(.22, 1.2, .36, 1); }
 .dock.mini { transform: translateX(-50%) scale(.8); }
@@ -1784,7 +1785,6 @@ body.has-dock .me-acct { margin-bottom: 96px; }
 body.exam .top-left { visibility: hidden; } /* 作答中：離開用下方橫幅的按鈕（會先確認） */
 
 /* 分頁列「我的成績」：學生頭像（名字第一個字） */
-.dock a.has-av > svg { display: none; }
 .dock-av { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--wash); color: var(--navy); font-weight: 900; font-size: .95rem; line-height: 1; box-shadow: inset 0 0 0 1.5px var(--line); transition: background .3s, color .3s, box-shadow .3s; }
 .dock a[aria-current] .dock-av, .dock.dragging a.over .dock-av { background: var(--amber); color: var(--navy); box-shadow: none; }
 .dock.dragging a:not(.over) .dock-av { background: var(--wash); box-shadow: inset 0 0 0 1.5px var(--line); }
@@ -1810,3 +1810,9 @@ dialog.search-sheet::backdrop { background: rgba(15, 23, 42, .3); }
 .ss-row.miss .st, .ss-row.retake .st { color: var(--bad-ink); }
 .ss-empty { margin: 24px 0; text-align: center; color: var(--steel); }
 @media (prefers-reduced-motion: reduce) { dialog.search-sheet[open] { animation: none; } }
+
+/* 帳號頁：大頭像＋名字 */
+.acct-head { display: flex; align-items: center; gap: 16px; }
+.acct-av { flex: none; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--amber); color: var(--navy); font-size: 1.7rem; font-weight: 900; }
+.acct-head h1 { margin: 2px 0; }
+.me-acct .muted { margin: -4px 0 4px; font-size: .88rem; }
