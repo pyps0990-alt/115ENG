@@ -44,6 +44,12 @@ s1 = await inkSt(); console.log('回到單元：膠囊回來', JSON.stringify(s1
   await sleep(1200);
   const r2 = await t.evaluate(() => ({ h: location.hash, on: document.getElementById('m-fab').classList.contains('on'), op: getComputedStyle(document.querySelector('.lg-ink')).opacity }));
   console.log('從 ＋ 拖回總覽：', JSON.stringify(r2)); if (r2.h !== '#overview' || r2.on || r2.op !== '1') bad++;
+  // 點 ＋：一步直接到新增單元（只有一次換頁轉場，中間不會先閃單元清單），手機不自動彈出鍵盤；＋ 沒有外框圓圈
+  await t.evaluate(() => { window.__panes = []; const sh = document.getElementById('shell'); new MutationObserver(() => window.__panes.push(sh.dataset.pane)).observe(sh, { attributes: true, attributeFilter: ['data-pane'] }); });
+  await t.tap('#m-fab'); await sleep(1000);
+  const r3 = await t.evaluate(() => ({ h: location.hash, panes: window.__panes, kb: document.activeElement && document.activeElement.tagName === 'INPUT', bg: getComputedStyle(document.querySelector('#m-fab .fab-ic')).backgroundImage }));
+  console.log('點 ＋：', JSON.stringify(r3)); if (r3.h !== '#units' || r3.panes.join() !== 'work' || r3.kb || r3.bg !== 'none') bad++;
+  await t.tap('.rail a[data-view="overview"]'); await sleep(900);
 }
 // 學生
 const p = await world.newPage(ctx, { student: true });

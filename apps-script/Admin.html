@@ -1332,6 +1332,10 @@
       .m-fab.on { color:#D97706; }
       .rail:has(.m-fab.on) a[aria-current="page"], .rail:has(.m-fab.on) a[aria-current="page"] svg { color:var(--steel) !important; } /* 膠囊在 ＋ 上：「單元」不要同時亮 */ /* 選到：框框（膠囊）照樣在，加號和「新增」變黃色 */
       .m-fab.on .fab-ic { background:transparent; border-color:transparent; box-shadow:none; color:var(--primary); }
+      /* ＋ 不要外面的圓圈：跟其他分頁一樣只有圖示 */
+      .m-fab .fab-ic { width:24px; height:24px; margin:0; border:0; border-radius:0; background:none !important; box-shadow:none !important; color:inherit; }
+      .m-fab svg { width:24px; height:24px; stroke-width:2.4; }
+      .m-fab:not(.on) { color:var(--steel); }
       .m-panel { top:calc(62px + env(safe-area-inset-top, 0px)) !important; bottom:auto !important; transform-origin:calc(100% - 26px) -24px !important; } /* 從右上角的頭像往下展開 */
       .m-acct { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; padding:12px 10px 4px; border-top:1px solid var(--line); }
       .m-acct[hidden] { display:none; }
@@ -4204,7 +4208,9 @@
       if (h[0] === 'unit' && h[1]) { if (units.some(function (u) { return u.id === h[1]; })) { openUnit(h[1], h[2]); return; } }
       var v = ['overview', 'units', 'live', 'students', 'scores', 'settings', 'help'].indexOf(h[0]) >= 0 ? h[0] : 'overview';
       showView(v);
-      shell.dataset.pane = v === 'units' ? 'list' : 'work';
+      // 按 ＋（新增單元）：直接到新增單元畫面，不先閃一下單元清單
+      shell.dataset.pane = v === 'units' && !SH.wantNew ? 'list' : 'work';
+      SH.wantNew = false;
     }
     // 有沒有儲存的修改：離開這一頁、換單元前提醒
     var dirtyNow = function () { return /尚未儲存/.test($('msg').textContent) || /尚未儲存/.test(($('ex-msg') || {}).textContent || ''); };
@@ -4842,10 +4848,17 @@
       var nb = slot('newunit'); var oldNew = nb.firstElementChild; if (oldNew) oldNew.hidden = true;
       var nu = document.createElement('div'); nu.id = 'nu2'; nb.appendChild(nu);
       // 手機版的「單元」頁是單元清單，新增單元的表單在另一個畫面：按了要切過去（網址本來就是 #units 時不會觸發換頁）
-      $('ulist-add').onclick = function () {
-        location.hash = '#units';
-        setTimeout(function () { if (SH.view === 'units') { $('shell').dataset.pane = 'work'; if (window.paintMobileTop) paintMobileTop(); } var t = $('nu2-title'); if (t) t.focus(); }, 80);
+      // 一步切到新增單元：換網址時由 route 直接顯示新增畫面（只有一次轉場）；已經在 #units 就原地切過去。
+      // 手機不自動把游標放進輸入框（鍵盤彈出會讓畫面跳動），電腦才自動聚焦
+      window.openNewUnit = function () {
+        var focus = function () { var t = $('nu2-title'); if (t && window.matchMedia('(pointer: fine)').matches) t.focus({ preventScroll: true }); };
+        if (location.hash !== '#units') { SH.wantNew = true; location.hash = '#units'; setTimeout(function () { SH.wantNew = false; focus(); }, 350); return; }
+        var go = function () { showView('units'); $('shell').dataset.pane = 'work'; if (window.placeInks) window.placeInks(); };
+        if (SH.view === 'units' && $('shell').dataset.pane === 'work') { focus(); return; }
+        if (window.withVT) window.withVT(go); else go();
+        setTimeout(focus, 350);
       };
+      $('ulist-add').onclick = function () { window.openNewUnit(); };
       // 學生
       var ss = slot('students');
       var sv = document.createElement('div'); sv.id = 'st-view'; ss.insertBefore(sv, ss.firstChild);
@@ -4930,6 +4943,7 @@
         t.finished.catch(function () {}); t.ready.catch(function () {});
         setTimeout(function () { if (!ran) { try { t.skipTransition(); } catch (e) {} go(); } }, 300);
       };
+      window.withVT = withVT;
       // 滑動的亮塊：分頁底線、左邊選單
       var tabs = document.querySelector('.u-tabs'), rail = document.querySelector('.rail');
       var tabInk = document.createElement('span'); tabInk.className = 'u-ink'; tabInk.setAttribute('aria-hidden', 'true'); tabs.appendChild(tabInk);
@@ -5291,7 +5305,7 @@
       var fab = document.createElement('button'); fab.type = 'button'; fab.className = 'm-fab'; fab.id = 'm-fab'; fab.setAttribute('aria-label', '新增單元'); fab.title = '新增單元';
       fab.innerHTML = '<span class="fab-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="lg-label">新增</span>';
       rail.insertBefore(fab, document.querySelector('.rail-who')); // 放在分頁列裡（中間），換頁時跟分頁列一起，不會淡出淡入
-      fab.onclick = function () { if (SH.view !== 'units') location.hash = '#units'; setTimeout(function () { if ($('ulist-add')) $('ulist-add').click(); paintMobileTop(); }, 60); };
+      fab.onclick = function () { window.openNewUnit(); };
       // 手機：頭像不再跳出小選單，改從下方滑出面板（學生、設定、教學、帳號）
       var mqM = window.matchMedia('(max-width: 900px)');
       document.addEventListener('click', function (e) {
