@@ -800,14 +800,20 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1
 /* 只用 opacity 與 transform（交給顯示卡處理，不會拖慢手機）；不用模糊效果，也不常駐 will-change */
 #app.page-in { animation: page-in-fwd var(--dur-2, .3s) var(--ease) both; }
 #app.page-in[data-dir="back"] { animation-name: page-in-back; }
-@keyframes page-in-fwd { from { transform: translate3d(0, 10px, 0); } }
-@keyframes page-in-back { from { transform: translate3d(0, -8px, 0); } }
-/* 換頁的殘影：舊畫面疊在新畫面上面淡出（在導覽列與分頁列底下），新畫面不用從透明開始，整個換頁是連續的 */
-.page-ghost { position: fixed; z-index: 15; margin: 0; pointer-events: none; animation: ghost-out .26s cubic-bezier(.4, 0, .2, 1) both; }
-.page-ghost.back { animation-name: ghost-out-back; }
-@keyframes ghost-out { to { opacity: 0; transform: translate3d(0, -6px, 0); } }
-@keyframes ghost-out-back { to { opacity: 0; transform: translate3d(0, 6px, 0); } }
-@media (prefers-reduced-motion: reduce) { .page-ghost { display: none; } }
+@keyframes page-in-fwd { from { opacity: 0; transform: translate3d(0, 10px, 0); } }
+@keyframes page-in-back { from { opacity: 0; transform: translate3d(0, -8px, 0); } }
+/* 換頁（支援 View Transition 的瀏覽器）：整個畫面交叉淡化——新畫面淡入時舊畫面先留著、晚一點才淡出，不會兩個都半透明閃出底色；
+   導覽列和底部分頁列另外拿出來，不淡入淡出（分頁列的膠囊照常滑動） */
+.topbar { view-transition-name: topbar; }
+.dock { view-transition-name: dock; }
+::view-transition-old(topbar), ::view-transition-old(dock) { display: none; }
+::view-transition-new(topbar), ::view-transition-new(dock), ::view-transition-group(topbar), ::view-transition-group(dock) { animation: none; }
+::view-transition-old(root) { animation: vt-page-out .2s cubic-bezier(.4, 0, 1, 1) .06s both; }
+::view-transition-new(root) { animation: vt-page-in .26s cubic-bezier(.2, .8, .2, 1) both; }
+html[data-nav="back"]::view-transition-new(root) { animation-name: vt-page-in-back; }
+@keyframes vt-page-out { to { opacity: 0; } }
+@keyframes vt-page-in { from { opacity: 0; transform: translate3d(0, 10px, 0); } }
+@keyframes vt-page-in-back { from { opacity: 0; transform: translate3d(0, -8px, 0); } }
 
 /* 首頁單元卡片依序浮現 */
 

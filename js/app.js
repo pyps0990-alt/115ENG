@@ -38,26 +38,6 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let lastRendered = null;
 let lastDepth = 0;
 let lastKind = '';
-// 換頁更連續：舊畫面留一份「殘影」疊在上面慢慢淡出，新畫面在底下直接出現（交叉淡化，中間不會閃一下空白）。
-// 殘影只是外觀（不能點、不給輔助科技讀），固定在原本的位置，淡出後移除；底部分頁列不在裡面，膠囊照樣滑動
-function ghostOut(dir) {
-  if (reduceMotion.matches || !app.firstElementChild) return;
-  document.querySelectorAll('.page-ghost').forEach((x) => x.remove());
-  const r = app.getBoundingClientRect();
-  if (r.bottom < 0 || r.top > innerHeight) return;
-  const g = app.cloneNode(true);
-  g.removeAttribute('id'); g.removeAttribute('tabindex');
-  g.classList.remove('page-in'); g.classList.add('page-ghost');
-  if (dir === 'back') g.classList.add('back');
-  g.setAttribute('aria-hidden', 'true'); g.inert = true;
-  g.querySelectorAll('.q-dock, .ln-bar, dialog, [id]').forEach((x) => { if (x.matches('.q-dock, .ln-bar, dialog')) x.remove(); else x.removeAttribute('id'); });
-  g.style.cssText = `top:${r.top}px;left:${r.left}px;width:${r.width}px`;
-  document.body.appendChild(g);
-  const done = () => g.remove();
-  g.addEventListener('animationend', (e) => { if (e.target === g) done(); }); // 只看殘影自己的淡出（裡面卡片的動畫結束不算）
-  setTimeout(done, 400);
-}
-
 function pageIn(changed, first) {
   // 第一次畫面不做進場動畫：從透明開始會讓「最大內容繪製」延後；也不用強制重排，改在下一格重新加上動畫
   if (!changed || first || reduceMotion.matches) return;
@@ -85,7 +65,6 @@ async function route() {
   // 回到上一層（單元 → 首頁）和進到下一層的進場方向相反，前進／後退有空間感（只做垂直位移，不左右移動）
   const depth = here === '#/' || here === '#' ? 0 : 1;
   if (changed) app.dataset.dir = depth < lastDepth ? 'back' : 'fwd';
-  if (changed && !first) ghostOut(app.dataset.dir);
   const prevKind = lastKind;
   lastDepth = depth;
   if (cleanup) { try { cleanup(); } catch { /* ignore */ } cleanup = null; }
@@ -95,7 +74,6 @@ async function route() {
   if (location.hash === '#/' || location.hash === '#') history.replaceState(null, '', location.pathname + location.search);
   const [, kind, id, sub] = location.hash.split('/').map(decodeURIComponent);
   lastKind = kind || '';
-  window.scrollTo(0, 0);
   // 還沒確認身分：單元網址一律導回首頁填資料（上方只有 B5，沒有選單與名牌；切換學生、登出在「我的成績」頁）
   const loggedIn = !!store.student();
   if (kind === 'u' && !loggedIn) { location.replace('#/'); return; }
@@ -115,10 +93,21 @@ async function route() {
       showError(err);
     }
   };
-  await render();
+  // 換頁更連續：支援的瀏覽器用 View Transition（截下畫面上看到的舊畫面，和新畫面交叉淡化；導覽列與分頁列不參與、照常即時動畫）。
+  // 新畫面最多等 0.15 秒（單元要下載題目時先換到載入中的畫面），不會讓畫面停住太久；不支援的瀏覽器照舊淡入
+  const run = async () => { window.scrollTo(0, 0); await render(); };
+  const useVT = changed && !first && !!document.startViewTransition && !reduceMotion.matches && document.visibilityState === 'visible';
+  if (useVT) {
+    let job = null;
+    document.documentElement.dataset.nav = app.dataset.dir || 'fwd';
+    const t = document.startViewTransition(() => { job = run(); return Promise.race([job, new Promise((r) => setTimeout(r, 150))]); });
+    t.finished.catch(() => {}); t.ready.catch(() => {});
+    await t.updateCallbackDone.catch(() => {});
+    await (job || run());
+  } else await run();
   reportView();
   if (!first) await settleFonts(); // 剛開啟網站不等字型、也不強制排版：開啟速度優先
-  pageIn(changed, first);
+  if (!useVT) pageIn(changed, first);
 }
 
 // 上方導覽列左邊：單元等內頁放「回首頁」；首頁、我的成績（最上層）放「搜尋單元」；還沒登入什麼都不放。B5 在右邊
