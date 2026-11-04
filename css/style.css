@@ -1593,6 +1593,11 @@ html { scroll-padding-top: var(--sticky-h, 0px); }
   display: grid; gap: 6px; text-align: left;
 }
 .cover h1, .unit-head h1, .me-head h1 { color: var(--white); }
+/* iPhone 在頁面頂端往下拉（回彈）時，露出來的是最外層的底色：停在上半部時改成深藍，跟導覽列、封面接在一起，不會出現一條白邊；
+   往下捲之後換回淺色（拉到底部回彈時露出淺色）。body 自己畫淺灰底，所以頁面本身不受影響 */
+html { background: var(--bg); transition: background-color 0s .2s; }
+@media (hover: none) and (pointer: coarse) { html.at-top { background: var(--navy); transition: none; } } /* 只在觸控裝置（有回彈）；電腦的捲軸槽不會變藍 */
+body { background: var(--bg); }
 .cover p, .me-head p, .unit-head .sub { color: #C7D2FE; }
 .cover-eyebrow, .unit-head .eyebrow, .me-head .eyebrow { color: #FCD34D; font-family: var(--font-en); font-size: .78rem; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
 .unit-head .eyebrow .ic { color: #FCD34D; }

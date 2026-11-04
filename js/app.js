@@ -900,6 +900,7 @@ async function boot() {
   const evaluate = () => {
     ticking = false;
     const y = Math.max(0, window.scrollY);
+    document.documentElement.classList.toggle('at-top', window.scrollY < 160);
     if (document.body.classList.contains('exam')) return; // 考試中導覽列固定不變
     const want = scrolled ? y >= 24 : y > 64;
     if (want === scrolled) return;

@@ -1297,6 +1297,7 @@
        「更多」收進頭像（從右上角往下展開：學生、設定、教學、帳號）。 */
     #work .w-head { position:relative; isolation:isolate; margin:-26px -34px 0; padding:30px 34px 86px; background:var(--navy); color:#C7D2FE; border-radius:0 0 28px 56px; align-items:flex-end; }
     #work .w-head h1 { display:block; color:#fff; font-size:2rem; }
+    #work .w-head::before { content:""; position:absolute; left:0; right:0; bottom:100%; height:100vh; background:var(--navy); pointer-events:none; } /* 手機在頂端往下拉（回彈）時，上面露出來的也是深藍，不會有白邊 */
     #work .w-head .w-sub, #work .w-head .muted { color:#C7D2FE !important; }
     #work .w-head .w-sub .pill.warn { background:#FEF3C7; color:#92400E; }
     #work .w-head + * { position:relative; z-index:1; margin-top:-60px; }
