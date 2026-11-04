@@ -1311,28 +1311,29 @@
     #work .w-head::before { content:""; position:absolute; left:0; right:0; bottom:100%; height:100vh; background:var(--navy); pointer-events:none; } /* 手機在頂端往下拉（回彈）時，上面露出來的也是深藍，不會有白邊 */
     #work .w-head .w-sub, #work .w-head .muted { color:#C7D2FE !important; }
     #work .w-head .w-sub .pill.warn { background:#FEF3C7; color:#92400E; }
-    #work .w-head + * { position:relative; z-index:1; margin-top:-60px; }
-    #work [data-pane-view="unit"] .w-head { padding-bottom:30px; margin-bottom:16px; }
-    #work [data-pane-view="unit"] .w-head + * { margin-top:0; }
+    #work .w-head { padding-bottom:34px; margin-bottom:18px; }
+    #work .w-head:has(+ .ov-grid) { padding-bottom:86px; margin-bottom:0; }
+    #work .w-head + .ov-grid { position:relative; z-index:1; margin-top:-60px; } /* 只有總覽（第一個就是卡片）疊在封面上；其他頁開頭是文字或篩選，接在封面下面才不會一半壓在深藍上 */
     #work .w-head .btn { background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.3); box-shadow:inset 0 1px 0 rgba(255,255,255,.3); }
     #work .w-head .btn:hover { background:rgba(255,255,255,.24); }
     #work .w-head .pill.u-state.open { background:#DCFCE7; color:#166534; }
     #work .w-head + .ov-grid > .card, #work .w-head + .card { box-shadow:0 16px 36px rgba(30, 58, 138, .14); border-color:transparent; }
     .shell.list-off #work .w-head { margin-left:-68px; padding-left:68px; }
     @media (max-width:900px) {
-      #work .w-head { margin:-18px -14px 0; padding:18px 20px 78px; border-radius:0 0 0 48px; }
+      #work .w-head { margin:-18px -14px 16px; padding:18px 20px 30px; border-radius:0 0 0 48px; }
+      #work .w-head:has(+ .ov-grid) { padding-bottom:78px; margin-bottom:0; }
       #work .w-head h1 { font-size:1.75rem; }
-      #work .w-head + * { margin-top:-56px; }
+      #work .w-head + .ov-grid { margin-top:-56px; }
       .m-top-title { opacity:0; transform:translateY(4px); transition:opacity .2s, transform .2s; }
       .shell.m-scrolled .m-top-title, .shell[data-pane="list"] .m-top-title { opacity:1; transform:none; }
       .rail-more { display:none !important; }
-      .rail { right:calc(12px + 66px + 10px) !important; }
-      .rail.lg-mini { left:14% !important; right:calc(14% + 62px) !important; }
+      /* ＋ 新增單元：分頁列正中間的橘色圓鈕（總覽、單元、＋、成績、即時） */
+      .rail a[data-view="scores"] { order:4 !important; } .rail a[data-view="live"] { order:5 !important; }
       .m-top { background:var(--navy) !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; } /* 封面已經是深藍：標題列不用即時模糊（捲動時最耗效能的一塊） */
-      .m-fab { position:fixed; z-index:31; right:12px; bottom:max(6px, calc(env(safe-area-inset-bottom, 0px) - 10px)) !important; width:66px; height:66px; border:0; border-radius:50%; background:var(--primary); color:var(--navy); display:grid; place-items:center; cursor:pointer;
-        box-shadow:0 10px 24px rgba(245, 158, 11, .38), inset 0 1px 0 rgba(255,255,255,.5); transition:width .3s cubic-bezier(.22,1.2,.36,1), height .3s cubic-bezier(.22,1.2,.36,1), transform .15s; }
-      .m-fab:active { transform:scale(.92); }
-      .m-fab svg { width:28px; height:28px; fill:none; stroke:currentColor; stroke-width:2.6; stroke-linecap:round; }
+      .m-fab { order:3; position:relative; z-index:2; flex:none; align-self:center; width:52px; height:52px; margin:0 4px; border:0; border-radius:50%; background:var(--primary); color:var(--navy); display:grid; place-items:center; cursor:pointer;
+        box-shadow:0 6px 16px rgba(245, 158, 11, .4), inset 0 1px 0 rgba(255,255,255,.5); transition:transform .15s; -webkit-tap-highlight-color:transparent; }
+      .m-fab:active { transform:scale(.9); }
+      .m-fab svg { width:26px; height:26px; fill:none; stroke:currentColor; stroke-width:2.8; stroke-linecap:round; }
       .m-panel { top:calc(62px + env(safe-area-inset-top, 0px)) !important; bottom:auto !important; transform-origin:calc(100% - 26px) -24px !important; } /* 從右上角的頭像往下展開 */
       .m-acct { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; padding:12px 10px 4px; border-top:1px solid var(--line); }
       .m-acct[hidden] { display:none; }
@@ -5303,7 +5304,7 @@
       // 圓形 ＋：新增單元（放在下方分頁列旁邊）
       var fab = document.createElement('button'); fab.type = 'button'; fab.className = 'm-fab'; fab.id = 'm-fab'; fab.setAttribute('aria-label', '新增單元'); fab.title = '新增單元';
       fab.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
-      rail.parentNode.insertBefore(fab, rail.nextSibling);
+      rail.insertBefore(fab, document.querySelector('.rail-who')); // 放在分頁列裡（中間），換頁時跟分頁列一起，不會淡出淡入
       fab.onclick = function () { if (SH.view !== 'units') location.hash = '#units'; setTimeout(function () { if ($('ulist-add')) $('ulist-add').click(); }, 60); };
       // 手機：頭像不再跳出小選單，改從下方滑出面板（學生、設定、教學、帳號）
       var mqM = window.matchMedia('(max-width: 900px)');
