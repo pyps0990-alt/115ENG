@@ -1863,3 +1863,80 @@ dialog.search-sheet::backdrop { background: rgba(15, 23, 42, .3); }
 .set-seg button small { font-size: .78rem; color: var(--steel); line-height: 1.4; }
 .set-seg button[aria-checked="true"] { border-color: var(--navy); background: #EEF2FF; box-shadow: inset 0 0 0 1px var(--navy); }
 .set-saved { margin: -6px 0 0; min-height: 1.2em; font-size: .84rem; font-weight: 700; color: var(--good-ink); }
+
+/* ===========================================================
+   動畫柔和化：時間拉長一點、曲線收尾更慢、位移更小、不縮放；
+   每次換內容都是「舊的先淡出 → 新的淡入」，不是直接切掉
+   =========================================================== */
+:root {
+  --ease-soft: cubic-bezier(.22, 1, .36, 1);   /* 進場：快起步、慢慢停 */
+  --ease-leave: cubic-bezier(.4, 0, .6, 1);    /* 退場：輕輕帶走 */
+  --dur-1: .22s; --dur-2: .38s; --dur-3: .52s;
+}
+/* 換頁（View Transition）：新舊畫面重疊得久一點，新畫面慢慢停住 */
+::view-transition-old(root) { animation: vt-page-out .3s var(--ease-leave) .04s both; }
+::view-transition-new(root) { animation: vt-page-in .46s var(--ease-soft) both; }
+@keyframes vt-page-in { from { opacity: 0; transform: translate3d(0, 8px, 0); } }
+@keyframes vt-page-in-back { from { opacity: 0; transform: translate3d(0, -6px, 0); } }
+/* 分頁列：兩頁都有時保持不動（膠囊照常滑）；只有一邊有時淡入／淡出，不會突然出現或消失 */
+::view-transition-old(dock):only-child { display: block; animation: dock-out .26s var(--ease-leave) both; }
+::view-transition-new(dock):only-child { animation: dock-in .44s var(--ease-soft) both; }
+@keyframes dock-out { to { opacity: 0; transform: translateY(12px); } }
+@keyframes dock-in { from { opacity: 0; transform: translateY(16px); } }
+/* 左上角（搜尋 ↔ 回首頁）：交叉淡化 */
+.top-left { view-transition-name: top-left; }
+::view-transition-group(top-left) { animation-duration: .36s; animation-timing-function: var(--ease-soft); }
+::view-transition-old(top-left) { animation: vt-page-out .2s var(--ease-leave) both; }
+::view-transition-new(top-left) { animation: fade-in .34s var(--ease-soft) .06s both; }
+/* 不支援 View Transition 的瀏覽器：一樣慢慢淡入 */
+#app.page-in { animation-duration: .46s; animation-timing-function: var(--ease-soft); }
+@keyframes page-in-fwd { from { opacity: 0; transform: translate3d(0, 8px, 0); } }
+@keyframes page-in-back { from { opacity: 0; transform: translate3d(0, -6px, 0); } }
+
+/* 題目、段落卡、解析：舊的淡出往上一點，新的從下面一點淡入（不縮放） */
+.leaving { animation: leave-out .18s var(--ease-leave) forwards !important; pointer-events: none; }
+@keyframes leave-out { to { opacity: 0; transform: translate3d(0, -6px, 0); } }
+.q-card.slide-in, .stage-card.slide-in { animation: q-in .44s var(--ease-soft) both; }
+@keyframes q-in { from { opacity: 0; transform: translate3d(0, 10px, 0); } }
+.explain, .explain.slide-in, .rv-card { animation: fade-up .42s var(--ease-soft) both; }
+@keyframes fade-up { from { opacity: 0; transform: translate3d(0, 8px, 0); } }
+.result { animation-duration: .5s; animation-timing-function: var(--ease-soft); }
+.result > * { animation: result-in .6s var(--ease-soft) both; }
+@keyframes result-in { from { opacity: 0; transform: translate3d(0, 12px, 0); } }
+.empty { animation: fade-up .5s var(--ease-soft) both; }
+.loading { animation: fade-in .4s ease .2s both; }
+
+/* 作答回饋：答對答錯的框、打勾，柔和一點（不再明顯彈跳） */
+.opt { transition: background-color .28s var(--ease-soft), border-color .28s var(--ease-soft), color .28s var(--ease-soft), transform .18s var(--ease-soft), opacity .3s ease; }
+@keyframes settle { 0% { transform: scale(.985); } 100% { transform: scale(1); } }
+.opt.correct:not(.reveal) { animation: settle .5s var(--ease-soft); }
+@keyframes pop { 45% { transform: scale(1.03); } }
+@keyframes bump { 45% { transform: scale(1.08); } }
+.streak.bump { animation: bump .42s var(--ease-soft); }
+/* 下方橫幅：「下一題」與「答對了」淡入，不會突然冒出來 */
+.q-dock [data-next]:not([hidden]) { animation: fade-in .3s var(--ease-soft) both; }
+.q-dock .feedback:not(:empty) { animation: fade-in .34s var(--ease-soft) both; }
+
+/* 對話框：開啟慢慢浮上來，關閉也淡出（不再瞬間消失） */
+dialog.modal[open] { animation: pop-in .36s var(--ease-soft) both; }
+@keyframes pop-in { from { opacity: 0; transform: translate3d(0, 10px, 0) scale(.98); } }
+dialog.modal::backdrop { animation: fade-in .36s ease both; }
+dialog.closing { animation: pop-out .17s var(--ease-leave) forwards !important; }
+dialog.closing::backdrop { animation: fade-out .17s ease forwards; }
+@keyframes pop-out { to { opacity: 0; transform: translate3d(0, 6px, 0) scale(.985); } }
+@keyframes fade-out { to { opacity: 0; } }
+dialog.search-sheet[open] { animation: ss-in .38s var(--ease-soft) both; }
+@keyframes ss-in { from { opacity: 0; transform: translate3d(0, -10px, 0); } }
+
+/* 卡片離開、狀態說明、通知：小一點的位移、不縮很小 */
+@keyframes tile-out { to { opacity: 0; transform: scale(.97); } }
+.unit-tile.tile-out { animation: tile-out .32s var(--ease-leave) forwards; }
+.list-head .legend[open] dl { animation: pop-in .3s var(--ease-soft) both; }
+.notify-item { animation-duration: .42s; animation-timing-function: var(--ease-soft); }
+/* 按鈕、卡片按下去的回饋：回彈慢一點 */
+.btn, .unit-tile, .next-card, .me-row { transition-timing-function: var(--ease-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  .leaving, dialog.closing, dialog.closing::backdrop, .q-dock [data-next]:not([hidden]), .q-dock .feedback:not(:empty) { animation: none !important; }
+  ::view-transition-old(dock), ::view-transition-new(dock), ::view-transition-old(top-left), ::view-transition-new(top-left) { animation: none !important; }
+}

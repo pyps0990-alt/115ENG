@@ -1,7 +1,7 @@
 // 單字片語測驗：同一組單字，依序連續完成基礎 → 進階 → 精熟三段，最後一張總成績單
 import { typeLabel } from '../types.js';
 import { store } from '../storage.js';
-import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog } from '../util.js';
+import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog, leaveOut } from '../util.js';
 import { icon } from '../icons.js';
 import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError, errorOf, questionFromRecord } from '../components/question.js';
 import { renderResult } from '../components/result.js';
@@ -141,6 +141,7 @@ export function mount(stage, ctx) {
     };
     let current = null;
     let inCard = false;
+    let moving = false;
     const t0 = Date.now() - (saved ? saved.elapsed : 0);
     document.body.dataset.busy = '1';
     document.getElementById('fx').replaceChildren();
@@ -284,10 +285,15 @@ export function mount(stage, ctx) {
       dropHold();
       nextBtn.classList.remove('auto');
       autoCue.hidden = true;
-      if (!alive || nextBtn.hidden || inCard) return;
+      if (!alive || nextBtn.hidden || inCard || moving) return;
+      moving = true; // 舊題目淡出的這一下不能再按一次（不然會跳兩題）
       done++;
       qi++;
-      if (qi < stages[si].qs.length) { await wait(10); show(); return; }
+      const last = qi >= stages[si].qs.length;
+      if (!(last && si === stages.length - 1)) await leaveOut(stage.querySelector('[data-q]'));
+      moving = false;
+      if (!alive) return;
+      if (!last) { show(); return; }
       stages[si].finished = true;
       if (si === stages.length - 1) { finish(); return; }
       stageCard();
@@ -318,7 +324,7 @@ export function mount(stage, ctx) {
           <button class="btn primary" type="button" data-continue>繼續：${nx.level.name} ${icon.arrowR}</button>
         </div>`;
       const btn = host.querySelector('[data-continue]');
-      btn.addEventListener('click', () => { si++; qi = 0; show(); });
+      btn.addEventListener('click', async () => { if (moving) return; moving = true; await leaveOut(host); moving = false; if (!alive) return; si++; qi = 0; show(); });
       setTimeout(() => btn.focus({ preventScroll: true }), 30);
     }
 

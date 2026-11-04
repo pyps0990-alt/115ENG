@@ -4,7 +4,7 @@
 // 答案不公開（js/answers.js）
 import { typeLabel } from '../types.js';
 import { store } from '../storage.js';
-import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog } from '../util.js';
+import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog, leaveOut } from '../util.js';
 import { icon } from '../icons.js';
 import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
@@ -182,10 +182,15 @@ export function mount(stage, ctx) {
       setTimeout(() => nextBtn.focus({ preventScroll: true }), 30);
     }
 
+    let moving = false;
     async function next() {
-      if (!alive || nextBtn.hidden) return;
+      if (!alive || nextBtn.hidden || moving) return;
       qi++;
-      if (qi < qs.length) { await wait(10); show(); return; }
+      if (qi < qs.length) {
+        moving = true; await leaveOut(stage.querySelector('[data-q]')); moving = false; // 舊題目先淡出
+        if (alive) show();
+        return;
+      }
       finish();
     }
 

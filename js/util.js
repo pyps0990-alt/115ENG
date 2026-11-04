@@ -75,6 +75,26 @@ export function pickExample(w) {
 export const splitSentences = (p) => (String(p).match(/[^.!?]+(?:[.!?]+["'”’)\]]*|$)/g) || []).map((s) => s.trim()).filter(Boolean);
 
 // danger：確認的是破壞性動作（例如離開測驗）。預設停在「取消」，確認鈕改成安靜的外框鈕，避免按 Enter 就誤中斷
+// 換內容前先讓舊的淡出（約 0.18 秒），再放新的進來：不會「啪」一下直接換掉
+export async function leaveOut(host, ms = 180) {
+  if (!host || !host.children.length || reducedMotion()) return;
+  [...host.children].forEach((c) => c.classList.add('leaving'));
+  await new Promise((r) => setTimeout(r, ms));
+}
+
+// 對話框柔和關閉：先淡出、縮回一點，再真的關掉（按鈕、Esc 都一樣）
+export function softClose(d, value = '') {
+  if (!d.open || d.classList.contains('closing')) return;
+  if (reducedMotion()) { d.close(value); return; }
+  d.classList.add('closing');
+  setTimeout(() => d.close(value), 170);
+}
+function softDialog(d) {
+  d.addEventListener('cancel', (e) => { e.preventDefault(); softClose(d, 'cancel'); });
+  const form = d.querySelector('form[method="dialog"]');
+  if (form) form.addEventListener('submit', (e) => { e.preventDefault(); softClose(d, (e.submitter && e.submitter.value) || ''); });
+}
+
 export function confirmDialog({ title, body, ok = '確定', cancel = '取消', danger = false }) {
   return new Promise((resolve) => {
     const d = el(`<dialog class="modal"><form method="dialog" class="modal-body">
@@ -85,6 +105,7 @@ export function confirmDialog({ title, body, ok = '確定', cancel = '取消', d
       </div></form></dialog>`);
     document.body.append(d);
     d.addEventListener('close', () => { resolve(d.returnValue === 'ok'); d.remove(); });
+    softDialog(d);
     d.showModal();
   });
 }

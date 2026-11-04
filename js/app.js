@@ -77,8 +77,8 @@ async function route() {
   // 還沒確認身分：單元網址一律導回首頁填資料（上方只有 B5，沒有選單與名牌；切換學生、登出在「我的成績」頁）
   const loggedIn = !!store.student();
   if (kind === 'u' && !loggedIn) { location.replace('#/'); return; }
-  syncDock(loggedIn && (!kind || kind === 'me' || kind === 'account') ? (kind || 'home') : null);
-  paintTopLeft(kind, loggedIn);
+  // 分頁列、左上角按鈕的變化放進換頁轉場裡一起做（舊畫面截圖時還是原本的樣子，不會先「啪」一下變掉）
+  const chrome = () => { syncDock(loggedIn && (!kind || kind === 'me' || kind === 'account') ? (kind || 'home') : null); paintTopLeft(kind, loggedIn); };
   if (kind === 'u' && id && changed && !(await assignGuard(id))) return;
   const render = async () => {
     try {
@@ -95,7 +95,7 @@ async function route() {
   };
   // 換頁更連續：支援的瀏覽器用 View Transition（截下畫面上看到的舊畫面，和新畫面交叉淡化；導覽列與分頁列不參與、照常即時動畫）。
   // 新畫面最多等 0.15 秒（單元要下載題目時先換到載入中的畫面），不會讓畫面停住太久；不支援的瀏覽器照舊淡入
-  const run = async () => { window.scrollTo(0, 0); await render(); };
+  const run = async () => { window.scrollTo(0, 0); chrome(); await render(); };
   const useVT = changed && !first && !!document.startViewTransition && !reduceMotion.matches && document.visibilityState === 'visible';
   if (useVT) {
     let job = null;
