@@ -5354,6 +5354,8 @@
     })();
     var showViewMN = showView;
     showView = function (v) { showViewMN(v); paintMobileTop(); };
+    // 清單／內容（新增單元）切換時也重畫上方標題列與 ＋ 的狀態（有些地方是在換頁之後才切）
+    new MutationObserver(function () { paintMobileTop(); }).observe($('shell'), { attributes: true, attributeFilter: ['data-pane'] });
     var drawUnitHeadMN = drawUnitHead;
     drawUnitHead = function () { drawUnitHeadMN(); paintMobileTop(); };
 
