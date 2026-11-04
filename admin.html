@@ -1314,7 +1314,7 @@
     #work .w-head + * { position:relative; z-index:1; margin-top:-60px; }
     #work [data-pane-view="unit"] .w-head { padding-bottom:30px; margin-bottom:16px; }
     #work [data-pane-view="unit"] .w-head + * { margin-top:0; }
-    #work .w-head .btn { background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.3); box-shadow:inset 0 1px 0 rgba(255,255,255,.3); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+    #work .w-head .btn { background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.3); box-shadow:inset 0 1px 0 rgba(255,255,255,.3); }
     #work .w-head .btn:hover { background:rgba(255,255,255,.24); }
     #work .w-head .pill.u-state.open { background:#DCFCE7; color:#166534; }
     #work .w-head + .ov-grid > .card, #work .w-head + .card { box-shadow:0 16px 36px rgba(30, 58, 138, .14); border-color:transparent; }
@@ -1328,11 +1328,11 @@
       .rail-more { display:none !important; }
       .rail { right:calc(12px + 66px + 10px) !important; }
       .rail.lg-mini { left:14% !important; right:calc(14% + 62px) !important; }
-      .m-fab { position:fixed; z-index:31; right:12px; bottom:calc(10px + env(safe-area-inset-bottom, 0px)); width:66px; height:66px; border:0; border-radius:50%; background:var(--primary); color:var(--navy); display:grid; place-items:center; cursor:pointer;
+      .m-top { background:var(--navy) !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; } /* 封面已經是深藍：標題列不用即時模糊（捲動時最耗效能的一塊） */
+      .m-fab { position:fixed; z-index:31; right:12px; bottom:max(6px, calc(env(safe-area-inset-bottom, 0px) - 10px)) !important; width:66px; height:66px; border:0; border-radius:50%; background:var(--primary); color:var(--navy); display:grid; place-items:center; cursor:pointer;
         box-shadow:0 10px 24px rgba(245, 158, 11, .38), inset 0 1px 0 rgba(255,255,255,.5); transition:width .3s cubic-bezier(.22,1.2,.36,1), height .3s cubic-bezier(.22,1.2,.36,1), transform .15s; }
       .m-fab:active { transform:scale(.92); }
       .m-fab svg { width:28px; height:28px; fill:none; stroke:currentColor; stroke-width:2.6; stroke-linecap:round; }
-      .rail.lg-mini + .m-fab { width:52px; height:52px; }
       .m-panel { top:calc(62px + env(safe-area-inset-top, 0px)) !important; bottom:auto !important; transform-origin:calc(100% - 26px) -24px !important; } /* 從右上角的頭像往下展開 */
       .m-acct { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; padding:12px 10px 4px; border-top:1px solid var(--line); }
       .m-acct[hidden] { display:none; }
@@ -5375,7 +5375,6 @@
         // 拉長時變扁一點（體積感）；高光跟著膠囊移動
         var stretch = Math.max(0, w / (baseW || w) - 1);
         ink.style.setProperty('--squash', (1 - Math.min(.12, stretch * .18)).toFixed(3));
-        rail.style.setProperty('--lx', ((L.x + w / 2) / Math.max(1, rail.clientWidth) * 100).toFixed(1) + '%');
         magnify();
       };
       var tick = function (t) {
@@ -5410,29 +5409,30 @@
       requestAnimationFrame(function () { moveTo(current(), true); });
 
       // 放大鏡：膠囊經過的圖示依距離放大（越靠近中心越大）
+      // 各分頁的位置只在按下時量一次（每一格都量會讓手機很卡）
+      var geo = null;
+      var measure = function () { var rr = rail.getBoundingClientRect(); geo = { left: rr.left, width: rr.width, tabs: tabs().map(function (t) { var b = box(t); return { el: t, ic: t.querySelector('.rail-ic'), c: (b.l + b.r) / 2 }; }) }; return geo; };
+      var magOn = false;
       var magnify = function () {
-        var on = rail.classList.contains('lg-drag') || S.x > 1.03;
+        var on = !!geo && (rail.classList.contains('lg-drag') || S.x > 1.03);
+        if (!on) { if (magOn) { magOn = false; (geo ? geo.tabs : []).forEach(function (t) { if (t.ic) t.ic.style.removeProperty('--mag'); }); } return; }
+        magOn = true;
         var cx = L.x + (R.x - L.x) / 2, half = Math.max(30, (R.x - L.x) / 2) * 1.4;
-        tabs().forEach(function (t) {
-          var ic = t.querySelector('.rail-ic'); if (!ic) return;
-          if (!on) { ic.style.removeProperty('--mag'); return; }
-          var b = box(t), d = Math.abs((b.l + b.r) / 2 - cx), m = Math.max(0, 1 - d / half);
-          ic.style.setProperty('--mag', (1 + m * .28).toFixed(3));
-        });
+        geo.tabs.forEach(function (t) { if (!t.ic) return; var m = Math.max(0, 1 - Math.abs(t.c - cx) / half); t.ic.style.setProperty('--mag', (1 + m * .28).toFixed(3)); });
       };
 
       // 按住、拖動、放開
       var dragging = false, startX = 0, startY = 0, pid = null, grab = 0, hover = null, moved = false, pressT = null;
       var nearest = function (x) {
-        var best = null, d = Infinity, rr = rail.getBoundingClientRect();
-        tabs().forEach(function (t) { var b = box(t), c = rr.left + (b.l + b.r) / 2; if (Math.abs(c - x) < d) { d = Math.abs(c - x); best = t; } });
+        var g = geo || measure(), best = null, d = Infinity;
+        g.tabs.forEach(function (t) { var c = g.left + t.c; if (Math.abs(c - x) < d) { d = Math.abs(c - x); best = t.el; } });
         return best;
       };
       rail.addEventListener('pointerdown', function (e) {
         if (!mq.matches || e.button > 0 || e.target.closest('.rail-who')) return;
         var t = e.target.closest('a[data-view], .rail-more'); if (!t) return;
         pid = e.pointerId; startX = e.clientX; startY = e.clientY; moved = false;
-        var rr = rail.getBoundingClientRect(), x = e.clientX - rr.left;
+        var g = measure(), x = e.clientX - g.left;
         var onInk = x >= L.x && x <= R.x;
         grab = onInk ? x - L.x : (R.x - L.x) / 2;
         // 按住目前的分頁：膠囊鼓起來（像水滴被按）
@@ -5449,9 +5449,9 @@
           S.to = 1.2; S.k = 480; S.c = 20;
         }
         e.preventDefault();
-        var rr = rail.getBoundingClientRect(), w = baseW || (R.x - L.x);
+        var g = geo || measure(), w = baseW || (R.x - L.x);
         // 拖到兩端外面、或往上往下拉：膠囊跟著手指但越拉越緊（橡皮筋，有極限），分頁列本身不動
-        var fx = e.clientX - rr.left - grab, lo = 4, hi = rr.width - w - 4;
+        var fx = e.clientX - g.left - grab, lo = 4, hi = g.width - w - 4;
         var x = fx < lo ? lo + rubber(fx - lo, 22) : fx > hi ? hi + rubber(fx - hi, 22) : fx;
         Y.k = 900; Y.c = 60; Y.to = calm() ? 0 : rubber(e.clientY - startY, 16);
         // 拖動時兩邊都追手指（前面那邊快、後面那邊慢），手指甩得快膠囊就拉長
@@ -5469,7 +5469,8 @@
         dragging = false;
         rail.classList.remove('lg-drag'); ink.classList.remove('lifted');
         if (hover) hover.classList.remove('lg-hover');
-        var target = e.type === 'pointercancel' ? current() : nearest(e.clientX);
+        var dx = Math.abs(e.clientX - startX), dy = Math.abs(e.clientY - startY);
+        var target = e.type !== 'pointerup' || (dx < 28 && dy > dx) ? current() : nearest(e.clientX);
         hover = null;
         moveTo(target);
         if (target && target !== current()) setTimeout(function () { target.click(); }, 40);
@@ -5477,6 +5478,8 @@
       };
       rail.addEventListener('pointerup', end);
       rail.addEventListener('pointercancel', end);
+      rail.addEventListener('lostpointercapture', function (e) { if (pid === e.pointerId) end({ type: 'pointercancel', pointerId: e.pointerId, clientX: startX, clientY: startY }); });
+      window.addEventListener('blur', function () { if (pid !== null) end({ type: 'pointercancel', pointerId: pid, clientX: startX, clientY: startY }); });
       rail.addEventListener('dragstart', function (e) { e.preventDefault(); }); // 分頁是連結：不要被瀏覽器當成拖曳連結（會中斷手勢）
       // 拖完放開時瀏覽器會補一個 click：擋掉，避免重複切換
       rail.addEventListener('click', function (e) { if (moved && e.isTrusted) { moved = false; e.preventDefault(); e.stopPropagation(); } }, true);
@@ -5501,7 +5504,7 @@
         acc = (dy > 0) === (acc > 0) ? acc + dy : dy;
         $('shell').classList.toggle('m-scrolled', y > 70);
         var mini = rail.classList.contains('lg-mini');
-        if (!mini && acc > 48 && y > 80) { rail.classList.add('lg-mini'); track(); }
+        if (false && !mini && acc > 48 && y > 80) { rail.classList.add('lg-mini'); track(); }
         else if (mini && (acc < -24 || y < 40)) { rail.classList.remove('lg-mini'); track(); }
       }, { passive: true });
     })();
