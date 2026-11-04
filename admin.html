@@ -216,6 +216,13 @@
     .lint .src { display:block; margin:0; padding:3px 6px; border-radius:6px; background:rgba(255,255,255,.75); color:var(--ink); font:500 .82rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space:pre-wrap; word-break:break-word; }
     .lint .src:empty::before { content:'（這一行是空的）'; color:var(--steel); font-family:inherit; }
     .lint-sum { margin:8px 0 0; font-weight:800; }
+    /* 輸入框右上角的「清空」（手機上要全選刪除很難按）；清空後幾秒內可以「復原」 */
+    label.has-clear { position:relative; padding-top:10px; }
+    .ta-clear { position:absolute; top:0; right:0; min-height:34px; padding:0 12px; border-radius:999px; border:1px solid var(--line); background:#fff; color:var(--steel); font:inherit; font-size:.82rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:4px; }
+    .ta-clear:hover { color:var(--bad); border-color:currentColor; }
+    .ta-clear.undo { color:var(--navy); border-color:var(--navy); background:#EEF2FF; }
+    .ta-clear[hidden] { display:none; }
+    @media (max-width:900px) { .ta-clear { min-height:38px; padding:0 14px; font-size:.86rem; } }
     textarea.flash-line { box-shadow:0 0 0 3px rgba(220,38,38,.35) !important; transition:box-shadow .2s; }
     .flash-box { outline:3px solid rgba(220,38,38,.45); outline-offset:4px; border-radius:12px; transition:outline-color .6s; }
     tr.row-err td { background:#FEF2F2; } tr.row-warn td { background:#FFFBEB; }
@@ -3411,6 +3418,33 @@
       msg.textContent = '✓ 已填入 ' + qs.length + ' 題' + (issues.length ? '，但有下面這些問題，請對照修正' : '') + '，再按「預覽與檢查」'; msg.className = 'msg ' + (issues.some(function (x) { return x[0] === 'err'; }) ? 'err' : 'ok');
       $('r-bulk-lint').innerHTML = lintHTML(issues, 'r-bulk');
     };
+
+    // 一鍵清空輸入框（手機上全選刪除很不方便）：只清掉輸入框，網站上已儲存的題目不受影響；清空後 8 秒內可以按「復原」
+    ['v-text', 't-text', 'r-bulk', 'r-passage'].forEach(function (id) {
+      var ta = $(id), lab = ta && ta.closest('label'); if (!lab) return;
+      lab.classList.add('has-clear');
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'ta-clear'; b.dataset.clear = id;
+      lab.insertBefore(b, ta);
+      var kept = null, timer = null;
+      var paint = function () {
+        if (kept != null) { b.textContent = '↶ 復原'; b.classList.add('undo'); b.hidden = false; b.setAttribute('aria-label', '復原剛剛清空的內容'); return; }
+        b.textContent = '✕ 清空'; b.classList.remove('undo'); b.hidden = !ta.value; b.setAttribute('aria-label', '清空這個輸入框');
+      };
+      var fire = function () { ta.dispatchEvent(new Event('input', { bubbles: true })); };
+      b.addEventListener('click', function (e) {
+        e.preventDefault(); clearTimeout(timer);
+        if (kept != null) { ta.value = kept; kept = null; fire(); paint(); return; }
+        kept = ta.value; ta.value = ''; fire();
+        if (id === 'v-text' || id === 't-text') $('imp-report').innerHTML = '';
+        if (id === 'r-bulk') { $('r-bulk-lint').innerHTML = ''; $('r-bulk-msg').textContent = ''; }
+        paint();
+        timer = setTimeout(function () { kept = null; paint(); }, 8000);
+      });
+      ta.addEventListener('input', function () { if (kept != null && ta.value) { kept = null; clearTimeout(timer); } paint(); });
+      // AI 產生、載入現有題目等程式直接改內容時不會觸發 input：定時看一下要不要顯示按鈕（很輕）
+      setInterval(function () { if (kept == null && b.hidden === !!ta.value) paint(); }, 800);
+      paint();
+    });
 
     // 匯出：取得已儲存的題目，轉成文字／JSON
     function withContent(cb) {
