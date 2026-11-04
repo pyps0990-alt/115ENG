@@ -5357,7 +5357,13 @@
       var ink = document.createElement('span'); ink.className = 'lg-ink'; ink.setAttribute('aria-hidden', 'true');
       rail.appendChild(ink);
       var tabs = function () { return [].slice.call(rail.querySelectorAll('a[data-view], .rail-more')).filter(function (t) { return t.offsetParent !== null; }).sort(function (a, b) { return a.getBoundingClientRect().left - b.getBoundingClientRect().left; }); };
-      var current = function () { return rail.querySelector('.rail-more.on, .rail-more[aria-expanded="true"]') || rail.querySelector('a[data-view][aria-current="page"]:not([data-view="students"]):not([data-view="settings"]):not([data-view="help"])'); };
+      // 目前的分頁：只算看得到的（手機上「更多」已經收進頭像、是藏起來的；學生、設定、教學不在分頁列上）→ 沒有的話膠囊淡出，不會跑到最左邊
+      var current = function () {
+        var m = rail.querySelector('.rail-more.on, .rail-more[aria-expanded="true"]');
+        if (m && m.offsetParent !== null) return m;
+        var a = rail.querySelector('a[data-view][aria-current="page"]:not([data-view="students"]):not([data-view="settings"]):not([data-view="help"])');
+        return a && a.offsetParent !== null ? a : null;
+      };
       var box = function (el) { var r = el.getBoundingClientRect(), rr = rail.getBoundingClientRect(); return { l: r.left - rr.left, r: r.right - rr.left }; };
 
       // 彈簧：位置 x、速度 v、目標 to；stiffness 越大越快，damping 越小越會彈

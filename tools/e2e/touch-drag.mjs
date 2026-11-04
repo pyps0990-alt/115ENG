@@ -25,6 +25,14 @@ const h1 = await t.evaluate(() => location.hash); console.log('後台觸控拖�
 await swipe(t, b.x + b.width / 2, b.y + b.height / 2, b.x + b.width / 2 + 10, b.y - 120);
 await sleep(800);
 const h2 = await t.evaluate(() => location.hash); console.log('後台往上拉後放開（不換頁）：', h2); if (h2 !== '#scores') bad++;
+// 打開頭像面板、進到不在分頁列上的頁面（教學）：膠囊不能跑到最左邊
+const inkSt = () => t.evaluate(() => { const i = document.querySelector('.lg-ink'), r = document.querySelector('.rail').getBoundingClientRect(), b = i.getBoundingClientRect(), c = document.querySelector('.rail a[aria-current="page"]'); return { op: getComputedStyle(i).opacity, left: Math.round(b.left - r.left), cur: c ? Math.round(c.getBoundingClientRect().left - r.left) : null }; });
+await t.tap('#who-btn'); await sleep(700);
+let s1 = await inkSt(); console.log('打開頭像：膠囊仍在目前分頁', JSON.stringify(s1)); if (s1.op !== '1' || Math.abs(s1.left - s1.cur) > 3) bad++;
+await t.tap('#m-sheet a[href="#help"]'); await sleep(900);
+s1 = await inkSt(); console.log('教學頁：膠囊淡出', JSON.stringify(s1)); if (s1.op !== '0') bad++;
+await t.tap('.rail a[data-view="units"]'); await sleep(900);
+s1 = await inkSt(); console.log('回到單元：膠囊回來', JSON.stringify(s1)); if (s1.op !== '1' || Math.abs(s1.left - s1.cur) > 3) bad++;
 // 學生
 const p = await world.newPage(ctx, { student: true });
 await p.goto(world.base + '/'); await p.waitForSelector('#dock:not([hidden])'); await sleep(800);
