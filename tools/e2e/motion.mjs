@@ -17,7 +17,7 @@ const ctx = await world.newContext({ viewport: { width: 1280, height: 800 } });
 const p = await world.newPage(ctx, { student: true });
 await p.goto(world.base + '/'); await p.waitForSelector('.unit-tile');
 await p.click('.unit-tile[data-id="l2-pat"]'); await p.waitForSelector('[data-start]');
-await p.click('.back'); await p.waitForSelector('.unit-tile'); await sleep(500);
+await p.click('.top-back'); await p.waitForSelector('.unit-tile'); await sleep(500);
 // 直接換到其他單元的網址
 await p.click('.unit-tile[data-id="l2-pat"]'); await p.waitForSelector('[data-start]');
 await p.evaluate(() => { location.hash = '#/u/l3-pat'; });

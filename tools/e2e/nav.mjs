@@ -49,7 +49,8 @@ await step('登入：按鈕依序顯示「確認中 → 已確認」，成功後
   assert.deepEqual(seq.slice(0, 2), ['busy', 'ok']);
   assert.ok(states.some((x) => /已確認，歡迎/.test(x[1])));
   assert.ok(total >= 400 && total < 2000, `停留時間不合理：${total}ms`);
-  assert.equal(await p.evaluate(() => document.querySelector('.topbar-inner').children.length), 1, '上方只有 B5（沒有選單與名牌）');
+  assert.equal(await p.$$eval('.topbar #student-chip, .topbar #nav-menu', (a) => a.length), 0, '上方沒有選單與名牌');
+  assert.ok(await p.$('.topbar [data-search]'), '登入後左上出現搜尋');
   await p.close();
 });
 await step('登入失敗：按鈕輕抖、提示為琥珀色小字（不是紅色），輸入後自動消失', async () => {
@@ -114,7 +115,7 @@ await step('換頁：首頁 ↔ 單元有進場動畫且方向不同', async () 
   await p.evaluate(() => window.scrollTo(0, 0)); await sleep(200);
   await p.click('.unit-tile'); await p.waitForSelector('#stage');
   const fwd = await p.evaluate(() => document.getElementById('app').dataset.dir);
-  await p.click('.back'); await p.waitForSelector('.unit-tile');
+  await p.click('.top-back'); await p.waitForSelector('.unit-tile');
   const back = await p.evaluate(() => document.getElementById('app').dataset.dir);
   assert.equal(fwd, 'fwd'); assert.equal(back, 'back');
 });

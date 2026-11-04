@@ -78,6 +78,7 @@ async function route() {
   const loggedIn = !!store.student();
   if (kind === 'u' && !loggedIn) { location.replace('#/'); return; }
   syncDock(loggedIn && (!kind || kind === 'me') ? (kind || 'home') : null);
+  paintTopLeft(kind, loggedIn);
   if (kind === 'u' && id && changed && !(await assignGuard(id))) return;
   const render = async () => {
     try {
@@ -97,6 +98,45 @@ async function route() {
   pageIn(changed, first);
 }
 
+// 上方導覽列左邊：單元等內頁放「回首頁」；首頁、我的成績（最上層）放「搜尋單元」；還沒登入什麼都不放。B5 在右邊
+function paintTopLeft(kind, loggedIn) {
+  const box = document.getElementById('top-left');
+  if (!box) return;
+  const top = !kind || kind === 'me';
+  if (top && !loggedIn) { box.innerHTML = ''; return; }
+  if (top) {
+    box.innerHTML = `<button class="top-btn" type="button" data-search aria-label="搜尋單元" title="搜尋單元">${icon.search}</button>`;
+    box.querySelector('[data-search]').onclick = openSearch;
+  } else {
+    box.innerHTML = `<a class="top-btn top-back" href="#/" aria-label="回首頁">${icon.back}<span>首頁</span></a>`;
+  }
+}
+
+// 搜尋單元：輸入課次、單元名稱、主題或題型（例如「L3」「單字」「閱讀」），點結果直接進入
+function openSearch() {
+  const d = document.createElement('dialog');
+  d.className = 'search-sheet';
+  d.setAttribute('aria-label', '搜尋單元');
+  d.innerHTML = `<div class="ss-bar">${icon.search}<input type="search" placeholder="搜尋單元：課次、名稱、主題" aria-label="搜尋單元" enterkeyhint="search" autocomplete="off"><button class="ss-x" type="button" data-close>取消</button></div><div class="ss-list" role="list"></div>`;
+  document.body.appendChild(d);
+  const input = d.querySelector('input'), list = d.querySelector('.ss-list');
+  const all = visibleUnits().map((u) => ({ u, s: unitStatus(u), key: [unitName(u), u.title, u.topic, lessonLabel(u.lesson), `L${u.lesson}`, typeLabel(u.type), TYPES[typeOf(u.type)].tile].join(' ').toLowerCase() }))
+    .sort((a, b) => lessonCmp(a.u.lesson, b.u.lesson));
+  const draw = () => {
+    const q = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const hits = all.filter((x) => q.every((w) => x.key.includes(w)));
+    list.innerHTML = hits.length ? hits.map((x) => `<a class="ss-row ${x.s.k}" role="listitem" href="#/u/${esc(x.u.id)}"><span class="ic-box">${typeIcon(x.u.type)}</span><span class="txt"><b>${esc(unitName(x.u))}</b><span>${esc([typeLabel(x.u.type), x.u.topic].filter(Boolean).join(' · '))}</span></span><span class="st">${esc(x.s.st)}</span></a>`).join('')
+      : `<p class="ss-empty">找不到「${esc(input.value.trim())}」的單元</p>`;
+  };
+  const close = () => { d.close(); d.remove(); };
+  input.addEventListener('input', draw);
+  d.addEventListener('click', (e) => { if (e.target === d || e.target.closest('[data-close]')) close(); else if (e.target.closest('.ss-row')) close(); });
+  d.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+  draw();
+  d.showModal();
+  input.focus();
+}
+
 // 底部浮動分頁列（單元、我的成績）：登入後的首頁與我的成績才出現，作答時不會擋到畫面
 function syncDock(on) {
   const dock = document.getElementById('dock');
@@ -108,6 +148,14 @@ function syncDock(on) {
     const cur = a.dataset.dock === on;
     if (cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
+  // 我的成績這一格換成學生的頭像（名字第一個字）：使用者資訊合併在分頁列裡
+  const s = store.student(), me = dock.querySelector('a[data-dock="me"]');
+  if (s && me) {
+    const av = me.querySelector('.dock-av') || me.appendChild(Object.assign(document.createElement('span'), { className: 'dock-av' }));
+    av.textContent = (s.name || '?').trim().charAt(0);
+    me.setAttribute('aria-label', `${maskName(s.name)}：我的成績與帳號`); me.title = `${maskName(s.name)}・我的成績`;
+    me.classList.add('has-av');
+  }
   if (on) requestAnimationFrame(() => placeDockInk(wasHidden));
   initDockDrag(dock);
 }
@@ -274,6 +322,8 @@ function prefetchUnits(list) {
 function renderHome() {
   document.title = 'B5 Practice';
   const s = store.student();
+  // 在首頁登入成功時不會換頁：這裡也更新分頁列與左上角（搜尋），不用等下一次換頁才出現
+  if (!(location.hash.split('/')[1] || '')) { syncDock(s ? 'home' : null); paintTopLeft('', !!s); }
   app.innerHTML = s
     ? `<section class="hero compact cover">
         <div class="cover-eyebrow">${esc(index.book || 'Book 5')} · ${esc(s.cls)} 班</div>
@@ -429,7 +479,6 @@ function tileHTML(u, asg = null) {
 // 轉場用的單元標題外框（資料載入前先顯示，版面和正式標題一致）
 function unitShellHTML(meta) {
   return `<div class="unit-head shell"${markAttr(meta)}>
-      <a class="back" href="#/">${icon.back} 所有單元</a>
       <div class="eyebrow">${typeIcon(meta.type)}${lessonLabel(meta.lesson)} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
     </div><div class="loading"><span class="spinner"></span>載入中…</div>`;
@@ -445,7 +494,6 @@ function headHTML(meta, data) {
     : meta.type === 'pattern' ? `${(data.items || []).length} 題`
     : `${(data.questions || []).length} 題`;
   return `<div class="unit-head"${markAttr(meta)}>
-      <a class="back" href="#/">${icon.back} 所有單元</a>
       <div class="eyebrow">${typeIcon(meta.type)}${lessonLabel(meta.lesson)} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
       <div class="sub"><span>${sub}</span></div>
@@ -532,7 +580,6 @@ async function renderMe() {
   const masked = maskName(s.name);
   app.innerHTML = `
     <section class="me-head">
-      <a class="back" href="#/">${icon.back} 所有單元</a>
       <div class="eyebrow">My records</div>
       <h1>${esc(masked)} 的成績</h1>
       <p class="muted" style="margin:0">${esc(s.cls)} 班 ${esc(s.seat)} 號</p>
