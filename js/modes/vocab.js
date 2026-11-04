@@ -161,8 +161,8 @@ export function mount(stage, ctx) {
         <div class="q-dock">
           <button class="q-leave" type="button" data-leave aria-label="離開測驗" title="離開測驗">${icon.exit}</button>
           <div class="q-dock-r">
-            <div class="q-foot"><div class="feedback" data-fb aria-live="polite"></div><button class="btn primary" type="button" data-next hidden></button><span class="btn next-ph" aria-hidden="true">下一題 ${icon.arrowR}</span></div>
-            <button class="switch" type="button" role="switch" data-auto-toggle><span class="sw" aria-hidden="true"></span>自動下一題</button>
+            <div class="q-foot"><button class="btn primary" type="button" data-next hidden></button><span class="btn next-ph" aria-hidden="true">下一題 ${icon.arrowR}</span></div>
+            <div class="q-dock-sub"><div class="feedback" data-fb aria-live="polite"></div><button class="switch" type="button" role="switch" data-auto-toggle><span class="sw" aria-hidden="true"></span>自動下一題</button></div>
           </div>
         </div>
         <p class="quiz-note"><span class="kb-hint">按 1–4 或 A–D 選答案，Enter 下一題</span><span class="auto-cue" data-auto-cue hidden>輕點畫面可暫停自動下一題</span></p>
@@ -302,6 +302,7 @@ export function mount(stage, ctx) {
       const nx = stages[si + 1];
       paintStepper();
       foot.hidden = true;
+      stage.querySelector('[data-fb]').innerHTML = ''; // 過場卡：下方的「答對了」一起清掉
       const w = weigh(stages, details);
       const pct = Math.round((w.stages[si] / w.max) * 100);
       const host = stage.querySelector('[data-q]');

@@ -128,7 +128,7 @@ await step('考試中：B5 固定、不顯示計時；下方固定橫幅：左�
     const d = box('.q-dock'), l = box('[data-leave]'), n = box('.q-foot'), sw = box('[data-auto-toggle]');
     return { exam: document.body.classList.contains('exam'), scrolled: document.body.classList.contains('scrolled'), brandOp: getComputedStyle(document.querySelector('.brand')).opacity,
       timer: !!document.getElementById('exam-timer'), pos: getComputedStyle(document.querySelector('.q-dock')).position, bottom: Math.round(innerHeight - d.bottom),
-      leftLeave: l.right <= n.left, nextAboveSwitch: n.bottom <= sw.top + 1, leaveLabel: document.querySelector('[data-leave]').getAttribute('aria-label') };
+      leftLeave: l.right <= n.left, nextAboveSwitch: n.bottom <= sw.top + 1, leaveLabel: document.querySelector('[data-leave]').getAttribute('aria-label'), fbWithSwitch: !!document.querySelector('.q-dock-sub [data-fb] ~ [data-auto-toggle]') };
   });
   console.log('   ', JSON.stringify(r));
   assert.ok(r.exam && !r.scrolled && r.brandOp === '1');
@@ -136,6 +136,7 @@ await step('考試中：B5 固定、不顯示計時；下方固定橫幅：左�
   assert.equal(r.pos, 'fixed'); assert.equal(r.bottom, 0, '橫幅貼齊畫面最下方');
   assert.ok(r.leftLeave && r.nextAboveSwitch, '左：離開；右上：下一題；右下：自動下一題');
   assert.equal(r.leaveLabel, '離開測驗');
+  assert.ok(r.fbWithSwitch, '答對的回饋和自動下一題開關在同一層');
   await p.evaluate(() => { delete document.body.dataset.busy; location.hash = '#/'; }); await sleep(600);
   assert.equal(await p.evaluate(() => document.body.classList.contains('exam')), false);
 });

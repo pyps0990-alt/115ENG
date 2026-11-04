@@ -1765,3 +1765,9 @@ body.has-dock .me-acct { margin-bottom: 96px; }
 .q-leave { width: 52px; }
 /* 矮螢幕（iPhone SE 等）：單字作答的進度卡不黏在上方，留空間讓整張題目卡放得進導覽列與下方橫幅之間 */
 @media (max-height: 760px) { .quiz:has(.q-dock) .st-bar { position: static; } }
+/* 答對的回饋和自動下一題開關放在同一層（下一題按鈕獨佔上面一整排） */
+.q-dock-sub { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px; }
+.q-dock-sub .feedback { flex: 1 1 auto; min-width: 0; font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-dock-sub .feedback:empty { display: block; }
+.q-dock-sub .feedback .ic { flex: none; width: 18px; height: 18px; }
+.q-dock-sub .switch { margin-left: auto; flex: none; }
