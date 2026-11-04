@@ -22,10 +22,10 @@ let bad = 0;
 const step = async (n, f) => { try { await f(); console.log('✓', n); } catch (e) { bad++; console.log('✗', n, '\n  ', e.message); } };
 await p.goto(world.base + '/'); await p.waitForSelector('.unit-tile');
 await step('名牌只顯示名字（第二字遮住）', async () => { assert.equal((await p.textContent('#student-chip')).trim(), '陳〇嘉'); });
-await step('點名牌展開個人選單，含姓名、班座號、我的成績、切換學生', async () => {
+await step('點名牌展開個人選單，含姓名、班座號、切換學生（我的成績改在下方分頁列，不重複）', async () => {
   await p.click('#student-chip'); await sleep(500);
   const t = await p.textContent('#chip-panel');
-  assert.match(t, /陳〇嘉/); assert.match(t, /306 班 20 號/); assert.match(t, /我的成績與缺交/); assert.match(t, /切換學生/);
+  assert.match(t, /陳〇嘉/); assert.match(t, /306 班 20 號/); assert.doesNotMatch(t, /我的成績與缺交/); assert.match(t, /切換學生/);
   assert.equal(await p.getAttribute('#student-chip', 'aria-expanded'), 'true');
   const r = await p.evaluate(() => { const b = document.getElementById('chip-panel').getBoundingClientRect(); return { x: b.x, r: b.right, w: innerWidth }; });
   assert.ok(r.x >= 0 && r.r <= r.w, JSON.stringify(r));
@@ -33,7 +33,8 @@ await step('點名牌展開個人選單，含姓名、班座號、我的成績�
 });
 await step('點空白處收起選單', async () => { await p.mouse.click(200, 700); await sleep(400); assert.equal(await p.getAttribute('#student-chip', 'aria-expanded'), 'false'); });
 await step('進入我的成績頁：狀態與計數正確', async () => {
-  await p.click('#student-chip'); await sleep(300); await p.click('#chip-panel a'); await p.waitForSelector('.me-row');
+  await p.evaluate(() => { location.hash = '#/'; }); await p.waitForSelector('#dock:not([hidden])');
+  await p.click('#dock a[data-dock="me"]'); await p.waitForSelector('.me-row');
   const rows = await p.$$eval('.me-row', (a) => a.map((r) => [r.className.replace('me-row ', ''), r.querySelector('.st').textContent]));
   console.log('   ', JSON.stringify(rows));
   assert.deepEqual(rows.map((r) => r[0]), ['miss', 'todo', 'open', 'ok', 'wait']);

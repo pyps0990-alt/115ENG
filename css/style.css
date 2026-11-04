@@ -1635,8 +1635,9 @@ html { scroll-padding-top: var(--sticky-h, 0px); }
 .list-head .legend > summary { gap: 6px; font-size: .92rem; list-style: none; }
 .list-head .legend > summary::-webkit-details-marker { display: none; }
 .list-head .legend > summary .ic { width: 17px; height: 17px; }
-.list-head .legend[open] { flex-basis: 100%; }
-.list-head .legend[open] > summary { margin-left: auto; display: flex; justify-content: flex-end; }
+.list-head { position: relative; flex-wrap: nowrap; }
+.list-head .legend { flex: none; }
+.list-head .legend dl { position: absolute; z-index: 15; right: 0; top: calc(100% + 6px); width: min(420px, 100%); margin: 0; box-shadow: 0 16px 36px rgba(30, 58, 138, .16); animation: pop-in .2s var(--ease); }
 .list-head + .lesson, .list-head + .asg-sec { margin-top: 18px; }
 
 /* 單元卡：白底、左邊成績環，狀態用環與小標籤表達（不再整圈彩色外框） */

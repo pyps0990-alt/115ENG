@@ -140,7 +140,7 @@ export function openStudentDialog(onSave) {
   d.showModal();
 }
 
-// 上方名牌：只顯示名字（第二個字用〇代替，旁人看螢幕不會看到全名）；點下去展開個人選單：我的成績與缺交、切換學生
+// 上方名牌：只顯示名字（第二個字用〇代替，旁人看螢幕不會看到全名）；點下去展開個人選單：切換學生、登出（我的成績在下方分頁列）
 export const maskName = (n) => (n.length >= 2 ? `${n[0]}〇${n.slice(2)}` : n);
 const panelEl = () => document.getElementById('chip-panel');
 export function closeChipPanel() {
@@ -154,14 +154,12 @@ function openChipPanel(s) {
   const panel = panelEl();
   const chip = document.getElementById('student-chip');
   panel.innerHTML = `<div class="chip-id"><b>${esc(maskName(s.name))}</b><span>${esc(s.cls)} 班 ${esc(s.seat)} 號</span></div>
-    <a class="menu-item" role="menuitem" href="#/me"><span class="menu-ic">${icon.trophy}</span><span class="menu-txt"><b>我的成績與缺交</b><span class="en">各單元的完成狀況</span></span></a>
     <button class="menu-item" role="menuitem" type="button" data-switch><span class="menu-ic">${icon.user}</span><span class="menu-txt"><b>切換學生</b><span class="en">換成別人的身分</span></span></button>
     <button class="menu-item" role="menuitem" type="button" data-logout><span class="menu-ic">${icon.x}</span><span class="menu-txt"><b>登出並清除這台裝置</b><span class="en">用別人的手機或共用電腦時</span></span></button>`;
   panel.querySelector('[data-switch]').onclick = () => {
     closeChipPanel();
     openStudentDialog(() => window.dispatchEvent(new Event('student-changed')));
   };
-  panel.querySelector('a').onclick = () => closeChipPanel();
   panel.querySelector('[data-logout]').onclick = async () => {
     closeChipPanel();
     const { pendingCount } = await import('./submit.js');

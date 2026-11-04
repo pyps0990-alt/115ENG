@@ -344,6 +344,10 @@ function renderHome() {
     applyFilter(true);
   }));
   applyFilter();
+  // 狀態說明：浮在按鈕下方，點其他地方就收起
+  const legend = host.querySelector('.legend');
+  const closeLegend = (e) => { if (!legend.isConnected) { document.removeEventListener('click', closeLegend, true); return; } if (legend.open && !legend.contains(e.target)) legend.open = false; };
+  document.addEventListener('click', closeLegend, true);
   // 字型載入完成後按鈕寬度會變，底塊重新對齊
   document.fonts?.ready.then(() => moveThumb(true));
 }
