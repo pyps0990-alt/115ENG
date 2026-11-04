@@ -1340,9 +1340,10 @@
       .m-fab:active .fab-ic { transform:scale(.86); }
       .m-fab, .m-fab.on, .m-fab:hover, .m-fab[aria-current="page"] { background:transparent !important; box-shadow:none !important; } /* 只有圓鈕變色，整格不變 */
       .m-fab .fab-ic { width:30px; height:30px; margin:-4px 0; } /* 跟其他分頁的圖示佔一樣的高度，文字對齊同一條線 */
-      .m-fab.on { color:var(--navy); }
       .m-fab .lg-label { margin-top:-2px; }
-      .m-fab.on .fab-ic { background:var(--primary); border-color:var(--primary); box-shadow:0 4px 14px rgba(245, 158, 11, .45), inset 0 1px 0 rgba(255,255,255,.5); transform:scale(1.06); }
+      .m-fab.on { color:#D97706; }
+      .rail:has(.m-fab.on) a[aria-current="page"], .rail:has(.m-fab.on) a[aria-current="page"] svg { color:var(--steel) !important; } /* 膠囊在 ＋ 上：「單元」不要同時亮 */ /* 選到：框框（膠囊）照樣在，加號和「新增」變黃色 */
+      .m-fab.on .fab-ic { background:transparent; border-color:transparent; box-shadow:none; color:var(--primary); }
       .m-panel { top:calc(62px + env(safe-area-inset-top, 0px)) !important; bottom:auto !important; transform-origin:calc(100% - 26px) -24px !important; } /* 從右上角的頭像往下展開 */
       .m-acct { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px; padding:12px 10px 4px; border-top:1px solid var(--line); }
       .m-acct[hidden] { display:none; }
@@ -5346,7 +5347,7 @@
         $('m-top-back').hidden = !(v === 'unit' || (v === 'units' && shell.dataset.pane === 'work'));
         if (v === 'units' && shell.dataset.pane === 'work') $('m-top-title').textContent = '新增單元';
         more.classList.toggle('on', v === 'students' || v === 'settings' || v === 'help');
-        // ＋：只有在新增單元的畫面才變成橘色（選取中）；這時分頁列的選取膠囊讓開，不會兩個同時亮
+        // ＋：在新增單元的畫面是選取中（膠囊框住它，加號與「新增」變黃色）
         fab.classList.toggle('on', v === 'units' && shell.dataset.pane === 'work');
         fab.setAttribute('aria-current', fab.classList.contains('on') ? 'page' : 'false');
         if (window.placeInks) requestAnimationFrame(window.placeInks);
@@ -5374,7 +5375,7 @@
       var tabs = function () { return [].slice.call(rail.querySelectorAll('a[data-view], .rail-more, .m-fab')).filter(function (t) { return t.offsetParent !== null; }).sort(function (a, b) { return a.getBoundingClientRect().left - b.getBoundingClientRect().left; }); };
       // 目前的分頁：只算看得到的（手機上「更多」已經收進頭像、是藏起來的；學生、設定、教學不在分頁列上）→ 沒有的話膠囊淡出，不會跑到最左邊
       var current = function () {
-        if (rail.querySelector('.m-fab.on')) return null;
+        var fo = rail.querySelector('.m-fab.on'); if (fo && fo.offsetParent !== null) return fo; // 新增單元畫面：膠囊框住 ＋
         var m = rail.querySelector('.rail-more.on, .rail-more[aria-expanded="true"]');
         if (m && m.offsetParent !== null) return m;
         var a = rail.querySelector('a[data-view][aria-current="page"]:not([data-view="students"]):not([data-view="settings"]):not([data-view="help"])');

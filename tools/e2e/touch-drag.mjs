@@ -33,13 +33,13 @@ await t.tap('#m-sheet a[href="#help"]'); await sleep(900);
 s1 = await inkSt(); console.log('教學頁：膠囊淡出', JSON.stringify(s1)); if (s1.op !== '0') bad++;
 await t.tap('.rail a[data-view="units"]'); await sleep(900);
 s1 = await inkSt(); console.log('回到單元：膠囊回來', JSON.stringify(s1)); if (s1.op !== '1' || Math.abs(s1.left - s1.cur) > 3) bad++;
-// 拖到中間的 ＋ 放開：跳到新增單元，＋ 變成橘色（選取中），膠囊讓開；再從 ＋ 拖回總覽
+// 拖到中間的 ＋ 放開：跳到新增單元，＋ 選取中（膠囊框住 ＋，加號與文字變黃）；再從 ＋ 拖回總覽
 {
   const u = await t.locator('.rail a[data-view="units"]').boundingBox(), f = await t.locator('#m-fab').boundingBox(), o = await t.locator('.rail a[data-view="overview"]').boundingBox();
   await swipe(t, u.x + u.width / 2, u.y + u.height / 2, f.x + f.width / 2, f.y + f.height / 2);
   await sleep(1200);
-  const r1 = await t.evaluate(() => ({ h: location.hash, pane: document.getElementById('shell').dataset.pane, on: document.getElementById('m-fab').classList.contains('on'), op: getComputedStyle(document.querySelector('.lg-ink')).opacity, form: !!document.getElementById('nu2-title') && document.getElementById('nu2-title').offsetParent !== null }));
-  console.log('拖到 ＋：', JSON.stringify(r1)); if (r1.h !== '#units' || r1.pane !== 'work' || !r1.on || r1.op !== '0') bad++;
+  const r1 = await t.evaluate(() => { const i = document.querySelector('.lg-ink').getBoundingClientRect(), f = document.getElementById('m-fab').getBoundingClientRect(); return { h: location.hash, pane: document.getElementById('shell').dataset.pane, on: document.getElementById('m-fab').classList.contains('on'), op: getComputedStyle(document.querySelector('.lg-ink')).opacity, dx: Math.round(Math.abs(i.left + i.width / 2 - f.left - f.width / 2)) }; });
+  console.log('拖到 ＋：', JSON.stringify(r1)); if (r1.h !== '#units' || r1.pane !== 'work' || !r1.on || r1.op !== '1' || r1.dx > 3) bad++;
   await swipe(t, f.x + f.width / 2, f.y + f.height / 2, o.x + o.width / 2, o.y + o.height / 2);
   await sleep(1200);
   const r2 = await t.evaluate(() => ({ h: location.hash, on: document.getElementById('m-fab').classList.contains('on'), op: getComputedStyle(document.querySelector('.lg-ink')).opacity }));

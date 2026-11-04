@@ -1710,8 +1710,14 @@ body { background: var(--bg); }
 .dock a { position: relative; z-index: 1; -webkit-tap-highlight-color: transparent; }
 .dock a[aria-current] { color: var(--white); }
 /* 選取膠囊：深藍、在分頁後面，換頁時滑過去（稍微過衝），拖動時跟著手指 */
-.dock-ink { position: absolute; z-index: 0; left: 0; top: 6px; height: 50px; width: 0; border-radius: 999px; background: var(--navy);
+.dock-ink { position: absolute; z-index: 0; left: 0; top: 6px; bottom: 6px; width: calc(50% - 8px); border-radius: 999px; background: var(--navy); transform: translateX(6px);
   box-shadow: 0 4px 12px rgba(30, 58, 138, .25); transition: transform .42s cubic-bezier(.3, 1.22, .4, 1), box-shadow .2s; pointer-events: none; }
+.dock[data-cur="1"] .dock-ink { transform: translateX(calc(100% + 10px)); }
+/* 往下滑時縮小（整列等比例縮小，只用 transform：不會讓版面移動，也比改寬高順） */
+.dock { transform-origin: 50% 100%; transition: transform .4s cubic-bezier(.22, 1.2, .36, 1); }
+.dock.mini { transform: translateX(-50%) scale(.8); }
+.dock a { transition: color .3s var(--ease); }
+@media (prefers-reduced-motion: reduce) { .dock { transition: none; } }
 .dock.dragging .dock-ink { box-shadow: 0 10px 22px rgba(30, 58, 138, .3); }
 @media (prefers-reduced-motion: reduce) { .dock-ink { transition: none; } }
 .dock a:not([aria-current]):hover { color: var(--navy); }

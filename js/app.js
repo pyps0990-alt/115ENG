@@ -120,14 +120,16 @@ function syncDock(on) {
   initDockDrag(dock);
 }
 // 選取膠囊：滑到目前的分頁（標籤展開後寬度會變，所以等下一格再量）
+// 位置交給 CSS（data-cur：第幾格），分頁列縮小／放大時膠囊會自己跟著，不用每一格重新量
 function placeDockInk(instant) {
   const dock = document.getElementById('dock');
   const ink = dock && dock.querySelector('.dock-ink');
-  const cur = dock && dock.querySelector('a[aria-current]');
-  if (!ink || !cur) return;
+  const links = dock ? [...dock.querySelectorAll('a')] : [];
+  const i = links.findIndex((a) => a.hasAttribute('aria-current'));
+  if (!ink || i < 0) return;
   if (instant) ink.style.transition = 'none';
-  ink.style.width = `${cur.offsetWidth}px`;
-  ink.style.transform = `translateX(${cur.offsetLeft}px)`;
+  dock.dataset.cur = String(i);
+  ink.style.transform = '';
   if (instant) { void ink.offsetWidth; ink.style.transition = ''; }
 }
 // 拖動選取膠囊：左右拖到另一個分頁放開就切換；往上下拉或拖出兩端有橡皮筋（越拉越緊、有極限），放開彈回
@@ -137,7 +139,7 @@ function initDockDrag(dock) {
   dockReady = true;
   const ink = dock.querySelector('.dock-ink');
   const rubber = (d, lim) => { const a = Math.abs(d); return (d < 0 ? -1 : 1) * lim * (1 - 1 / (a * 0.55 / lim + 1)); };
-  let pid = null; let sx = 0; let sy = 0; let x0 = 0; let w = 0; let dragging = false; let moved = false;
+  let pid = null; let sx = 0; let sy = 0; let x0 = 0; let w = 0; let k = 1; let dragging = false; let moved = false; // k：縮小時的比例（手指移動換算成分頁列裡的距離）
   const links = () => [...dock.querySelectorAll('a')];
   const finish = (e, cancel) => {
     if (pid === null) return;
@@ -147,7 +149,7 @@ function initDockDrag(dock) {
     if (!dragging) return;
     dragging = false;
     const dx = Math.abs(e.clientX - sx); const dy = Math.abs(e.clientY - sy);
-    const cx = x0 + (e.clientX - sx) + w / 2;
+    const cx = x0 + (e.clientX - sx) / k + w / 2;
     let target = dock.querySelector('a[aria-current]');
     if (!cancel && !(dx < 24 && dy > dx)) {
       let best = Infinity;
@@ -161,7 +163,7 @@ function initDockDrag(dock) {
   dock.addEventListener('pointerdown', (e) => {
     if (e.button > 0) return;
     const cur = dock.querySelector('a[aria-current]'); if (!cur) return;
-    pid = e.pointerId; sx = e.clientX; sy = e.clientY; x0 = cur.offsetLeft; w = cur.offsetWidth; dragging = false; moved = false;
+    pid = e.pointerId; sx = e.clientX; sy = e.clientY; x0 = cur.offsetLeft; w = cur.offsetWidth; k = dock.getBoundingClientRect().width / dock.offsetWidth || 1; dragging = false; moved = false;
   });
   dock.addEventListener('pointermove', (e) => {
     if (pid !== e.pointerId) return;
@@ -173,7 +175,7 @@ function initDockDrag(dock) {
       ink.style.transition = 'none';
     }
     e.preventDefault();
-    const lo = 6; const hi = dock.clientWidth - w - 6; const fx = x0 + (e.clientX - sx);
+    const lo = 6; const hi = dock.clientWidth - w - 6; const fx = x0 + (e.clientX - sx) / k;
     const x = fx < lo ? lo + rubber(fx - lo, 18) : fx > hi ? hi + rubber(fx - hi, 18) : fx;
     const y = reduceMotion.matches ? 0 : rubber(e.clientY - sy, 10);
     ink.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(1.06)`;
@@ -186,8 +188,19 @@ function initDockDrag(dock) {
   dock.addEventListener('lostpointercapture', (e) => { if (e.target === dock && pid === e.pointerId) finish({ clientX: sx, clientY: sy }, true); });
   dock.addEventListener('dragstart', (e) => e.preventDefault());
   dock.addEventListener('click', (e) => { if (moved) { moved = false; e.preventDefault(); e.stopPropagation(); } }, true);
-  window.addEventListener('resize', () => placeDockInk(true));
-  document.fonts?.ready.then(() => placeDockInk(true));
+  // 往下滑：分頁列縮小成只有圖示；往上滑或回到頂端：恢復
+  let lastY = window.scrollY; let tick = false;
+  window.addEventListener('scroll', () => {
+    if (tick) return;
+    tick = true;
+    requestAnimationFrame(() => {
+      tick = false;
+      const y = window.scrollY; const dy = y - lastY;
+      if (Math.abs(dy) < 6 && y > 60) return;
+      lastY = y;
+      dock.classList.toggle('mini', dy > 0 && y > 120);
+    });
+  }, { passive: true });
 }
 
 // 單元選單是否顯示：老師頁、還沒登入、沒有可用單元時隱藏。登入成功（不換頁）時也要更新，不然選單會一直藏著
