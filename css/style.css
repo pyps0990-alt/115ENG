@@ -1640,7 +1640,7 @@ body { background: var(--bg); }
 .list-head .legend > summary { gap: 6px; font-size: .92rem; list-style: none; }
 .list-head .legend > summary::-webkit-details-marker { display: none; }
 .list-head .legend > summary .ic { width: 17px; height: 17px; }
-.list-head { position: relative; flex-wrap: nowrap; }
+.list-head { position: relative; flex-wrap: nowrap; justify-content: flex-end; margin-top: 14px; }
 .list-head .legend { flex: none; }
 .list-head .legend dl { position: absolute; z-index: 15; right: 0; top: calc(100% + 6px); width: min(420px, 100%); margin: 0; box-shadow: 0 16px 36px rgba(30, 58, 138, .16); animation: pop-in .2s var(--ease); }
 .list-head + .lesson, .list-head + .asg-sec { margin-top: 18px; }

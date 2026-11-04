@@ -343,7 +343,6 @@ function renderHome() {
   // 還沒有任何進度時不顯示「已完成 0 / N」，第一屏只留下一步要做什麼
   app.querySelector('#progress-slot').innerHTML = nOk || nTodo || nMiss
     ? `<a class="hp-link" href="#/me">已完成 ${nOk} / ${visible.length}${nTodo ? ` · 待檢討 ${nTodo}` : ''}${nMiss ? ` · 缺交 ${nMiss}` : ''} · 詳細 ${icon.arrowR}</a>` : '';
-  const filterHTML = `<div class="seg seg-glide" role="group" aria-label="顯示哪些單元"><span class="seg-thumb" aria-hidden="true"></span><button type="button" data-filter="all">全部</button><button type="button" data-filter="todo">現在要做的</button></div>`;
   // 有指派作業：最上面一段「老師指派」，其他單元放在下面「自由練習」
   const asgIds = new Set(asg.map((a) => a.u.id));
   const asgHTML = asg.length ? `<section class="lesson asg-sec">
@@ -357,7 +356,7 @@ function renderHome() {
           <dt>缺交</dt><dd>單元已截止，還沒有正式測驗紀錄，請找老師。</dd>
         </dl>
       </details>`;
-  host.innerHTML = `<div class="list-head">${filterHTML}${legendHTML}</div>` + asgHTML + lessons.map((n) => {
+  host.innerHTML = `<div class="list-head">${legendHTML}</div>` + asgHTML + lessons.map((n) => {
     const units = visible.filter((u) => u.lesson === n && !asgIds.has(u.id));
     if (!units.length) return '';
     return `<section class="lesson">
@@ -365,64 +364,11 @@ function renderHome() {
       <div class="unit-grid">${units.map((u) => tileHTML(u)).join('')}</div>
     </section>`;
   }).join('');
-  // 切換「全部／現在要做的」：白色底塊滑到選到的按鈕；要藏起來的卡片先淡出，版面再平順地移到新位置（FLIP），新出現的卡片淡入。
-  // 連續快速點擊時，上一次還沒播完的動畫直接跳到結尾，不會疊在一起。
-  const seg = host.querySelector('.seg-glide');
-  const thumb = seg.querySelector('.seg-thumb');
-  const moveThumb = (snap) => {
-    const on = seg.querySelector('[aria-pressed="true"]');
-    if (!on) return;
-    if (snap) thumb.classList.add('snap');
-    thumb.style.setProperty('--tx', `${on.offsetLeft}px`);
-    thumb.style.setProperty('--tw', `${on.offsetWidth}px`);
-    if (snap) { thumb.getBoundingClientRect(); thumb.classList.remove('snap'); }
-  };
-  let running = [];
-  // 取消（不是跳到結尾）：淡出到一半的卡片回到原本的樣子，交給新的這次重新處理
-  const settle = () => { running.forEach((an) => { try { an.cancel(); } catch { /* ignore */ } }); running = []; };
-  const applyFilter = async (animate = false) => {
-    settle();
-    let mode = 'all';
-    try { mode = localStorage.getItem('b5p:filter') || 'all'; } catch { /* ignore */ }
-    host.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.filter === mode ? 'true' : 'false'));
-    moveThumb(!animate);
-    const tiles = [...host.querySelectorAll('.unit-tile')];
-    const want = new Map(tiles.map((t) => [t, !(mode === 'todo' && (t.classList.contains('st-ok') || t.classList.contains('st-wait')))]));
-    const lessonsEls = [...host.querySelectorAll('.lesson')];
-    const lessonWant = new Map(lessonsEls.map((l) => [l, [...l.querySelectorAll('.unit-tile')].some((t) => want.get(t))]));
-    const apply = () => {
-      tiles.forEach((t) => { t.hidden = !want.get(t); });
-      lessonsEls.forEach((l) => { l.hidden = !lessonWant.get(l); });
-      if (mode === 'todo' && !tiles.some((t) => want.get(t))) {
-        if (!host.querySelector('.filter-empty')) host.insertAdjacentHTML('beforeend', '<p class="filter-empty" role="status">全部都完成了，沒有要做的單元。</p>');
-      } else host.querySelector('.filter-empty')?.remove();
-    };
-    const calm = reduceMotion.matches;
-    if (!animate || !('animate' in Element.prototype)) { apply(); return; }
-    // 整個清單輕輕淡出 → 換成新的內容 → 再輕輕淡入（只有一點點位移），不讓卡片在畫面上長距離滑動
-    const shown = () => [...lessonsEls.filter((l) => !l.hidden), ...host.querySelectorAll('.filter-empty')];
-    const outs = shown().map((el) => el.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: calm ? 'none' : 'translateY(4px)' }],
-      { duration: 180, easing: 'cubic-bezier(.4, 0, 1, 1)', fill: 'forwards' }));
-    running = outs;
-    await Promise.all(outs.map((an) => an.finished.catch(() => {})));
-    if (running !== outs) return; // 動畫途中又點了一次：交給新的那次處理
-    apply();
-    outs.forEach((an) => an.cancel());
-    running = shown().map((el, i) => el.animate(calm ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }],
-      { duration: 420, delay: Math.min(i, 4) * 60, easing: 'cubic-bezier(.16, 1, .3, 1)', fill: 'backwards' }));
-  };
-  host.querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => {
-    if (b.getAttribute('aria-pressed') === 'true') return;
-    try { localStorage.setItem('b5p:filter', b.dataset.filter); } catch { /* ignore */ }
-    applyFilter(true);
-  }));
-  applyFilter();
+  try { localStorage.removeItem('b5p:filter'); } catch { /* ignore */ } // 「全部／現在要做的」篩選已拿掉（主卡與老師指派已經告訴學生先做什麼）
   // 狀態說明：浮在按鈕下方，點其他地方就收起
   const legend = host.querySelector('.legend');
   const closeLegend = (e) => { if (!legend.isConnected) { document.removeEventListener('click', closeLegend, true); return; } if (legend.open && !legend.contains(e.target)) legend.open = false; };
   document.addEventListener('click', closeLegend, true);
-  // 字型載入完成後按鈕寬度會變，底塊重新對齊
-  document.fonts?.ready.then(() => moveThumb(true));
 }
 
 // 開放時段：放在卡片說明列的純文字（還沒開放、快截止、已截止）
