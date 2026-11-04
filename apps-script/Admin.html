@@ -5347,7 +5347,7 @@
       var calm = function () { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; };
       var ink = document.createElement('span'); ink.className = 'lg-ink'; ink.setAttribute('aria-hidden', 'true');
       rail.appendChild(ink);
-      var tabs = function () { return [].slice.call(rail.querySelectorAll('a[data-view], .rail-more')).filter(function (t) { return t.offsetParent !== null; }).sort(function (a, b) { return a.getBoundingClientRect().left - b.getBoundingClientRect().left; }); };
+      var tabs = function () { return [].slice.call(rail.querySelectorAll('a[data-view], .rail-more, .m-fab')).filter(function (t) { return t.offsetParent !== null; }).sort(function (a, b) { return a.getBoundingClientRect().left - b.getBoundingClientRect().left; }); };
       // 目前的分頁：只算看得到的（手機上「更多」已經收進頭像、是藏起來的；學生、設定、教學不在分頁列上）→ 沒有的話膠囊淡出，不會跑到最左邊
       var current = function () {
         if (rail.querySelector('.m-fab.on')) return null;
@@ -5421,7 +5421,7 @@
       };
 
       // 按住、拖動、放開
-      var axis = '', dragging = false, startX = 0, startY = 0, pid = null, grab = 0, hover = null, moved = false, pressT = null;
+      var pressEl = null, axis = '', dragging = false, startX = 0, startY = 0, pid = null, grab = 0, hover = null, moved = false, pressT = null;
       var nearest = function (x) {
         var g = geo || measure(), best = null, d = Infinity;
         g.tabs.forEach(function (t) { var c = g.left + t.c; if (Math.abs(c - x) < d) { d = Math.abs(c - x); best = t.el; } });
@@ -5429,7 +5429,8 @@
       };
       rail.addEventListener('pointerdown', function (e) {
         if (!mq.matches || e.button > 0 || e.target.closest('.rail-who')) return;
-        var t = e.target.closest('a[data-view], .rail-more'); if (!t) return;
+        var t = e.target.closest('a[data-view], .rail-more, .m-fab'); if (!t) return;
+        pressEl = t;
         pid = e.pointerId; startX = e.clientX; startY = e.clientY; moved = false;
         var g = measure(), x = e.clientX - g.left;
         var onInk = x >= L.x && x <= R.x;
@@ -5445,6 +5446,8 @@
           dragging = true; moved = true;
           // 一開始往哪個方向拖就鎖定那個方向：上下拉時膠囊只上下動，不會因為手指左右飄而忽長忽短
           axis = Math.abs(e.clientY - startY) > Math.abs(e.clientX - startX) ? 'y' : 'x';
+          // 膠囊藏著（例如在新增單元畫面，＋ 是選取中）：從按下的那一格長出來再跟著手指
+          if (ink.style.opacity === '0' && pressEl) { var pb = box(pressEl); L.x = L.to = pb.l; R.x = R.to = pb.r; L.v = R.v = 0; baseW = pb.r - pb.l; grab = (pb.r - pb.l) / 2; ink.style.opacity = '1'; render(); }
           try { rail.setPointerCapture(pid); } catch (err) {}
           rail.classList.add('lg-drag'); ink.classList.add('lifted');
           S.to = axis === 'y' ? 1.08 : 1.16; S.k = 420; S.c = 36; // 鼓起來但不晃
