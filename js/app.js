@@ -3,9 +3,8 @@ import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow,
 import { store } from './storage.js';
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
-import { renderStudentChip, mountInlineForm, historyReady, closeChipPanel, maskName } from './student.js';
+import { mountInlineForm, historyReady, maskName, accountHTML, bindAccount } from './student.js';
 import { LEVELS, PASS, levelsFor, quizCount } from './levels.js';
-import { initNav, updateNav } from './nav.js';
 import { flushOutbox, pendingItems, clearOutbox, outboxStatus, rejectedItems } from './submit.js';
 import { submitStateHTML } from './components/gate.js';
 import { leaveBody } from './resume.js';
@@ -69,23 +68,16 @@ async function route() {
   lastDepth = depth;
   if (cleanup) { try { cleanup(); } catch { /* ignore */ } cleanup = null; }
   delete document.body.dataset.busy;
-  closeChipPanel();
   document.getElementById('fx').replaceChildren();
   // 首頁不顯示「#/」，網址保持乾淨（replaceState 不會再觸發 hashchange）
   if (location.hash === '#/' || location.hash === '#') history.replaceState(null, '', location.pathname + location.search);
   const [, kind, id, sub] = location.hash.split('/').map(decodeURIComponent);
   lastKind = kind || '';
   window.scrollTo(0, 0);
-  // 還沒確認身分：隱藏單元選單，單元網址一律導回首頁填資料
+  // 還沒確認身分：單元網址一律導回首頁填資料（上方只有 B5，沒有選單與名牌；切換學生、登出在「我的成績」頁）
   const loggedIn = !!store.student();
-  // 老師頁是獨立頁面：不顯示單元選單和學生名牌
-  const teacher = kind === 'teacher';
-  document.getElementById('nav-menu').hidden = teacher || !loggedIn || !visibleUnits().length;
-  if (teacher) document.getElementById('student-chip').hidden = true;
-  else renderStudentChip();
   if (kind === 'u' && !loggedIn) { location.replace('#/'); return; }
   syncDock(loggedIn && (!kind || kind === 'me') ? (kind || 'home') : null);
-  updateNav(kind === 'u' && id ? (findUnit(id) || {}).id : null);
   if (kind === 'u' && id && changed && !(await assignGuard(id))) return;
   const render = async () => {
     try {
@@ -203,12 +195,6 @@ function initDockDrag(dock) {
   }, { passive: true });
 }
 
-// 單元選單是否顯示：老師頁、還沒登入、沒有可用單元時隱藏。登入成功（不換頁）時也要更新，不然選單會一直藏著
-function syncNav() {
-  const kind = location.hash.split('/')[1] || '';
-  document.getElementById('nav-menu').hidden = kind === 'teacher' || !store.student() || !visibleUnits().length;
-}
-
 // 這個單元要考的段落：老師有設定出題方式就照設定，否則是預設三段（關掉的段落不考）
 const openLevels = (u) => levelsFor(unitCfg(config, u.id));
 // 還沒有題目的單元不給學生看（老師匯入內容後才出現）
@@ -310,7 +296,7 @@ function renderHome() {
       title: '輸入你的基本資料',
       desc: '填寫班級、座號和姓名，要跟老師的名單一致。確認後會載入你之前的測驗紀錄。',
       button: '開始練習',
-      onSave: () => { syncNav(); renderHome(); },
+      onSave: () => renderHome(),
     });
     return;
   }
@@ -563,7 +549,9 @@ async function renderMe() {
         <span class="txt"><b>${esc(unitName(r.u))}</b><span>${typeLabel(r.u.type)}・${esc(r.note)}</span></span>
         <span class="st">${esc(r.st)}</span></a>`).join('')}</div>`
       : `<div class="empty"><div class="big">${icon.inbox}</div><p>老師目前沒有開放任何單元。</p></div>`}
-    <p class="me-note">缺交是指：單元有截止時間、已經過了，而且沒有正式測驗紀錄。缺交的單元如果需要補作，請找老師。總分未達 ${PASS}% 的單元顯示「需補考」，重新做一次正式測驗，達標就通過。</p>`;
+    <p class="me-note">缺交是指：單元有截止時間、已經過了，而且沒有正式測驗紀錄。缺交的單元如果需要補作，請找老師。總分未達 ${PASS}% 的單元顯示「需補考」，重新做一次正式測驗，達標就通過。</p>
+    ${accountHTML(s)}`;
+  bindAccount(app);
 }
 
 /* ---------------- footer ---------------- */
@@ -746,16 +734,12 @@ async function boot() {
   // 舊版只存在裝置上、沒有跟老師名單確認過的學生資料：要求重新登入
   const saved = store.student();
   if (saved && !saved.key) { store.setStudent(null); store.resetProgress(); }
-  renderStudentChip();
   renderFooter();
   let base;
   const build = () => {
     index = structuredClone(base);
     addCustomUnits(index, config);
     applyImported(index, config);
-    initNav(visibleUnits());
-    const kind = location.hash.split('/')[1] || '';
-    document.getElementById('nav-menu').hidden = kind === 'teacher' || !store.student() || !visibleUnits().length;
     const since = {};
     Object.entries((config && config.units) || {}).forEach(([id, u]) => { const t = Date.parse(u.since); if (t) since[id] = t; });
     store.setSince(since);
@@ -871,16 +855,12 @@ async function boot() {
   window.addEventListener('scroll', onScroll, { passive: true });
   evaluate();
 
-  // 考試中的導覽列：B5、目前單元（單元選單與名牌在考試中不能用，位置讓出來）。
-  // 練習沒有時限，不顯示倒數或計時，避免製造壓力；作答時間仍由各測驗記錄、隨成績送出。
-  const examUnit = document.getElementById('exam-unit');
+  // 考試中：body.exam（導覽列維持完整狀態）。練習沒有時限，不顯示倒數或計時，避免製造壓力；作答時間仍由各測驗記錄、隨成績送出。
   const setExam = (on) => {
     if (on === document.body.classList.contains('exam')) return;
     document.body.classList.toggle('exam', on);
     if (on) {
       flip(false); // 考試中導覽列維持完整狀態
-      const u = findUnit(decodeURIComponent(location.hash.split('/')[2] || ''));
-      examUnit.textContent = u ? `${lessonLabel(u.lesson)} ${typeLabel(u.type)}` : '';
     } else {
       evaluate();
     }

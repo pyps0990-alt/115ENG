@@ -49,9 +49,7 @@ await step('登入：按鈕依序顯示「確認中 → 已確認」，成功後
   assert.deepEqual(seq.slice(0, 2), ['busy', 'ok']);
   assert.ok(states.some((x) => /已確認，歡迎/.test(x[1])));
   assert.ok(total >= 400 && total < 2000, `停留時間不合理：${total}ms`);
-  const chip = await p.evaluate(() => !document.getElementById('student-chip').hidden);
-  assert.ok(chip);
-  assert.equal(await p.evaluate(() => document.getElementById('nav-menu').hidden), false, '登入後單元選單要出現');
+  assert.equal(await p.evaluate(() => document.querySelector('.topbar-inner').children.length), 1, '上方只有 B5（沒有選單與名牌）');
   await p.close();
 });
 await step('登入失敗：按鈕輕抖、提示為琥珀色小字（不是紅色），輸入後自動消失', async () => {
@@ -80,7 +78,7 @@ await step('學校網路擋掉一般連線：登入改用 Firestore SDK 仍成�
   world.rosterFail = 'down'; // REST 連不上（SDK 的假資料庫仍可用）
   await p.fill('#f-cls', '306'); await p.fill('#f-seat', '20'); await p.fill('#f-name', '陳奕嘉');
   await p.click('.welcome [type="submit"]');
-  await p.waitForFunction(() => /已確認，歡迎/.test(document.querySelector('.welcome [type="submit"]')?.textContent || '') || document.getElementById('student-chip') && !document.getElementById('student-chip').hidden, null, { timeout: 8000 });
+  await p.waitForFunction(() => /已確認，歡迎/.test(document.querySelector('.welcome [type="submit"]')?.textContent || '') || document.querySelector('.unit-tile'), null, { timeout: 8000 });
   world.rosterFail = null;
   await p.close();
 });
@@ -98,15 +96,6 @@ await step('導覽列高度固定：捲動前後高度相同，頁面總高度�
   assert.equal(after.h, before.h);
   assert.equal(after.doc, before.doc);
 });
-await step('往下捲動：B5 留著、選單按鈕縮成「B5 ⌄」，往上捲回原樣', async () => {
-  const r = await p.evaluate(() => { const m = document.getElementById('unit-menu-btn'); const b = document.querySelector('.brand'); return { mx: m.getBoundingClientRect().x, brandOp: getComputedStyle(b).opacity, brandVis: getComputedStyle(b).visibility, tf: getComputedStyle(m).transform }; });
-  console.log('   ', JSON.stringify(r));
-  assert.equal(r.brandOp, '1'); // 新設計：B5 一直留著（見 js/nav.js 的說明）
-  assert.ok(r.mx >= 0 && r.mx < 400, `選單按鈕要在畫面內，實際 x=${r.mx}`);
-  await p.evaluate(() => window.scrollTo(0, 0)); await sleep(700);
-  const back = await p.evaluate(() => ({ mx: document.getElementById('unit-menu-btn').getBoundingClientRect().x, op: getComputedStyle(document.querySelector('.brand')).opacity }));
-  assert.ok(back.mx >= 0 && back.op === '1', JSON.stringify(back));
-});
 await step('快速來回滑動：狀態不會亂閃、沒有版面位移', async () => {
   await p.evaluate(() => {
     window.__flips = 0; window.__cls = 0;
@@ -121,31 +110,6 @@ await step('快速來回滑動：狀態不會亂閃、沒有版面位移', async
   assert.ok(r.cls < 0.01, `版面位移 ${r.cls}`);
   assert.equal(r.scrolled, r.y > 40, '最後狀態要和捲動位置一致');
 });
-await step('選單面板：打開／關閉都有過場，關閉後不可見也不會被點到', async () => {
-  await p.evaluate(() => window.scrollTo(0, 0)); await sleep(500);
-  await p.click('#unit-menu-btn');
-  await sleep(120);
-  const mid = await p.evaluate(() => Number(getComputedStyle(document.getElementById('unit-menu')).opacity));
-  await sleep(500);
-  const open = await p.evaluate(() => { const m = document.getElementById('unit-menu'); return { op: getComputedStyle(m).opacity, vis: getComputedStyle(m).visibility, items: m.querySelectorAll('.menu-item').length }; });
-  assert.ok(mid > 0 && mid < 1, `展開中途 opacity=${mid}（應該在過場中）`);
-  assert.equal(open.vis, 'visible'); assert.equal(open.op, '1');
-  await p.click('#unit-menu-btn');
-  await sleep(90);
-  const midClose = await p.evaluate(() => Number(getComputedStyle(document.getElementById('unit-menu')).opacity));
-  await sleep(400);
-  const closed = await p.evaluate(() => { const m = document.getElementById('unit-menu'); return { op: getComputedStyle(m).opacity, vis: getComputedStyle(m).visibility, pe: getComputedStyle(m).pointerEvents }; });
-  console.log('   中途', mid.toFixed(2), '收合中', midClose.toFixed(2), JSON.stringify(closed));
-  assert.ok(midClose > 0 && midClose < 1, `收合中途 opacity=${midClose}`);
-  assert.deepEqual(closed, { op: '0', vis: 'hidden', pe: 'none' });
-});
-await step('捲動後開啟選單：面板對齊按鈕', async () => {
-  await p.evaluate(() => window.scrollTo(0, 700)); await sleep(800);
-  await p.click('#unit-menu-btn'); await sleep(500);
-  const r = await p.evaluate(() => { const m = document.getElementById('unit-menu').getBoundingClientRect(); return { x: m.x, right: m.right, w: innerWidth }; });
-  assert.ok(r.x >= 0 && r.right <= r.w, JSON.stringify(r));
-  await p.click('#unit-menu-btn'); await sleep(400);
-});
 await step('換頁：首頁 ↔ 單元有進場動畫且方向不同', async () => {
   await p.evaluate(() => window.scrollTo(0, 0)); await sleep(200);
   await p.click('.unit-tile'); await p.waitForSelector('#stage');
@@ -154,22 +118,26 @@ await step('換頁：首頁 ↔ 單元有進場動畫且方向不同', async () 
   const back = await p.evaluate(() => document.getElementById('app').dataset.dir);
   assert.equal(fwd, 'fwd'); assert.equal(back, 'back');
 });
-await step('考試中：B5 固定、顯示目前單元（不顯示計時）、名牌與單元選單隱藏；結束後恢復', async () => {
+await step('考試中：B5 固定、不顯示計時；下方固定橫幅：左離開、右上下一題、右下自動下一題；結束後恢復', async () => {
   await p.evaluate(() => window.scrollTo(0, 0)); await sleep(300);
   await p.click('.unit-tile'); await p.waitForSelector('[data-start]'); await p.click('[data-start]'); await p.waitForSelector('.q-card');
   await sleep(1300);
   await p.evaluate(() => window.scrollTo(0, 900)); await sleep(700);
-  const r = await p.evaluate(() => ({ exam: document.body.classList.contains('exam'), scrolled: document.body.classList.contains('scrolled'), brandOp: getComputedStyle(document.querySelector('.brand')).opacity,
-    timer: !!document.getElementById('exam-timer'), unit: document.getElementById('exam-unit').textContent,
-    menu: getComputedStyle(document.getElementById('nav-menu')).display, chip: getComputedStyle(document.getElementById('student-chip')).display }));
+  const r = await p.evaluate(() => {
+    const box = (q) => document.querySelector(q).getBoundingClientRect();
+    const d = box('.q-dock'), l = box('[data-leave]'), n = box('.q-foot'), sw = box('[data-auto-toggle]');
+    return { exam: document.body.classList.contains('exam'), scrolled: document.body.classList.contains('scrolled'), brandOp: getComputedStyle(document.querySelector('.brand')).opacity,
+      timer: !!document.getElementById('exam-timer'), pos: getComputedStyle(document.querySelector('.q-dock')).position, bottom: Math.round(innerHeight - d.bottom),
+      leftLeave: l.right <= n.left, nextAboveSwitch: n.bottom <= sw.top + 1, leaveLabel: document.querySelector('[data-leave]').getAttribute('aria-label') };
+  });
   console.log('   ', JSON.stringify(r));
   assert.ok(r.exam && !r.scrolled && r.brandOp === '1');
   assert.equal(r.timer, false); // 練習沒有時限，不顯示計時
-  assert.match(r.unit, /^L\d 單字片語$/);
-  assert.equal(r.menu, 'none'); assert.equal(r.chip, 'none');
+  assert.equal(r.pos, 'fixed'); assert.equal(r.bottom, 0, '橫幅貼齊畫面最下方');
+  assert.ok(r.leftLeave && r.nextAboveSwitch, '左：離開；右上：下一題；右下：自動下一題');
+  assert.equal(r.leaveLabel, '離開測驗');
   await p.evaluate(() => { delete document.body.dataset.busy; location.hash = '#/'; }); await sleep(600);
   assert.equal(await p.evaluate(() => document.body.classList.contains('exam')), false);
-  assert.notEqual(await p.evaluate(() => getComputedStyle(document.getElementById('student-chip')).display), 'none');
 });
 await step('作答過程沒有 JS 錯誤', async () => { assert.equal(p.errors.filter((e) => !/favicon/.test(e)).length, 0, p.errors.join('\n')); });
 await world.close();

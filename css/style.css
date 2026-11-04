@@ -1705,7 +1705,8 @@ body { background: var(--bg); }
 }
 .dock a { white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 50px; height: 50px; padding: 0 14px; border-radius: 999px; color: var(--steel); text-decoration: none; font-weight: 900; font-size: .92rem; transition: background .25s var(--ease), color .25s; }
 .dock a .ic { width: 22px; height: 22px; }
-.dock a { width: 124px; padding: 0; transition: color .3s var(--ease); }
+.dock a { width: 76px; padding: 0; transition: color .3s var(--ease); } /* 只有圖示（文字放在 aria-label） */
+.dock a .ic { width: 24px; height: 24px; }
 .dock { touch-action: none; user-select: none; -webkit-user-select: none; }
 .dock a { position: relative; z-index: 1; -webkit-tap-highlight-color: transparent; }
 .dock a[aria-current] { color: var(--white); }
@@ -1726,3 +1727,39 @@ body.has-dock main.container { padding-bottom: 110px; }
 @media (prefers-reduced-transparency: reduce) { .dock { background: var(--white); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 .dock.dragging a { color: var(--steel); } /* 拖動時：膠囊底下的分頁字是白的，其他是深灰 */
 .dock.dragging a.over { color: var(--white); }
+
+/* ===========================================================
+   單字作答：下方固定橫幅（手機永遠在畫面最下方，拇指範圍）
+   左：離開測驗（圖示）｜右上：回饋＋下一步；右下：自動下一題開關
+   =========================================================== */
+.q-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; align-items: stretch; gap: 12px;
+  padding: 10px max(16px, calc((100vw - 720px) / 2 + 16px)) calc(8px + env(safe-area-inset-bottom, 0px));
+  background: var(--white); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(15, 23, 42, .06); }
+.quiz:has(.q-dock) { padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }
+.q-leave { flex: none; align-self: stretch; width: 56px; display: grid; place-items: center; border: 1.5px solid var(--line); border-radius: 16px; background: var(--wash); color: var(--steel); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color .2s, border-color .2s, transform .12s var(--ease); }
+.q-leave .ic { width: 24px; height: 24px; }
+.q-leave:hover { color: var(--bad-ink, #9F1239); border-color: currentColor; }
+.q-leave:active { transform: scale(.95); }
+.q-dock-r { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.q-dock .q-foot { min-height: 48px; gap: 10px; }
+.q-dock .q-foot[hidden] { display: flex; visibility: hidden; } /* 段落過場卡：位置留著，開關不跳動 */
+.q-dock .feedback { font-size: .92rem; }
+.q-dock .q-foot .btn { min-height: 48px; padding: 0 18px; }
+.next-ph { display: none; }
+.q-dock [data-next][hidden] + .next-ph { display: inline-flex; flex: 1 1 auto; background: var(--wash); border-color: var(--line); color: var(--steel); opacity: .7; box-shadow: none; pointer-events: none; }
+.q-dock .switch { align-self: flex-end; min-height: 34px; font-size: .84rem; color: var(--steel); gap: 8px; }
+.q-dock .switch .sw { width: 38px; height: 22px; }
+.q-dock .switch .sw::after { width: 16px; height: 16px; }
+.q-dock .switch[aria-checked="true"] .sw::after { transform: translateX(16px); }
+.q-dock .switch[aria-checked="true"] { color: var(--navy); }
+.quiz:has(.q-dock) ~ .toast, body:has(.q-dock) .toast { bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
+/* 我的成績頁最下方：帳號（切換學生、登出） */
+.me-acct { margin: 22px 0 8px; padding: 18px; border-radius: 20px; background: var(--white); border: 1px solid var(--line); display: grid; gap: 10px; }
+.me-acct h2 { margin: 0 0 2px; font-size: 1rem; color: var(--navy); }
+.me-acct .btn { width: 100%; }
+.me-acct .danger-ghost { color: var(--bad-ink); }
+body.has-dock .me-acct { margin-bottom: 96px; }
+.q-dock .feedback { flex: 0 1 auto; }
+.q-dock .feedback:empty { display: none; }
+.q-dock .q-foot .btn { flex: 1 1 auto; justify-content: center; }
+.q-leave { width: 52px; }

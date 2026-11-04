@@ -89,7 +89,6 @@ async function login(form) {
       if (returned) window.dispatchEvent(new Event('history-applied'));
     }).catch(() => { /* 讀不到就先用裝置上的紀錄 */ });
     setBtn(btn, 'ok', `${icon.check}已確認，歡迎 ${esc(res.name)}`);
-    renderStudentChip();
     await pause(reduced() ? 0 : 480); // 讓學生看到「已確認」，紀錄同時在背景載入
     returned = true;
     return student;
@@ -140,28 +139,18 @@ export function openStudentDialog(onSave) {
   d.showModal();
 }
 
-// 上方名牌：只顯示名字（第二個字用〇代替，旁人看螢幕不會看到全名）；點下去展開個人選單：切換學生、登出（我的成績在下方分頁列）
+// 名字只顯示第一和第三個字（第二個字用〇代替，旁人看螢幕不會看到全名）
 export const maskName = (n) => (n.length >= 2 ? `${n[0]}〇${n.slice(2)}` : n);
-const panelEl = () => document.getElementById('chip-panel');
-export function closeChipPanel() {
-  const panel = panelEl();
-  const chip = document.getElementById('student-chip');
-  if (!panel || !panel.classList.contains('open')) return;
-  panel.classList.remove('open');
-  chip.setAttribute('aria-expanded', 'false');
-}
-function openChipPanel(s) {
-  const panel = panelEl();
-  const chip = document.getElementById('student-chip');
-  panel.innerHTML = `<div class="chip-id"><b>${esc(maskName(s.name))}</b><span>${esc(s.cls)} 班 ${esc(s.seat)} 號</span></div>
-    <button class="menu-item" role="menuitem" type="button" data-switch><span class="menu-ic">${icon.user}</span><span class="menu-txt"><b>切換學生</b><span class="en">換成別人的身分</span></span></button>
-    <button class="menu-item" role="menuitem" type="button" data-logout><span class="menu-ic">${icon.x}</span><span class="menu-txt"><b>登出並清除這台裝置</b><span class="en">用別人的手機或共用電腦時</span></span></button>`;
-  panel.querySelector('[data-switch]').onclick = () => {
-    closeChipPanel();
-    openStudentDialog(() => window.dispatchEvent(new Event('student-changed')));
-  };
-  panel.querySelector('[data-logout]').onclick = async () => {
-    closeChipPanel();
+
+// 「我的成績」頁最下方的帳號區：切換學生、登出（上方導覽列只有 B5，不放名牌與選單）
+export const accountHTML = (s) => `<section class="me-acct" aria-label="帳號">
+    <h2>不是 ${esc(maskName(s.name))}？</h2>
+    <button class="btn" type="button" data-switch>切換學生</button>
+    <button class="btn ghost danger-ghost" type="button" data-logout>登出並清除這台裝置</button>
+  </section>`;
+export function bindAccount(root) {
+  root.querySelector('[data-switch]').onclick = () => openStudentDialog(() => window.dispatchEvent(new Event('student-changed')));
+  root.querySelector('[data-logout]').onclick = async () => {
     const { pendingCount } = await import('./submit.js');
     const n = pendingCount();
     const ok = await confirmDialog({
@@ -173,27 +162,5 @@ function openChipPanel(s) {
     store.clearAll();
     window.dispatchEvent(new Event('student-changed'));
     location.hash = '#/';
-  };
-  panel.classList.add('open');
-  chip.setAttribute('aria-expanded', 'true');
-}
-document.addEventListener('click', (e) => {
-  const panel = panelEl();
-  if (panel && panel.classList.contains('open') && !e.target.closest('#chip-panel, #student-chip')) closeChipPanel();
-});
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeChipPanel(); });
-
-export function renderStudentChip() {
-  const chip = document.getElementById('student-chip');
-  const s = store.student();
-  chip.hidden = !s;
-  if (!s) { closeChipPanel(); return; }
-  chip.innerHTML = `${icon.user}<span>${esc(maskName(s.name))}</span>`;
-  chip.setAttribute('aria-label', `${maskName(s.name)}，個人選單`);
-  chip.title = '我的成績、切換學生';
-  chip.onclick = () => {
-    // 作答中不能開個人選單（考試鎖定）
-    if (document.body.dataset.busy) return;
-    if (panelEl().classList.contains('open')) closeChipPanel(); else openChipPanel(s);
   };
 }

@@ -18,18 +18,18 @@ const p = await world.newPage(ctx, { student: true });
 await p.goto(world.base + '/'); await p.waitForSelector('.unit-tile');
 await p.click('.unit-tile[data-id="l2-pat"]'); await p.waitForSelector('[data-start]');
 await p.click('.back'); await p.waitForSelector('.unit-tile'); await sleep(500);
-// 從單元選單切換
+// 直接換到其他單元的網址
 await p.click('.unit-tile[data-id="l2-pat"]'); await p.waitForSelector('[data-start]');
-await p.click('#unit-menu-btn'); await p.click('#unit-menu a[data-id="l3-pat"]');
+await p.evaluate(() => { location.hash = '#/u/l3-pat'; });
 await p.waitForFunction(() => /l3-pat/.test(location.hash) && /L3/.test((document.querySelector('.unit-head h1') || {}).textContent || ''), null, { timeout: 5000 });
 // 說明卡要和上面的標題靠左對齊（不是置中跑版）
-await p.click('#unit-menu-btn'); await p.click('#unit-menu a[data-id="l4-pat"]');
+await p.evaluate(() => { location.hash = '#/u/l4-pat'; });
 await p.waitForSelector('.gate-card'); await sleep(500);
 const left = await p.evaluate(() => ({ head: document.querySelector('.unit-head h1').getBoundingClientRect().left, card: document.querySelector('.gate-card').getBoundingClientRect().left }));
 assert(Math.abs(left.head - left.card) < 24, `說明卡要和標題靠左對齊：${JSON.stringify(left)}`);
 await p.screenshot({ path: `${out}/motion-gate.png` });
 // 成績畫面
-await p.click('#unit-menu-btn'); await p.click('#unit-menu a[data-id="l2-pat"]');
+await p.evaluate(() => { location.hash = '#/u/l2-pat'; });
 await p.waitForSelector('[data-start]'); await p.click('[data-start]');
 await p.waitForSelector('.opt'); await p.locator('.opt').first().click();
 await sleep(200);

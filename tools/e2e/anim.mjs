@@ -13,7 +13,7 @@ g.api('saveContent', ['a-pat', { topic: 't', items: [{ type: 'mc', tag: 'x', q: 
 g.api('saveContent', ['b-voc', { topic: 't', words: ['apple', 'bread', 'candy', 'dance'].map((w) => ({ word: w, pos: 'n.', zh: '字', example: `I [${w}] it.`, exampleZh: '我。' })) }, true]);
 
 // 畫面上主要的區塊：進場動畫播完後要完全不透明、沒有位移或縮放
-const KEY = '#app > *, .unit-tile, .card, .gate-card, .q-card, .opt, .result > *, .me-row, .home-prog, h1, #student-chip';
+const KEY = '#app > *, .unit-tile, .card, .gate-card, .q-card, .opt, .result > *, .me-row, .home-prog, h1';
 async function settled(p, label, reduced, ms = 2500) {
   await sleep(reduced ? 150 : ms);
   const r = await p.evaluate((sel) => {

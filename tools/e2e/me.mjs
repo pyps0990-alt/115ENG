@@ -21,17 +21,7 @@ await p.addInitScript(() => {
 let bad = 0;
 const step = async (n, f) => { try { await f(); console.log('✓', n); } catch (e) { bad++; console.log('✗', n, '\n  ', e.message); } };
 await p.goto(world.base + '/'); await p.waitForSelector('.unit-tile');
-await step('名牌只顯示名字（第二字遮住）', async () => { assert.equal((await p.textContent('#student-chip')).trim(), '陳〇嘉'); });
-await step('點名牌展開個人選單，含姓名、班座號、切換學生（我的成績改在下方分頁列，不重複）', async () => {
-  await p.click('#student-chip'); await sleep(500);
-  const t = await p.textContent('#chip-panel');
-  assert.match(t, /陳〇嘉/); assert.match(t, /306 班 20 號/); assert.doesNotMatch(t, /我的成績與缺交/); assert.match(t, /切換學生/);
-  assert.equal(await p.getAttribute('#student-chip', 'aria-expanded'), 'true');
-  const r = await p.evaluate(() => { const b = document.getElementById('chip-panel').getBoundingClientRect(); return { x: b.x, r: b.right, w: innerWidth }; });
-  assert.ok(r.x >= 0 && r.r <= r.w, JSON.stringify(r));
-  await p.screenshot({ path: '/tmp/shots/me-panel.png' });
-});
-await step('點空白處收起選單', async () => { await p.mouse.click(200, 700); await sleep(400); assert.equal(await p.getAttribute('#student-chip', 'aria-expanded'), 'false'); });
+await step('上方只有 B5：沒有名牌與選單', async () => { assert.equal(await p.$$eval('#student-chip, #chip-panel, #nav-menu', (a) => a.length), 0); });
 await step('進入我的成績頁：狀態與計數正確', async () => {
   await p.evaluate(() => { location.hash = '#/'; }); await p.waitForSelector('#dock:not([hidden])');
   await p.click('#dock a[data-dock="me"]'); await p.waitForSelector('.me-row');
@@ -43,10 +33,9 @@ await step('進入我的成績頁：狀態與計數正確', async () => {
   assert.deepEqual(sums, ['1 / 5', '1', '0', '1']);
   await sleep(500); await p.screenshot({ path: '/tmp/shots/me-page.png', fullPage: true });
 });
-await step('從成績頁點單元可進入；作答中名牌選單不會開', async () => {
+await step('從成績頁點單元可進入作答', async () => {
   await p.click('.me-row.open'); await p.waitForSelector('[data-start]'); await p.click('[data-start]'); await p.waitForSelector('.q-card, .pq');
   await sleep(300);
-  assert.equal(await p.evaluate(() => getComputedStyle(document.getElementById('student-chip')).display), 'none'); // 考試中名牌換成目前單元
 });
 await step('首頁有進度摘要（1/5 已完成、缺交 1、待檢討 1）並可點進成績頁', async () => {
   await p.evaluate(() => { delete document.body.dataset.busy; location.hash = '#/'; });
@@ -76,8 +65,9 @@ await step('5 分鐘內重新整理不重複下載紀錄；超過就重新讀取
   assert.equal(await reads(), 2, '超過 5 分鐘：重新讀取作答與檢討紀錄');
 });
 await step('登出並清除這台裝置：清掉學生資料並回到登入表單', async () => {
-  await p.evaluate(() => { location.hash = '#/'; }); await p.waitForSelector('#student-chip');
-  await p.click('#student-chip'); await sleep(300); await p.click('[data-logout]');
+  await p.evaluate(() => { location.hash = '#/me'; }); await p.waitForSelector('.me-acct');
+  assert.match(await p.textContent('.me-acct'), /切換學生/);
+  await p.click('.me-acct [data-logout]');
   await p.waitForSelector('dialog.modal[open]'); await p.locator('dialog.modal[open] .btn.primary').click();
   await p.waitForSelector('.welcome', { timeout: 5000 });
   const left = await p.evaluate(() => Object.keys(localStorage).filter((k) => /^b5p:(student|best|done|outbox)/.test(k)));

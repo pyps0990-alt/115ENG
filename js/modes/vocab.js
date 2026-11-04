@@ -158,10 +158,12 @@ export function mount(stage, ctx) {
         </div>` })}
 
         <div data-q></div>
-        <div class="q-foot"><div class="feedback" data-fb aria-live="polite"></div><button class="btn primary" type="button" data-next hidden></button></div>
-        <div class="auto-opt">
-          <button class="link-btn leave" type="button" data-leave>離開測驗</button>
-          <button class="switch" type="button" role="switch" data-auto-toggle><span class="sw" aria-hidden="true"></span>自動下一題</button>
+        <div class="q-dock">
+          <button class="q-leave" type="button" data-leave aria-label="離開測驗" title="離開測驗">${icon.exit}</button>
+          <div class="q-dock-r">
+            <div class="q-foot"><div class="feedback" data-fb aria-live="polite"></div><button class="btn primary" type="button" data-next hidden></button><span class="btn next-ph" aria-hidden="true">下一題 ${icon.arrowR}</span></div>
+            <button class="switch" type="button" role="switch" data-auto-toggle><span class="sw" aria-hidden="true"></span>自動下一題</button>
+          </div>
         </div>
         <p class="quiz-note"><span class="kb-hint">按 1–4 或 A–D 選答案，Enter 下一題</span><span class="auto-cue" data-auto-cue hidden>輕點畫面可暫停自動下一題</span></p>
       </div>`;
