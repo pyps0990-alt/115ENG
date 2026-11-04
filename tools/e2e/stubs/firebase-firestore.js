@@ -26,6 +26,8 @@ export function onSnapshot(ref, cb) {
 }
 export async function getDocs(col) {
   S.log.push(['getDocs', col.path]);
+  // 測試可以讓接下來幾次讀成績被拒（window.__fb.denyAttempts = 次數），模擬憑證過期、App Check 驗證失敗
+  if (col.path === '**/attempts' && S.denyAttempts > 0) { S.denyAttempts--; const e = new Error('Missing or insufficient permissions.'); e.code = 'permission-denied'; throw e; }
   // 測試可以事先在 window.__fb.attempts / reviews 放這位學生的紀錄
   if (col.path === 'acks') return { docs: Object.keys(S.docs).filter((k) => k.startsWith('acks/')).map((k) => ({ id: k.slice(5), ref: { path: k }, data: () => S.docs[k] })) };
   const list = col.path.endsWith('/attempts') ? (S.attempts || []) : col.path.endsWith('/reviews') ? (S.reviews || []) : [];

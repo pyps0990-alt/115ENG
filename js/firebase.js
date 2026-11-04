@@ -24,13 +24,32 @@ const app = initializeApp({
 // 載入失敗（例如網路擋掉 reCAPTCHA）不影響網站：主控台還沒「強制執行」前，沒有憑證的請求照樣放行
 // 學校網路慢或擋掉 reCAPTCHA 時不能卡住整個網站：最多等 4 秒，之後照常往下走
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('逾時')), ms))]);
+const AC_URL = 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check.js';
+let appCheck = null;
 if (APP_CHECK_SITE_KEY) {
   try {
     await withTimeout((async () => {
-      const ac = await import('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check.js');
-      ac.initializeAppCheck(app, { provider: new ac.ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true });
+      const ac = await import(AC_URL);
+      appCheck = ac.initializeAppCheck(app, { provider: new ac.ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY), isTokenAutoRefreshEnabled: true });
     })(), 4000);
   } catch (e) { console.warn('App Check 無法啟用', e); }
+}
+
+// 讀取被拒（permission-denied）常常只是憑證過期：登入憑證（1 小時）或 App Check 憑證在學校網路沒有及時更新。
+// 強制換一張新的再試，通常就讀得到了
+export async function refreshCreds() {
+  try { const { auth } = await authKit(); if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken(true), 6000); } catch { /* 換不到就用原本的 */ }
+  try { if (appCheck) { const ac = await import(AC_URL); await withTimeout(ac.getToken(appCheck, true), 6000); } } catch { /* 同上 */ }
+}
+const denied = (e) => e && (e.code === 'permission-denied' || /permission/i.test(e.message || ''));
+async function withRetry(fn) {
+  for (let i = 0; ; i++) {
+    try { return await fn(); } catch (e) {
+      if (!denied(e) || i >= 2) throw e;
+      await refreshCreds();
+      await new Promise((r) => setTimeout(r, i ? 2500 : 600));
+    }
+  }
 }
 // 學校網路（代理伺服器、防火牆）有時會擋掉即時連線：自動偵測，擋掉時改用長輪詢，即時同步才不會斷
 // 寫入先存在裝置上（IndexedDB）：沒網路、重新整理、關掉再開都還在，連上網自動補送；不支援時 SDK 自動改用記憶體
@@ -121,7 +140,7 @@ export async function listAttempts({ cls = '', days = 14, max = 500, since = 0 }
   const from = since ? where('createdAt', '>', Timestamp.fromMillis(since)) : where('createdAt', '>=', Timestamp.fromMillis(Date.now() - days * 86400000));
   const cons = [from, orderBy('createdAt', 'desc'), limit(max * 2)];
   if (cls) cons.unshift(where('cls', '==', String(cls)));
-  const snap = await getDocs(query(collectionGroup(db, 'attempts'), ...cons));
+  const snap = await withRetry(() => getDocs(query(collectionGroup(db, 'attempts'), ...cons)));
   return snap.docs.filter((d) => d.ref.path.startsWith('classes/')).slice(0, max).map((d) => {
     const x = d.data();
     return { ...x, at: x.createdAt && x.createdAt.toMillis ? x.createdAt.toMillis() : Date.parse(x.clientTs) || 0 };
@@ -152,7 +171,7 @@ export async function saveTours(tours) {
 
 // 「需要確認」的作答，老師看過按「已確認」：acks/{attemptId} = { unit, at, by }。只有老師讀寫（firestore.rules）
 export async function listAcks() {
-  const snap = await getDocs(collection(db, 'acks'));
+  const snap = await withRetry(() => getDocs(collection(db, 'acks')));
   return snap.docs.map((d) => d.id);
 }
 // items: [{ attemptId, unit }]；on=false 取消確認
@@ -214,7 +233,10 @@ export function watchStaff(cb) {
           reason += `；後台確認失敗（${e.message}）`;
         }
       }
-      cb({ email, role, reason, name: user.displayName || '', photo: user.photoURL || '' });
+      // inAdmins：Firestore 的 admins 名單有沒有這個帳號（false＝沒有、null＝讀取失敗不知道）。
+      // 只在試算表老師名單、不在 admins 的帳號可以進後台，但 Firestore 的成績讀不到（firestore.rules 只認 admins）
+      const inAdmins = /admins 裡沒有文件/.test(reason) ? false : /讀取 Firestore 老師名單失敗/.test(reason) ? null : true;
+      cb({ email, role, reason, inAdmins, name: user.displayName || '', photo: user.photoURL || '' });
     });
   }).catch((e) => { cb({ email: '', role: null, reason: `無法載入登入元件（${e.message}）` }); });
   return () => { dead = true; unsub(); };

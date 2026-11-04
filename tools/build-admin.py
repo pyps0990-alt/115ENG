@@ -177,6 +177,7 @@ bootstrap = r'''
       window.fastPublish = (docs) => fb.publishPublic(docs);
       // 成績分頁「即時（Firebase）」：直接讀 Firestore（老師帳號才讀得到）
       window.fbAttempts = (opts) => fb.listAttempts(opts);
+      window.staffInfo = { email: staff.email, inAdmins: staff.inAdmins };
       // 「需要確認」的已確認紀錄
       window.fbAcks = () => fb.listAcks();
       window.fbSetAcks = (items, on) => fb.setAcks(items, on);

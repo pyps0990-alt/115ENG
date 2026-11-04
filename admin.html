@@ -5869,12 +5869,22 @@
         var cached = readCache();
         if (cached && cached.length) { SH.attempts = cached; redraw(); }
         if (window.sysSet) sysSet('scores', 'wait', cached && cached.length ? '先顯示上次的成績，正在補抓新的…' : '讀取中…');
-        var okNow = function () { if (window.sysSet) { sysSet('scores', 'ok', '最新・' + hhmm() + ' 更新・最近 120 天 ' + (SH.attempts || []).length + ' 筆'); notice('scores', null); } };
+        var okNow = function () { SH.attemptsError = ''; clearTimeout(loadAttempts.again); if (window.sysSet) { sysSet('scores', 'ok', '最新・' + hhmm() + ' 更新・最近 120 天 ' + (SH.attempts || []).length + ' 筆'); notice('scores', null); } };
         var newest = cached && cached.length ? cached[0].at : 0;
         var done = function () { loading = false; };
         var fail = function (err) {
           if (!SH.attempts) { SH.attempts = []; redraw(); } SH.attemptsError = err && err.message || String(err); done();
-          var msg = /permission/i.test(SH.attemptsError) ? '沒有讀取成績的權限' : SH.attemptsError;
+          var perm = /permission/i.test(SH.attemptsError);
+          // 讀取被拒：已經自動換新憑證重試過了。帳號不在 Firestore 的 admins 名單（只在試算表老師名單）時一定讀不到，直接說清楚
+          var notAdmin = perm && window.staffInfo && window.staffInfo.inAdmins === false;
+          var msg = notAdmin ? '這個帳號（' + window.staffInfo.email + '）不在 Firestore 的老師名單 admins 裡，請管理員加進去'
+            : perm ? '暫時沒有讀取權限（已自動重試；網路不穩或登入憑證過期時會這樣，會再自動重試）' : SH.attemptsError;
+          // 回到這個分頁、或 1 分鐘後，自動再讀一次（不用老師按重試）
+          if (perm && !notAdmin) {
+            clearTimeout(loadAttempts.again);
+            loadAttempts.again = setTimeout(function () { if (SH.attemptsError) loadAttempts(); }, 60000);
+            if (!loadAttempts.onVis) { loadAttempts.onVis = true; document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && SH.attemptsError) loadAttempts(); }); }
+          }
           var retry = { label: '重試', run: function () { loadAttempts(); } };
           if (window.sysSet) { sysSet('scores', 'bad', '讀不到成績：' + msg, retry); notice('scores', 'bad', '讀不到成績（' + msg + '），畫面上的數字' + ((SH.attempts || []).length ? '是上次的資料' : '都是 0，不是真的沒人交') + '。', retry); }
         };
@@ -6564,6 +6574,7 @@
       window.fastPublish = (docs) => fb.publishPublic(docs);
       // 成績分頁「即時（Firebase）」：直接讀 Firestore（老師帳號才讀得到）
       window.fbAttempts = (opts) => fb.listAttempts(opts);
+      window.staffInfo = { email: staff.email, inAdmins: staff.inAdmins };
       // 「需要確認」的已確認紀錄
       window.fbAcks = () => fb.listAcks();
       window.fbSetAcks = (items, on) => fb.setAcks(items, on);
