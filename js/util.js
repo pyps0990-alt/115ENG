@@ -108,14 +108,35 @@ export function confetti() {
 
 // 進入考試、換下一題時，把題目卷動到使用者螢幕中間（已經在中間附近就不動，避免多餘的捲動）。
 // 比螢幕還高的內容（例如長文章）改成對齊上方。
+// 捲到看得見的區域：扣掉上方固定的導覽列與下方固定的橫幅（單字作答的 .q-dock、句型說明的 .ln-bar），題目不會被蓋住
+function visibleBand() {
+  const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  const bar = document.querySelector('.topbar');
+  let top = bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
+  // 會黏在上方的進度卡（.st-bar）：捲動後會停在導覽列下面，也算被擋住的範圍
+  document.querySelectorAll('.st-bar, .ln-top').forEach((d) => {
+    const cs = getComputedStyle(d);
+    if (cs.position === 'sticky') top = Math.max(top, (parseFloat(cs.top) || 0) + d.offsetHeight);
+  });
+  let bottom = vh;
+  document.querySelectorAll('.q-dock, .ln-bar:not([hidden])').forEach((d) => {
+    if (getComputedStyle(d).position === 'fixed') bottom = Math.min(bottom, d.getBoundingClientRect().top);
+  });
+  return { top, bottom };
+}
 export function centerInView(el, block = 'center') {
   if (!el) return;
   requestAnimationFrame(() => {
-    const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    const { top, bottom } = visibleBand();
+    const room = bottom - top;
     const r = el.getBoundingClientRect();
-    const tall = r.height > vh - 140;
-    const mode = tall ? 'start' : block;
-    if (mode === 'center' && r.top >= 70 && r.bottom <= vh && Math.abs(r.top + r.height / 2 - vh / 2) < vh * 0.18) return;
-    el.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: mode });
+    const pad = 12;
+    // 放得下：放在可見區域正中間（已經完整看得到、而且差不多在中間就不動）；放不下：頂端貼齊導覽列下方
+    const fits = r.height <= room - pad * 2;
+    if (fits && block === 'center' && r.top >= top + pad && r.bottom <= bottom - pad && Math.abs((r.top + r.bottom) / 2 - (top + bottom) / 2) < room * 0.18) return;
+    const want = fits && block === 'center' ? top + (room - r.height) / 2 : top + pad;
+    const dy = r.top - want;
+    if (Math.abs(dy) < 2) return;
+    window.scrollBy({ top: dy, behavior: reducedMotion() ? 'auto' : 'smooth' });
   });
 }
