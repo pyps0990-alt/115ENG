@@ -1036,8 +1036,7 @@
       .m-sheet { z-index:25; }
       .m-scrim { background:transparent; animation:none; }
       .m-panel { left:auto; right:var(--more-r, 12px); bottom:calc(86px + env(safe-area-inset-bottom, 0px)); width:min(290px, calc(100vw - 24px)); padding:6px; gap:2px; border-radius:24px;
-        background:linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,255,255,.66));
-        -webkit-backdrop-filter:blur(24px) saturate(190%); backdrop-filter:blur(24px) saturate(190%);
+        background:#fff;
         box-shadow:0 14px 40px rgba(15, 23, 42, .2), inset 0 1px 0 rgba(255,255,255,.95), inset 0 0 0 1px rgba(255,255,255,.5);
         transform-origin:calc(100% - 30px) calc(100% + 30px); animation:m-pop .42s cubic-bezier(.22, 1.35, .4, 1) both; }
       .m-grip, .m-cancel { display:none; }
@@ -1255,14 +1254,14 @@
        卡片、表格、表單維持不透明，字才好讀。電腦版是收斂版：沒有標題列玻璃，左側選單只加一點光澤。
        不支援模糊的瀏覽器自動退回不透明（最下面的 @supports） ================= */
     :root {
-      --gl-bg:linear-gradient(180deg, rgba(255,255,255,.80), rgba(255,255,255,.62));
+      --gl-bg:#fff;
       --gl-fx:blur(26px) saturate(190%);
       --gl-edge:inset 0 1px 0 rgba(255,255,255,.95), inset 0 -1px 0 rgba(255,255,255,.3), inset 0 0 0 1px rgba(255,255,255,.55);
       --gl-shadow:0 18px 50px rgba(15, 23, 42, .22), 0 2px 6px rgba(15, 23, 42, .08);
       --gl-navy:linear-gradient(180deg, rgba(37, 66, 150, .84), rgba(30, 58, 138, .78));
     }
     .who-menu, .sys-panel, dialog.ask, dialog.welcome, .tour-card {
-      background:var(--gl-bg) !important; -webkit-backdrop-filter:var(--gl-fx); backdrop-filter:var(--gl-fx);
+      background:#fff !important; /* 選單與面板用實心白底：字清楚、不會看到後面的內容（也省下即時模糊的效能） */
       border:0 !important; box-shadow:var(--gl-shadow), var(--gl-edge) !important; }
     dialog.ask::backdrop, dialog.welcome::backdrop { background:rgba(15, 23, 42, .28); -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); }
     .savebar { background:var(--gl-navy) !important; -webkit-backdrop-filter:var(--gl-fx); backdrop-filter:var(--gl-fx);
