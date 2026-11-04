@@ -109,12 +109,82 @@ async function route() {
 function syncDock(on) {
   const dock = document.getElementById('dock');
   if (!dock) return;
+  const wasHidden = dock.hidden;
   dock.hidden = !on;
   document.body.classList.toggle('has-dock', !!on);
   dock.querySelectorAll('a').forEach((a) => {
     const cur = a.dataset.dock === on;
     if (cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
+  if (on) requestAnimationFrame(() => placeDockInk(wasHidden));
+  initDockDrag(dock);
+}
+// 選取膠囊：滑到目前的分頁（標籤展開後寬度會變，所以等下一格再量）
+function placeDockInk(instant) {
+  const dock = document.getElementById('dock');
+  const ink = dock && dock.querySelector('.dock-ink');
+  const cur = dock && dock.querySelector('a[aria-current]');
+  if (!ink || !cur) return;
+  if (instant) ink.style.transition = 'none';
+  ink.style.width = `${cur.offsetWidth}px`;
+  ink.style.transform = `translateX(${cur.offsetLeft}px)`;
+  if (instant) { void ink.offsetWidth; ink.style.transition = ''; }
+}
+// 拖動選取膠囊：左右拖到另一個分頁放開就切換；往上下拉或拖出兩端有橡皮筋（越拉越緊、有極限），放開彈回
+let dockReady = false;
+function initDockDrag(dock) {
+  if (dockReady) return;
+  dockReady = true;
+  const ink = dock.querySelector('.dock-ink');
+  const rubber = (d, lim) => { const a = Math.abs(d); return (d < 0 ? -1 : 1) * lim * (1 - 1 / (a * 0.55 / lim + 1)); };
+  let pid = null; let sx = 0; let sy = 0; let x0 = 0; let w = 0; let dragging = false; let moved = false;
+  const links = () => [...dock.querySelectorAll('a')];
+  const finish = (e, cancel) => {
+    if (pid === null) return;
+    pid = null;
+    dock.classList.remove('dragging');
+    if (!dragging) return;
+    dragging = false;
+    const dx = Math.abs(e.clientX - sx); const dy = Math.abs(e.clientY - sy);
+    const cx = x0 + (e.clientX - sx) + w / 2;
+    let target = dock.querySelector('a[aria-current]');
+    if (!cancel && !(dx < 24 && dy > dx)) {
+      let best = Infinity;
+      links().forEach((a) => { const d = Math.abs(a.offsetLeft + a.offsetWidth / 2 - cx); if (d < best) { best = d; target = a; } });
+    }
+    ink.style.transition = '';
+    placeDockInk(false);
+    if (target && !target.hasAttribute('aria-current')) location.hash = target.getAttribute('href');
+    setTimeout(() => { moved = false; }, 350);
+  };
+  dock.addEventListener('pointerdown', (e) => {
+    if (e.button > 0) return;
+    const cur = dock.querySelector('a[aria-current]'); if (!cur) return;
+    pid = e.pointerId; sx = e.clientX; sy = e.clientY; x0 = cur.offsetLeft; w = cur.offsetWidth; dragging = false; moved = false;
+  });
+  dock.addEventListener('pointermove', (e) => {
+    if (pid !== e.pointerId) return;
+    if (!dragging) {
+      if (Math.hypot(e.clientX - sx, e.clientY - sy) < 6) return;
+      dragging = true; moved = true;
+      try { dock.setPointerCapture(pid); } catch { /* ignore */ }
+      dock.classList.add('dragging');
+      ink.style.transition = 'none';
+    }
+    e.preventDefault();
+    const lo = 6; const hi = dock.clientWidth - w - 6; const fx = x0 + (e.clientX - sx);
+    const x = fx < lo ? lo + rubber(fx - lo, 18) : fx > hi ? hi + rubber(fx - hi, 18) : fx;
+    const y = reduceMotion.matches ? 0 : rubber(e.clientY - sy, 12);
+    ink.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(1.08)`;
+  }, { passive: false });
+  dock.addEventListener('pointerup', (e) => finish(e, false));
+  dock.addEventListener('pointercancel', (e) => finish(e, true));
+  // 只在膠囊列自己失去捕捉時才算中斷（手指按在連結上時，瀏覽器先把捕捉給連結，轉給膠囊列時連結也會發出這個事件）
+  dock.addEventListener('lostpointercapture', (e) => { if (e.target === dock && pid === e.pointerId) finish({ clientX: sx, clientY: sy }, true); });
+  dock.addEventListener('dragstart', (e) => e.preventDefault());
+  dock.addEventListener('click', (e) => { if (moved) { moved = false; e.preventDefault(); e.stopPropagation(); } }, true);
+  window.addEventListener('resize', () => placeDockInk(true));
+  document.fonts?.ready.then(() => placeDockInk(true));
 }
 
 // 單元選單是否顯示：老師頁、還沒登入、沒有可用單元時隱藏。登入成功（不換頁）時也要更新，不然選單會一直藏著

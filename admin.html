@@ -5478,7 +5478,7 @@
       };
       rail.addEventListener('pointerup', end);
       rail.addEventListener('pointercancel', end);
-      rail.addEventListener('lostpointercapture', function (e) { if (pid === e.pointerId) end({ type: 'pointercancel', pointerId: e.pointerId, clientX: startX, clientY: startY }); });
+      rail.addEventListener('lostpointercapture', function (e) { if (e.target === rail && pid === e.pointerId) end({ type: 'pointercancel', pointerId: e.pointerId, clientX: startX, clientY: startY }); });
       window.addEventListener('blur', function () { if (pid !== null) end({ type: 'pointercancel', pointerId: pid, clientX: startX, clientY: startY }); });
       rail.addEventListener('dragstart', function (e) { e.preventDefault(); }); // 分頁是連結：不要被瀏覽器當成拖曳連結（會中斷手勢）
       // 拖完放開時瀏覽器會補一個 click：擋掉，避免重複切換
