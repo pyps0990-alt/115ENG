@@ -800,8 +800,14 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1
 /* 只用 opacity 與 transform（交給顯示卡處理，不會拖慢手機）；不用模糊效果，也不常駐 will-change */
 #app.page-in { animation: page-in-fwd var(--dur-2, .3s) var(--ease) both; }
 #app.page-in[data-dir="back"] { animation-name: page-in-back; }
-@keyframes page-in-fwd { from { opacity: 0; transform: translate3d(0, 10px, 0); } }
-@keyframes page-in-back { from { opacity: 0; transform: translate3d(0, -8px, 0); } }
+@keyframes page-in-fwd { from { transform: translate3d(0, 10px, 0); } }
+@keyframes page-in-back { from { transform: translate3d(0, -8px, 0); } }
+/* 換頁的殘影：舊畫面疊在新畫面上面淡出（在導覽列與分頁列底下），新畫面不用從透明開始，整個換頁是連續的 */
+.page-ghost { position: fixed; z-index: 15; margin: 0; pointer-events: none; animation: ghost-out .26s cubic-bezier(.4, 0, .2, 1) both; }
+.page-ghost.back { animation-name: ghost-out-back; }
+@keyframes ghost-out { to { opacity: 0; transform: translate3d(0, -6px, 0); } }
+@keyframes ghost-out-back { to { opacity: 0; transform: translate3d(0, 6px, 0); } }
+@media (prefers-reduced-motion: reduce) { .page-ghost { display: none; } }
 
 /* 首頁單元卡片依序浮現 */
 
@@ -1816,3 +1822,38 @@ dialog.search-sheet::backdrop { background: rgba(15, 23, 42, .3); }
 .acct-av { flex: none; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--amber); color: var(--navy); font-size: 1.7rem; font-weight: 900; }
 .acct-head h1 { margin: 2px 0; }
 .me-acct .muted { margin: -4px 0 4px; font-size: .88rem; }
+
+/* 指派作業的小標籤：靠左跟在狀態後面（窄的時候換到下一行也是靠左），字短一點 */
+.tile-top .tile-asg { margin-left: 0; padding: 2px 9px; font-size: .74rem; background: var(--amber-soft, #FEF3C7); color: #92400E; }
+.tile-top .tile-asg .ic { color: #D97706; }
+.tile-top .tile-asg.done { background: var(--wash); color: var(--steel); }
+.tile-top .tile-asg.done .ic { color: var(--steel); }
+/* 主卡（指派作業）：只有一份時不用左右捲動（捲動容器會把陰影切掉，下面出現一塊灰色）；好幾份時左右留空間給陰影 */
+.asg-rail:not(.many) { overflow: visible; padding-bottom: 0; }
+.asg-rail.many { margin-left: -16px; margin-right: -16px; padding: 0 16px 24px; scroll-padding: 0 16px; }
+
+/* 卡片懸浮：不位移、不放大（不會擠到旁邊或被容器切掉），只換邊框與陰影；
+   觸控裝置沒有懸浮，點過後不會卡在懸浮狀態 */
+.unit-tile:hover, .next-card:hover, .me-row:hover { transform: none; }
+@media (hover: none), (pointer: coarse) {
+  .unit-tile:hover, .me-row:hover { border-color: var(--line); box-shadow: 0 2px 10px rgba(30, 58, 138, .05); }
+  .next-card:hover { background: var(--white); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .unit-tile:hover { border-color: var(--navy); box-shadow: 0 8px 22px rgba(30, 58, 138, .1); }
+}
+/* 帳號頁：學習設定 */
+.me-set { margin: 0 0 16px; padding: 18px; border-radius: 20px; background: var(--white); border: 1px solid var(--line); display: grid; gap: 16px; }
+.me-set h2 { margin: 0; font-size: 1rem; color: var(--navy); }
+.set-row { display: grid; gap: 10px; }
+.set-row.inline { grid-template-columns: 1fr auto; align-items: center; }
+.set-txt { display: grid; gap: 2px; }
+.set-txt b { color: var(--navy); }
+.set-txt span { font-size: .84rem; color: var(--steel); }
+.set-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.set-seg button { display: grid; justify-items: start; gap: 2px; padding: 12px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--white); color: var(--navy); font: inherit; text-align: left; cursor: pointer; transition: border-color .2s, background .2s; }
+.set-seg button .ic { width: 20px; height: 20px; margin-bottom: 4px; }
+.set-seg button span { font-weight: 800; }
+.set-seg button small { font-size: .78rem; color: var(--steel); line-height: 1.4; }
+.set-seg button[aria-checked="true"] { border-color: var(--navy); background: #EEF2FF; box-shadow: inset 0 0 0 1px var(--navy); }
+.set-saved { margin: -6px 0 0; min-height: 1.2em; font-size: .84rem; font-weight: 700; color: var(--good-ink); }

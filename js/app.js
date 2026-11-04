@@ -9,6 +9,7 @@ import { flushOutbox, pendingItems, clearOutbox, outboxStatus, rejectedItems } f
 import { submitStateHTML } from './components/gate.js';
 import { leaveBody } from './resume.js';
 import * as integrity from './integrity.js';
+import { learnPrefs } from './learn-prefs.js';
 import { SCRIPT_URL, CJK_WEBFONT } from './config.js';
 import { TYPES, typeOf, typeLabel, typeIcon, bestKey, lessonLabel, lessonHeading, lessonCmp, unitName } from './types.js';
 // Firebase 程式庫很大，只在需要時才載入（登入、讀紀錄、老師頁面），不拖慢首頁
@@ -37,6 +38,26 @@ const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let lastRendered = null;
 let lastDepth = 0;
 let lastKind = '';
+// 換頁更連續：舊畫面留一份「殘影」疊在上面慢慢淡出，新畫面在底下直接出現（交叉淡化，中間不會閃一下空白）。
+// 殘影只是外觀（不能點、不給輔助科技讀），固定在原本的位置，淡出後移除；底部分頁列不在裡面，膠囊照樣滑動
+function ghostOut(dir) {
+  if (reduceMotion.matches || !app.firstElementChild) return;
+  document.querySelectorAll('.page-ghost').forEach((x) => x.remove());
+  const r = app.getBoundingClientRect();
+  if (r.bottom < 0 || r.top > innerHeight) return;
+  const g = app.cloneNode(true);
+  g.removeAttribute('id'); g.removeAttribute('tabindex');
+  g.classList.remove('page-in'); g.classList.add('page-ghost');
+  if (dir === 'back') g.classList.add('back');
+  g.setAttribute('aria-hidden', 'true'); g.inert = true;
+  g.querySelectorAll('.q-dock, .ln-bar, dialog, [id]').forEach((x) => { if (x.matches('.q-dock, .ln-bar, dialog')) x.remove(); else x.removeAttribute('id'); });
+  g.style.cssText = `top:${r.top}px;left:${r.left}px;width:${r.width}px`;
+  document.body.appendChild(g);
+  const done = () => g.remove();
+  g.addEventListener('animationend', (e) => { if (e.target === g) done(); }); // 只看殘影自己的淡出（裡面卡片的動畫結束不算）
+  setTimeout(done, 400);
+}
+
 function pageIn(changed, first) {
   // 第一次畫面不做進場動畫：從透明開始會讓「最大內容繪製」延後；也不用強制重排，改在下一格重新加上動畫
   if (!changed || first || reduceMotion.matches) return;
@@ -64,6 +85,7 @@ async function route() {
   // 回到上一層（單元 → 首頁）和進到下一層的進場方向相反，前進／後退有空間感（只做垂直位移，不左右移動）
   const depth = here === '#/' || here === '#' ? 0 : 1;
   if (changed) app.dataset.dir = depth < lastDepth ? 'back' : 'fwd';
+  if (changed && !first) ghostOut(app.dataset.dir);
   const prevKind = lastKind;
   lastDepth = depth;
   if (cleanup) { try { cleanup(); } catch { /* ignore */ } cleanup = null; }
@@ -391,12 +413,8 @@ function renderHome() {
   // 還沒有任何進度時不顯示「已完成 0 / N」，第一屏只留下一步要做什麼
   app.querySelector('#progress-slot').innerHTML = nOk || nTodo || nMiss
     ? `<a class="hp-link" href="#/me">已完成 ${nOk} / ${visible.length}${nTodo ? ` · 待檢討 ${nTodo}` : ''}${nMiss ? ` · 缺交 ${nMiss}` : ''} · 詳細 ${icon.arrowR}</a>` : '';
-  // 有指派作業：最上面一段「老師指派」，其他單元放在下面「自由練習」
-  const asgIds = new Set(asg.map((a) => a.u.id));
-  const asgHTML = asg.length ? `<section class="lesson asg-sec">
-      <h2 class="lesson-head">${icon.pin}<span>老師指派</span><small>完成 ${asg.filter(asgDone).length} / ${asg.length}</small></h2>
-      <div class="unit-grid">${asg.map((a) => tileHTML(a.u, a)).join('')}</div>
-    </section><p class="free-head">其他單元 · 自由練習</p>` : '';
+  // 指派作業只在最上面的主卡出現一次；下面的單元列表照課次排，指派的單元卡片上加一個小標籤（不再另外分一段，避免同一個單元出現兩次）
+  const asgOf = new Map(asg.map((a) => [a.u.id, a]));
   const legendHTML = `<details class="legend"><summary>${icon.info}狀態說明</summary>
         <dl>
           <dt>需補考</dt><dd>總分還沒到 ${PASS}%。可以隨時重做，沒有次數限制。</dd>
@@ -404,12 +422,12 @@ function renderHome() {
           <dt>缺交</dt><dd>單元已截止，還沒有正式測驗紀錄，請找老師。</dd>
         </dl>
       </details>`;
-  host.innerHTML = `<div class="list-head">${legendHTML}</div>` + asgHTML + lessons.map((n) => {
-    const units = visible.filter((u) => u.lesson === n && !asgIds.has(u.id));
+  host.innerHTML = `<div class="list-head">${legendHTML}</div>` + lessons.map((n) => {
+    const units = visible.filter((u) => u.lesson === n);
     if (!units.length) return '';
     return `<section class="lesson">
       <h2 class="lesson-head">${icon.book}<span>${lessonHeading(n)}</span></h2>
-      <div class="unit-grid">${units.map((u) => tileHTML(u)).join('')}</div>
+      <div class="unit-grid">${units.map((u) => tileHTML(u, asgOf.get(u.id))).join('')}</div>
     </section>`;
   }).join('');
   try { localStorage.removeItem('b5p:filter'); } catch { /* ignore */ } // 「全部／現在要做的」篩選已拿掉（主卡與老師指派已經告訴學生先做什麼）
@@ -465,7 +483,7 @@ function tileHTML(u, asg = null) {
     : `<span class="tile-ring" aria-hidden="true">${typeIcon(u.type)}</span>`;
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
       ${ring}<span class="tile-body">
-      <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span>${asg ? `<span class="tile-asg">${icon.pin}${esc(dueLabel(asg.due).split(' · ')[0])}</span>` : ''}</div>
+      <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span>${asg ? `<span class="tile-asg${asgDone(asg) ? ' done' : ''}">${icon.pin}${asgDone(asg) ? '指派・已完成' : `指派・${esc(fmtWhen(asg.due).split(' ')[0])} 截止`}</span>` : ''}</div>
       <h3 class="en">${esc(u.title)}</h3>
       ${topicShown ? `<p class="tile-topic en">${esc(topicShown)}</p>` : ''}
       ${vocab ? vocabMetaHTML(u, openLevels(u).map((l) => l.name)) : `<div class="tile-meta stack"><span><span class="tile-cat">${typeIcon(u.type)}</span>${kind}</span><span>${tileMeta(u)}</span></div>`}
@@ -610,8 +628,35 @@ function renderAccount() {
       <h1>${esc(maskName(s.name))}</h1>
       <p class="muted" style="margin:0">${esc(s.cls)} 班 ${esc(s.seat)} 號</p></div>
     </section>
+    <section class="me-set" aria-label="學習設定">
+      <h2>學習設定</h2>
+      <div class="set-row">
+        <div class="set-txt"><b>句型說明的看法</b><span>句型練習的說明卡（之後也可以在說明卡右上角切換）</span></div>
+        <div class="set-seg" role="radiogroup" aria-label="句型說明的看法">
+          <button type="button" role="radio" data-learn="find">${icon.target}<span>邊看邊找</span><small>用手指把公式的每一塊劃起來</small></button>
+          <button type="button" role="radio" data-learn="read">${icon.book}<span>直接看說明</span><small>例句直接標好顏色</small></button>
+        </div>
+      </div>
+      <div class="set-row inline">
+        <div class="set-txt"><b>自動下一題</b><span>單字選擇題答對後自動跳下一題</span></div>
+        <button class="switch" type="button" role="switch" data-auto aria-label="自動下一題"><span class="sw" aria-hidden="true"></span></button>
+      </div>
+      <p class="set-saved" aria-live="polite"></p>
+    </section>
     ${accountHTML(s)}`;
   bindAccount(app);
+  // 學習設定：句型說明的看法存在學生帳本（換裝置也記得），自動下一題存在這台裝置
+  const lp = learnPrefs();
+  const saved = app.querySelector('.set-saved');
+  const say = (t) => { saved.textContent = t; clearTimeout(say.t); say.t = setTimeout(() => { saved.textContent = ''; }, 2000); };
+  const paintLearn = () => app.querySelectorAll('[data-learn]').forEach((b) => b.setAttribute('aria-checked', String(lp.get('learnMode') === b.dataset.learn)));
+  app.querySelectorAll('[data-learn]').forEach((b) => b.addEventListener('click', () => { lp.set('learnMode', b.dataset.learn); paintLearn(); say('✓ 已儲存'); }));
+  paintLearn();
+  const autoOn = () => { try { return localStorage.getItem('b5p:auto') !== '0'; } catch { return true; } };
+  const auto = app.querySelector('[data-auto]');
+  const paintAuto = () => auto.setAttribute('aria-checked', String(autoOn()));
+  auto.addEventListener('click', () => { try { localStorage.setItem('b5p:auto', autoOn() ? '0' : '1'); } catch { /* ignore */ } paintAuto(); say('✓ 已儲存'); });
+  paintAuto();
 }
 
 /* ---------------- footer ---------------- */

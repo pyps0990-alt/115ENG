@@ -113,9 +113,9 @@ await step('快速來回滑動：狀態不會亂閃、沒有版面位移', async
 });
 await step('換頁：首頁 ↔ 單元有進場動畫且方向不同', async () => {
   await p.evaluate(() => window.scrollTo(0, 0)); await sleep(200);
-  await p.click('.unit-tile'); await p.waitForSelector('#stage');
+  await p.click('.unit-tile'); await p.waitForSelector('#app #stage');
   const fwd = await p.evaluate(() => document.getElementById('app').dataset.dir);
-  await p.click('.top-back'); await p.waitForSelector('.unit-tile');
+  await p.click('.top-back'); await p.waitForSelector('#app .unit-tile');
   const back = await p.evaluate(() => document.getElementById('app').dataset.dir);
   assert.equal(fwd, 'fwd'); assert.equal(back, 'back');
 });

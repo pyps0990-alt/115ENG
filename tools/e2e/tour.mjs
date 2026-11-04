@@ -34,14 +34,16 @@ for (const [label, vp] of [['電腦', { width: 1280, height: 860 }], ['手機', 
 
   await step(`${label}：自動化測試的瀏覽器不自動跳出導覽`, async () => { assert.equal(await st(), null); });
 
-  await step(`${label}：從選單打開「教學」，最上方列出 5 個導覽（沒有另外重複的「使用導覽」入口）`, async () => {
+  await step(`${label}：從選單打開「教學」，最上方列出 7 個導覽，新手順序 ①～⑤（沒有另外重複的「使用導覽」入口）`, async () => {
     if (rest.isMobile) {
       await tap('#who-btn'); await sleep(400);
       assert.equal(await t.locator('#m-sheet .m-item:has-text("使用導覽")').count(), 0, '「更多」不該再有重複的使用導覽');
       await tap('#m-sheet a[href="#help"]');
     } else { await t.click('#who-btn'); await sleep(200); await t.click('#tour-open'); }
     await t.waitForSelector('#help-tours .tour-item');
-    assert.equal(await t.locator('#help-tours .tour-item').count(), 5);
+    assert.equal(await t.locator('#help-tours .tour-item').count(), 7);
+    const names = await t.$$eval('#help-tours .tour-item b', (a) => a.map((x) => x.firstChild.textContent));
+    assert.deepEqual(names.slice(1, 6).map((x) => x[0]), ['①', '②', '③', '④', '⑤'], names.join('、'));
     await t.click('#help-tours [data-help-tour="intro"]');
     await waitStep(0);
   });
@@ -65,7 +67,32 @@ for (const [label, vp] of [['電腦', { width: 1280, height: 860 }], ['手機', 
     await waitStep(2, 15000); await ringOn('放進題目');
     await t.click('.uc-way[data-uc="paste"]');
     await waitStep(3); await ringOn('檢查後儲存');
-    await next(); await waitStep(4); await ringOn('開放給學生');
+    await next(); await waitStep(4); await ringOn('開放給學生：出題設定');
+    await t.click('[data-utab="settings"]');
+    await waitStep(5); await ringOn('開放給學生：顯示在學生首頁');
+    assert.match(await t.textContent('.tour-text'), /顯示在學生首頁/);
+    await next(); await waitStep(-1);
+  });
+
+  await step(`${label}：③ 外部 AI 出題（打開編輯 → 複製提示詞 → 貼到 AI → 貼回來 → 預覽與檢查 → 儲存）`, async () => {
+    await t.evaluate(() => { location.hash = '#unit/l1-voc/content'; }); await sleep(600);
+    await t.evaluate(() => window.adminTour.start('paste'));
+    await waitStep(0); await ringOn('打開題目編輯');
+    await t.click('[data-uc="edit"]');
+    for (let i = 1; i < 6; i++) { await waitStep(i); await ringOn(`第 ${i + 1} 步`); await next(); }
+    await waitStep(-1);
+  });
+
+  await step(`${label}：④ 指派作業（按指派 → 在視窗裡指派 → 完成）`, async () => {
+    await t.evaluate(() => { location.hash = '#unit/l1-voc/content'; }); await sleep(600);
+    await t.evaluate(() => window.adminTour.start('assign'));
+    await waitStep(0); await ringOn('指派作業');
+    assert.match(await t.textContent('.tour-text'), /選班級[^]*截止日[^]*指派/);
+    await tap('#u-assign'); await t.waitForSelector('dialog.asg-sheet[open]');
+    await sleep(500);
+    assert.equal(await t.evaluate(() => window.adminTour.active().step), 0, '視窗開著時停在第 1 步');
+    await t.click('dialog.asg-sheet [data-a="1"]');
+    await waitStep(1, 10000); await ringOn('完成了');
     await next(); await waitStep(-1);
   });
 
@@ -88,7 +115,7 @@ for (const [label, vp] of [['電腦', { width: 1280, height: 860 }], ['手機', 
     await t.evaluate(() => { location.hash = '#unit/l1-voc/content'; }); await sleep(600);
     await t.evaluate(() => window.adminTour.start('ai'));
     await waitStep(0); await ringOn('打開題目編輯');
-    await t.click('[data-uc="edit"]');
+    if (await t.isVisible('[data-uc="edit"]')) await t.click('[data-uc="edit"]'); else await next(); // 前一個導覽已經打開編輯：這一步不用按
     await waitStep(1); await ringOn('AI 按鈕');
     assert.match(await t.textContent('.tour-text'), /單字/, '單字單元要說明單字的 AI 按鈕');
     for (let i = 1; i < 4; i++) { await waitStep(i); await ringOn(`第 ${i + 1} 步`); await next(); }

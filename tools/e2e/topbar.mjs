@@ -37,6 +37,15 @@ await p.tap('#dock a[data-dock="account"]'); await p.waitForSelector('.acct-head
 const ink = await p.evaluate(() => { const i = document.querySelector('.dock-ink').getBoundingClientRect(), c = document.querySelector('#dock a[aria-current]').getBoundingClientRect(); return Math.abs(i.left - c.left) + Math.abs(i.width - c.width); });
 assert.ok(ink < 2, '膠囊對齊帳號分頁 ' + ink);
 assert.ok(await p.$('.me-acct [data-switch]') && await p.$('.me-acct [data-logout]') && await p.$('[data-search]'), '帳號頁：切換學生、登出；左上是搜尋');
+// 帳號頁的學習設定：句型說明的看法、自動下一題，按了就存
+await p.tap('[data-learn="read"]'); await sleep(200);
+assert.equal(await p.getAttribute('[data-learn="read"]', 'aria-checked'), 'true');
+assert.equal(await p.evaluate(() => JSON.parse(localStorage.getItem('b5p:learnPrefs')).mode), 'read', '句型說明的看法存起來（句型練習會照這個設定）');
+const a0 = await p.getAttribute('[data-auto]', 'aria-checked');
+await p.tap('[data-auto]'); await sleep(200);
+assert.notEqual(await p.getAttribute('[data-auto]', 'aria-checked'), a0);
+assert.equal(await p.evaluate(() => localStorage.getItem('b5p:auto')), a0 === 'true' ? '0' : '1');
+assert.match(await p.textContent('.set-saved'), /已儲存/);
 assert.deepEqual(errs, []);
 console.log('上方導覽列測試通過');
 await world.close?.(); process.exit(0);

@@ -9,7 +9,10 @@ const html = fs.readFileSync(new URL('../../apps-script/Admin.html', import.meta
 const i = html.indexOf('    var staleNote = null;');
 const j = html.indexOf('.getAdminData();', i) + '.getAdminData();'.length;
 assert(i > 0 && j > i);
-const code = html.slice(i, j);
+// 開啟流程會用到指派作業的整理函式（不在這一段裡）：一起放進來
+const na = html.indexOf('    function normAssign(a) {'), nb = html.indexOf('\n    }\n', na) + 7;
+assert(na > 0 && nb > na);
+const code = html.slice(na, nb) + html.slice(i, j);
 
 const CFG = { updated: 'x1', units: { u1: { visible: true, disabled: [], questionCount: 10, since: 's' } }, customUnits: [{ id: 'u1', title: 'U1', type: 'vocab', lesson: 1, topic: '' }],
   content: { u1: { updated: 't1', count: 40, topic: '' } }, ext: { u1: { '306-7': '2026-10-05T18:00' } } };
