@@ -206,6 +206,19 @@
     mark { background:var(--soft); color:var(--good); padding:0 3px; border-radius:4px; }
     .issues { margin:8px 0 0; padding-left:1.2em; }
     .issues li.err { color:var(--bad); } .issues li.warn { color:#B45309; }
+    /* 匯入檢查：每個問題標出在貼上文字的第幾行、那一行的原文，點一下跳到輸入框的那一行並選取 */
+    .lint { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:6px; max-height:420px; overflow:auto; }
+    .lint li { display:grid; grid-template-columns:auto 1fr; gap:2px 10px; align-items:start; padding:8px 10px; border-radius:10px; border:1px solid #FECACA; background:#FEF2F2; color:var(--bad); font-weight:600; }
+    .lint li.warn { border-color:#FDE68A; background:#FFFBEB; color:#92400E; }
+    .lint .jump { grid-row:span 2; min-width:64px; padding:4px 8px; border-radius:8px; border:1px solid currentColor; background:#fff; color:inherit; font:inherit; font-size:.8rem; font-weight:800; cursor:pointer; white-space:nowrap; }
+    .lint .jump:hover { background:currentColor; } .lint .jump:hover span { color:#fff; }
+    .lint .jump[disabled] { border-style:dashed; cursor:default; background:transparent; }
+    .lint .src { display:block; margin:0; padding:3px 6px; border-radius:6px; background:rgba(255,255,255,.75); color:var(--ink); font:500 .82rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space:pre-wrap; word-break:break-word; }
+    .lint .src:empty::before { content:'（這一行是空的）'; color:var(--steel); font-family:inherit; }
+    .lint-sum { margin:8px 0 0; font-weight:800; }
+    textarea.flash-line { box-shadow:0 0 0 3px rgba(220,38,38,.35) !important; transition:box-shadow .2s; }
+    .flash-box { outline:3px solid rgba(220,38,38,.45); outline-offset:4px; border-radius:12px; transition:outline-color .6s; }
+    tr.row-err td { background:#FEF2F2; } tr.row-warn td { background:#FFFBEB; }
     .btn[disabled] { opacity:.4; cursor:not-allowed; box-shadow:none; }
     .ai-box { background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:12px 16px; margin-top:14px; }
     .ex-box { margin-top:10px; background:var(--white,#fff); border:1px solid var(--line); border-radius:12px; padding:8px 12px; }
@@ -1595,7 +1608,7 @@
             <div class="imp-grid">
               <div class="help">格式：不用寫 <code>[閱讀]</code>，直接寫 <code>標題：</code>、<code>文章：</code>（段落之間空一行）、<code>Q1：</code>題目、<code>Q1選項：</code>（用 <code>|</code> 隔開）、<code>Q1答案：</code>（A–D）、<code>Q1解析：</code>、<code>Q1依據：</code>（必填，從文章複製的關鍵字句）、<code>Q1技巧：</code>（主旨／細節／字義／推論／態度）。錯誤分析（選填，學生檢討時看）：<code>Q1干擾：</code>每個錯誤選項的類型與理由，例如 <code>B=相反：第 2 段說… | C=沒提到：…</code>（類型：沒提到、相反、只對一半、範圍不對、照抄陷阱、推論過頭）；<code>Q1關鍵字：</code>題目關鍵字，用逗號隔開；<code>Q1改寫：</code><code>原文 = 選項的說法</code>，多組用 <code>|</code> 隔開。按「填入表單」後可以再逐題調整。</div>
               <label>文字<textarea id="r-bulk" spellcheck="false" style="min-height:180px"></textarea></label>
-              <div class="bar"><button class="btn" id="r-bulk-go" type="button">填入表單</button><button class="btn" type="button" data-copy-prompt="reading">複製「給 AI 的完整提示詞」</button><span class="msg" id="r-bulk-msg"></span></div>
+              <div class="bar"><button class="btn" id="r-bulk-go" type="button">填入表單</button><button class="btn" type="button" data-copy-prompt="reading">複製「給 AI 的完整提示詞」</button><span class="msg" id="r-bulk-msg"></span></div><div id="r-bulk-lint"></div>
             </div>
           </details>
           <div class="bar"><button class="btn ai" id="ai-reading" type="button">✦ AI 產生題目</button><button class="btn ai" id="ai-reading-an" type="button" title="不改題目，只補上每個錯誤選項的干擾類型、題目關鍵字、同義改寫（學生檢討時看）">✦ AI 補上錯誤分析</button>
@@ -2803,10 +2816,18 @@
     }
     function parseVocab() {
       if (takeHints()) $('imp-msg').textContent = '';
-      var lines = normalizeAI($('v-text').value).split('\n').map(function (l) { return l.replace(/\s+$/, ''); })
-        .filter(function (l) { return l.trim() && !/^\s*\|?[\s:|-]+\|?\s*$/.test(l); })                  // 表格分隔線 |---|---|
-        .map(function (l) { return /^\s*\|.*\|\s*$/.test(l) ? l.replace(/^\s*\|/, '').replace(/\|\s*$/, '') : l; }); // Markdown 表格的頭尾 |
-      if (lines.length && /^(word|英文|單字|片語)/i.test(lines[0].split(/\t|\|/)[0].trim())) lines.shift();
+      // 每一行記住它在輸入框的第幾行（src），檢查有問題時可以直接指出、跳過去
+      var skipped = [];
+      var objs = normalizeAI($('v-text').value).split('\n').map(function (l, ix) { return { l: l.replace(/\s+$/, ''), ix: ix }; })
+        .filter(function (o) { return o.l.trim() && !/^\s*\|?[\s:|-]+\|?\s*$/.test(o.l); })                  // 表格分隔線 |---|---|
+        .map(function (o) { return { l: /^\s*\|.*\|\s*$/.test(o.l) ? o.l.replace(/^\s*\|/, '').replace(/\|\s*$/, '') : o.l, ix: o.ix, raw: o.l }; }) // Markdown 表格的頭尾 |
+        .filter(function (o) { return !/^(word|english|英文|單字|片語|單字片語)$/i.test(o.l.split(/\t|\|/)[0].trim()); }) // 表格標題列（不一定在第一行：AI 常先寫一句說明）
+        .filter(function (o) {
+          // 沒有 Tab 也沒有 | 的行：AI 的說明文字（「以下是整理好的單字表：」），略過並提醒
+          if (/\t|\|/.test(o.raw)) return true;
+          skipped.push(o.ix); return false;
+        });
+      var lines = objs.map(function (o) { return o.l; }), src = objs.map(function (o) { return o.ix; });
       var seen = {}, seenZh = {}, sameZh = [], rows = [], words = [];
       lines.forEach(function (line, i) {
         var c = (line.indexOf('\t') >= 0 ? line.split('\t') : line.split('|')).map(function (x) { return x.trim(); });
@@ -2841,6 +2862,7 @@
         }
         var key = w.word.toLowerCase();
         if (st !== 'err' && seen[key]) { st = 'err'; msg = '和第 ' + seen[key] + ' 行重複'; }
+        if (c.length < 3) { st = 'err'; msg = '這一行讀不出欄位：每行要用 Tab 或 | 隔開「英文 | 詞性 | 中文 | 例句 | 例句中文」'; }
         // 中文意思相同或重疊（拆成義項比對：「提高；增加」和「增加」算重疊）：學生分不出要選哪一個，列出來請老師確認
         if (st !== 'err') {
           var dup = null, ms = meaningsOf(w.zh);
@@ -2848,12 +2870,12 @@
           if (dup) {
             st = 'warn';
             msg = (msg ? msg + '；' : '') + '中文意思和第 ' + dup.at.n + ' 行「' + dup.at.word + '」重疊（' + dup.zh + '）：出題時兩個字不會同時出現在選項裡，但學生看中文可能分不出是哪一個，建議改寫得更精確';
-            sameZh.push(i + 1);
+            sameZh.push(src[i] + 1);
           }
-          ms.forEach(function (x) { if (!seenZh[x]) seenZh[x] = { n: i + 1, word: w.word }; });
+          ms.forEach(function (x) { if (!seenZh[x]) seenZh[x] = { n: src[i] + 1, word: w.word }; });
         }
-        seen[key] = seen[key] || i + 1;
-        rows.push({ n: i + 1, w: w, st: st, msg: msg });
+        seen[key] = seen[key] || src[i] + 1;
+        rows.push({ n: i + 1, ln: src[i], w: w, st: st, msg: msg });
         if (st !== 'err') words.push(w);
       });
       var errs = rows.filter(function (r) { return r.st === 'err'; }).length;
@@ -2871,11 +2893,13 @@
       $('imp-report').innerHTML =
         '<div class="stats"><span class="stat">可匯入 ' + words.length + ' 個</span>' + (errs ? '<span class="stat" style="background:#FEE2E2;color:var(--bad)">有 ' + errs + ' 行要修正</span>' : '') + '</div>' +
         (global ? '<p class="st-err">' + global + '</p>' : '') +
+        lintHTML(rows.filter(function (r) { return r.st !== 'ok'; }).map(function (r) { return [r.st, (r.w.word && r.msg.indexOf('讀不出欄位') < 0 ? '「' + r.w.word + '」：' : '') + r.msg, r.ln]; })
+          .concat(skipped.map(function (ix) { return ['warn', '看起來是說明文字（沒有用 Tab 或 | 隔開），已略過；如果是單字，請補上分隔', ix]; })).sort(function (a, b) { return a[2] - b[2]; }), 'v-text') +
         (tips.length ? '<ul class="issues">' + tips.map(function (x) { return '<li class="warn">' + esc(x) + '</li>'; }).join('') + '</ul>' : '') +
         '<table><thead><tr><th>#</th><th>英文</th><th>詞性</th><th>中文</th><th>例句</th><th>狀態</th></tr></thead><tbody>' +
         rows.map(function (r) {
           var exN = (r.w.examples || []).length;
-          return '<tr><td>' + r.n + '</td><td><b>' + esc(r.w.word) + '</b></td><td>' + esc(r.w.pos) + '</td><td>' + esc(r.w.zh) + '</td><td>' +
+          return '<tr class="row-' + r.st + '"><td>' + r.n + '</td><td><b>' + esc(r.w.word) + '</b></td><td>' + esc(r.w.pos) + '</td><td>' + esc(r.w.zh) + '</td><td>' +
             esc(r.w.example || '').replace(/\[([^\]]+)\]/g, '<mark>$1</mark>') + (exN > 1 ? ' <span class="pill" title="這個字有 ' + exN + ' 句例句，每次出題隨機挑一句">+' + (exN - 1) + '句</span>' : '') +
             '</td><td class="st-' + r.st + '">' + (r.st === 'ok' ? '✓' : esc(r.msg)) + '</td></tr>';
         }).join('') + '</tbody></table>';
@@ -2899,7 +2923,7 @@
       var passage = $('r-passage').value.split(/\n\s*\n/).map(function (p) { return p.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean);
       var pw = words_(passage.join(' '));
       var issues = [], qs = [];
-      if (!passage.length) issues.push(['err', '請貼上文章']);
+      if (!passage.length) issues.push(['err', '請貼上文章', $('r-passage')]);
       [].forEach.call($('r-qs').children, function (box, i) {
         var tag = '第 ' + (i + 1) + ' 題';
         var q = { skill: box.querySelector('.q-skill').value, q: box.querySelector('.q-text').value.trim(), options: [], answer: -1, explain: box.querySelector('.q-explain').value.trim() };
@@ -2907,48 +2931,48 @@
         var checked = box.querySelector('input[type=radio]:checked');
         var ans = checked ? Number(checked.value) : -1;
         while (opts.length && !opts[opts.length - 1]) opts.pop();
-        if (!q.q) issues.push(['err', tag + '：缺少題目']);
-        if (opts.length < 2 || opts.some(function (o) { return !o; })) issues.push(['err', tag + '：選項要從 A 開始連續填寫，至少 2 個']);
-        if (ans < 0 || ans >= opts.length || !opts[ans]) issues.push(['err', tag + '：請點選正確答案前面的圓點']);
-        if (!q.explain) issues.push(['warn', tag + '：沒有解析，學生交卷後只會看到正確答案']);
+        if (!q.q) issues.push(['err', tag + '：缺少題目', box]);
+        if (opts.length < 2 || opts.some(function (o) { return !o; })) issues.push(['err', tag + '：選項要從 A 開始連續填寫，至少 2 個', box]);
+        if (ans < 0 || ans >= opts.length || !opts[ans]) issues.push(['err', tag + '：請點選正確答案前面的圓點', box]);
+        if (!q.explain) issues.push(['warn', tag + '：沒有解析，學生交卷後只會看到正確答案', box]);
         [['題目', q.q]].concat(opts.map(function (o, j) { return ['選項 ' + 'ABCD'[j], o]; })).forEach(function (pair) {
           var s = longestShared(words_(pair[1]), pw);
-          if (s.n >= 6) issues.push(['err', tag + '（' + pair[0] + '）照抄文章 ' + s.n + ' 個字：「' + s.text + '」，請改寫']);
-          else if (s.n === 5) issues.push(['warn', tag + '（' + pair[0] + '）和文章連續 5 個字相同：「' + s.text + '」']);
+          if (s.n >= 6) issues.push(['err', tag + '（' + pair[0] + '）照抄文章 ' + s.n + ' 個字：「' + s.text + '」，請改寫', box]);
+          else if (s.n === 5) issues.push(['warn', tag + '（' + pair[0] + '）和文章連續 5 個字相同：「' + s.text + '」', box]);
         });
         q.options = opts; q.answer = ans;
         var ref = box.querySelector('.q-ref').value;
         if (ref) q.ref = ref;
         var key = box.querySelector('.q-key').value.replace(/\s+/g, ' ').trim();
         if (key) {
-          if (!inPassage(key, passage)) issues.push(['err', tag + '：關鍵字句在文章裡找不到，請直接從文章複製（不要改字）']);
+          if (!inPassage(key, passage)) issues.push(['err', tag + '：關鍵字句在文章裡找不到，請直接從文章複製（不要改字）', box]);
           else q.key = key;
         } else if (!ref) {
-          issues.push(['err', tag + '：每一題都要有原文依據：填「關鍵字句」，或在下拉選單選一個原文句子']);
+          issues.push(['err', tag + '：每一題都要有原文依據：填「關鍵字句」，或在下拉選單選一個原文句子', box]);
         }
         var traps = [].map.call(box.querySelectorAll('.q-trap-row'), function (row, j) {
           var t = row.querySelector('.q-trap').value, why = row.querySelector('.q-why').value.trim();
           return j < opts.length && j !== ans && t ? { t: t, why: why } : null;
         }).slice(0, opts.length);
         if (traps.some(Boolean)) q.traps = traps;
-        else if (ans >= 0) issues.push(['warn', tag + '：沒有干擾類型，答錯的學生檢討時只看得到解析（可以按「AI 補上錯誤分析」）']);
+        else if (ans >= 0) issues.push(['warn', tag + '：沒有干擾類型，答錯的學生檢討時只看得到解析（可以按「AI 補上錯誤分析」）', box]);
         var kw = parseKw(box.querySelector('.q-kw').value);
         if (kw.length) {
           q.kw = kw;
           var lowP = passage.join(' ').toLowerCase();
-          kw.forEach(function (k) { if (lowP.indexOf(k.toLowerCase().replace(/(es|s|ed|ing)$/, '')) < 0) issues.push(['warn', tag + '：關鍵字「' + k + '」在文章裡找不到']); });
+          kw.forEach(function (k) { if (lowP.indexOf(k.toLowerCase().replace(/(es|s|ed|ing)$/, '')) < 0) issues.push(['warn', tag + '：關鍵字「' + k + '」在文章裡找不到', box]); });
         }
         var pairs = parsePairs(box.querySelector('.q-pairs').value);
         if (pairs.length) {
           q.pairs = pairs;
-          pairs.forEach(function (x) { if (!inPassage(x.a, passage)) issues.push(['warn', tag + '：改寫的原文「' + x.a + '」在文章裡找不到（請從文章複製）']); });
+          pairs.forEach(function (x) { if (!inPassage(x.a, passage)) issues.push(['warn', tag + '：改寫的原文「' + x.a + '」在文章裡找不到（請從文章複製）', box]); });
         }
         qs.push(q);
       });
       if (!qs.length) issues.push(['err', '至少要 1 題']);
       var errs = issues.filter(function (x) { return x[0] === 'err'; }).length;
       $('imp-report').innerHTML = '<div class="stats"><span class="stat">文章 ' + passage.length + ' 段、' + pw.length + ' 字</span><span class="stat">' + qs.length + ' 題</span></div>' +
-        (issues.length ? '<ul class="issues">' + issues.map(function (x) { return '<li class="' + x[0] + '">' + esc(x[1]) + '</li>'; }).join('') + '</ul>'
+        (issues.length ? lintHTML(issues)
           : '<p class="st-ok">✓ 檢查通過，沒有照抄文章</p>');
       var title = $('r-title').value.trim();
       return errs ? null : { title: title, topic: $('r-topic').value.trim() || title, passage: passage, questions: qs };
@@ -2996,6 +3020,57 @@
     var KIND_ALIAS = { '選擇題': '選擇', '詞彙': '選擇', '詞彙題': '選擇', '填空題': '填空', '應用題': '應用', '重組': '應用', '閱讀測驗': '閱讀', '閱讀題': '閱讀' };
     var KEY_ALIAS = { '題幹': '題目', '問題': '題目', '句子': '題目', '選項們': '選項', '正確答案': '答案', '參考答案': '答案', '解答': '答案', '詳解': '解析', '解說': '解析', '說明': '解析', '提示詞': '提示', '中文句子': '中文', '中文翻譯': '中文', '句型名稱': '句型', '文法': '句型', '段落': '文章', '全文': '文章', '文章標題': '標題', '主題': '標題' };
     var KINDS_RE = '選擇|填空|應用|閱讀';
+    // ----- 匯入檢查的問題清單：每個問題標出在哪一行（貼上的文字）或哪一題（表單），點一下就跳過去並選取 -----
+    // issues：[等級 'err'|'warn', 說明, 位置]；位置是貼上文字的第幾行（0 起算）、表單裡的元素，或不填（整體的問題）
+    var LINT_EL = [];
+    function lintHTML(issues, taId) {
+      if (!issues || !issues.length) return '';
+      LINT_EL = [];
+      var ta = taId ? $(taId) : null, raw = ta ? ta.value.replace(/\r/g, '').split('\n') : [];
+      var nE = issues.filter(function (x) { return x[0] === 'err'; }).length, nW = issues.length - nE;
+      var sorted = issues.map(function (x, i) { return [x, i]; }).sort(function (a, b) { return (a[0][0] === 'err' ? 0 : 1) - (b[0][0] === 'err' ? 0 : 1) || a[1] - b[1]; }).map(function (x) { return x[0]; });
+      var anyJump = issues.some(function (x) { return typeof x[2] === 'number' || (x[2] && x[2].nodeType); });
+      return '<p class="lint-sum ' + (nE ? 'st-err' : 'st-warn') + '">' + (nE ? nE + ' 個錯誤要修正' : '') + (nE && nW ? '、' : '') + (nW ? nW + ' 個提醒' : '') +
+        (anyJump ? '<span class="muted small" style="font-weight:600">　點左邊的「第幾行」，會跳到輸入框的那一行並選取</span>' : '') + '</p>' +
+        '<ol class="lint">' + sorted.map(function (x) {
+          var w = x[2], btn, src = '';
+          if (typeof w === 'number' && ta) {
+            btn = '<button type="button" class="jump" data-ta="' + taId + '" data-line="' + w + '"><span>第 ' + (w + 1) + ' 行</span></button>';
+            src = '<code class="src">' + esc(String(raw[w] || '').slice(0, 300)) + '</code>';
+          } else if (w && w.nodeType) {
+            LINT_EL.push(w);
+            btn = '<button type="button" class="jump" data-el="' + (LINT_EL.length - 1) + '"><span>跳到這裡</span></button>';
+          } else btn = '<button type="button" class="jump" disabled><span>整體</span></button>';
+          return '<li class="' + x[0] + '">' + btn + '<span>' + esc(x[1]) + '</span>' + src + '</li>';
+        }).join('') + '</ol>';
+    }
+    // 跳到輸入框的第幾行：選取那一行，捲到看得見（長的行會折行，所以用一個看不見的複製框量出那一行的高度）
+    function jumpToLine(ta, ln) {
+      var d = ta.closest('details'); if (d && !d.open) d.open = true;
+      var lines = ta.value.split('\n'), start = 0;
+      for (var i = 0; i < ln && i < lines.length; i++) start += lines[i].length + 1;
+      var end = start + (lines[ln] || '').length;
+      var m = ta.cloneNode(false); m.removeAttribute('id');
+      m.style.cssText = 'position:absolute;visibility:hidden;height:0;min-height:0;overflow:hidden;width:' + ta.offsetWidth + 'px';
+      m.value = ta.value.slice(0, start); ta.parentNode.appendChild(m);
+      var y = m.scrollHeight; m.remove();
+      ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      ta.focus({ preventScroll: true }); ta.setSelectionRange(start, Math.max(end, start + 1));
+      ta.scrollTop = Math.max(0, y - ta.clientHeight / 3);
+      ta.classList.add('flash-line'); setTimeout(function () { ta.classList.remove('flash-line'); }, 1600);
+    }
+    document.addEventListener('click', function (e) {
+      var j = e.target.closest && e.target.closest('.lint .jump'); if (!j || j.disabled) return;
+      if (j.dataset.el != null) {
+        var el = LINT_EL[+j.dataset.el]; if (!el) return;
+        var dd = el.closest('details'); if (dd && !dd.open) dd.open = true;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('flash-box'); setTimeout(function () { el.classList.remove('flash-box'); }, 1600);
+        var f = el.matches('input,textarea,select') ? el : el.querySelector('input:not([type=radio]),textarea,select'); if (f) f.focus({ preventScroll: true });
+        return;
+      }
+      var ta = $(j.dataset.ta); if (ta) jumpToLine(ta, +j.dataset.line);
+    });
     function normalizeAI(text) {
       var t = String(text || '').replace(/\r/g, '').replace(/^﻿/, '');
       t = t.replace(/^\s*```[a-zA-Z]*\s*$/gm, '');                       // 程式碼框
@@ -3028,12 +3103,13 @@
     // 切成 [{kind, fields:{key:value}}]；欄位可以換行，遇到下一個「名稱：」才換欄位
     function splitBlocks(text) {
       var blocks = [], cur = null, key = null;
-      normalizeAI(text).split('\n').forEach(function (line) {
+      // 記下每一題、每個欄位在貼上文字的第幾行（normalizeAI 不會增減行數），檢查有問題時可以直接指出是哪一行
+      normalizeAI(text).split('\n').forEach(function (line, ln) {
         var h = /^\s*\[(選擇|填空|應用|閱讀)\]\s*(.*)$/.exec(line);
-        if (h) { cur = { kind: KIND[h[1]], f: {}, order: [] }; blocks.push(cur); key = null; line = h[2]; if (!line) return; }
+        if (h) { cur = { kind: KIND[h[1]], f: {}, order: [], line: ln, ln: {} }; blocks.push(cur); key = null; line = h[2]; if (!line) return; }
         if (!cur) return;
         var m = /^\s*(Q\d+(?:選項|答案|解析|技巧|依據句|依據|干擾|關鍵字|改寫)?|句型|題目|選項|答案|解析|提示|中文|單字|文章|標題)\s*[:：]\s*(.*)$/.exec(line);
-        if (m) { key = m[1]; cur.f[key] = m[2]; cur.order.push(key); }
+        if (m) { key = m[1]; cur.f[key] = m[2]; cur.order.push(key); cur.ln[key] = ln; }
         else if (key) cur.f[key] += '\n' + line;
       });
       blocks.forEach(function (b) { Object.keys(b.f).forEach(function (k) { b.f[k] = b.f[k].replace(/^\s+|\s+$/g, ''); }); });
@@ -3045,30 +3121,31 @@
       var items = [];
       splitBlocks(text).forEach(function (b, i) {
         var f = b.f, tag = '第 ' + (i + 1) + ' 題（' + KIND_ZH[b.kind] + '）', it;
+        var at = function (k) { return b.ln[k] != null ? b.ln[k] : b.line; }; // 問題在第幾行：那個欄位的行，沒有這個欄位就指到這一題的開頭
         if (b.kind === 'mc') {
           var opts = splitOpts(f['選項']), a = ansIndex(f['答案'], opts);
-          if (!f['題目']) issues.push(['err', tag + '：缺少題目']);
-          if (opts.length < 2) issues.push(['err', tag + '：選項至少 2 個，用 | 隔開']);
-          if (a < 0 || a >= opts.length) issues.push(['err', tag + '：答案要寫 A–' + 'ABCDEFGHIJ'[Math.max(opts.length - 1, 0)] + ' 或選項原文']);
-          if (opts.length && opts.length !== 4) issues.push(['warn', tag + '：選項有 ' + opts.length + ' 個（建議 4 個）']);
-          if (f['題目'] && !/_{2,}/.test(f['題目'])) issues.push(['warn', tag + '：題目沒有 ____ 空格']);
+          if (!f['題目']) issues.push(['err', tag + '：缺少題目', at('題目')]);
+          if (opts.length < 2) issues.push(['err', tag + '：選項至少 2 個，用 | 隔開', at('選項')]);
+          if (a < 0 || a >= opts.length) issues.push(['err', tag + '：答案要寫 A–' + 'ABCDEFGHIJ'[Math.max(opts.length - 1, 0)] + ' 或選項原文', at('答案')]);
+          if (opts.length && opts.length !== 4) issues.push(['warn', tag + '：選項有 ' + opts.length + ' 個（建議 4 個）', at('選項')]);
+          if (f['題目'] && !/_{2,}/.test(f['題目'])) issues.push(['warn', tag + '：題目沒有 ____ 空格', at('題目')]);
           it = { type: 'mc', tag: f['句型'] || '', q: f['題目'] || '', options: opts, answer: a, explain: f['解析'] || '' };
         } else if (b.kind === 'fill') {
-          if (!f['題目'] || !/_{2,}/.test(f['題目'])) issues.push(['err', tag + '：題目要有 ____ 空格']);
-          if (!f['答案']) issues.push(['err', tag + '：缺少答案']);
+          if (!f['題目'] || !/_{2,}/.test(f['題目'])) issues.push(['err', tag + '：題目要有 ____ 空格', at('題目')]);
+          if (!f['答案']) issues.push(['err', tag + '：缺少答案', at('答案')]);
           it = { type: 'fill', tag: f['句型'] || '', q: f['題目'] || '', answer: f['答案'] || '', hint: f['提示'] || '', explain: f['解析'] || '' };
         } else if (b.kind === 'apply') {
           var w = splitOpts(f['單字']).map(function (x) { return x; });
           w = String(f['單字'] || '').split(/\s*\|\s*/).map(function (x) { return x.trim(); }).filter(Boolean);
           var ans = f['答案'] || '';
           var norm = function (x) { return String(x).toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(String).sort().join(' '); };
-          if (!f['中文']) issues.push(['err', tag + '：缺少中文句子']);
-          if (w.length < 3) issues.push(['err', tag + '：單字至少 3 個，用 | 隔開']);
-          if (!ans) issues.push(['err', tag + '：缺少答案句子']);
-          else if (w.length >= 3 && norm(w.join(' ')) !== norm(ans)) issues.push(['err', tag + '：單字要剛好能排成答案句子（多了或少了單字）']);
+          if (!f['中文']) issues.push(['err', tag + '：缺少中文句子', at('中文')]);
+          if (w.length < 3) issues.push(['err', tag + '：單字至少 3 個，用 | 隔開', at('單字')]);
+          if (!ans) issues.push(['err', tag + '：缺少答案句子', at('答案')]);
+          else if (w.length >= 3 && norm(w.join(' ')) !== norm(ans)) issues.push(['err', tag + '：單字要剛好能排成答案句子（多了或少了單字）', at('答案')]);
           it = { type: 'apply', tag: f['句型'] || '', zh: f['中文'] || '', words: w, answer: ans, explain: f['解析'] || '' };
-        } else { issues.push(['err', '第 ' + (i + 1) + ' 題：句型練習只有 選擇／填空／應用 三種']); return; }
-        if (!it.explain) issues.push(['warn', tag + '：沒有解析，學生作答後只會看到正確答案']);
+        } else { issues.push(['err', '第 ' + (i + 1) + ' 題：句型練習只有 選擇／填空／應用 三種', b.line]); return; }
+        if (!it.explain) issues.push(['warn', tag + '：沒有解析，學生作答後只會看到正確答案', at('解析')]);
         items.push(it);
       });
       if (!items.length) issues.push(['err', '沒有讀到任何題目，每題要以 [選擇]、[填空] 或 [應用] 開頭']);
@@ -3085,7 +3162,12 @@
           data = { topic: j.topic || $('t-topic').value.trim(), items: j.items };
           if (Array.isArray(j.guides) && typeof guidesNow !== 'undefined') guidesNow = j.guides.slice();
           if (!$('t-topic').value.trim() && j.topic) $('t-topic').value = j.topic;
-        } catch (e) { issues.push(['err', 'JSON 格式錯誤：' + e.message]); }
+        } catch (e) {
+          // JSON 錯誤：瀏覽器會說是第幾個字（position N），換算成貼上文字的第幾行
+          var pos = /position (\d+)/.exec(e.message), jl;
+          if (pos) { var off = String(text).replace(/\r/g, '').indexOf(trimmed.slice(0, 40)); jl = (String(text).replace(/\r/g, '').slice(0, Math.max(off, 0) + Number(pos[1])).match(/\n/g) || []).length; }
+          issues.push(['err', 'JSON 格式錯誤：' + e.message.replace(/^JSON\.parse: /, ''), jl]);
+        }
       } else { if (typeof takeGuides === 'function' && takeGuides()) { text = $('t-text').value; drawGuides(); } data = parsePatternText(text, issues); }
       // 句型說明：只留題目裡還有用到的句型
       if (data && type === 'pattern' && Array.isArray(data.items) && typeof guidesNow !== 'undefined') {
@@ -3104,7 +3186,7 @@
         ['mc', 'fill', 'apply'].forEach(function (k) { var c = data.items.filter(function (x) { return x.type === k; }).length; if (c) parts.push(KIND_ZH[k] + ' ' + c); });
       }
       $('imp-report').innerHTML = '<div class="stats"><span class="stat">共 ' + n + ' 題</span>' + parts.map(function (x) { return '<span class="stat">' + x + '</span>'; }).join('') + '</div>' +
-        (issues.length ? '<ul class="issues">' + issues.slice(0, 12).map(function (x) { return '<li class="' + x[0] + '">' + esc(x[1]) + '</li>'; }).join('') + (issues.length > 12 ? '<li class="warn">還有 ' + (issues.length - 12) + ' 項，先修正上面的再按一次檢查</li>' : '') + '</ul>' : '<p class="st-ok">✓ 檢查通過</p>');
+        (issues.length ? lintHTML(issues, 't-text') : '<p class="st-ok">✓ 檢查通過</p>');
       return errs || !data ? null : data;
     }
     // 和 Code.gs 的 validateContent_ 相同的把關
@@ -3304,11 +3386,19 @@
     // 課文理解：整篇文字格式 → 填入表單
     $('r-bulk-go').onclick = function () {
       var msg = $('r-bulk-msg'), blocks = splitBlocks('[閱讀]\n' + $('r-bulk').value);
+      $('r-bulk-lint').innerHTML = '';
       if (!blocks.length) { msg.textContent = '沒有讀到內容'; msg.className = 'msg err'; return; }
       var f = blocks[0].f, qs = [], issues = [];
+      // 前面多加了一行「[閱讀]」：行號要減 1 才是輸入框的第幾行
+      var lnOf = function (k) { var b0 = blocks[0]; return b0.ln[k] != null ? b0.ln[k] - 1 : undefined; };
+      if (!f['文章']) issues.push(['err', '沒有讀到文章（要有「文章：」這一行）']);
       for (var n = 1; ('Q' + n) in f || ('Q' + n + '選項') in f || ('Q' + n + '答案') in f; n++) {
         var pre = 'Q' + n, o = splitOpts(f[pre + '選項']), a = ansIndex(f[pre + '答案'], o);
-        if (a < 0 || a >= o.length) issues.push('第 ' + n + ' 題的答案要寫 A–' + 'ABCDEFGHIJ'[Math.max(o.length - 1, 0)]);
+        var qAt = lnOf(pre) != null ? lnOf(pre) : lnOf(pre + '選項') != null ? lnOf(pre + '選項') : lnOf(pre + '答案');
+        if (!f[pre]) issues.push(['err', '第 ' + n + ' 題沒有題目（要有「' + pre + '：」）', qAt]);
+        if (o.length < 2) issues.push(['err', '第 ' + n + ' 題的選項讀不到（「' + pre + '選項：」用 | 隔開）', lnOf(pre + '選項') != null ? lnOf(pre + '選項') : qAt]);
+        if (a < 0 || a >= o.length) issues.push(['err', '第 ' + n + ' 題的答案要寫 A–' + 'ABCDEFGHIJ'[Math.max(o.length - 1, 0)] + (f[pre + '答案'] ? '（目前是「' + f[pre + '答案'] + '」）' : '（沒有「' + pre + '答案：」）'), lnOf(pre + '答案') != null ? lnOf(pre + '答案') : qAt]);
+        if (!f[pre + '依據']) issues.push(['warn', '第 ' + n + ' 題沒有「' + pre + '依據：」（原文依據），填入表單後要補上', qAt]);
         qs.push({ skill: SKILLS.indexOf(f[pre + '技巧']) >= 0 ? f[pre + '技巧'] : '細節', q: f[pre] || '', options: o.slice(0, 4).concat(['', '', '', '']).slice(0, 4), answer: a, explain: f[pre + '解析'] || '', key: f[pre + '依據'] || '', ref: f[pre + '依據句'] || '',
           traps: parseTraps(f[pre + '干擾'], 4), kw: parseKw(f[pre + '關鍵字']), pairs: parsePairs(f[pre + '改寫']) });
       }
@@ -3318,7 +3408,8 @@
       $('r-qs').innerHTML = '';
       qs.forEach(addQ);
       impDirty();
-      msg.textContent = '✓ 已填入 ' + qs.length + ' 題' + (issues.length ? '；注意：' + issues.join('、') : '') + '，請按「預覽與檢查」'; msg.className = 'msg ' + (issues.length ? 'err' : 'ok');
+      msg.textContent = '✓ 已填入 ' + qs.length + ' 題' + (issues.length ? '，但有下面這些問題，請對照修正' : '') + '，再按「預覽與檢查」'; msg.className = 'msg ' + (issues.some(function (x) { return x[0] === 'err'; }) ? 'err' : 'ok');
+      $('r-bulk-lint').innerHTML = lintHTML(issues, 'r-bulk');
     };
 
     // 匯出：取得已儲存的題目，轉成文字／JSON

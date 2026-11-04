@@ -18,7 +18,7 @@ const code = [
   grab('var QUIZ_AUTO', ';') + ';', // 單字預設三段（aiPromptFor 沒有單元時用）
 ].join('\n').replace(/function \$\(id\) \{[^\n]*\n/, '').replace(/\$\('t-example'\)\.onclick = function[\s\S]*?\n    };\n/, '').replace(/function textShow[\s\S]*?\n    }\n    /, '');
 const els = { 't-topic': { value: '主題' }, 't-text': { value: '' }, 'imp-report': { innerHTML: '' } };
-const ctx = { $: (id) => els[id] || (els[id] = { value: '' }), console, impUnit: () => ({ title: 'U' }) };
+const ctx = { $: (id) => els[id] || (els[id] = { value: '' }), console, impUnit: () => ({ title: 'U' }), document: { addEventListener() {} } };
 vm.createContext(ctx);
 vm.runInContext(code + '\nthis.api = { parseVocab, parseTextType, serPattern, EXAMPLE, validatePE, csvToTsv, serVocab, serReading, splitBlocks, aiPromptFor, VOCAB_EX, READING_EX };', ctx);
 const { parseVocab, parseTextType, serPattern, EXAMPLE, csvToTsv, serVocab, serReading, splitBlocks, aiPromptFor, VOCAB_EX, READING_EX } = ctx.api;
@@ -154,4 +154,28 @@ assert.equal(rf['Q1答案'], 'B');
 els['v-text'] = { value: VOCAB_EX + '\nbig | adj. | 大的 | A [big] dog. ; A [big] city. ; A [big] idea. | 大狗。 ; 大城市。 ; 大想法。\nhot | adj. | 熱的 | A [hot] day. ; A [hot] cup. ; A [hot] sun. | 熱天。 ; 熱杯。 ; 熱日。' };
 els['v-topic'] = { value: '' };
 assert(parseVocab(), '單字範例要能通過：' + els['imp-report'].innerHTML);
+// 錯誤要標出在貼上文字的第幾行、附上那一行的原文（不是只說有幾個錯誤）
+{
+  els['t-text'].value = ['```', '[選擇]', '題目：I ____ it.', '選項：a | b | c | d', '答案：A', '解析：x', '', '[選擇]', '題目：You ____ it.', '選項：a | b | c | d', '答案：Z', '解析：y', '```'].join('\n');
+  assert.equal(parseTextType('pattern'), null);
+  const h = els['imp-report'].innerHTML;
+  assert.match(h, /data-line="10"/, '第 2 題答案錯：指到第 11 行（答案：Z）\n' + h);
+  assert.match(h, /第 11 行/); assert.match(h, /<code class="src">答案：Z<\/code>/);
+  assert.match(h, /1 個錯誤要修正/);
+  // 很多錯誤時全部列出，不會只列前 12 個
+  els['t-text'].value = Array.from({ length: 20 }, (_, i) => `[填空]\n題目：no blank ${i}\n答案：x\n解析：y`).join('\n\n');
+  parseTextType('pattern');
+  assert.equal((els['imp-report'].innerHTML.match(/<li class="err">/g) || []).length, 20);
+  // JSON 錯誤指到出錯的那一行
+  els['t-text'].value = '{\n  "items": [\n    { "type": "mc", "q": "x" }\n    { "type": "mc" }\n  ]\n}';
+  parseTextType('pattern');
+  assert.match(els['imp-report'].innerHTML, /JSON 格式錯誤[^<]*<\/span>|JSON 格式錯誤/);
+  assert.match(els['imp-report'].innerHTML, /data-line="3"/, 'JSON 錯誤在第 4 行\n' + els['imp-report'].innerHTML);
+  // 單字：表格標題、分隔線、空行不影響行號
+  els['v-text'] = { value: ['| 英文 | 詞性 | 中文 | 例句 | 中文 |', '|---|---|---|---|---|', 'big | adj. | 大的 | A [big] dog. | 大狗。', '', 'cat | n. | 貓 | A dog runs. | 狗跑。', 'dog | n. | 狗 | A [dog] runs. | 狗跑。', 'hen | n. | 母雞 | A [hen] runs. | 雞跑。', 'big | adj. | 巨大 | A [big] cat. | 大貓。'].join('\n') };
+  assert.equal(parseVocab(), null);
+  const v = els['imp-report'].innerHTML;
+  assert.match(v, /data-line="4"[^]*第 5 行[^]*「cat」：例句裡找不到這個字/, '找不到字的那一行是第 5 行\n' + v);
+  assert.match(v, /data-line="7"[^]*「big」：和第 3 行重複/, '重複的那一行是第 8 行，和第 3 行重複');
+}
 console.log('後台文字格式解析測試通過');
