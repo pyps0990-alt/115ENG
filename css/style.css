@@ -709,7 +709,6 @@ body.scrolled .topbar::after { opacity: 1; }
 /* B5 與選單合成同一個按鈕，三種樣子：
    平常「B5 ☰」；往下捲動只留「B5 ⌄」（小的向下箭頭）；點開時 B5 留著，變成「B5 選擇單元 ⌃」並展開選單。
    有選單時（登入、有開放的單元）左上角只剩這一個按鈕；沒有選單的畫面（登入前）與考試中仍顯示 B5 連結。 */
-body:not(.exam) .topbar:has(#nav-menu:not([hidden])) .brand { display: none; }
 /* 每個零件各自一個「格線欄」：欄寬在 0fr 與 1fr 之間過渡，零件依自己實際的寬度展開／收起，不寫死任何寬度，也不會把文字切到一半。
    同時用透明度與位移淡入淡出；整個按鈕的寬度跟著零件連續變化，沒有跳動。 */
 .menu-btn { gap: 0; padding: 0 12px 0 8px; }
@@ -1015,7 +1014,7 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 
 
 /* 所有單元頁的標題與說明卡都在同一條置中的欄裡；課文理解開始作答後需要寬版面（文章與題目並排），才放寬 */
-.focus:has(.passage-layout) { max-width: 1200px; }
+.focus.wide { max-width: 1200px; } /* 課文理解（程式加 .wide） */
 
 .passage-foot { gap: 10px; }
 .passage-foot .count { margin-right: auto; }
@@ -1152,7 +1151,6 @@ mark.fill-ok { padding: 0 3px; border-radius: 4px; background: var(--good-soft);
 .rd-side, .rd-float, .rd-hint-wide { display: none; }
 
 @media (min-width: 768px) {
-  .focus:has(.reading-quiz) { max-width: 1200px; }
   .rd-fold, .rd-hint-phone { display: none; }
   .rd-hint-wide { display: inline; }
   .reading-quiz { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); align-items: start; gap: 24px; }
@@ -1634,7 +1632,7 @@ body { background: var(--bg); }
 .unit-head { margin-bottom: 0; }
 /* 疊在封面邊緣上的白卡 */
 .cover + #next-slot, .cover + #welcome-slot, .unit-head + #stage, .me-head + * { position: relative; z-index: 1; margin-top: calc(-1 * var(--cover-lap)); }
-.hero.cover:has(+ #next-slot:empty) { padding-bottom: 30px; }
+.hero.cover.no-next { padding-bottom: 30px; } /* 沒有主卡時（程式加 .no-next；不用 :has()，比較省效能） */
 .cover + #next-slot:empty { margin-top: 0; }
 .next-card { margin: 0 0 12px; border: 0; padding: 20px; border-radius: 26px; box-shadow: 0 16px 36px rgba(30, 58, 138, .16); }
 .next-card:hover { background: var(--white); transform: translateY(-2px); }
@@ -1750,7 +1748,7 @@ body.has-dock main.container { padding-bottom: 110px; }
 .q-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; align-items: stretch; gap: 12px;
   padding: 10px max(16px, calc((100vw - 720px) / 2 + 16px)) calc(8px + env(safe-area-inset-bottom, 0px));
   background: var(--white); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(15, 23, 42, .06); }
-.quiz:has(.q-dock) { padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }
+.quiz.has-qdock { padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }
 .q-leave { flex: none; align-self: stretch; width: 56px; display: grid; place-items: center; border: 1.5px solid var(--line); border-radius: 16px; background: var(--wash); color: var(--steel); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color .2s, border-color .2s, transform .12s var(--ease); }
 .q-leave .ic { width: 24px; height: 24px; }
 .q-leave:hover { color: var(--bad-ink, #9F1239); border-color: currentColor; }
@@ -1767,7 +1765,7 @@ body.has-dock main.container { padding-bottom: 110px; }
 .q-dock .switch .sw::after { width: 16px; height: 16px; }
 .q-dock .switch[aria-checked="true"] .sw::after { transform: translateX(16px); }
 .q-dock .switch[aria-checked="true"] { color: var(--navy); }
-.quiz:has(.q-dock) ~ .toast, body:has(.q-dock) .toast { bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
+body.qdock-on .toast, body.qdock-on #notify { bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
 /* 我的成績頁最下方：帳號（切換學生、登出） */
 .me-acct { margin: 22px 0 8px; padding: 18px; border-radius: 20px; background: var(--white); border: 1px solid var(--line); display: grid; gap: 10px; }
 .me-acct h2 { margin: 0 0 2px; font-size: 1rem; color: var(--navy); }
@@ -1779,7 +1777,7 @@ body.has-dock .me-acct { margin-bottom: 96px; }
 .q-dock .q-foot .btn { flex: 1 1 auto; justify-content: center; }
 .q-leave { width: 52px; }
 /* 矮螢幕（iPhone SE 等）：單字作答的進度卡不黏在上方，留空間讓整張題目卡放得進導覽列與下方橫幅之間 */
-@media (max-height: 760px) { .quiz:has(.q-dock) .st-bar { position: static; } }
+@media (max-height: 760px) { .quiz.has-qdock .st-bar { position: static; } }
 /* 答對的回饋和自動下一題開關放在同一層（下一題按鈕獨佔上面一整排） */
 .q-dock-sub { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px; }
 .q-dock-sub .feedback { flex: 1 1 auto; min-width: 0; font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1985,3 +1983,7 @@ dialog.search-sheet[open] { animation: ss-in .38s var(--ease-soft) both; }
 .asg-go { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #EEF2FF; color: var(--navy); }
 .asg-go .ic { width: 16px; height: 16px; }
 @media (max-width: 380px) { .asg-note { padding-inline: 12px; } .asg-row { padding-left: 14px; gap: 8px; } .asg-go { width: 26px; height: 26px; } }
+
+/* 效能：畫面外的課次、成績列表先不排版、不繪製（捲到附近才算），換頁和第一次開啟時少很多工作 */
+.lesson, .me-list > .me-row:nth-child(n+8) { content-visibility: auto; contain-intrinsic-size: auto 260px; }
+.me-list > .me-row:nth-child(n+8) { contain-intrinsic-size: auto 72px; }

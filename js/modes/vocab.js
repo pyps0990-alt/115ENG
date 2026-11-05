@@ -144,12 +144,13 @@ export function mount(stage, ctx) {
     let moving = false;
     const t0 = Date.now() - (saved ? saved.elapsed : 0);
     document.body.dataset.busy = '1';
+    document.body.classList.add('qdock-on'); // 下方固定橫幅出現：通知往上移（不用 :has()，比較省效能）
     document.getElementById('fx').replaceChildren();
     if (official) window.addEventListener('beforeunload', unload);
 
     const stKind = !official ? 'redo' : review ? 'review' : 'official';
     stage.innerHTML = `
-      <div class="quiz">
+      <div class="quiz has-qdock">
         ${statusBarHTML({ kind: stKind, note: { official: '這次的分數會送給老師。', review: '', redo: '只練剛剛錯的題目，不計分也不送出。' }[stKind], mid: `<ol class="stepper" aria-label="測驗進度">${stages.map((s, i) => `<li data-step="${i}">
           <span class="step-dot">${i + 1}</span><span class="step-name">${s.level.name}</span><span class="step-score"></span></li>`).join('')}</ol><div class="quiz-bar">
           <div class="bar"><span></span></div>
@@ -330,6 +331,7 @@ export function mount(stage, ctx) {
 
     async function finish() {
       current = null;
+      document.body.classList.remove('qdock-on');
       if (official) progress.clear(unitId);
       delete document.body.dataset.busy;
       window.removeEventListener('beforeunload', unload);
@@ -416,6 +418,7 @@ export function mount(stage, ctx) {
 
   return () => {
     alive = false;
+    document.body.classList.remove('qdock-on');
     clearTimeout(advanceTimer);
     dropHold();
     window.removeEventListener('beforeunload', unload);

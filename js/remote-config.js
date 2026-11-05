@@ -94,13 +94,16 @@ let lastCheck = Date.now();
 export function watchConfig(current) {
   let cur = current;
   window.addEventListener('config-updated', (e) => { cur = e.detail; });
-  const check = () => {
+  // 在瀏覽器空閒時才檢查（比對設定要走過整份資料）：不會剛好卡在換頁或作答動畫中間
+  const idle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 3000 }) : setTimeout(fn, 200));
+  const check = () => idle(checkNow);
+  const checkNow = () => {
     if (!SCRIPT_URL || document.visibilityState !== 'visible' || Date.now() - lastCheck < 5000) return;
     lastCheck = Date.now();
-    fetchRemote().then((c) => {
+    fetchRemote().then((c) => idle(() => {
       writeCache(c);
       if (!sameConfig(c, cur)) window.dispatchEvent(new CustomEvent('config-updated', { detail: c }));
-    }).catch(() => { /* 離線：下次再試 */ });
+    })).catch(() => { /* 離線：下次再試 */ });
   };
   // 即時同步：Firestore 一有新設定就推過來（網頁在背景載入 Firebase，不影響首頁速度）
   const live = () => import('./firebase.js').then((fb) => fb.watchPublicConfig((c) => {
@@ -116,7 +119,9 @@ export function watchConfig(current) {
   const startLive = () => {
     if (liveStarted) return;
     liveStarted = true;
-    (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(live, { timeout: 2500 });
+    // 第一次點擊通常就是在換頁：載入 Firebase 程式庫要 0.1 秒以上，剛好撞在換頁動畫上會卡一下。
+    // 改成第一次操作後再等 4 秒、而且瀏覽器真的空閒時才開（老師的新設定在這之前靠開站讀取與定時檢查一樣會到）
+    setTimeout(() => (window.requestIdleCallback || ((f) => setTimeout(f, 300)))(live, { timeout: 8000 }), 4000);
   };
   if (SCRIPT_URL) {
     const arm = () => {

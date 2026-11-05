@@ -46,16 +46,6 @@ function pageIn(changed, first) {
 }
 app.addEventListener('animationend', (e) => { if (e.target === app) app.classList.remove('page-in'); });
 
-// 等這一頁用到的字型載入完才顯示畫面，不會先出現系統字型、再跳成網站字型。
-// 剛開啟網站時不等（開啟速度優先，Nunito 已預載）；之後每次換頁最多等 1.2 秒（字型多半已在快取）
-async function settleFonts(maxMs = 1200) {
-  void app.offsetHeight; // 先排版一次，瀏覽器才知道這頁要用哪些字型
-  if (document.fonts && document.fonts.status === 'loading') {
-    app.style.visibility = 'hidden';
-    await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, maxMs))]);
-    app.style.visibility = '';
-  }
-}
 
 async function route() {
   const here = location.hash || '#/';
@@ -110,7 +100,8 @@ async function route() {
     await (job || run());
   } else await run();
   reportView();
-  if (!first) await settleFonts(); // 剛開啟網站不等字型、也不強制排版：開啟速度優先
+  // 不再為了等中文網頁字型把整頁藏起來（以前最多藏 1.2 秒：換到用到新字的頁面時會整片白、動畫卡住）。
+  // 中文字寬都是 1em，字型到了直接換上，版面不會位移
   if (!useVT) pageIn(changed, first);
 }
 
@@ -433,6 +424,7 @@ function renderHome() {
         <span class="nc-go">${icon.arrowR}</span>
       </a>`;
   }
+  app.querySelector('.hero.cover')?.classList.toggle('no-next', !app.querySelector('#next-slot').innerHTML.trim());
   // 還沒有任何進度時不顯示「已完成 0 / N」，第一屏只留下一步要做什麼
   app.querySelector('#progress-slot').innerHTML = nOk || nTodo || nMiss
     ? `<a class="hp-link" href="#/me">已完成 ${nOk} / ${visible.length}${nTodo ? ` · 待檢討 ${nTodo}` : ''}${nMiss ? ` · 缺交 ${nMiss}` : ''} · 詳細 ${icon.arrowR}</a>` : '';
@@ -564,7 +556,7 @@ async function renderUnit(id, sub) {
   if (meta.type !== 'vocab') {
     if (!modeOn(config, meta.id, meta.type)) { locked(meta); return; }
     document.title = `${meta.title} — B5 Practice`;
-    app.innerHTML = `<div class="focus">${headHTML(meta, data)}<section id="stage"></section></div>`;
+    app.innerHTML = `<div class="focus${meta.type === 'reading' ? ' wide' : ''}">${headHTML(meta, data)}<section id="stage"></section></div>`;
     cleanup = mod.mount(app.querySelector('#stage'), { unit: meta, data, config, questionCount: questionCount(config, meta.id) }) || null;
     return;
   }
