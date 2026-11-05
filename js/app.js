@@ -397,7 +397,27 @@ function renderHome() {
         </a></li>`;
     }).join('');
     app.querySelector('#next-slot').innerHTML = `<section class="asg-note" aria-label="老師指派的作業">
-        <svg class="asg-pin" viewBox="0 0 40 50" aria-hidden="true"><path d="M20 25v19" stroke="#8C96A8" stroke-width="2.6" stroke-linecap="round"/><circle cx="20" cy="15" r="12.5" fill="#fff"/><circle cx="20" cy="15" r="10.5" fill="#1E3A8A"/><circle cx="20" cy="15" r="10.5" fill="url(#pinShade)"/><circle cx="20" cy="15" r="4.2" fill="#F59E0B"/><circle cx="16" cy="11" r="2.6" fill="#fff" opacity=".55"/><defs><radialGradient id="pinShade" cx=".35" cy=".3" r=".8"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></radialGradient></defs></svg>
+        <svg class="asg-pin" viewBox="0 0 64 72" aria-hidden="true">
+          <defs>
+            <linearGradient id="pinNeck" x1="0" x2="1"><stop offset="0" stop-color="#8E1B1F"/><stop offset=".38" stop-color="#E5484D"/><stop offset=".55" stop-color="#F7A3A5"/><stop offset=".72" stop-color="#D93A3F"/><stop offset="1" stop-color="#7A1418"/></linearGradient>
+            <linearGradient id="pinSide" x1="0" x2="1"><stop offset="0" stop-color="#9B1C21"/><stop offset=".45" stop-color="#E5484D"/><stop offset=".6" stop-color="#F48A8D"/><stop offset="1" stop-color="#861519"/></linearGradient>
+            <radialGradient id="pinTop" cx=".38" cy=".35" r=".75"><stop offset="0" stop-color="#FF8A8E"/><stop offset=".55" stop-color="#E5484D"/><stop offset="1" stop-color="#B42328"/></radialGradient>
+            <linearGradient id="pinSteel" x1="0" x2="1"><stop offset="0" stop-color="#6B7280"/><stop offset=".5" stop-color="#E5E7EB"/><stop offset="1" stop-color="#6B7280"/></linearGradient>
+            <filter id="pinBlur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2"/></filter>
+          </defs>
+          <ellipse cx="44" cy="55" rx="14" ry="4.5" transform="rotate(-12 44 55)" fill="rgba(15,23,42,.14)" filter="url(#pinBlur)"/><ellipse cx="36" cy="59.5" rx="7" ry="1.8" fill="rgba(15,23,42,.3)" filter="url(#pinBlur)"/>
+          <g transform="rotate(-22 30 58)">
+            <rect x="28.9" y="42" width="2.4" height="17" rx="1.2" fill="url(#pinSteel)"/>
+            <ellipse cx="30" cy="59" rx="2" ry=".9" fill="rgba(15,23,42,.45)"/>
+            <ellipse cx="30" cy="42" rx="11" ry="3.8" fill="#8E1B1F"/>
+            <path d="M19 40.5a11 3.8 0 0 0 22 0v1.6a11 3.8 0 0 1-22 0z" fill="url(#pinSide)"/>
+            <ellipse cx="30" cy="40.5" rx="11" ry="3.8" fill="#D93A3F"/>
+            <rect x="25" y="22" width="10" height="18.5" fill="url(#pinNeck)"/>
+            <path d="M15 17v5.5a15 5.5 0 0 0 30 0V17z" fill="url(#pinSide)"/>
+            <ellipse cx="30" cy="17" rx="15" ry="5.5" fill="url(#pinTop)"/>
+            <ellipse cx="25" cy="15.3" rx="5.5" ry="1.6" fill="#fff" opacity=".55"/>
+          </g>
+        </svg>
         <header class="asg-note-h"><b>老師指派</b><span class="asg-count">${asgPending.length} 份要做</span>${doneN ? `<span class="asg-done">已完成 ${doneN}</span>` : ''}</header>
         <ol class="asg-list">${rows}</ol>
       </section>`;
