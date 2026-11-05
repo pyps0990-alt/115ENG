@@ -86,6 +86,8 @@ await step('再點 L1，選「還是做 L1」：進入 L1；之後再點不再�
   await p.click('.unit-tile[data-id="u1"]');
   await p.waitForSelector('dialog.modal[open]');
   await p.click('dialog.modal button[value="cancel"]');
+  // 點單元時網址會先變，對話框關掉（淡出約 0.17 秒）才記住「還是做 L1」：等對話框真的關掉
+  await p.waitForFunction(() => !document.querySelector('dialog.modal'), null, { timeout: 5000 });
   await p.waitForFunction(() => location.hash === '#/u/u1', null, { timeout: 5000 });
   await p.goto(world.base + '/'); await p.waitForSelector('.unit-tile[data-id="u1"]');
   await p.click('.unit-tile[data-id="u1"]');

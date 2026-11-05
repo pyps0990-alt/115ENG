@@ -99,6 +99,10 @@ async function route() {
   const useVT = changed && !first && !!document.startViewTransition && !reduceMotion.matches && document.visibilityState === 'visible';
   if (useVT) {
     let job = null;
+    // 分頁列換頁前後都在：單獨拿出來保持即時（膠囊滑動）；要出現或消失：跟整個畫面一起淡化
+    const dockEl = document.getElementById('dock');
+    const dockStays = dockEl && !dockEl.hidden && loggedIn && (!kind || kind === 'me' || kind === 'account');
+    if (dockEl) dockEl.classList.toggle('dock-keep', !!dockStays);
     document.documentElement.dataset.nav = app.dataset.dir || 'fwd';
     const t = document.startViewTransition(() => { job = run(); return Promise.race([job, new Promise((r) => setTimeout(r, 150))]); });
     t.finished.catch(() => {}); t.ready.catch(() => {});
