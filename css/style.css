@@ -1724,9 +1724,8 @@ body { background: var(--bg); }
 .dock a[aria-current] { color: var(--white); }
 /* 選取膠囊：深藍、在分頁後面，換頁時滑過去（稍微過衝），拖動時跟著手指 */
 .dock-ink { position: absolute; z-index: 0; left: 0; top: 6px; bottom: 6px; width: 76px; border-radius: 999px; background: var(--navy); transform: translateX(6px);
-  box-shadow: 0 4px 12px rgba(30, 58, 138, .25); transition: transform .42s cubic-bezier(.3, 1.22, .4, 1), box-shadow .2s; pointer-events: none; }
-.dock[data-cur="1"] .dock-ink { transform: translateX(86px); }
-.dock[data-cur="2"] .dock-ink { transform: translateX(166px); }
+  box-shadow: 0 4px 12px rgba(30, 58, 138, .25); transition: box-shadow .2s; pointer-events: none; will-change: transform; } /* 位置由 js 的彈簧算（不再用會過衝的 CSS 轉場） */
+
 /* 往下滑時縮小（整列等比例縮小，只用 transform：不會讓版面移動，也比改寬高順） */
 .dock { transform-origin: 50% 100%; transition: transform .4s cubic-bezier(.22, 1.2, .36, 1); }
 .dock.mini { transform: translateX(-50%) scale(.8); }
@@ -1883,7 +1882,6 @@ dialog.search-sheet::backdrop { background: rgba(15, 23, 42, .3); }
 /* 分頁列：兩頁都有時保持不動（膠囊照常滑）；只有一邊有時淡入／淡出，不會突然出現或消失 */
 /* 分頁列不單獨截圖：跟整個畫面一起淡化（iPhone Safari 截不到毛玻璃，會留下灰白色空框）。
    首頁、我的成績、帳號之間切換：只淡入、不位移 */
-html[data-nav="tab"]::view-transition-new(root) { animation: fade-in .38s var(--ease-soft) both; }
 .me-updating { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; font-size: .8rem; opacity: .85; }
 .me-updating .spinner { width: 12px; height: 12px; border-width: 2px; border-color: rgba(255, 255, 255, .35); border-top-color: #fff; }
 /* 左上角（搜尋 ↔ 回首頁）：交叉淡化 */
@@ -1987,3 +1985,8 @@ dialog.search-sheet[open] { animation: ss-in .38s var(--ease-soft) both; }
 /* 效能：畫面外的課次、成績列表先不排版、不繪製（捲到附近才算），換頁和第一次開啟時少很多工作 */
 .lesson, .me-list > .me-row:nth-child(n+8) { content-visibility: auto; contain-intrinsic-size: auto 260px; }
 .me-list > .me-row:nth-child(n+8) { contain-intrinsic-size: auto 72px; }
+
+/* 首頁、我的成績、帳號之間切換：分頁列與深藍封面不動（膠囊即時滑動），只有文字和卡片淡入 */
+#app.tab-in > :not(.cover):not(.me-head), #app.tab-in > .cover > *, #app.tab-in > .me-head > * { animation: tab-in .34s var(--ease-soft) both; }
+@keyframes tab-in { from { opacity: 0; transform: translate3d(0, 6px, 0); } }
+@media (prefers-reduced-motion: reduce) { #app.tab-in > *, #app.tab-in > * > * { animation: none !important; } }

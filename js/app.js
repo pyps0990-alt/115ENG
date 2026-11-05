@@ -86,14 +86,15 @@ async function route() {
   // 換頁更連續：支援的瀏覽器用 View Transition（截下畫面上看到的舊畫面，和新畫面交叉淡化；導覽列與分頁列不參與、照常即時動畫）。
   // 新畫面最多等 0.15 秒（單元要下載題目時先換到載入中的畫面），不會讓畫面停住太久；不支援的瀏覽器照舊淡入
   const run = async () => { window.scrollTo(0, 0); chrome(); await render(); };
-  const useVT = changed && !first && !!document.startViewTransition && !reduceMotion.matches && document.visibilityState === 'visible';
+  // 首頁、我的成績、帳號之間用分頁列切換：不用 View Transition（會把整個畫面連分頁列凍成截圖，膠囊停住再跳）；
+  // 封面直接換、文字與卡片淡入，分頁列保持即時、膠囊用彈簧滑過去
+  const tabKinds = ['', 'me', 'account'];
+  const tabSwitch = changed && !first && tabKinds.includes(prevKind) && tabKinds.includes(kind || '');
+  const useVT = changed && !first && !tabSwitch && !!document.startViewTransition && !reduceMotion.matches && document.visibilityState === 'visible';
   if (useVT) {
     let job = null;
-    // 分頁列不單獨截圖（iPhone Safari 截毛玻璃會出現灰白色空框），跟整個畫面一起淡化，跟回到首頁一樣。
-    // 首頁、我的成績、帳號之間用分頁列切換：只淡入不位移（分頁列與膠囊不會跟著上下晃）
-    const tabKinds = ['', 'me', 'account'];
-    const tabSwitch = tabKinds.includes(prevKind) && tabKinds.includes(kind || '');
-    document.documentElement.dataset.nav = tabSwitch ? 'tab' : (app.dataset.dir || 'fwd');
+    // 分頁列不單獨截圖（iPhone Safari 截毛玻璃會出現灰白色空框），跟整個畫面一起淡化
+    document.documentElement.dataset.nav = app.dataset.dir || 'fwd';
     const t = document.startViewTransition(() => { job = run(); return Promise.race([job, new Promise((r) => setTimeout(r, 150))]); });
     t.finished.catch(() => {}); t.ready.catch(() => {});
     await t.updateCallbackDone.catch(() => {});
@@ -102,7 +103,8 @@ async function route() {
   reportView();
   // 不再為了等中文網頁字型把整頁藏起來（以前最多藏 1.2 秒：換到用到新字的頁面時會整片白、動畫卡住）。
   // 中文字寬都是 1em，字型到了直接換上，版面不會位移
-  if (!useVT) pageIn(changed, first);
+  if (tabSwitch && !reduceMotion.matches) { app.classList.remove('page-in', 'tab-in'); void app.offsetWidth; app.classList.add('tab-in'); clearTimeout(route.tabT); route.tabT = setTimeout(() => app.classList.remove('tab-in'), 500); }
+  else if (!useVT) pageIn(changed, first);
 }
 
 // 上方導覽列左邊：單元等內頁放「回首頁」；首頁、我的成績（最上層）放「搜尋單元」；還沒登入什麼都不放。B5 在右邊
@@ -164,28 +166,49 @@ function syncDock(on) {
   if (on) requestAnimationFrame(() => placeDockInk(wasHidden));
   initDockDrag(dock);
 }
-// 選取膠囊：滑到目前的分頁（標籤展開後寬度會變，所以等下一格再量）
-// 位置交給 CSS（data-cur：第幾格），分頁列縮小／放大時膠囊會自己跟著，不用每一格重新量
+// 選取膠囊用彈簧物理移動（跟老師後台的分頁列一樣）：每一格算位置、速度，跟手、放開都平順，不會亂彈。
+// 拖動時用很硬、阻尼足的彈簧緊跟手指；放開或點分頁時用柔和、幾乎不過衝的彈簧滑到目標分頁（阻尼比約 0.93）
+const DS = { ink: null, x: null, v: 0, tx: 0, y: 0, vy: 0, ty: 0, s: 1, vs: 0, ts: 1, k: 420, c: 38, raf: 0, last: 0 };
+function dockPaint() { DS.ink.style.transform = `translate3d(${DS.x.toFixed(2)}px, ${DS.y.toFixed(2)}px, 0) scale(${DS.s.toFixed(4)})`; }
+function dockRun() {
+  if (DS.raf || !DS.ink) return;
+  DS.last = performance.now();
+  const step = (now) => {
+    const dt = Math.min(0.034, Math.max(0, (now - DS.last) / 1000)); DS.last = now;
+    const h = dt / 3; // 分三小步算，低幀率時也穩定
+    for (let i = 0; i < 3; i++) {
+      DS.v += (DS.k * (DS.tx - DS.x) - DS.c * DS.v) * h; DS.x += DS.v * h;
+      DS.vy += (700 * (DS.ty - DS.y) - 52 * DS.vy) * h; DS.y += DS.vy * h;
+      DS.vs += (520 * (DS.ts - DS.s) - 44 * DS.vs) * h; DS.s += DS.vs * h;
+    }
+    const still = Math.abs(DS.tx - DS.x) < 0.25 && Math.abs(DS.v) < 4 && Math.abs(DS.ty - DS.y) < 0.25 && Math.abs(DS.vy) < 4 && Math.abs(DS.ts - DS.s) < 0.002 && Math.abs(DS.vs) < 0.05;
+    if (still) { DS.x = DS.tx; DS.y = DS.ty; DS.s = DS.ts; DS.v = DS.vy = DS.vs = 0; dockPaint(); DS.raf = 0; return; }
+    dockPaint();
+    DS.raf = requestAnimationFrame(step);
+  };
+  DS.raf = requestAnimationFrame(step);
+}
+// 膠囊滑到目前的分頁（instant：直接放好，例如分頁列剛出現時）
 function placeDockInk(instant) {
   const dock = document.getElementById('dock');
   const ink = dock && dock.querySelector('.dock-ink');
   const links = dock ? [...dock.querySelectorAll('a')] : [];
-  const i = links.findIndex((a) => a.hasAttribute('aria-current'));
-  if (!ink || i < 0) return;
-  if (instant) ink.style.transition = 'none';
-  dock.dataset.cur = String(i);
-  ink.style.transform = '';
-  if (instant) { void ink.offsetWidth; ink.style.transition = ''; }
+  const cur = links.find((a) => a.hasAttribute('aria-current'));
+  if (!ink || !cur) return;
+  DS.ink = ink;
+  DS.tx = cur.offsetLeft; DS.ty = 0; DS.ts = 1; DS.k = 420; DS.c = 38;
+  if (instant || DS.x === null || reduceMotion.matches) { DS.x = DS.tx; DS.y = 0; DS.s = 1; DS.v = DS.vy = DS.vs = 0; dockPaint(); return; }
+  dockRun();
 }
 // 拖動選取膠囊：左右拖到另一個分頁放開就切換；往上下拉或拖出兩端有橡皮筋（越拉越緊、有極限），放開彈回
 let dockReady = false;
 function initDockDrag(dock) {
   if (dockReady) return;
   dockReady = true;
-  const ink = dock.querySelector('.dock-ink');
   const rubber = (d, lim) => { const a = Math.abs(d); return (d < 0 ? -1 : 1) * lim * (1 - 1 / (a * 0.55 / lim + 1)); };
   let pid = null; let sx = 0; let sy = 0; let x0 = 0; let w = 0; let k = 1; let dragging = false; let moved = false; // k：縮小時的比例（手指移動換算成分頁列裡的距離）
   const links = () => [...dock.querySelectorAll('a')];
+  const nearest = (cx) => { let best = Infinity; let t = null; links().forEach((a) => { const d = Math.abs(a.offsetLeft + a.offsetWidth / 2 - cx); if (d < best) { best = d; t = a; } }); return t; };
   const finish = (e, cancel) => {
     if (pid === null) return;
     pid = null;
@@ -194,21 +217,18 @@ function initDockDrag(dock) {
     if (!dragging) return;
     dragging = false;
     const dx = Math.abs(e.clientX - sx); const dy = Math.abs(e.clientY - sy);
-    const cx = x0 + (e.clientX - sx) / k + w / 2;
     let target = dock.querySelector('a[aria-current]');
-    if (!cancel && !(dx < 24 && dy > dx)) {
-      let best = Infinity;
-      links().forEach((a) => { const d = Math.abs(a.offsetLeft + a.offsetWidth / 2 - cx); if (d < best) { best = d; target = a; } });
-    }
-    ink.style.transition = '';
-    placeDockInk(false);
-    if (target && !target.hasAttribute('aria-current')) location.hash = target.getAttribute('href');
+    if (!cancel && !(dx < 24 && dy > dx)) target = nearest(DS.tx + w / 2) || target;
+    // 放開：用柔和的彈簧滑到要去的分頁（保留手指放開時的速度，不會突然停住或彈很多下）
+    DS.k = 420; DS.c = 38; DS.tx = target.offsetLeft; DS.ty = 0; DS.ts = 1; dockRun();
+    if (target && !target.hasAttribute('aria-current')) dockGo(target);
     setTimeout(() => { moved = false; }, 350);
   };
   dock.addEventListener('pointerdown', (e) => {
     if (e.button > 0) return;
     const cur = dock.querySelector('a[aria-current]'); if (!cur) return;
     pid = e.pointerId; sx = e.clientX; sy = e.clientY; x0 = cur.offsetLeft; w = cur.offsetWidth; k = dock.getBoundingClientRect().width / dock.offsetWidth || 1; dragging = false; moved = false;
+    if (DS.x === null) placeDockInk(true);
   });
   dock.addEventListener('pointermove', (e) => {
     if (pid !== e.pointerId) return;
@@ -217,13 +237,13 @@ function initDockDrag(dock) {
       dragging = true; moved = true;
       try { dock.setPointerCapture(pid); } catch { /* ignore */ }
       dock.classList.add('dragging');
-      ink.style.transition = 'none';
     }
     e.preventDefault();
     const lo = 6; const hi = dock.clientWidth - w - 6; const fx = x0 + (e.clientX - sx) / k;
     const x = fx < lo ? lo + rubber(fx - lo, 18) : fx > hi ? hi + rubber(fx - hi, 18) : fx;
-    const y = reduceMotion.matches ? 0 : rubber(e.clientY - sy, 10);
-    ink.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(1.06)`;
+    // 拖動：很硬的彈簧緊跟手指（不是直接設位置，所以觸控事件不規則時也不會一頓一頓）
+    DS.k = 1500; DS.c = 78; DS.tx = x; DS.ty = reduceMotion.matches ? 0 : rubber(e.clientY - sy, 10); DS.ts = reduceMotion.matches ? 1 : 1.06;
+    if (reduceMotion.matches) { DS.x = DS.tx; DS.y = DS.ty; dockPaint(); } else dockRun();
     const cx = x + w / 2;
     links().forEach((a) => a.classList.toggle('over', Math.abs(a.offsetLeft + a.offsetWidth / 2 - cx) < a.offsetWidth / 2));
   }, { passive: false });
@@ -232,7 +252,20 @@ function initDockDrag(dock) {
   // 只在膠囊列自己失去捕捉時才算中斷（手指按在連結上時，瀏覽器先把捕捉給連結，轉給膠囊列時連結也會發出這個事件）
   dock.addEventListener('lostpointercapture', (e) => { if (e.target === dock && pid === e.pointerId) finish({ clientX: sx, clientY: sy }, true); });
   dock.addEventListener('dragstart', (e) => e.preventDefault());
-  dock.addEventListener('click', (e) => { if (moved) { moved = false; e.preventDefault(); e.stopPropagation(); } }, true);
+  dock.addEventListener('click', (e) => {
+    if (moved) { moved = false; e.preventDefault(); e.stopPropagation(); return; }
+    // 點分頁：膠囊先開始滑，0.12 秒後才換頁（換頁要畫新畫面，會佔掉一兩格；膠囊已經滑了一大半，看起來不會頓一下）
+    const a = e.target.closest('a[data-dock]');
+    if (!a || a.hasAttribute('aria-current') || e.metaKey || e.ctrlKey || reduceMotion.matches) return;
+    e.preventDefault();
+    DS.k = 420; DS.c = 38; DS.tx = a.offsetLeft; DS.ty = 0; DS.ts = 1; dockRun();
+    dockGo(a);
+  }, true);
+  const dockGo = (a) => {
+    links().forEach((x) => { if (x === a) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current'); }); // 顏色先換過去
+    clearTimeout(dockGo.t);
+    dockGo.t = setTimeout(() => { location.hash = a.getAttribute('href'); }, reduceMotion.matches ? 0 : 120);
+  };
   // 往下滑：分頁列縮小成只有圖示；往上滑或回到頂端：恢復
   let lastY = window.scrollY; let tick = false;
   window.addEventListener('scroll', () => {
