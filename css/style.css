@@ -806,7 +806,10 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1
    導覽列和底部分頁列另外拿出來，不淡入淡出（分頁列的膠囊照常滑動） */
 .topbar { view-transition-name: topbar; }
 .dock { view-transition-name: dock; }
-::view-transition-old(topbar), ::view-transition-old(dock) { display: none; }
+::view-transition-old(dock) { display: none; }
+/* 導覽列：舊的也留著墊在下面（不隱藏）——iPhone Safari 新畫面有時晚一格才畫出來，導覽列後面只有白底，會閃一下白 */
+::view-transition-old(topbar) { animation: none; mix-blend-mode: normal; }
+::view-transition-new(topbar) { mix-blend-mode: normal; }
 ::view-transition-new(topbar), ::view-transition-new(dock), ::view-transition-group(topbar), ::view-transition-group(dock) { animation: none; }
 ::view-transition-old(root) { animation: vt-page-out .2s cubic-bezier(.4, 0, 1, 1) .06s both; }
 ::view-transition-new(root) { animation: vt-page-in .26s cubic-bezier(.2, .8, .2, 1) both; }
@@ -1874,8 +1877,10 @@ dialog.search-sheet::backdrop { background: rgba(15, 23, 42, .3); }
   --dur-1: .22s; --dur-2: .38s; --dur-3: .52s;
 }
 /* 換頁（View Transition）：新舊畫面重疊得久一點，新畫面慢慢停住 */
-::view-transition-old(root) { animation: vt-page-out .3s var(--ease-leave) .04s both; }
-::view-transition-new(root) { animation: vt-page-in .46s var(--ease-soft) both; }
+/* 舊畫面留在底下不淡出、新畫面在上面淡入：兩張都半透明時深藍的導覽列與封面會透出白底（看起來閃白），這樣就不會 */
+::view-transition-old(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-new(root) { animation: vt-page-in .42s var(--ease-soft) both; mix-blend-mode: normal; }
+::view-transition-image-pair(root) { isolation: auto; }
 @keyframes vt-page-in { from { opacity: 0; transform: translate3d(0, 8px, 0); } }
 @keyframes vt-page-in-back { from { opacity: 0; transform: translate3d(0, -6px, 0); } }
 /* 分頁列：兩頁都有時保持不動（膠囊照常滑）；只有一邊有時淡入／淡出，不會突然出現或消失 */
@@ -1886,8 +1891,8 @@ dialog.search-sheet::backdrop { background: rgba(15, 23, 42, .3); }
 /* 左上角（搜尋 ↔ 回首頁）：交叉淡化 */
 .top-left { view-transition-name: top-left; }
 ::view-transition-group(top-left) { animation-duration: .36s; animation-timing-function: var(--ease-soft); }
-::view-transition-old(top-left) { animation: vt-page-out .2s var(--ease-leave) both; }
-::view-transition-new(top-left) { animation: fade-in .34s var(--ease-soft) .06s both; }
+::view-transition-old(top-left) { animation: vt-page-out .14s linear .22s both; mix-blend-mode: normal; } /* 新的快淡入完才拿掉舊的，中間不會透出空白 */
+::view-transition-new(top-left) { animation: fade-in .3s var(--ease-soft) both; mix-blend-mode: normal; }
 /* 不支援 View Transition 的瀏覽器：一樣慢慢淡入 */
 #app.page-in { animation-duration: .46s; animation-timing-function: var(--ease-soft); }
 @keyframes page-in-fwd { from { opacity: 0; transform: translate3d(0, 8px, 0); } }
@@ -1942,29 +1947,36 @@ dialog.search-sheet[open] { animation: ss-in .38s var(--ease-soft) both; }
 }
 
 /* ===========================================================
-   老師指派：圖釘釘住的便條紙，下面條列每份作業
+   老師指派：深藍圖釘釘住的便條紙（奶油色紙、右下角折角），
+   每份作業是一張白色小卡，左邊色條表示急不急（今天截止紅、兩天內琥珀、其他深藍）
    =========================================================== */
-.asg-note { position: relative; margin: 6px 0 14px; padding: 26px 18px 10px; border-radius: 6px 6px 18px 18px;
-  background: linear-gradient(180deg, #FFF9E6, #FFF4D1); border: 1px solid #F3E2AE;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, .8) inset, 0 14px 30px rgba(30, 58, 138, .16), 0 2px 6px rgba(30, 58, 138, .08); }
-.asg-note::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: -6px; height: 10px; border-radius: 50%; background: rgba(30, 58, 138, .08); filter: blur(6px); z-index: -1; }
-.asg-pin { position: absolute; left: 50%; top: -18px; width: 30px; height: 38px; transform: translateX(-50%); filter: drop-shadow(0 2px 2px rgba(15, 23, 42, .18)); }
-.asg-note-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 2px 8px; border-bottom: 1.5px dashed #EBD69B; }
-.asg-note-h b { font-size: 1.05rem; color: #7C4A03; letter-spacing: .02em; }
-.asg-note-h span { font-size: .84rem; font-weight: 700; color: #A16207; }
-.asg-list { list-style: none; margin: 0; padding: 0; }
-.asg-list li + li { border-top: 1px solid #F1E3B8; }
-.asg-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 12px 2px; color: var(--navy); text-decoration: none; -webkit-tap-highlight-color: transparent; border-radius: 10px; transition: background .25s var(--ease-soft, ease); }
-.asg-row:active { background: rgba(245, 158, 11, .1); }
-@media (hover: hover) and (pointer: fine) { .asg-row:hover { background: rgba(245, 158, 11, .08); } }
-.asg-main { display: grid; gap: 2px; min-width: 0; }
-.asg-main b { font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.asg-sub { font-size: .82rem; color: var(--steel); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.asg-due { display: grid; justify-items: end; gap: 2px; text-align: right; }
-.asg-left { padding: 2px 9px; border-radius: 999px; background: rgba(100, 116, 139, .12); color: var(--steel); font-size: .78rem; font-weight: 800; white-space: nowrap; }
+.asg-note { position: relative; margin: 6px 0 14px; padding: 24px 14px 14px; border-radius: 6px 6px 22px 22px;
+  background: linear-gradient(165deg, #FFFCF2 0%, #FFF6DC 100%);
+  box-shadow: 0 18px 34px -12px rgba(30, 58, 138, .28), 0 2px 6px rgba(30, 58, 138, .08), inset 0 0 0 1px rgba(217, 170, 60, .18); }
+.asg-pin { position: absolute; left: 50%; top: -20px; width: 36px; height: 45px; transform: translateX(-50%); filter: drop-shadow(0 3px 2px rgba(15, 23, 42, .22)); }
+.asg-note-h { display: flex; align-items: center; gap: 8px; padding: 0 4px 12px; }
+.asg-note-h b { font-size: 1.08rem; font-weight: 900; color: var(--navy); letter-spacing: .02em; }
+.asg-note-h .asg-count { padding: 2px 10px; border-radius: 999px; background: var(--navy); color: var(--white); font-size: .78rem; font-weight: 800; }
+.asg-note-h .asg-done { margin-left: auto; font-size: .8rem; font-weight: 700; color: #8A7340; }
+.asg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.asg-list li + li { border-top: 0; }
+.asg-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 12px 10px 12px 16px;
+  border-radius: 14px; background: var(--white); color: var(--navy); text-decoration: none; overflow: hidden;
+  box-shadow: 0 1px 2px rgba(30, 58, 138, .08), 0 4px 12px rgba(30, 58, 138, .06); -webkit-tap-highlight-color: transparent;
+  transition: transform .25s var(--ease-soft, ease), box-shadow .25s var(--ease-soft, ease); }
+.asg-row::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: #93A5D6; }
+.asg-row.soon::before { background: var(--amber); }
+.asg-row.today::before { background: #E5484D; }
+.asg-row:active { transform: scale(.985); }
+@media (hover: hover) and (pointer: fine) { .asg-row:hover { box-shadow: 0 2px 4px rgba(30, 58, 138, .1), 0 10px 22px rgba(30, 58, 138, .1); } }
+.asg-main { display: grid; gap: 3px; min-width: 0; }
+.asg-main b { font-size: 1.02rem; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asg-sub { font-size: .8rem; color: var(--steel); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asg-due { display: grid; justify-items: end; gap: 3px; text-align: right; }
+.asg-left { padding: 2px 9px; border-radius: 999px; background: #EEF2FF; color: var(--navy); font-size: .76rem; font-weight: 800; white-space: nowrap; }
 .asg-row.soon .asg-left { background: #FEF3C7; color: #B45309; }
 .asg-row.today .asg-left { background: #FEE2E2; color: #B91C1C; }
-.asg-when { font-size: .76rem; color: var(--steel); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.asg-go { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--navy); color: var(--white); }
+.asg-when { font-size: .74rem; color: var(--steel); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.asg-go { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #EEF2FF; color: var(--navy); }
 .asg-go .ic { width: 16px; height: 16px; }
-@media (max-width: 380px) { .asg-note { padding-inline: 14px; } .asg-go { width: 28px; height: 28px; } }
+@media (max-width: 380px) { .asg-note { padding-inline: 12px; } .asg-row { padding-left: 14px; gap: 8px; } .asg-go { width: 26px; height: 26px; } }

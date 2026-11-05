@@ -397,8 +397,8 @@ function renderHome() {
         </a></li>`;
     }).join('');
     app.querySelector('#next-slot').innerHTML = `<section class="asg-note" aria-label="老師指派的作業">
-        <svg class="asg-pin" viewBox="0 0 40 50" aria-hidden="true"><ellipse cx="22" cy="46" rx="6" ry="2" fill="rgba(15,23,42,.18)"/><path d="M20 24v21" stroke="#9AA3B2" stroke-width="2.6" stroke-linecap="round"/><circle cx="20" cy="15" r="12" fill="#E5484D"/><circle cx="20" cy="15" r="12" fill="url(#pinShade)"/><circle cx="15.5" cy="10.5" r="3.6" fill="#fff" opacity=".55"/><defs><radialGradient id="pinShade" cx=".35" cy=".3" r=".8"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></radialGradient></defs></svg>
-        <header class="asg-note-h"><b>老師指派</b><span>${asgPending.length} 份要做${doneN ? ` · 已完成 ${doneN}` : ''}</span></header>
+        <svg class="asg-pin" viewBox="0 0 40 50" aria-hidden="true"><path d="M20 25v19" stroke="#8C96A8" stroke-width="2.6" stroke-linecap="round"/><circle cx="20" cy="15" r="12.5" fill="#fff"/><circle cx="20" cy="15" r="10.5" fill="#1E3A8A"/><circle cx="20" cy="15" r="10.5" fill="url(#pinShade)"/><circle cx="20" cy="15" r="4.2" fill="#F59E0B"/><circle cx="16" cy="11" r="2.6" fill="#fff" opacity=".55"/><defs><radialGradient id="pinShade" cx=".35" cy=".3" r=".8"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></radialGradient></defs></svg>
+        <header class="asg-note-h"><b>老師指派</b><span class="asg-count">${asgPending.length} 份要做</span>${doneN ? `<span class="asg-done">已完成 ${doneN}</span>` : ''}</header>
         <ol class="asg-list">${rows}</ol>
       </section>`;
   } else if (nextRow) {
