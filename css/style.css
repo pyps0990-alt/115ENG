@@ -1883,9 +1883,11 @@ dialog.search-sheet::backdrop { background: rgba(15, 23, 42, .3); }
 @keyframes vt-page-in { from { opacity: 0; transform: translate3d(0, 8px, 0); } }
 @keyframes vt-page-in-back { from { opacity: 0; transform: translate3d(0, -6px, 0); } }
 /* 分頁列：兩頁都有時保持不動（膠囊照常滑）；只有一邊有時淡入／淡出，不會突然出現或消失 */
-/* 分頁列：只有換頁前後兩頁都有分頁列時才單獨拿出來（.dock-keep，膠囊照常滑動）；
-   出現或消失時就跟著整個畫面一起淡入淡出——不單獨截圖（iPhone Safari 截不到毛玻璃，會留下一塊灰色空框） */
-.dock.dock-keep { view-transition-name: dock; }
+/* 分頁列不單獨截圖：跟整個畫面一起淡化（iPhone Safari 截不到毛玻璃，會留下灰白色空框）。
+   首頁、我的成績、帳號之間切換：只淡入、不位移 */
+html[data-nav="tab"]::view-transition-new(root) { animation: fade-in .38s var(--ease-soft) both; }
+.me-updating { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; font-size: .8rem; opacity: .85; }
+.me-updating .spinner { width: 12px; height: 12px; border-width: 2px; border-color: rgba(255, 255, 255, .35); border-top-color: #fff; }
 /* 左上角（搜尋 ↔ 回首頁）：交叉淡化 */
 .top-left { view-transition-name: top-left; }
 /* 左上角「首頁」膠囊 ↔「搜尋」圓鈕：形狀不同，不做大小變形（會把膠囊壓扁成圓）；

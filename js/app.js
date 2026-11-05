@@ -99,11 +99,11 @@ async function route() {
   const useVT = changed && !first && !!document.startViewTransition && !reduceMotion.matches && document.visibilityState === 'visible';
   if (useVT) {
     let job = null;
-    // 分頁列換頁前後都在：單獨拿出來保持即時（膠囊滑動）；要出現或消失：跟整個畫面一起淡化
-    const dockEl = document.getElementById('dock');
-    const dockStays = dockEl && !dockEl.hidden && loggedIn && (!kind || kind === 'me' || kind === 'account');
-    if (dockEl) dockEl.classList.toggle('dock-keep', !!dockStays);
-    document.documentElement.dataset.nav = app.dataset.dir || 'fwd';
+    // 分頁列不單獨截圖（iPhone Safari 截毛玻璃會出現灰白色空框），跟整個畫面一起淡化，跟回到首頁一樣。
+    // 首頁、我的成績、帳號之間用分頁列切換：只淡入不位移（分頁列與膠囊不會跟著上下晃）
+    const tabKinds = ['', 'me', 'account'];
+    const tabSwitch = tabKinds.includes(prevKind) && tabKinds.includes(kind || '');
+    document.documentElement.dataset.nav = tabSwitch ? 'tab' : (app.dataset.dir || 'fwd');
     const t = document.startViewTransition(() => { job = run(); return Promise.race([job, new Promise((r) => setTimeout(r, 150))]); });
     t.finished.catch(() => {}); t.ready.catch(() => {});
     await t.updateCallbackDone.catch(() => {});
@@ -613,8 +613,10 @@ async function renderMe() {
   const s = store.student();
   if (!s) { location.replace('#/'); return; }
   document.title = '我的成績 — B5 Practice';
-  app.innerHTML = '<div class="loading"><span class="spinner"></span>載入你的紀錄…</div>';
-  await historyReady();
+  // 不先放一整頁「載入中」（換頁時會變成一片白）：最新紀錄 0.12 秒內到就直接畫；還沒到就先用這台裝置上的紀錄畫出來，到了再自動更新
+  let fresh = false;
+  await Promise.race([historyReady().then(() => { fresh = true; }), new Promise((r) => setTimeout(r, 120))]);
+  if (!fresh) historyReady().then(() => { if ((location.hash.split('/')[1] || '') === 'me' && document.body.contains(app.querySelector('.me-updating'))) renderMe(); });
   const rows = visibleUnits().map((u) => ({ u, ...unitStatus(u) })).sort((a, b) => a.rank - b.rank || lessonCmp(a.u.lesson, b.u.lesson));
   const count = (k) => rows.filter((r) => r.k === k).length;
   const masked = maskName(s.name);
@@ -622,7 +624,7 @@ async function renderMe() {
     <section class="me-head">
       <div class="eyebrow">My records</div>
       <h1>${esc(masked)} 的成績</h1>
-      <p class="muted" style="margin:0">${esc(s.cls)} 班 ${esc(s.seat)} 號</p>
+      <p class="muted" style="margin:0">${esc(s.cls)} 班 ${esc(s.seat)} 號${fresh ? '' : ' <span class="me-updating"><span class="spinner"></span>更新中…</span>'}</p>
     </section>
     ${rejectedHTML(s)}
     <div class="me-sum">
