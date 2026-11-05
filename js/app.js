@@ -382,15 +382,25 @@ function renderHome() {
   const asgPending = asg.filter((a) => !asgDone(a));
   prefetchUnits([...asgPending.map((a) => a.u), ...upcoming.slice(0, 6).map((r) => r.u)]);
   if (asgPending.length) {
-    // 老師指派的作業優先：主卡放還沒做完的指派作業（好幾份就左右滑）
-    app.querySelector('#next-slot').innerHTML = `<div class="asg-rail${asgPending.length > 1 ? ' many' : ''}">${asgPending.map((a) => {
+    // 老師指派的作業：一張用圖釘釘在封面上的便條紙，條列還沒做完的作業（截止早的在上面）。
+    // 每一行：單元名稱、目前狀態、截止時間、還剩幾天（今天截止紅色、兩天內琥珀色）
+    const doneN = asg.length - asgPending.length;
+    const rows = asgPending.map((a) => {
       const st = unitStatus(a.u);
-      return `<a class="next-card asg ${st.k}" href="#/u/${esc(a.u.id)}">
-        <span class="nc-ic">${icon.pin}</span>
-        <span class="nc-txt"><span class="nc-lead">老師指派 · ${esc(dueLabel(a.due))}</span><b class="en">${esc(a.u.title)}</b><span class="nc-note">${lessonLabel(a.u.lesson)} · ${esc(st.note)}</span></span>
-        <span class="nc-go">${icon.arrowR}</span>
-      </a>`;
-    }).join('')}</div>${asgPending.length > 1 ? `<p class="asg-hint">${asgPending.length} 份指派作業，左右滑動看下一份</p>` : ''}`;
+      const [when, left] = dueLabel(a.due).split(' · ');
+      const days = (a.due - Date.now()) / 86400000;
+      const urg = days < 1 ? 'today' : days <= 2 ? 'soon' : '';
+      return `<li><a class="asg-row ${urg}" href="#/u/${esc(a.u.id)}">
+          <span class="asg-main"><b class="en">${esc(a.u.title)}</b><span class="asg-sub">${typeLabel(a.u.type)} · ${esc(st.note)}</span></span>
+          <span class="asg-due"><span class="asg-left">${esc(left === '今天' ? '今天截止' : left)}</span><span class="asg-when">${esc(when.replace(/ 截止$/, ''))}</span></span>
+          <span class="asg-go" aria-hidden="true">${icon.arrowR}</span>
+        </a></li>`;
+    }).join('');
+    app.querySelector('#next-slot').innerHTML = `<section class="asg-note" aria-label="老師指派的作業">
+        <svg class="asg-pin" viewBox="0 0 40 50" aria-hidden="true"><ellipse cx="22" cy="46" rx="6" ry="2" fill="rgba(15,23,42,.18)"/><path d="M20 24v21" stroke="#9AA3B2" stroke-width="2.6" stroke-linecap="round"/><circle cx="20" cy="15" r="12" fill="#E5484D"/><circle cx="20" cy="15" r="12" fill="url(#pinShade)"/><circle cx="15.5" cy="10.5" r="3.6" fill="#fff" opacity=".55"/><defs><radialGradient id="pinShade" cx=".35" cy=".3" r=".8"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></radialGradient></defs></svg>
+        <header class="asg-note-h"><b>老師指派</b><span>${asgPending.length} 份要做${doneN ? ` · 已完成 ${doneN}` : ''}</span></header>
+        <ol class="asg-list">${rows}</ol>
+      </section>`;
   } else if (nextRow) {
     const lead = { retake: '需要補考', todo: '待檢討', open: '下一個單元' }[nextRow.k];
     app.querySelector('#next-slot').innerHTML = `<a class="next-card ${nextRow.k}" href="#/u/${esc(nextRow.u.id)}">

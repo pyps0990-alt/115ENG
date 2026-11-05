@@ -1940,3 +1940,31 @@ dialog.search-sheet[open] { animation: ss-in .38s var(--ease-soft) both; }
   .leaving, dialog.closing, dialog.closing::backdrop, .q-dock [data-next]:not([hidden]), .q-dock .feedback:not(:empty) { animation: none !important; }
   ::view-transition-old(dock), ::view-transition-new(dock), ::view-transition-old(top-left), ::view-transition-new(top-left) { animation: none !important; }
 }
+
+/* ===========================================================
+   老師指派：圖釘釘住的便條紙，下面條列每份作業
+   =========================================================== */
+.asg-note { position: relative; margin: 6px 0 14px; padding: 26px 18px 10px; border-radius: 6px 6px 18px 18px;
+  background: linear-gradient(180deg, #FFF9E6, #FFF4D1); border: 1px solid #F3E2AE;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .8) inset, 0 14px 30px rgba(30, 58, 138, .16), 0 2px 6px rgba(30, 58, 138, .08); }
+.asg-note::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: -6px; height: 10px; border-radius: 50%; background: rgba(30, 58, 138, .08); filter: blur(6px); z-index: -1; }
+.asg-pin { position: absolute; left: 50%; top: -18px; width: 30px; height: 38px; transform: translateX(-50%); filter: drop-shadow(0 2px 2px rgba(15, 23, 42, .18)); }
+.asg-note-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 2px 8px; border-bottom: 1.5px dashed #EBD69B; }
+.asg-note-h b { font-size: 1.05rem; color: #7C4A03; letter-spacing: .02em; }
+.asg-note-h span { font-size: .84rem; font-weight: 700; color: #A16207; }
+.asg-list { list-style: none; margin: 0; padding: 0; }
+.asg-list li + li { border-top: 1px solid #F1E3B8; }
+.asg-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 12px 2px; color: var(--navy); text-decoration: none; -webkit-tap-highlight-color: transparent; border-radius: 10px; transition: background .25s var(--ease-soft, ease); }
+.asg-row:active { background: rgba(245, 158, 11, .1); }
+@media (hover: hover) and (pointer: fine) { .asg-row:hover { background: rgba(245, 158, 11, .08); } }
+.asg-main { display: grid; gap: 2px; min-width: 0; }
+.asg-main b { font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asg-sub { font-size: .82rem; color: var(--steel); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asg-due { display: grid; justify-items: end; gap: 2px; text-align: right; }
+.asg-left { padding: 2px 9px; border-radius: 999px; background: rgba(100, 116, 139, .12); color: var(--steel); font-size: .78rem; font-weight: 800; white-space: nowrap; }
+.asg-row.soon .asg-left { background: #FEF3C7; color: #B45309; }
+.asg-row.today .asg-left { background: #FEE2E2; color: #B91C1C; }
+.asg-when { font-size: .76rem; color: var(--steel); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.asg-go { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--navy); color: var(--white); }
+.asg-go .ic { width: 16px; height: 16px; }
+@media (max-width: 380px) { .asg-note { padding-inline: 14px; } .asg-go { width: 28px; height: 28px; } }
