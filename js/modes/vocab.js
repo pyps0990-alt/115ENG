@@ -3,6 +3,7 @@ import { typeLabel } from '../types.js';
 import { store } from '../storage.js';
 import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog, leaveOut } from '../util.js';
 import { icon } from '../icons.js';
+import { learnPrefs } from '../learn-prefs.js';
 import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError, errorOf, questionFromRecord } from '../components/question.js';
 import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
@@ -173,8 +174,10 @@ export function mount(stage, ctx) {
     const nextBtn = stage.querySelector('[data-next]');
     // 自動下一題：答對選擇題後等 AUTO_MS 毫秒自動跳，可以關掉（記在這台裝置）；進度條動畫與計時共用同一個數字
     const AUTO_MS = 2400;
-    const getFlag = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v === '1'; } catch { return d; } };
-    const setFlag = (k, v) => { try { localStorage.setItem(k, v ? '1' : '0'); } catch { /* ignore */ } };
+    // 自動下一題的設定存在學生帳本（所有裝置都套用），這台裝置也留一份
+    const lp = learnPrefs();
+    const getFlag = (k, d) => (k === 'b5p:auto' ? lp.get('auto') : d);
+    const setFlag = (k, v) => { if (k === 'b5p:auto') lp.set('auto', v); };
     const autoToggle = stage.querySelector('[data-auto-toggle]');
     const autoCue = stage.querySelector('[data-auto-cue]');
     const paintAuto = () => autoToggle.setAttribute('aria-checked', getFlag('b5p:auto', true) ? 'true' : 'false');

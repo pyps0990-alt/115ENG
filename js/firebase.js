@@ -353,7 +353,15 @@ export async function loadLearnPrefs(key) {
   const snap = await getDoc(doc(db, 'vault', key, 'prefs', 'learn'));
   return snap.exists() ? snap.data() : null;
 }
-export async function saveLearnPrefs(key, { mode, seen }) {
+// mode：句型說明的看法（'find'／'read'，還沒選是 ''）；auto：單字自動下一題（true／false，沒設定就不寫）
+export async function saveLearnPrefs(key, { mode, seen, auto }) {
   if (!key) return;
-  await setDoc(doc(db, 'vault', key, 'prefs', 'learn'), { mode: mode === 'read' ? 'read' : 'find', seen: seen || {}, at: serverTimestamp() });
+  const data = { mode: mode === 'read' ? 'read' : mode === 'find' ? 'find' : '', seen: seen || {}, at: serverTimestamp() };
+  if (typeof auto === 'boolean') data.auto = auto;
+  const ref = doc(db, 'vault', key, 'prefs', 'learn');
+  try { await setDoc(ref, data); } catch (e) {
+    // 新的規則（可以存 auto、mode 可以空白）還沒部署到 Firebase 時會被拒：退回舊格式再存一次，原本的設定不會丟
+    if (!(e && (e.code === 'permission-denied' || /permission/i.test(e.message || '')))) throw e;
+    await setDoc(ref, { mode: data.mode || 'find', seen: data.seen, at: serverTimestamp() });
+  }
 }

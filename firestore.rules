@@ -95,8 +95,9 @@ service cloud.firestore {
         allow list, delete: if false;
         allow create, update: if doc == 'learn'
           && exists(/databases/$(database)/documents/vault/$(key))
-          && request.resource.data.keys().hasOnly(['mode', 'seen', 'at'])
-          && request.resource.data.mode in ['find', 'read']
+          && request.resource.data.keys().hasOnly(['mode', 'seen', 'at', 'auto'])
+          && request.resource.data.mode in ['find', 'read', '']
+          && (!('auto' in request.resource.data) || request.resource.data.auto is bool)
           && request.resource.data.seen is map && request.resource.data.seen.size() <= 200
           && request.resource.data.at == request.time;
       }

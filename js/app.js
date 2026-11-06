@@ -704,12 +704,13 @@ function renderAccount() {
   const saved = app.querySelector('.set-saved');
   const say = (t) => { saved.textContent = t; clearTimeout(say.t); say.t = setTimeout(() => { saved.textContent = ''; }, 2000); };
   const paintLearn = () => app.querySelectorAll('[data-learn]').forEach((b) => b.setAttribute('aria-checked', String(lp.get('learnMode') === b.dataset.learn)));
-  app.querySelectorAll('[data-learn]').forEach((b) => b.addEventListener('click', () => { lp.set('learnMode', b.dataset.learn); paintLearn(); say('✓ 已儲存'); }));
+  app.querySelectorAll('[data-learn]').forEach((b) => b.addEventListener('click', () => { lp.set('learnMode', b.dataset.learn); paintLearn(); say('✓ 已儲存，所有裝置都會套用'); }));
   paintLearn();
-  const autoOn = () => { try { return localStorage.getItem('b5p:auto') !== '0'; } catch { return true; } };
+  // 自動下一題也存在學生帳本：所有裝置都套用
   const auto = app.querySelector('[data-auto]');
-  const paintAuto = () => auto.setAttribute('aria-checked', String(autoOn()));
-  auto.addEventListener('click', () => { try { localStorage.setItem('b5p:auto', autoOn() ? '0' : '1'); } catch { /* ignore */ } paintAuto(); say('✓ 已儲存'); });
+  const paintAuto = () => auto.setAttribute('aria-checked', String(lp.get('auto')));
+  auto.addEventListener('click', () => { lp.set('auto', !lp.get('auto')); paintAuto(); say('✓ 已儲存，所有裝置都會套用'); });
+  setTimeout(paintAuto, 1500); // 剛從雲端讀到別的裝置改過的設定時更新
   paintAuto();
 }
 
@@ -967,6 +968,8 @@ async function boot() {
   }
   // 偵測網站有沒有部署新版：沒在考試時，換頁的瞬間自動更新成新版
   afterLoad(() => idle(() => import('./update.js').then((m) => m.watchForUpdate({ auto: true, isBusy: () => !!document.body.dataset.busy })).catch(() => {})));
+  // 學習設定（自動下一題、句型說明看法）跟雲端同步：別的裝置改過的，這台也套用
+  afterLoad(() => idle(() => { if (store.student()) learnPrefs(); }));
   // 老師頁不算在線人數；學生端閒置時才載入在線統計，不拖慢開啟
   afterLoad(() => idle(() => { if (location.hash.split('/')[1] !== 'teacher') presence().then((p) => { p.startPresence(); reportView(); }).catch(() => {}); }));
   afterLoad(() => idle(() => { modes.vocab().catch(() => {}); modes.reading().catch(() => {}); modes.pattern().catch(() => {}); }));
