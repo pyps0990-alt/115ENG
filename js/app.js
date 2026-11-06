@@ -3,7 +3,7 @@ import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow,
 import { store } from './storage.js';
 import { esc, confirmDialog } from './util.js';
 import { icon } from './icons.js';
-import { mountInlineForm, historyReady, maskName, accountHTML, bindAccount } from './student.js';
+import { mountInlineForm, historyReady, maskName, bindAccount } from './student.js';
 import { LEVELS, PASS, levelsFor, quizCount } from './levels.js';
 import { flushOutbox, pendingItems, clearOutbox, outboxStatus, rejectedItems } from './submit.js';
 import { submitStateHTML } from './components/gate.js';
@@ -674,9 +674,13 @@ function renderAccount() {
   app.innerHTML = `
     <section class="me-head acct-head">
       <span class="acct-av" aria-hidden="true">${esc((s.name || '?').trim().charAt(0))}</span>
-      <div><div class="eyebrow">Account</div>
+      <div class="acct-id"><div class="eyebrow">Account</div>
       <h1>${esc(maskName(s.name))}</h1>
       <p class="muted" style="margin:0">${esc(s.cls)} 班 ${esc(s.seat)} 號</p></div>
+      <div class="acct-acts">
+        <button class="acct-btn" type="button" data-switch>${icon.user}<span>切換學生</span></button>
+        <button class="acct-btn out" type="button" data-logout title="登出並清除這台裝置的資料">${icon.exit}<span>登出</span></button>
+      </div>
     </section>
     <section class="me-set" aria-label="學習設定">
       <h2>學習設定</h2>
@@ -693,7 +697,7 @@ function renderAccount() {
       </div>
       <p class="set-saved" aria-live="polite"></p>
     </section>
-    ${accountHTML(s)}`;
+    <p class="acct-tip">用別人的手機或共用電腦時，做完記得按右上角的「登出」：會清除這台裝置上的姓名和作答紀錄（老師那邊的成績不受影響）。</p>`;
   bindAccount(app);
   // 學習設定：句型說明的看法存在學生帳本（換裝置也記得），自動下一題存在這台裝置
   const lp = learnPrefs();

@@ -32,11 +32,12 @@ assert.equal(await p.$$eval('[data-search]', (a) => a.length), 0, '單元內頁�
 await p.tap('.top-back'); await sleep(800);
 assert.ok(await p.$('.unit-tile'), '回首頁');
 await p.tap('#dock a[data-dock="me"]'); await sleep(800);
-assert.ok(await p.$('.me-row') && !(await p.$('.me-acct')) && await p.$('[data-search]'), '我的成績：只有成績，左上是搜尋');
+assert.ok(await p.$('.me-row') && !(await p.$('[data-logout]')) && await p.$('[data-search]'), '我的成績：只有成績，左上是搜尋');
 await p.tap('#dock a[data-dock="account"]'); await p.waitForSelector('.acct-head'); await sleep(700);
 const ink = await p.evaluate(() => { const i = document.querySelector('.dock-ink').getBoundingClientRect(), c = document.querySelector('#dock a[aria-current]').getBoundingClientRect(); return Math.abs(i.left - c.left) + Math.abs(i.width - c.width); });
 assert.ok(ink < 2, '膠囊對齊帳號分頁 ' + ink);
-assert.ok(await p.$('.me-acct [data-switch]') && await p.$('.me-acct [data-logout]') && await p.$('[data-search]'), '帳號頁：切換學生、登出；左上是搜尋');
+assert.ok(await p.$('.acct-head [data-switch]') && await p.$('.acct-head [data-logout]') && await p.$('[data-search]'), '帳號頁：切換學生、登出在封面；左上是搜尋');
+{ const r = await p.evaluate(() => { const n = document.querySelector('.acct-head h1').getBoundingClientRect(), b = document.querySelector('.acct-acts').getBoundingClientRect(); return { right: b.left >= n.right - 1, inView: b.right <= innerWidth }; }); assert.ok(r.right && r.inView, '按鈕在名字右邊、不超出畫面 ' + JSON.stringify(r)); }
 // 帳號頁的學習設定：句型說明的看法、自動下一題，按了就存
 await p.tap('[data-learn="read"]'); await sleep(200);
 assert.equal(await p.getAttribute('[data-learn="read"]', 'aria-checked'), 'true');

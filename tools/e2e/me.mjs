@@ -66,11 +66,11 @@ await step('5 分鐘內重新整理不重複下載紀錄；超過就重新讀取
 });
 await step('帳號分頁（頭像）：顯示姓名班座號；登出並清除這台裝置：清掉學生資料並回到登入表單', async () => {
   await p.evaluate(() => { location.hash = '#/me'; }); await p.waitForSelector('.me-row');
-  assert.equal(await p.$$eval('.me-acct', (a) => a.length), 0, '我的成績頁不放帳號');
-  await p.click('#dock a[data-dock="account"]'); await p.waitForSelector('.me-acct');
+  assert.equal(await p.$$eval('[data-logout]', (a) => a.length), 0, '我的成績頁不放帳號');
+  await p.click('#dock a[data-dock="account"]'); await p.waitForSelector('.acct-head [data-logout]');
   assert.match(await p.textContent('.acct-head'), /陳〇嘉/); assert.match(await p.textContent('.acct-head'), /306 班 20 號/);
-  assert.match(await p.textContent('.me-acct'), /切換學生/);
-  await p.click('.me-acct [data-logout]');
+  assert.match(await p.textContent('.acct-head .acct-acts'), /切換學生[^]*登出/, '切換學生、登出在封面名字右邊');
+  await p.click('.acct-head [data-logout]');
   await p.waitForSelector('dialog.modal[open]'); await p.locator('dialog.modal[open] .btn.primary').click();
   await p.waitForSelector('.welcome', { timeout: 5000 });
   const left = await p.evaluate(() => Object.keys(localStorage).filter((k) => /^b5p:(student|best|done|outbox)/.test(k)));

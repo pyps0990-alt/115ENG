@@ -1990,3 +1990,19 @@ dialog.search-sheet[open] { animation: ss-in .38s var(--ease-soft) both; }
 #app.tab-in > :not(.cover):not(.me-head), #app.tab-in > .cover > *, #app.tab-in > .me-head > * { animation: tab-in .34s var(--ease-soft) both; }
 @keyframes tab-in { from { opacity: 0; transform: translate3d(0, 6px, 0); } }
 @media (prefers-reduced-motion: reduce) { #app.tab-in > *, #app.tab-in > * > * { animation: none !important; } }
+
+/* 帳號頁：名字右邊的「切換學生」「登出」（深藍封面上的半透明膠囊，登出偏紅） */
+.acct-head .acct-id { flex: 1; min-width: 0; }
+.acct-head h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-acts { flex: none; display: grid; gap: 8px; }
+.acct-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .32); background: rgba(255, 255, 255, .12); color: var(--white); font: inherit; font-size: .88rem; font-weight: 800;
+  cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color: transparent; transition: background .2s, transform .12s var(--ease-soft, ease); }
+.acct-btn .ic { width: 17px; height: 17px; }
+.acct-btn:hover { background: rgba(255, 255, 255, .2); }
+.acct-btn:active { transform: scale(.96); }
+.acct-btn.out { background: rgba(229, 72, 77, .9); border-color: rgba(255, 255, 255, .22); }
+.acct-btn.out:hover { background: #E5484D; }
+.acct-tip { margin: 4px 2px 0; font-size: .82rem; color: var(--steel); line-height: 1.6; }
+body.has-dock .acct-tip { margin-bottom: 96px; }
+@media (max-width: 380px) { .acct-head { gap: 12px; } .acct-av { width: 54px; height: 54px; font-size: 1.4rem; } .acct-btn { padding: 0 11px; font-size: .84rem; } }
