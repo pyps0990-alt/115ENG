@@ -47,6 +47,7 @@ function pageIn(changed, first) {
 app.addEventListener('animationend', (e) => { if (e.target === app) app.classList.remove('page-in'); });
 
 
+const scrollMem = {};
 async function route() {
   const here = location.hash || '#/';
   const changed = here !== lastRendered;
@@ -57,6 +58,9 @@ async function route() {
   if (changed) app.dataset.dir = depth < lastDepth ? 'back' : 'fwd';
   const prevKind = lastKind;
   lastDepth = depth;
+  // 從首頁、我的成績點進單元前，記下捲到哪裡；返回時回到原位（不再一律跳回最上面，越下面的單元越明顯）
+  const nextKind = (location.hash.split('/')[1] || '');
+  if (changed && !first && nextKind === 'u' && ['', 'me'].includes(prevKind)) scrollMem[prevKind] = window.scrollY;
   if (cleanup) { try { cleanup(); } catch { /* ignore */ } cleanup = null; }
   delete document.body.dataset.busy;
   document.getElementById('fx').replaceChildren();
@@ -85,7 +89,12 @@ async function route() {
   };
   // 換頁更連續：支援的瀏覽器用 View Transition（截下畫面上看到的舊畫面，和新畫面交叉淡化；導覽列與分頁列不參與、照常即時動畫）。
   // 新畫面最多等 0.15 秒（單元要下載題目時先換到載入中的畫面），不會讓畫面停住太久；不支援的瀏覽器照舊淡入
-  const run = async () => { window.scrollTo(0, 0); chrome(); await render(); };
+  const backTo = changed && prevKind === 'u' && ['', 'me'].includes(lastKind) ? scrollMem[lastKind] : null;
+  const run = async () => {
+    window.scrollTo(0, 0); chrome(); await render();
+    if (backTo) window.scrollTo(0, backTo);
+    if (lastKind !== 'u') for (const k in scrollMem) delete scrollMem[k]; // 回到上層（或換到別的分頁）後就不再記
+  };
   // 首頁、我的成績、帳號之間用分頁列切換：不用 View Transition（會把整個畫面連分頁列凍成截圖，膠囊停住再跳）；
   // 封面直接換、文字與卡片淡入，分頁列保持即時、膠囊用彈簧滑過去
   const tabKinds = ['', 'me', 'account'];
@@ -401,7 +410,7 @@ function renderHome() {
   const nextRow = upcoming[0];
   const asg = myAssign();
   const asgPending = asg.filter((a) => !asgDone(a));
-  prefetchUnits([...asgPending.map((a) => a.u), ...upcoming.slice(0, 6).map((r) => r.u)]);
+  prefetchUnits([...new Set([...asgPending.map((a) => a.u), ...upcoming.map((r) => r.u), ...visible])]); // 全部開放的單元都先下載（要做的排前面）：點下面的單元也不用等網路
   if (asgPending.length) {
     // 老師指派的作業：一張用圖釘釘在封面上的便條紙，條列還沒做完的作業（截止早的在上面）。
     // 每一行：單元名稱、目前狀態、截止時間、還剩幾天（今天截止紅色、兩天內琥珀色）
@@ -574,11 +583,15 @@ async function renderUnit(id, sub) {
   if (!unitVisible(config, meta.id)) { locked(meta); return; }
   if (meta.id !== id) { location.replace(`#/u/${meta.id}${sub ? `/${sub}` : ''}`); return; }
 
+  const t0 = performance.now();
   app.innerHTML = unitShellHTML(meta); // 先顯示標題外框（版面和正式標題一致），資料到了再換成完整頁面
   // 剛登入時紀錄還在背景載入：等它載完（最多幾秒），才不會把做過的單元當成沒做過
   const [data, mod, rawAnalysis] = await Promise.all([loadUnit(meta.id, config), modes[typeOf(meta.type)](), meta.type === 'vocab' ? loadAnalysis(meta.id) : null, historyReady()]);
   // 分析結果要和目前的題目對得上（簽章相同）才用
   const analysis = rawAnalysis && rawAnalysis.sig === analysisSig(data.words) ? rawAnalysis : null;
+  // 題目要等網路（換頁轉場已經先換到「載入中」）：內容到了用跟換頁一樣的淡入接上，不會突然跳出來
+  const late = performance.now() - t0 > 140 && !reduceMotion.matches;
+  queueMicrotask(() => { if (late) app.querySelector('.focus')?.classList.add('late-in'); });
 
   if (meta.type !== 'vocab') {
     if (!modeOn(config, meta.id, meta.type)) { locked(meta); return; }

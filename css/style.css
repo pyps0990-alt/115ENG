@@ -1970,8 +1970,8 @@ dialog.search-sheet[open] { animation: ss-in .38s var(--ease-soft) both; }
 @media (max-width: 380px) { .asg-note { padding-inline: 12px; } .asg-row { padding-left: 14px; gap: 8px; } .asg-go { width: 26px; height: 26px; } }
 
 /* 效能：畫面外的課次、成績列表先不排版、不繪製（捲到附近才算），換頁和第一次開啟時少很多工作 */
-.lesson, .me-list > .me-row:nth-child(n+8) { content-visibility: auto; contain-intrinsic-size: auto 260px; }
-.me-list > .me-row:nth-child(n+8) { contain-intrinsic-size: auto 72px; }
+/* 首頁的課次不再延後排版：卡片固定高度後排版很便宜，而且畫面外先用估計高度會讓越下面的地方捲動、返回時跳動 */
+.me-list > .me-row:nth-child(n+8) { content-visibility: auto; contain-intrinsic-size: auto 72px; }
 
 /* 首頁、我的成績、帳號之間切換：分頁列與深藍封面不動（膠囊即時滑動），只有文字和卡片淡入 */
 #app.tab-in > :not(.cover):not(.me-head), #app.tab-in > .cover > *, #app.tab-in > .me-head > * { animation: tab-in .34s var(--ease-soft) both; }
@@ -2098,3 +2098,6 @@ body.has-dock .acct-ver { margin-bottom: 96px; }
 .tile-ring.k-ok, .tile-ring.k-todo { --ring: var(--good); }
 .tile-ring.k-ok b, .tile-ring.k-todo b { color: var(--good-ink); }
 .tile-ring.k-retake, .tile-ring.k-miss { --ring: var(--amber); }
+/* 單元內容晚到（題目還在下載）：跟換頁同一種淡入接上 */
+.focus.late-in > #stage { animation: vt-page-in .36s var(--ease-soft) both; }
+@media (prefers-reduced-motion: reduce) { .focus.late-in > #stage { animation: none; } }
