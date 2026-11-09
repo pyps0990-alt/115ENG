@@ -63,6 +63,15 @@ await step('換場景：開始測驗 → 作答 → 交卷 → 成績，每一�
   const n = await p.evaluate(() => (document.querySelector('[data-num]') || {}).textContent);
   assert.equal(n, '100', '分數數字停在最終分數');
 });
+await step('轉場進行中立刻點選項：點擊不會被吃掉', async () => {
+  await p.evaluate(() => { location.hash = '#/u/l3-read'; }); await p.waitForSelector('[data-start]'); await sleep(500);
+  await p.tap('[data-start]'); await p.waitForSelector('.pq .opt');
+  const b = await p.locator('.pq[data-q="0"] .opt[data-i="2"]').boundingBox();
+  await p.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2); // 不等轉場結束
+  await sleep(400);
+  const i = await p.evaluate(() => [...document.querySelectorAll('.pq[data-q="0"] .opt')].findIndex((o) => o.classList.contains('selected')));
+  assert.equal(i, 2);
+});
 await step('沒有 JS 錯誤', async () => { assert.equal(errs.length, 0, errs.join('\n')); });
 await world.close?.();
 if (bad) { console.log(bad + ' 項失敗'); process.exit(1); }

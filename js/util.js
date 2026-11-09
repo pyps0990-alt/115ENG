@@ -76,6 +76,45 @@ export const splitSentences = (p) => (String(p).match(/[^.!?]+(?:[.!?]+["'”’
 
 // danger：確認的是破壞性動作（例如離開測驗）。預設停在「取消」，確認鈕改成安靜的外框鈕，避免按 Enter 就誤中斷
 // 換內容前先讓舊的淡出（約 0.18 秒），再放新的進來：不會「啪」一下直接換掉
+// 轉場中點擊不會被吃掉：轉場的那零點幾秒，瀏覽器把點擊交給整頁（html）而不是畫面上的按鈕。
+// 手指一碰到螢幕就立刻結束轉場，這一下點擊改送到手指下真正的按鈕、選項或連結上
+(() => {
+  if (typeof document === 'undefined' || !document.startViewTransition || document.__vtTap) return;
+  document.__vtTap = true;
+  const orig = document.startViewTransition.bind(document);
+  let active = null, retarget = 0;
+  document.startViewTransition = (cb) => {
+    const t = orig(cb);
+    active = t;
+    t.finished.catch(() => {}).finally(() => { if (active === t) active = null; });
+    return t;
+  };
+  let downAt = null;
+  document.addEventListener('pointerdown', (e) => {
+    if (!active) return;
+    try { active.skipTransition(); } catch { /* ignore */ }
+    active = null; retarget = Date.now(); downAt = [e.clientX, e.clientY];
+    // 按下的那一下也轉給底下的元素（例如句型應用題拖單字，按下去就能直接拖）
+    const root = document.documentElement;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (el && el !== root && el !== document.body && (e.target === root || e.target === document.body)) {
+      e.stopImmediatePropagation();
+      try { el.dispatchEvent(new PointerEvent('pointerdown', e)); } catch { /* 舊瀏覽器：只轉點擊 */ }
+    }
+  }, true);
+  document.addEventListener('click', (e) => {
+    if (!retarget || Date.now() - retarget > 1500) return;
+    retarget = 0;
+    const root = document.documentElement;
+    if (e.target !== root && e.target !== document.body) return;
+    if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 8) return; // 是拖動，不是點擊
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el || el === root || el === document.body) return;
+    e.stopImmediatePropagation(); e.preventDefault();
+    el.click();
+  }, true);
+})();
+
 // 單元裡的「場景」切換（開始測驗、交卷、看成績、進檢討、檢討完回單元頁）：跟換頁一樣用 View Transition 交叉淡化，
 // 封面高度、版面一起平順過去，不會硬切。不支援的瀏覽器、減少動態、或已經有轉場在跑時直接換
 let sceneBusy = false;

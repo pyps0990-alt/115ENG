@@ -5098,6 +5098,32 @@
 
     /* ----- 動畫：換頁用瀏覽器的 View Transition（GPU 淡入，不重排版面）；分頁底線、左邊選單的亮塊滑到新位置 ----- */
     (function motion() {
+      // 轉場中點擊不會被吃掉：轉場那零點幾秒瀏覽器把點擊交給整頁（html），連續點左邊選單時第二下會沒反應。
+      // 手指／滑鼠一按下就立刻結束轉場，這一下點擊改送到底下真正的按鈕或連結
+      if (document.startViewTransition && !document.__vtTap) {
+        document.__vtTap = true;
+        var vtOrig = document.startViewTransition.bind(document), vtActive = null, vtRetarget = 0;
+        document.startViewTransition = function (cb) {
+          var t = vtOrig(cb); vtActive = t;
+          t.finished.catch(function () {}).then(function () { if (vtActive === t) vtActive = null; });
+          return t;
+        };
+        document.addEventListener('pointerdown', function () {
+          if (!vtActive) return;
+          try { vtActive.skipTransition(); } catch (e) {}
+          vtActive = null; vtRetarget = Date.now();
+        }, true);
+        document.addEventListener('click', function (e) {
+          if (!vtRetarget || Date.now() - vtRetarget > 1500) return;
+          vtRetarget = 0;
+          var root = document.documentElement;
+          if (e.target !== root && e.target !== document.body) return;
+          var el = document.elementFromPoint(e.clientX, e.clientY);
+          if (!el || el === root || el === document.body) return;
+          e.stopImmediatePropagation(); e.preventDefault();
+          el.click();
+        }, true);
+      }
       var calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
       var canVT = !!document.startViewTransition && !calm;
       if (canVT) document.documentElement.classList.add('vt');
