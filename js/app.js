@@ -90,7 +90,9 @@ async function route() {
   // 換頁更連續：支援的瀏覽器用 View Transition（截下畫面上看到的舊畫面，和新畫面交叉淡化；導覽列與分頁列不參與、照常即時動畫）。
   // 新畫面最多等 0.15 秒（單元要下載題目時先換到載入中的畫面），不會讓畫面停住太久；不支援的瀏覽器照舊淡入
   const backTo = changed && prevKind === 'u' && ['', 'me'].includes(lastKind) ? scrollMem[lastKind] : null;
+  const fromSearch = !!document.querySelector('dialog.search-sheet[open]');
   const run = async () => {
+    closeSearchNow();
     window.scrollTo(0, 0); chrome(); await render();
     if (backTo) window.scrollTo(0, backTo);
     if (lastKind !== 'u') for (const k in scrollMem) delete scrollMem[k]; // 回到上層（或換到別的分頁）後就不再記
@@ -103,7 +105,7 @@ async function route() {
   if (useVT) {
     let job = null;
     // 分頁列不單獨截圖（iPhone Safari 截毛玻璃會出現灰白色空框），跟整個畫面一起淡化
-    document.documentElement.dataset.nav = app.dataset.dir || 'fwd';
+    document.documentElement.dataset.nav = fromSearch ? 'search' : (app.dataset.dir || 'fwd');
     const t = document.startViewTransition(() => { job = run(); return Promise.race([job, new Promise((r) => setTimeout(r, 150))]); });
     t.finished.catch(() => {}); t.ready.catch(() => {});
     await t.updateCallbackDone.catch(() => {});
@@ -130,12 +132,15 @@ function paintTopLeft(kind, loggedIn) {
   }
 }
 
-// 搜尋單元：輸入課次、單元名稱、主題或題型（例如「L3」「單字」「閱讀」），點結果直接進入
+// 搜尋單元：輸入課次、單元名稱、主題或題型（例如「L3」「單字」「閱讀」），點結果直接進入。
+// 動畫：左上角的搜尋按鈕原地「長」成搜尋框（上方導覽列不動，B5 淡出、取消淡入），下面的結果淡入蓋住頁面；
+// 取消時倒著收回按鈕；點結果時整個搜尋畫面跟換頁一樣淡入單元頁（不會先閃回首頁）
 function openSearch() {
+  if (document.querySelector('dialog.search-sheet')) return;
   const d = document.createElement('dialog');
   d.className = 'search-sheet';
   d.setAttribute('aria-label', '搜尋單元');
-  d.innerHTML = `<div class="ss-bar">${icon.search}<input type="search" placeholder="搜尋單元：課次、名稱、主題" aria-label="搜尋單元" enterkeyhint="search" autocomplete="off"><button class="ss-x" type="button" data-close>取消</button></div><div class="ss-list" role="list"></div>`;
+  d.innerHTML = `<div class="ss-bar"><label class="ss-field">${icon.search}<input type="search" placeholder="搜尋單元：課次、名稱、主題" aria-label="搜尋單元" enterkeyhint="search" autocomplete="off"></label><button class="ss-x" type="button" data-close>取消</button></div><div class="ss-body"><div class="ss-list" role="list"></div></div>`;
   document.body.appendChild(d);
   const input = d.querySelector('input'), list = d.querySelector('.ss-list');
   const all = visibleUnits().map((u) => ({ u, s: unitStatus(u), key: [unitName(u), u.title, u.topic, lessonLabel(u.lesson), `L${u.lesson}`, typeLabel(u.type), TYPES[typeOf(u.type)].tile].join(' ').toLowerCase() }))
@@ -146,13 +151,28 @@ function openSearch() {
     list.innerHTML = hits.length ? hits.map((x) => `<a class="ss-row ${x.s.k}" role="listitem" href="#/u/${esc(x.u.id)}">${ringHTML(x.u, 'sm')}<span class="txt"><b>${esc(unitName(x.u))}</b><span>${esc([typeLabel(x.u.type), topicOf(x.u)].filter(Boolean).join(' · '))}</span></span>${chipHTML(x.u, x.s)}</a>`).join('')
       : `<p class="ss-empty">找不到「${esc(input.value.trim())}」的單元</p>`;
   };
-  const close = () => { d.close(); d.remove(); };
+  const close = () => {
+    if (!d.isConnected || d.classList.contains('closing')) return;
+    input.blur();
+    if (reduceMotion.matches) { closeSearchNow(); return; }
+    d.classList.add('closing');
+    document.body.classList.add('search-closing'); // B5 先淡回來；左上角按鈕等搜尋框收回原位才換回（同一個位置、同一個樣子，看不出切換）
+    const t = setTimeout(closeSearchNow, 600); // 保險：動畫事件沒來也會收掉
+    d.querySelector('.ss-body').addEventListener('animationend', () => { clearTimeout(t); closeSearchNow(); }, { once: true });
+  };
   input.addEventListener('input', draw);
-  d.addEventListener('click', (e) => { if (e.target === d || e.target.closest('[data-close]')) close(); else if (e.target.closest('.ss-row')) close(); });
+  // 點結果：不先關掉（換頁時由 route 收掉），換頁轉場直接從搜尋畫面淡到單元頁
+  d.addEventListener('click', (e) => { if (e.target === d || e.target.closest('[data-close]')) close(); });
   d.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
   draw();
+  document.body.classList.add('searching');
   d.showModal();
-  input.focus();
+  input.focus({ preventScroll: true });
+}
+// 立刻收掉搜尋畫面（換頁時、關閉動畫結束時）
+function closeSearchNow() {
+  document.querySelectorAll('dialog.search-sheet').forEach((d) => { try { d.close(); } catch { /* ignore */ } d.remove(); });
+  document.body.classList.remove('searching', 'search-closing');
 }
 
 // 底部浮動分頁列（單元、我的成績）：登入後的首頁與我的成績才出現，作答時不會擋到畫面
