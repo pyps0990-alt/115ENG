@@ -134,7 +134,7 @@ function openSearch() {
   const draw = () => {
     const q = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const hits = all.filter((x) => q.every((w) => x.key.includes(w)));
-    list.innerHTML = hits.length ? hits.map((x) => `<a class="ss-row ${x.s.k}" role="listitem" href="#/u/${esc(x.u.id)}"><span class="ic-box">${typeIcon(x.u.type)}</span><span class="txt"><b>${esc(unitName(x.u))}</b><span>${esc([typeLabel(x.u.type), x.u.topic].filter(Boolean).join(' · '))}</span></span><span class="st">${esc(x.s.st)}</span></a>`).join('')
+    list.innerHTML = hits.length ? hits.map((x) => `<a class="ss-row ${x.s.k}" role="listitem" href="#/u/${esc(x.u.id)}">${ringHTML(x.u, 'sm')}<span class="txt"><b>${esc(unitName(x.u))}</b><span>${esc([typeLabel(x.u.type), topicOf(x.u)].filter(Boolean).join(' · '))}</span></span>${chipHTML(x.u, x.s)}</a>`).join('')
       : `<p class="ss-empty">找不到「${esc(input.value.trim())}」的單元</p>`;
   };
   const close = () => { d.close(); d.remove(); };
@@ -410,7 +410,8 @@ function renderHome() {
       const days = (a.due - Date.now()) / 86400000;
       const urg = days < 1 ? 'today' : days <= 2 ? 'soon' : '';
       return `<li><a class="asg-row ${urg}" href="#/u/${esc(a.u.id)}">
-          <span class="asg-main"><b class="en">${esc(a.u.title)}</b></span>
+          ${ringHTML(a.u, 'sm')}
+          <span class="asg-main"><b class="en">${esc(a.u.title)}</b><span class="asg-meta">${chipHTML(a.u)}<span class="asg-sub">${esc([typeLabel(a.u.type), topicOf(a.u)].filter(Boolean).join(' · '))}</span></span></span>
           <span class="asg-due"><span class="asg-left">${esc(left === '今天' ? '今天截止' : left)}</span><span class="asg-when">${esc(when.replace(/ 截止$/, ''))}</span></span>
           <span class="asg-go" aria-hidden="true">${icon.arrowR}</span>
         </a></li>`;
@@ -489,33 +490,43 @@ function tileMeta(u) {
 // 卡片狀態：狀態標籤放最前面（文字＋圖示，用標籤的顏色區分），標題與主題第二；類型與字數、最佳成績與時段收在下面。
 // 「下一步」只由首頁上方的大卡片表達，格子裡不再重複標記。
 const TILE_STATE = { ok: '已完成', retake: '需補考', todo: '待檢討', miss: '缺交', wait: '未開放', open: '尚未開始' };
+// 卡片、指派、我的成績、搜尋共用的三個零件：成績環（分數只寫在這裡）、狀態標籤、時段文字
+// 主題（後台匯入內容時填的，課文理解沒填就是文章標題）：空白、跟標題或類型名稱一樣就不顯示
+function topicOf(u) {
+  const topic = String(u.topic || '').trim();
+  return topic && ![String(u.title || '').trim(), TYPES[typeOf(u.type)].tile, typeLabel(u.type)].some((x) => String(x || '').toLowerCase() === topic.toLowerCase()) ? topic : '';
+}
+function bestOf(u) { return store.best(u.id)[bestKey(u.type)]; }
+function ringHTML(u, cls = '') {
+  const b = bestOf(u);
+  cls = `${cls} k-${unitStatus(u).k}`;
+  return b != null
+    ? `<span class="tile-ring has ${cls}" style="--p:${Math.max(0, Math.min(100, b))}" role="img" aria-label="最佳 ${b}%"><b>${b}</b></span>`
+    : `<span class="tile-ring ${cls}" aria-hidden="true">${typeIcon(u.type)}</span>`;
+}
+function chipHTML(u, st = unitStatus(u)) {
+  if (st.k === 'open') return '';
+  const b = bestOf(u);
+  const text = st.k === 'retake' && b != null && b < PASS ? `需補考 · 差 ${PASS - b}%` : TILE_STATE[st.k];
+  return `<span class="u-chip k-${st.k}">${st.ic}${esc(text)}</span>`;
+}
+function whenText(u, st = unitStatus(u)) { return st.k === 'miss' ? '已截止 · 找老師補作' : windowText(u.id, store.done(u.id)); }
+
 function tileHTML(u, asg = null) {
   const vocab = u.type === 'vocab';
-  const b = store.best(u.id)[bestKey(u.type)];
   const st = unitStatus(u);
-  // 大標題是後台設定的標題；小標是後台設定的類型。標題剛好跟類型名稱一樣時，不重複寫類型
-  const heading = String(u.title || '').trim();
-  const kind = TYPES[typeOf(u.type)].tile;
-  // 主題（後台匯入內容時填的，課文理解沒填就是文章標題）：小字放在標題下面；空白或跟標題一樣就不顯示
-  const topic = String(u.topic || '').trim();
-  // 主題跟類型名稱一樣（例如句型單元主題寫「句型練習」）也不重複顯示
-  const topicShown = topic && ![heading, kind, typeLabel(u.type)].some((x) => String(x || '').toLowerCase() === topic.toLowerCase()) ? topic : '';
-  const chip = st.k === 'retake' && b != null && b < PASS ? `需補考 · 差 ${PASS - b}%` : TILE_STATE[st.k];
-  const when = st.k === 'miss' ? '' : windowText(u.id, store.done(u.id));
+  const topicShown = topicOf(u);
+  const when = st.k === 'miss' ? '' : whenText(u, st);
   const count = vocab ? vocabCount(u, openLevels(u).map((l) => l.name)) : tileMeta(u);
-  // 左邊的成績環：做過就是最佳成績（環的長度＝分數，分數只寫在這裡），還沒做過放類型圖示
-  const ring = b != null
-    ? `<span class="tile-ring has" style="--p:${Math.max(0, Math.min(100, b))}" role="img" aria-label="最佳 ${b}%"><b>${b}</b></span>`
-    : `<span class="tile-ring" aria-hidden="true">${typeIcon(u.type)}</span>`;
   // 卡片：成績環｜標題、主題、下方一列標籤（狀態、指派、時段、題數）｜箭頭。標題放最上面，狀態放下面，高度不因狀態改變
   const foot = [
-    st.k !== 'open' ? `<span class="tile-state">${st.ic}${esc(chip)}</span>` : '',
+    chipHTML(u, st),
     asg ? `<span class="tile-asg${asgDone(asg) ? ' done' : ''}">${icon.pin}指派</span>` : '',
     when ? `<span class="tile-when">${esc(when)}</span>` : '',
     `<span class="tile-count">${esc(count)}</span>`,
   ].join('');
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
-      ${ring}<span class="tile-body">
+      ${ringHTML(u)}<span class="tile-body">
       <h3 class="en">${esc(u.title)}</h3>
       ${topicShown ? `<p class="tile-topic en">${esc(topicShown)}</p>` : ''}
       <span class="tile-foot">${foot}</span>
@@ -640,9 +651,9 @@ async function renderMe() {
       <div class="sum miss"><b>${count('miss')}</b><span>缺交</span></div>
     </div>
     ${rows.length ? `<div class="me-list">${rows.map((r) => `<a class="me-row ${r.k}" href="#/u/${esc(r.u.id)}">
-        <span class="ic-box">${r.ic}</span>
-        <span class="txt"><b>${esc(unitName(r.u))}</b><span>${[typeLabel(r.u.type), r.note !== r.st ? r.note : ''].filter(Boolean).map(esc).join('・')}</span></span>
-        <span class="st">${esc(r.st)}</span></a>`).join('')}</div>`
+        ${ringHTML(r.u, 'sm')}
+        <span class="txt"><b>${esc(unitName(r.u))}</b><span>${[typeLabel(r.u.type), whenText(r.u, r)].filter(Boolean).map(esc).join(' · ')}</span></span>
+        ${chipHTML(r.u, r) || '<span class="u-chip k-open">尚未開始</span>'}</a>`).join('')}</div>`
       : `<div class="empty"><div class="big">${icon.inbox}</div><h2>還沒有開放的單元</h2></div>`}`;
 }
 

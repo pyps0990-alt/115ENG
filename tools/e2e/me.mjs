@@ -25,10 +25,10 @@ await step('上方只有 B5：沒有名牌與選單', async () => { assert.equal
 await step('進入我的成績頁：狀態與計數正確', async () => {
   await p.evaluate(() => { location.hash = '#/'; }); await p.waitForSelector('#dock:not([hidden])');
   await p.click('#dock a[data-dock="me"]'); await p.waitForSelector('.me-row');
-  const rows = await p.$$eval('.me-row', (a) => a.map((r) => [r.className.replace('me-row ', ''), r.querySelector('.st').textContent]));
+  const rows = await p.$$eval('.me-row', (a) => a.map((r) => [r.className.replace('me-row ', ''), (r.querySelector('.tile-ring b') || {}).textContent || '', (r.querySelector('.u-chip') || {}).textContent || '']));
   console.log('   ', JSON.stringify(rows));
   assert.deepEqual(rows.map((r) => r[0]), ['miss', 'todo', 'open', 'ok', 'wait']);
-  assert.equal(rows.find((r) => r[0] === 'ok')[1], '92%');
+  assert.equal(rows.find((r) => r[0] === 'ok')[1], '92'); assert.equal(rows.find((r) => r[0] === 'ok')[2], '已完成');
   const sums = await p.$$eval('.me-sum .sum b', (a) => a.map((x) => x.textContent));
   assert.deepEqual(sums, ['1 / 5', '1', '0', '1']);
   await sleep(500); await p.screenshot({ path: '/tmp/shots/me-page.png', fullPage: true });

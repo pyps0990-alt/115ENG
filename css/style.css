@@ -2051,3 +2051,50 @@ body.has-dock .acct-ver { margin-bottom: 96px; }
 .acct-head.me-head { padding-bottom: 34px; }
 .acct-head + .me-set { margin-top: 22px; position: relative; }
 .me-set .set-saved { position: absolute; top: 18px; right: 18px; margin: 0; }
+
+/* ===== 共用零件：狀態標籤（卡片、指派、我的成績、搜尋都一樣）===== */
+.u-chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; border-radius: 999px; background: #EEF2F8; color: var(--steel); font-size: .76rem; font-weight: 800; white-space: nowrap; flex: none; }
+.u-chip .ic { width: 13px; height: 13px; stroke-width: 2.6; }
+:is(.unit-tile, .me-row, .ss-row, .asg-row) .u-chip.k-ok { background: #E3F4E8; color: var(--good-ink); }
+:is(.unit-tile, .me-row, .ss-row, .asg-row) .u-chip.k-todo { background: #FFEDD5; color: #C2410C; }
+:is(.unit-tile, .me-row, .ss-row, .asg-row) .u-chip.k-retake { background: #FEF3C7; color: #854D0E; }
+:is(.unit-tile, .me-row, .ss-row, .asg-row) .u-chip.k-miss { background: var(--bad-soft); color: var(--bad-ink); }
+.tile-ring.sm { width: 44px; height: 44px; }
+.tile-ring.sm::before { inset: 5px; }
+.tile-ring.sm b { font-size: .86rem; }
+.tile-ring.sm .ic { width: 20px; height: 20px; }
+
+/* 卡片固定大小：同一種螢幕上每張卡片一樣高（標題、主題各一行，標籤一列，多的截掉） */
+.unit-grid { grid-auto-rows: 120px; }
+.unit-tile h3 { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-line-clamp: unset; }
+.unit-tile .tile-topic { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.unit-tile .tile-foot { flex-wrap: nowrap; overflow: hidden; mask-image: linear-gradient(90deg, #000 88%, transparent); -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); }
+.unit-tile, .unit-tile:hover, .unit-tile:active { height: 100%; box-sizing: border-box; }
+@media (max-width: 599px) { .unit-grid { grid-auto-rows: 118px; } }
+
+/* 我的成績、搜尋結果：跟卡片同一套（成績環｜名稱與類型｜狀態標籤） */
+.me-row, .ss-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.me-row:active { transform: none; background: #EEF2F8; }
+.me-row .txt span, .ss-row .txt span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 老師指派的每一行：成績環｜名稱與類型｜狀態｜剩幾天與截止時間｜箭頭 */
+.asg-row { grid-template-columns: 44px minmax(0, 1fr) auto auto; padding-left: 14px; }
+.asg-meta { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.asg-meta .asg-sub { min-width: 0; }
+.asg-row:active { transform: none; background: #F7F9FC; }
+@media (max-width: 599px) {
+  .asg-meta .u-chip { display: none; } /* 手機：狀態看成績環的顏色，這一列留給類型 */
+}
+/* 寬畫面：便條紙分左右，左邊是標題與份數，右邊是作業（兩欄排），不再一條拉到底、中間空一大片 */
+@media (min-width: 760px) {
+  .asg-note { display: grid; grid-template-columns: 180px minmax(0, 1fr); align-items: start; gap: 6px 20px; padding: 22px 20px 20px; }
+  .asg-note-h { flex-direction: column; align-items: flex-start; gap: 10px; padding: 26px 0 0 4px; }
+  .asg-note-h b { font-size: 1.25rem; }
+  .asg-note-h .asg-count { font-size: .9rem; padding: 4px 12px; }
+  .asg-list { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px; }
+  .asg-row { min-height: 72px; }
+}
+/* 成績環的顏色跟著狀態（卡片以外的地方也一樣）：通過綠色、需補考／缺交琥珀色 */
+.tile-ring.k-ok, .tile-ring.k-todo { --ring: var(--good); }
+.tile-ring.k-ok b, .tile-ring.k-todo b { color: var(--good-ink); }
+.tile-ring.k-retake, .tile-ring.k-miss { --ring: var(--amber); }
