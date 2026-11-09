@@ -803,7 +803,10 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1
 @keyframes page-in-back { from { opacity: 0; transform: translate3d(0, -8px, 0); } }
 /* 換頁（支援 View Transition 的瀏覽器）：整個畫面交叉淡化——新畫面淡入時舊畫面先留著、晚一點才淡出，不會兩個都半透明閃出底色；
    導覽列和底部分頁列另外拿出來，不淡入淡出（分頁列的膠囊照常滑動） */
-.topbar { view-transition-name: topbar; }
+/* 換頁時單獨截圖的是導覽列「裡面那一排」（按鈕與 B5），不是整條導覽列：
+   整條導覽列上方有一塊一個螢幕高的深藍（蓋住 iPhone 回彈露出的地方），iPhone Safari 會把它一起截進去，
+   換頁時整個畫面被深藍蓋住、按鈕掉到最下面。深藍底色留在整頁的截圖裡（會被裁在畫面內） */
+.topbar-inner { view-transition-name: topbar; }
 ::view-transition-old(dock) { display: none; }
 /* 導覽列：舊的也留著墊在下面（不隱藏）——iPhone Safari 新畫面有時晚一格才畫出來，導覽列後面只有白底，會閃一下白 */
 ::view-transition-old(topbar) { animation: none; mix-blend-mode: normal; }
