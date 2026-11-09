@@ -85,7 +85,7 @@ main.container { padding-block: 24px 56px; outline: none; flex: 1 0 auto; }
    =========================================================== */
 .topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--navy); color: var(--white); }
 /* 在頁面頂端往下拉（iPhone 回彈）時，導覽列上方露出的區域也填成深藍，不會出現白邊 */
-.topbar::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 100vh; background: var(--navy); pointer-events: none; }
+.topbar::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 160px; background: var(--navy); pointer-events: none; } /* 只要蓋住回彈露出的一小段；不用一個螢幕高（出錯時會整片蓋住畫面）。觸控裝置另外有 html.at-top 的深藍底 */
 .topbar-inner { max-width: 1200px; min-height: 62px; box-sizing: border-box; margin: 0 auto; padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); display: flex; align-items: center; gap: 12px; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--white); font-family: var(--font-en); font-weight: 900; font-size: 1.15rem; letter-spacing: .01em; }
 .brand-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--amber); color: var(--navy); font-size: .95rem; }
@@ -803,10 +803,8 @@ body.scrolled .menu-btn:not([aria-expanded="true"]) .mb-chev .mb-in { opacity: 1
 @keyframes page-in-back { from { opacity: 0; transform: translate3d(0, -8px, 0); } }
 /* 換頁（支援 View Transition 的瀏覽器）：整個畫面交叉淡化——新畫面淡入時舊畫面先留著、晚一點才淡出，不會兩個都半透明閃出底色；
    導覽列和底部分頁列另外拿出來，不淡入淡出（分頁列的膠囊照常滑動） */
-/* 換頁時單獨截圖的是導覽列「裡面那一排」（按鈕與 B5），不是整條導覽列：
-   整條導覽列上方有一塊一個螢幕高的深藍（蓋住 iPhone 回彈露出的地方），iPhone Safari 會把它一起截進去，
-   換頁時整個畫面被深藍蓋住、按鈕掉到最下面。深藍底色留在整頁的截圖裡（會被裁在畫面內） */
-.topbar-inner { view-transition-name: topbar; }
+/* 導覽列不單獨參與換頁轉場（跟整頁一起交叉淡化，兩頁相同的部分全程不變）：
+   iPhone Safari 對「黏在頂端的導覽列」裡有單獨轉場的元素處理有問題，轉場後一捲動，導覽列會被畫到螢幕下方、整片深藍蓋住畫面 */
 ::view-transition-old(dock) { display: none; }
 /* 導覽列：舊的也留著墊在下面（不隱藏）——iPhone Safari 新畫面有時晚一格才畫出來，導覽列後面只有白底，會閃一下白 */
 ::view-transition-old(topbar) { animation: none; mix-blend-mode: normal; }
@@ -1883,7 +1881,7 @@ html[data-nav="back"]::view-transition-new(root) { animation-name: vt-x-in, vt-s
 .me-updating { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; font-size: .8rem; opacity: .85; }
 .me-updating .spinner { width: 12px; height: 12px; border-width: 2px; border-color: rgba(255, 255, 255, .35); border-top-color: #fff; }
 /* 左上角（搜尋 ↔ 回首頁）：交叉淡化 */
-.top-left { view-transition-name: top-left; }
+/* 左上角（搜尋 ↔ 回首頁）跟整頁一起交叉淡化，不單獨轉場（原因同導覽列） */
 /* 左上角「首頁」膠囊 ↔「搜尋」圓鈕：形狀不同，不做大小變形（會把膠囊壓扁成圓）；
    舊的照原本大小快速淡出，新的稍微放大淡入 */
 ::view-transition-group(top-left) { animation: none; overflow: visible; }
