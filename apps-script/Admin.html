@@ -812,12 +812,10 @@
     @keyframes drop-out-up { to { opacity:0; transform:translateY(6px) scale(.97); } }
     /* ----- 動畫收斂：換分頁只淡入、不上浮；換單元淡入加亮塊平順滑過；不再有長條一直長出來 ----- */
     /* 換頁連續：新畫面淡入時舊畫面先留著，晚一點才淡出（不會兩個都半透明、中間閃出底色） */
-    /* 真正的交叉淡化（跟學生端一樣）：舊畫面淡出、新畫面淡入用同一條曲線、plus-lighter 疊加——
-       兩頁相同的地方（深藍封面、白色卡片底、灰底）全程不變，不會閃底色，也不會像兩張照片疊在一起 */
-    ::view-transition-image-pair(work) { isolation:isolate; }
-    /* 跟學生端同一套過場：0.24 秒、起步快收尾輕 */
-    ::view-transition-old(work) { animation:vt-x-out .24s cubic-bezier(.2, .7, .2, 1) both; mix-blend-mode:plus-lighter; }
-    ::view-transition-new(work) { animation:vt-x-in .24s cubic-bezier(.2, .7, .2, 1) both; mix-blend-mode:plus-lighter; }
+    /* 跟學生端同一套過場：舊畫面不動墊在下面、新畫面 0.22 秒快速淡入（每格只有一張圖在變透明度，手機上不掉格） */
+    ::view-transition-image-pair(work) { isolation:auto; }
+    ::view-transition-old(work) { animation:none; mix-blend-mode:normal; }
+    ::view-transition-new(work) { animation:vt-x-in .22s cubic-bezier(.2, .8, .2, 1) both; mix-blend-mode:normal; }
     @keyframes vt-x-out { to { opacity:0; } }
     @keyframes vt-x-in { from { opacity:0; } }
     @keyframes vt-fade { from { opacity:0; } }
@@ -1049,9 +1047,8 @@
     ::view-transition-old(m-rail), ::view-transition-new(m-rail), ::view-transition-old(m-top), ::view-transition-new(m-top), ::view-transition-old(m-who), ::view-transition-new(m-who) { animation:none; }
     ::view-transition-old(m-rail), ::view-transition-old(m-top), ::view-transition-old(m-who) { display:none; }
     /* 上方標題列：B5 標誌與返回鍵、標題文字交叉淡化（深藍底兩張一樣，看起來只有內容在換） */
-    ::view-transition-image-pair(m-top) { isolation:isolate; }
-    ::view-transition-old(m-top) { display:block; animation:vt-x-out .24s cubic-bezier(.2, .7, .2, 1) both; mix-blend-mode:plus-lighter; }
-    ::view-transition-new(m-top) { animation:vt-x-in .24s cubic-bezier(.2, .7, .2, 1) both; mix-blend-mode:plus-lighter; }
+    ::view-transition-old(m-top) { display:block; animation:none; mix-blend-mode:normal; }
+    ::view-transition-new(m-top) { animation:vt-x-in .22s cubic-bezier(.2, .8, .2, 1) both; mix-blend-mode:normal; }
 
     /* ----- 液態玻璃：更精緻的動畫；「更多」改成分頁列上方的小選單 ----- */
     @media (max-width:900px) {

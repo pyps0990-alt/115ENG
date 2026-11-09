@@ -1863,15 +1863,14 @@ dialog.search-sheet::backdrop { background: rgba(15, 23, 42, .3); }
 }
 /* 換頁（View Transition）：新舊畫面重疊得久一點，新畫面慢慢停住 */
 /* 舊畫面留在底下不淡出、新畫面在上面淡入：兩張都半透明時深藍的導覽列與封面會透出白底（看起來閃白），這樣就不會 */
-/* 真正的交叉淡化：舊畫面淡出、新畫面淡入，用同一條時間曲線、plus-lighter 疊加——兩張畫面相同的地方（深藍封面、底色）
-   全程維持原色，不會閃白；不同的地方平順換過去，不會像兩張照片疊在一起。新畫面另外帶一點點位移，有前進／後退的方向感 */
-::view-transition-image-pair(root) { isolation: isolate; }
-/* 全站統一的過場（換頁、分頁、單元裡換場景、搜尋都一樣）：0.24 秒、起步快收尾輕的曲線，新畫面帶 4px 的方向感 */
-:root { --vt-dur: .24s; --vt-ease: cubic-bezier(.2, .7, .2, 1); }
-::view-transition-old(root) { animation: vt-x-out var(--vt-dur) var(--vt-ease) both; mix-blend-mode: plus-lighter; }
-::view-transition-new(root) { animation: vt-x-in var(--vt-dur) var(--vt-ease) both, vt-rise var(--vt-dur) var(--vt-ease) both; mix-blend-mode: plus-lighter; }
-html[data-nav="back"]::view-transition-new(root) { animation-name: vt-x-in, vt-sink; }
-html[data-nav="tab"]::view-transition-new(root) { animation-name: vt-x-in; } /* 分頁之間是平行的，不帶方向 */
+/* 全站統一的過場（換頁、分頁、單元裡換場景、搜尋都一樣）：
+   舊畫面不動墊在下面、新畫面快速淡入蓋上去——每一格只有一張圖在變透明度，手機 GPU 最省力，iPhone 上不會一格一格。
+   （之前兩張圖一起淡化、用 plus-lighter 疊加混色，iPhone Safari 每格都要重算整個畫面，會掉格）
+   深藍封面兩頁都有，舊的墊在下面，所以不會閃白 */
+:root { --vt-dur: .22s; --vt-ease: cubic-bezier(.2, .8, .2, 1); }
+::view-transition-image-pair(root) { isolation: auto; }
+::view-transition-old(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-new(root) { animation: vt-x-in var(--vt-dur) var(--vt-ease) both; mix-blend-mode: normal; }
 /* 分頁列切換也走同一套過場：分頁列單獨拿出來保持即時（膠囊照常滑動），轉場那一下先不用毛玻璃（截圖裡的毛玻璃會變灰） */
 html[data-nav="tab"] .dock { view-transition-name: dock; -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255, 255, 255, .97); }
 @keyframes vt-x-out { to { opacity: 0; } }
