@@ -3,6 +3,15 @@
 // 學生端（auto: true）：沒有在考試時，換頁的瞬間自動重新載入成新版；考試中不打斷，考完換頁才更新。
 // 老師後台（auto: false）：可能有還沒儲存的編輯，只顯示提示列，由老師按「立即更新」。
 let started = false;
+// 這個畫面載入時的版本（第一次讀到的 version.json）：帳號頁顯示用，方便確認每台裝置是不是最新版
+let loaded = null;
+const fetchVer = () => fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' })
+  .then((r) => (r.ok ? r.json() : null)).then((j) => (j && j.v ? j : null)).catch(() => null);
+export async function versionInfo() {
+  const latest = await fetchVer();
+  if (!loaded) loaded = latest;
+  return { loaded, latest };
+}
 
 export function watchForUpdate({ auto = true, isBusy = () => false } = {}) {
   if (started) return;
@@ -10,8 +19,7 @@ export function watchForUpdate({ auto = true, isBusy = () => false } = {}) {
   let base = null;
   let found = false;
   let checking = false;
-  const get = () => fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' })
-    .then((r) => (r.ok ? r.json() : null)).then((j) => (j && j.v) || null).catch(() => null);
+  const get = () => fetchVer().then((j) => { if (j && !loaded) loaded = j; return (j && j.v) || null; });
 
   const style = document.createElement('style');
   style.textContent = '.update-bar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:300;display:flex;align-items:center;gap:12px;width:max-content;max-width:calc(100vw - 24px);box-sizing:border-box;padding:8px 8px 8px 20px;border-radius:999px;background:#1E3A8A;color:#fff;font:600 .92rem/1.3 system-ui,-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;box-shadow:0 12px 32px rgba(15,23,42,.28);animation:update-in .3s ease}.update-bar span{min-width:0;text-wrap:balance}.update-bar button{flex:none;min-height:44px;padding:0 18px;white-space:nowrap;border:0;border-radius:999px;background:#F59E0B;color:#1E3A8A;font:inherit;font-weight:800;cursor:pointer}@keyframes update-in{from{opacity:0;transform:translate(-50%,12px)}}@media (prefers-reduced-motion:reduce){.update-bar{animation:none}}';
@@ -32,7 +40,7 @@ export function watchForUpdate({ auto = true, isBusy = () => false } = {}) {
     try {
       const v = await get();
       if (!v) return;
-      if (base === null) { base = v; return; }
+      if (base === null) { base = loaded ? loaded.v : v; if (v === base) return; }
       if (v !== base && !found) { found = true; showBar(); }
     } finally { checking = false; }
   };

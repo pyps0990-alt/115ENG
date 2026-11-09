@@ -667,6 +667,25 @@ async function renderMe() {
 }
 
 /* ---------------- 帳號（底部分頁列的頭像） ---------------- */
+// 帳號頁最下面：這個畫面的版本號與部署時間；伺服器上有更新的版本時，提示點一下更新
+async function paintVersion(el) {
+  if (!el) return;
+  try {
+    const { loaded, latest } = await import('./update.js').then((m) => m.versionInfo());
+    if (!el.isConnected || !loaded) return;
+    const d = new Date(loaded.t);
+    const p = (n) => String(n).padStart(2, '0');
+    const when = isNaN(d) ? '' : ` · ${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    el.textContent = `版本 ${loaded.v.slice(0, 7)}${when}`;
+    if (latest && latest.v !== loaded.v) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'acct-ver-up'; b.textContent = '有新版本，點這裡更新';
+      b.addEventListener('click', () => location.reload());
+      el.append(' ', b);
+    }
+  } catch { /* 讀不到就不顯示 */ }
+}
+
 function renderAccount() {
   const s = store.student();
   if (!s) { location.replace('#/'); return; }
@@ -697,8 +716,10 @@ function renderAccount() {
       </div>
       <p class="set-saved" aria-live="polite"></p>
     </section>
-    <p class="acct-tip">用別人的手機或共用電腦時，做完記得按右上角的「登出」：會清除這台裝置上的姓名和作答紀錄（老師那邊的成績不受影響）。</p>`;
+    <p class="acct-tip">用別人的手機或共用電腦時，做完記得按右上角的「登出」：會清除這台裝置上的姓名和作答紀錄（老師那邊的成績不受影響）。</p>
+    <p class="acct-ver" aria-live="polite"></p>`;
   bindAccount(app);
+  paintVersion(app.querySelector('.acct-ver'));
   // 學習設定：句型說明的看法存在學生帳本（換裝置也記得），自動下一題存在這台裝置
   const lp = learnPrefs();
   const saved = app.querySelector('.set-saved');
