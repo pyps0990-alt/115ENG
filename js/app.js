@@ -1,7 +1,7 @@
 import { loadIndex, loadUnit, loadUnitNow, unitCached, applyImported, addCustomUnits, loadAnalysis, analysisSig } from './data.js';
 import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow, fmtWhen, unitCfg, assignmentsFor, dueLabel } from './remote-config.js';
 import { store } from './storage.js';
-import { esc, confirmDialog } from './util.js';
+import { esc, confirmDialog, scene } from './util.js';
 import { icon } from './icons.js';
 import { mountInlineForm, historyReady, maskName, bindAccount } from './student.js';
 import { LEVELS, PASS, levelsFor, quizCount } from './levels.js';
@@ -423,7 +423,7 @@ function renderHome() {
       title: '輸入你的基本資料',
       desc: '',
       button: '開始練習',
-      onSave: () => renderHome(),
+      onSave: () => scene(() => renderHome()),
     });
     return;
   }
@@ -1132,7 +1132,8 @@ async function boot() {
     curHash = location.hash;
     route();
   });
-  window.addEventListener('student-changed', () => { if (!document.body.dataset.busy) route(); });
+  // 切換學生：同一頁換成另一位學生的資料，用交叉淡化接上（登出時沒有學生了，直接回登入畫面）
+  window.addEventListener('student-changed', () => { if (document.body.dataset.busy) return; if (store.student()) scene(() => route()); else route(); });
   // 登入後在背景載入的紀錄到了：首頁的完成狀態、最佳成績跟著更新（不打斷作答）
   window.addEventListener('history-applied', () => { if (!document.body.dataset.busy && ['', 'me'].includes(location.hash.split('/')[1] || '')) route(); });
   route();
