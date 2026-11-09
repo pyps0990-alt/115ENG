@@ -815,9 +815,9 @@
     /* 真正的交叉淡化（跟學生端一樣）：舊畫面淡出、新畫面淡入用同一條曲線、plus-lighter 疊加——
        兩頁相同的地方（深藍封面、白色卡片底、灰底）全程不變，不會閃底色，也不會像兩張照片疊在一起 */
     ::view-transition-image-pair(work) { isolation:isolate; }
-    ::view-transition-old(work) { animation:vt-x-out .28s cubic-bezier(.4, 0, .2, 1) both; mix-blend-mode:plus-lighter; }
-    ::view-transition-new(work) { animation:vt-x-in .28s cubic-bezier(.4, 0, .2, 1) both; mix-blend-mode:plus-lighter; }
-    html.vt-tab::view-transition-old(work), html.vt-tab::view-transition-new(work) { animation-duration:.2s; }
+    /* 跟學生端同一套過場：0.24 秒、起步快收尾輕 */
+    ::view-transition-old(work) { animation:vt-x-out .24s cubic-bezier(.2, .7, .2, 1) both; mix-blend-mode:plus-lighter; }
+    ::view-transition-new(work) { animation:vt-x-in .24s cubic-bezier(.2, .7, .2, 1) both; mix-blend-mode:plus-lighter; }
     @keyframes vt-x-out { to { opacity:0; } }
     @keyframes vt-x-in { from { opacity:0; } }
     @keyframes vt-fade { from { opacity:0; } }
@@ -1050,8 +1050,8 @@
     ::view-transition-old(m-rail), ::view-transition-old(m-top), ::view-transition-old(m-who) { display:none; }
     /* 上方標題列：B5 標誌與返回鍵、標題文字交叉淡化（深藍底兩張一樣，看起來只有內容在換） */
     ::view-transition-image-pair(m-top) { isolation:isolate; }
-    ::view-transition-old(m-top) { display:block; animation:vt-x-out .22s cubic-bezier(.4, 0, .2, 1) both; mix-blend-mode:plus-lighter; }
-    ::view-transition-new(m-top) { animation:vt-x-in .22s cubic-bezier(.4, 0, .2, 1) both; mix-blend-mode:plus-lighter; }
+    ::view-transition-old(m-top) { display:block; animation:vt-x-out .24s cubic-bezier(.2, .7, .2, 1) both; mix-blend-mode:plus-lighter; }
+    ::view-transition-new(m-top) { animation:vt-x-in .24s cubic-bezier(.2, .7, .2, 1) both; mix-blend-mode:plus-lighter; }
 
     /* ----- 液態玻璃：更精緻的動畫；「更多」改成分頁列上方的小選單 ----- */
     @media (max-width:900px) {

@@ -124,7 +124,7 @@ export function scene(fn) {
   sceneBusy = true;
   document.documentElement.dataset.nav = 'scene';
   let out;
-  const t = document.startViewTransition(() => { out = fn(); return Promise.race([Promise.resolve(out), new Promise((r) => setTimeout(r, 150))]); });
+  const t = document.startViewTransition(() => { out = fn(); return Promise.race([Promise.resolve(out), new Promise((r) => setTimeout(r, 100))]); });
   t.finished.catch(() => {}).finally(() => { sceneBusy = false; });
   t.ready.catch(() => {});
   return t.updateCallbackDone.catch(() => {}).then(() => out);

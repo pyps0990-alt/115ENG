@@ -98,24 +98,25 @@ async function route() {
     if (backTo) window.scrollTo(0, backTo);
     if (lastKind !== 'u') for (const k in scrollMem) delete scrollMem[k]; // 回到上層（或換到別的分頁）後就不再記
   };
-  // 首頁、我的成績、帳號之間用分頁列切換：不用 View Transition（會把整個畫面連分頁列凍成截圖，膠囊停住再跳）；
-  // 封面直接換、文字與卡片淡入，分頁列保持即時、膠囊用彈簧滑過去
+  // 首頁、我的成績、帳號之間用分頁列切換：也用同一套過場（統一），分頁列單獨拿出來保持即時、膠囊用彈簧滑過去；
+  // 不支援轉場的瀏覽器才用文字與卡片淡入
   const tabKinds = ['', 'me', 'account'];
   const tabSwitch = changed && !first && tabKinds.includes(prevKind) && tabKinds.includes(kind || '');
-  const useVT = changed && !first && !tabSwitch && !!document.startViewTransition && !reduceMotion.matches && document.visibilityState === 'visible';
+  const useVT = changed && !first && !!document.startViewTransition && !reduceMotion.matches && document.visibilityState === 'visible';
   if (useVT) {
     let job = null;
     // 分頁列不單獨截圖（iPhone Safari 截毛玻璃會出現灰白色空框），跟整個畫面一起淡化
-    document.documentElement.dataset.nav = fromSearch ? 'search' : (app.dataset.dir || 'fwd');
-    const t = document.startViewTransition(() => { job = run(); return Promise.race([job, new Promise((r) => setTimeout(r, 150))]); });
-    t.finished.catch(() => {}); t.ready.catch(() => {});
+    document.documentElement.dataset.nav = fromSearch ? 'search' : tabSwitch ? 'tab' : (app.dataset.dir || 'fwd');
+    const t = document.startViewTransition(() => { job = run(); return Promise.race([job, new Promise((r) => setTimeout(r, 100))]); });
+    t.finished.catch(() => {}).finally(() => { if (document.documentElement.dataset.nav === 'tab') delete document.documentElement.dataset.nav; });
+    t.ready.catch(() => {});
     await t.updateCallbackDone.catch(() => {});
     await (job || run());
   } else await run();
   reportView();
   // 不再為了等中文網頁字型把整頁藏起來（以前最多藏 1.2 秒：換到用到新字的頁面時會整片白、動畫卡住）。
   // 中文字寬都是 1em，字型到了直接換上，版面不會位移
-  if (tabSwitch && !reduceMotion.matches) { app.classList.remove('page-in', 'tab-in'); void app.offsetWidth; app.classList.add('tab-in'); clearTimeout(route.tabT); route.tabT = setTimeout(() => app.classList.remove('tab-in'), 500); }
+  if (tabSwitch && !useVT && !reduceMotion.matches) { app.classList.remove('page-in', 'tab-in'); void app.offsetWidth; app.classList.add('tab-in'); clearTimeout(route.tabT); route.tabT = setTimeout(() => app.classList.remove('tab-in'), 500); }
   else if (!useVT) pageIn(changed, first);
 }
 
@@ -294,7 +295,7 @@ function initDockDrag(dock) {
   const dockGo = (a) => {
     links().forEach((x) => { if (x === a) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current'); }); // 顏色先換過去
     clearTimeout(dockGo.t);
-    dockGo.t = setTimeout(() => { location.hash = a.getAttribute('href'); }, reduceMotion.matches ? 0 : 120);
+    dockGo.t = setTimeout(() => { location.hash = a.getAttribute('href'); }, reduceMotion.matches ? 0 : 60);
   };
   // 往下滑：分頁列縮小成只有圖示；往上滑或回到頂端：恢復
   let lastY = window.scrollY; let tick = false;
