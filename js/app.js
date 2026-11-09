@@ -474,12 +474,12 @@ function windowText(id, done) {
 }
 
 // 單字卡片的說明：類型一行、字數一行。基礎 → 進階 → 精熟每張都一樣，不寫（單元頁有）；老師關掉某些階段時才寫出有哪幾段
-function vocabMetaHTML(u, levels) {
+function vocabCount(u, levels) {
   const n = Number(u.count) || 0;
   const ph = typeof u.phrases === 'number' ? Math.min(u.phrases, n) : null;
   const counts = ph == null ? `${n} 個單字與片語` : ph ? `${n - ph} 個單字 · ${ph} 個片語` : `${n} 個單字`;
   const partial = levels.join('、') !== LEVELS.map((l) => l.name).join('、') ? ` · ${levels.join('、')}` : '';
-  return `<div class="tile-meta">${counts}${partial}</div>`;
+  return `${counts}${partial}`;
 }
 
 function tileMeta(u) {
@@ -500,22 +500,27 @@ function tileHTML(u, asg = null) {
   const topic = String(u.topic || '').trim();
   // 主題跟類型名稱一樣（例如句型單元主題寫「句型練習」）也不重複顯示
   const topicShown = topic && ![heading, kind, typeLabel(u.type)].some((x) => String(x || '').toLowerCase() === topic.toLowerCase()) ? topic : '';
-  const chip = st.k === 'retake' && b != null && b < PASS ? `需補考 · 還差 ${PASS - b}%` : TILE_STATE[st.k];
-  const sub = [b != null ? `最佳 ${b}%` : '', st.k === 'miss' ? '' : windowText(u.id, store.done(u.id))].filter(Boolean).join(' · ');
-  // 最佳成績旁的小量尺：刻度就是及格線，每張卡片都看得到離通過還有多遠
-  const meter = b != null ? `<span class="meter${b >= PASS ? ' ok' : ''}" role="img" aria-label="最佳 ${b}%，及格線 ${PASS}%"><i style="width:${Math.min(100, b)}%"></i><b style="left:${PASS}%"></b></span>` : '';
-  // 左邊的成績環：做過就是最佳成績（環的長度＝分數），還沒做過放類型圖示
+  const chip = st.k === 'retake' && b != null && b < PASS ? `需補考 · 差 ${PASS - b}%` : TILE_STATE[st.k];
+  const when = st.k === 'miss' ? '' : windowText(u.id, store.done(u.id));
+  const count = vocab ? vocabCount(u, openLevels(u).map((l) => l.name)) : tileMeta(u);
+  // 左邊的成績環：做過就是最佳成績（環的長度＝分數，分數只寫在這裡），還沒做過放類型圖示
   const ring = b != null
-    ? `<span class="tile-ring has" style="--p:${Math.max(0, Math.min(100, b))}" aria-hidden="true"><b>${b}</b></span>`
+    ? `<span class="tile-ring has" style="--p:${Math.max(0, Math.min(100, b))}" role="img" aria-label="最佳 ${b}%"><b>${b}</b></span>`
     : `<span class="tile-ring" aria-hidden="true">${typeIcon(u.type)}</span>`;
+  // 卡片：成績環｜標題、主題、下方一列標籤（狀態、指派、時段、題數）｜箭頭。標題放最上面，狀態放下面，高度不因狀態改變
+  const foot = [
+    st.k !== 'open' ? `<span class="tile-state">${st.ic}${esc(chip)}</span>` : '',
+    asg ? `<span class="tile-asg${asgDone(asg) ? ' done' : ''}">${icon.pin}指派</span>` : '',
+    when ? `<span class="tile-when">${esc(when)}</span>` : '',
+    `<span class="tile-count">${esc(count)}</span>`,
+  ].join('');
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
       ${ring}<span class="tile-body">
-      ${st.k !== 'open' || asg ? `<div class="tile-top">${st.k !== 'open' ? `<span class="tile-state">${st.ic}${chip}</span>` : ''}${asg ? `<span class="tile-asg${asgDone(asg) ? ' done' : ''}">${icon.pin}指派</span>` : ''}</div>` : ''}
       <h3 class="en">${esc(u.title)}</h3>
       ${topicShown ? `<p class="tile-topic en">${esc(topicShown)}</p>` : ''}
-      ${vocab ? vocabMetaHTML(u, openLevels(u).map((l) => l.name)) : `<div class="tile-meta">${tileMeta(u)}</div>`}
-      ${sub ? `<div class="tile-sub">${meter}<span>${esc(sub)}</span></div>` : ''}
+      <span class="tile-foot">${foot}</span>
       </span>
+      <span class="tile-go" aria-hidden="true">${icon.arrowR}</span>
     </a>`;
 }
 

@@ -2009,3 +2009,45 @@ body.has-dock .acct-ver { margin-bottom: 96px; }
 .gate-facts + .btn-row, .gate-parts + .btn-row, .gate-facts + .gate-note, .gate-parts + .gate-note { margin-top: 18px; }
 @media (max-width: 480px) { .gate-parts { grid-template-columns: 1fr; gap: 8px; } }
 .unit-steps + .gate-facts, .unit-steps + .gate-parts { margin-top: 0; }
+
+/* ===== 單元卡片（重新設計）=====
+   成績環｜標題、主題、下方一列標籤｜箭頭。分數只寫在成績環裡；狀態、指派、時段、題數都是同一種小標籤，放在最下面一列。
+   按下去只換底色，不縮放、不位移（點了卡片不會跑版）。後面的規則覆蓋前面舊的卡片樣式。 */
+.unit-tile, .unit-tile:hover, .unit-tile:active {
+  display: grid; grid-template-columns: 56px minmax(0, 1fr) 18px; align-items: center; column-gap: 14px;
+  min-height: 0; padding: 16px 14px 16px 16px; border: 1px solid var(--line); border-radius: 20px;
+  background: var(--white); box-shadow: 0 2px 10px rgba(30, 58, 138, .05); transform: none;
+}
+.unit-tile { transition: border-color .2s, background-color .15s, box-shadow .2s; -webkit-tap-highlight-color: transparent; }
+.unit-tile:active { background: #EEF2F8; transition-duration: .05s; }
+.unit-tile:focus:not(:focus-visible) { outline: none; }
+.unit-tile.st-wait, .unit-tile.st-wait:hover { border-style: dashed; }
+@media (hover: hover) and (pointer: fine) { .unit-tile:hover { border-color: var(--navy); box-shadow: 0 8px 22px rgba(30, 58, 138, .1); } }
+.unit-tile .tile-ring { width: 56px; height: 56px; }
+.unit-tile .tile-body { display: grid; gap: 3px; align-content: center; min-width: 0; }
+.unit-tile h3 { margin: 0; font-size: 1.12rem; line-height: 1.3; }
+.unit-tile .tile-topic { margin: 0; font-size: .9rem; line-height: 1.35; -webkit-line-clamp: 1; }
+.tile-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.tile-foot:empty { display: none; }
+.unit-tile .tile-foot > span { display: inline-flex; align-items: center; gap: 4px; height: 24px; margin: 0; padding: 0 9px; border: 0; border-radius: 999px; background: #EEF2F8; color: var(--steel); font-size: .76rem; font-weight: 800; white-space: nowrap; }
+.unit-tile .tile-foot .ic { width: 13px; height: 13px; stroke-width: 2.6; }
+.unit-tile.st-ok .tile-state { background: #E3F4E8; color: var(--good-ink); }
+.unit-tile.st-todo .tile-state { background: #FFEDD5; color: #C2410C; }
+.unit-tile.st-retake .tile-state { background: #FEF3C7; color: #854D0E; }
+.unit-tile.st-miss .tile-state { background: var(--bad-soft); color: var(--bad-ink); }
+.unit-tile .tile-foot .tile-asg { background: #FEF3C7; color: #92400E; }
+.unit-tile .tile-foot .tile-asg .ic { color: #D97706; }
+.unit-tile .tile-foot .tile-asg.done { background: #EEF2F8; color: var(--steel); }
+.unit-tile .tile-foot .tile-asg.done .ic { color: var(--steel); }
+.unit-tile .tile-foot :is(.tile-when, .tile-count) { padding: 0 2px; background: none; font-weight: 700; }
+.tile-go { display: grid; place-items: center; color: var(--steel); opacity: .55; }
+.tile-go .ic { width: 18px; height: 18px; }
+@media (max-width: 599px) {
+  .unit-grid { grid-auto-rows: auto; }
+  .unit-tile .tile-foot .tile-count { display: none; }
+  .unit-tile, .unit-tile:hover, .unit-tile:active { padding: 14px 12px 14px 14px; column-gap: 12px; }
+}
+/* 帳號頁：白色設定卡跟藍色封面之間留一段間隔；「已儲存」放在卡片右上角，不在卡片底部撐出空白 */
+.acct-head.me-head { padding-bottom: 34px; }
+.acct-head + .me-set { margin-top: 22px; position: relative; }
+.me-set .set-saved { position: absolute; top: 18px; right: 18px; margin: 0; }
