@@ -44,6 +44,7 @@ export function mount(stage, ctx) {
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
+    facts: [[nWords, '字'], [Math.max(1, Math.round(nWords / 150)), '分鐘閱讀'], [qs.length, '題']],
     best: () => store.best(unitId).reading,
     review: () => store.done(unitId),
     reviewed: () => store.reviewed(unitId),

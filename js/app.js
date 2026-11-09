@@ -359,6 +359,7 @@ function renderHome() {
   if (!(location.hash.split('/')[1] || '')) { syncDock(s ? 'home' : null); paintTopLeft('', !!s); }
   app.innerHTML = s
     ? `<section class="hero compact cover">
+        <div class="cover-eyebrow">${esc(index.book || 'Book 5')} · ${esc(s.cls)} 班 ${esc(s.seat)} 號</div>
         <h1>${esc(maskName(s.name))}，今天從哪一課開始？</h1>
         <p id="progress-slot"></p>
       </section>
@@ -410,7 +411,7 @@ function renderHome() {
       const urg = days < 1 ? 'today' : days <= 2 ? 'soon' : '';
       return `<li><a class="asg-row ${urg}" href="#/u/${esc(a.u.id)}">
           <span class="asg-main"><b class="en">${esc(a.u.title)}</b></span>
-          <span class="asg-due"><span class="asg-left" title="${esc(when)}">${esc(left === '今天' ? '今天截止' : left)}</span></span>
+          <span class="asg-due"><span class="asg-left">${esc(left === '今天' ? '今天截止' : left)}</span><span class="asg-when">${esc(when.replace(/ 截止$/, ''))}</span></span>
           <span class="asg-go" aria-hidden="true">${icon.arrowR}</span>
         </a></li>`;
     }).join('');
@@ -522,6 +523,7 @@ function tileHTML(u, asg = null) {
 // 轉場用的單元標題外框（資料載入前先顯示，版面和正式標題一致）
 function unitShellHTML(meta) {
   return `<div class="unit-head shell"${markAttr(meta)}>
+      <div class="eyebrow">${typeIcon(meta.type)}${lessonLabel(meta.lesson)} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
     </div><div class="loading"><span class="spinner"></span>載入中…</div>`;
 }
@@ -533,11 +535,11 @@ function headHTML(meta, data) {
   const words = data.words || [];
   const phrases = words.filter((w) => w.type === 'phrase').length;
   const sub = vocab ? [words.length - phrases ? `單字 ${words.length - phrases} 個` : '', phrases ? `片語 ${phrases} 個` : ''].filter(Boolean).join(' · ')
-    : meta.type === 'pattern' ? ((data.guides || []).length ? `${new Set((data.items || []).map((q) => q.tag).filter(Boolean)).size} 個句型` : `${(data.items || []).length} 題`)
-    : `${(data.questions || []).length} 題`;
+    : ''; // 課文、句型的題數與篇幅放在下面的數字卡，標題下不重複
   return `<div class="unit-head"${markAttr(meta)}>
+      <div class="eyebrow">${typeIcon(meta.type)}${lessonLabel(meta.lesson)} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
-      <div class="sub"><span>${sub}</span></div>
+      ${sub ? `<div class="sub"><span>${sub}</span></div>` : ''}
     </div>`;
 }
 
@@ -622,6 +624,7 @@ async function renderMe() {
   const count = (k) => rows.filter((r) => r.k === k).length;
   app.innerHTML = `
     <section class="me-head">
+      <div class="eyebrow">${esc(s.cls)} 班 ${esc(s.seat)} 號 · ${esc(maskName(s.name))}</div>
       <h1>我的成績${fresh ? '' : ' <span class="me-updating"><span class="spinner"></span>更新中…</span>'}</h1>
     </section>
     ${rejectedHTML(s)}
@@ -633,7 +636,7 @@ async function renderMe() {
     </div>
     ${rows.length ? `<div class="me-list">${rows.map((r) => `<a class="me-row ${r.k}" href="#/u/${esc(r.u.id)}">
         <span class="ic-box">${r.ic}</span>
-        <span class="txt"><b>${esc(unitName(r.u))}</b>${r.note && r.note !== r.st ? `<span>${esc(r.note)}</span>` : ''}</span>
+        <span class="txt"><b>${esc(unitName(r.u))}</b><span>${[typeLabel(r.u.type), r.note !== r.st ? r.note : ''].filter(Boolean).map(esc).join('・')}</span></span>
         <span class="st">${esc(r.st)}</span></a>`).join('')}</div>`
       : `<div class="empty"><div class="big">${icon.inbox}</div><h2>還沒有開放的單元</h2></div>`}`;
 }
@@ -678,8 +681,8 @@ function renderAccount() {
       <div class="set-row">
         <div class="set-txt"><b>句型說明</b></div>
         <div class="set-seg" role="radiogroup" aria-label="句型說明的看法">
-          <button type="button" role="radio" data-learn="find">${icon.target}<span>邊看邊找</span></button>
-          <button type="button" role="radio" data-learn="read">${icon.book}<span>直接看說明</span></button>
+          <button type="button" role="radio" data-learn="find">${icon.target}<span>邊看邊找</span><small>自己劃出句型的每一塊</small></button>
+          <button type="button" role="radio" data-learn="read">${icon.book}<span>直接看說明</span><small>例句直接標好顏色</small></button>
         </div>
       </div>
       <div class="set-row inline">

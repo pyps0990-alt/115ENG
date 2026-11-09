@@ -11,7 +11,8 @@ import { PASS } from '../types.js';
 // 做過但還沒檢討：只能先檢討，「開始複習」鎖住；檢討完才能複習。
 // resume()：回傳 { label, onResume(student), discard() } 代表有做到一半的測驗，沒有就回傳 null
 // total：計分的總分（題數）；integer：每題只有 1 分或 0 分（課文理解），過關分數用整數題數表示
-export function testGate(stage, { best, review = false, reviewed = true, retake = false, timeWindow, onStart, onReview, resume }) {
+// parts：這份測驗分成哪幾段（名稱、題數、做什麼）；facts：幾個關鍵數字（[數字, 單位]），用版面呈現，不寫成說明句
+export function testGate(stage, { parts = [], facts = [], best, review = false, reviewed = true, retake = false, timeWindow, onStart, onReview, resume }) {
   let wake = null;
   const draw = () => {
     stage.innerHTML = '';
@@ -71,6 +72,8 @@ export function testGate(stage, { best, review = false, reviewed = true, retake 
     box.className = 'gate';
     box.innerHTML = `<div class="card gate-card">
         ${stepsHTML}
+        ${facts.length ? `<dl class="gate-facts">${facts.map(([v, k]) => `<div><dt>${esc(String(v))}</dt><dd>${esc(k)}</dd></div>`).join('')}</dl>` : ''}
+        ${parts.length ? `<ol class="gate-parts">${parts.map((x, i) => `<li><span class="gp-n">${i + 1}</span><b>${esc(x.name)}</b>${x.n ? `<span class="gp-q">${esc(String(x.n))} 題</span>` : ''}${x.desc ? `<small>${esc(x.desc)}</small>` : ''}</li>`).join('')}</ol>` : ''}
         ${timeNote ? `<p class="gate-note">${timeNote}</p>` : ''}
         <div class="btn-row">${buttons}</div>${soon ? '<p class="gate-dl"><span class="st-deadline" data-deadline hidden></span></p>' : ''}
         <p class="who-line"><b>${esc(maskName(s.name))}</b> · ${esc(s.cls)} 班 ${esc(s.seat)} 號 <button class="link-btn edit" type="button">切換</button></p>

@@ -14,7 +14,7 @@ import { progress, leaveBody } from '../resume.js';
 import { diffAnswer } from '../components/diff.js';
 import { submitScore } from '../submit.js';
 import { statusBarHTML, mountDeadline } from '../components/status.js';
-import { PASS, partitionWords, pickWords, PER_TEST, weigh } from '../levels.js';
+import { PASS, stageSizes, partitionWords, pickWords, PER_TEST, weigh } from '../levels.js';
 
 
 export function mount(stage, ctx) {
@@ -94,6 +94,8 @@ export function mount(stage, ctx) {
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
+    facts: all.length > perTest ? [[all.length, '個字詞'], [perTest, '每次考']] : [],
+    parts: levels.map((l, i) => ({ name: l.name, n: stageSizes(perTest, levels.length)[i], desc: l.desc })),
     best: () => store.best(unitId).vocab,
     review: () => store.done(unitId),
     reviewed: () => store.reviewed(unitId),

@@ -17,7 +17,7 @@ const p = await world.newPage(ctx, { student: true });
 const answerCalls = [];
 p.on('request', (r) => { if (/cloudfunctions/.test(r.url()) && /"op":"answer"/.test(r.postData() || '')) answerCalls.push(JSON.parse(r.postData()).qid); });
 await p.goto(world.base + '/#/u/l3-pat'); await p.waitForSelector('[data-start]');
-assert.match(await p.locator('.unit-head .sub').textContent(), /2 個句型/);
+assert.match(await p.locator('.gate-facts').textContent(), /2個句型/);
 await p.click('[data-start]');
 let done = false, sawMode = false, sawSection = 0;
 for (let i = 0; i < 200 && !done; i++) {

@@ -78,6 +78,10 @@ export function mount(stage, ctx) {
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
+    facts: learnFlow
+      ? [[new Set(all.map((q) => q.tag).filter(Boolean)).size, '個句型'], [guides.length, '張說明卡']]
+      : [[n, '題'], [new Set(all.map((q) => q.kind)).size, '種題型']],
+    parts: learnFlow ? [{ name: '認識句型', desc: '' }, { name: '檢測', desc: '不計分' }, { name: '驗收', desc: '計分' }] : [],
     best: () => store.best(unitId).pattern,
     review: () => store.done(unitId),
     reviewed: () => store.reviewed(unitId),

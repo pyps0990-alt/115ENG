@@ -921,6 +921,9 @@
       .m-top-back { width:44px; height:44px; margin-left:-6px; border:0; border-radius:12px; background:transparent; color:#fff; display:grid; place-items:center; cursor:pointer; flex:none; }
       .m-top-back:hover, .m-top-back:focus-visible { background:rgba(255,255,255,.12); }
       .m-top-back svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+      /* 左上角 B5 標誌（跟學生端同一個琥珀色方塊）；進到單元出現返回鍵時讓位給返回鍵 */
+      .m-top-logo { flex:none; width:34px; height:34px; border-radius:10px; background:var(--primary); color:var(--navy); display:grid; place-items:center; font-weight:900; font-size:.9rem; letter-spacing:.01em; margin-right:4px; }
+      .m-top-back:not([hidden]) + .m-top-logo { display:none; }
       .ulist, .work { grid-row:2 !important; }
       /* 下方分頁列 */
       .rail { position:fixed; left:0; right:0; bottom:0; top:auto; z-index:30; height:calc(64px + env(safe-area-inset-bottom, 0px)); padding:4px 4px env(safe-area-inset-bottom, 0px); display:flex; flex-direction:row; align-items:stretch; justify-content:space-around; gap:0; overflow:visible; border-top:1px solid rgba(255,255,255,.12); }
@@ -5415,7 +5418,7 @@
     (function mobileNav() {
       var shell = $('shell'), rail = document.querySelector('.rail');
       var top = document.createElement('header'); top.className = 'm-top'; top.id = 'm-top';
-      top.innerHTML = '<button class="m-top-back" type="button" id="m-top-back" aria-label="回單元清單" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><h1 class="m-top-title" id="m-top-title">總覽</h1>';
+      top.innerHTML = '<button class="m-top-back" type="button" id="m-top-back" aria-label="回單元清單" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><span class="m-top-logo" aria-label="B5 老師後台">B5</span><h1 class="m-top-title" id="m-top-title">總覽</h1>';
       shell.insertBefore(top, shell.firstChild);
       var more = document.createElement('button'); more.type = 'button'; more.className = 'rail-more'; more.id = 'rail-more';
       more.setAttribute('aria-haspopup', 'dialog'); more.setAttribute('aria-expanded', 'false');
