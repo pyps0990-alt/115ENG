@@ -123,9 +123,10 @@ export function scene(fn) {
   if (!ok) return Promise.resolve(fn());
   sceneBusy = true;
   document.documentElement.dataset.nav = 'scene';
+  if (window.scrollY > 160) document.documentElement.dataset.far = ''; // 捲在下面：舊的先淡出（同換頁）
   let out;
   const t = document.startViewTransition(() => { out = fn(); return Promise.race([Promise.resolve(out), new Promise((r) => setTimeout(r, 100))]); });
-  t.finished.catch(() => {}).finally(() => { sceneBusy = false; });
+  t.finished.catch(() => {}).finally(() => { sceneBusy = false; delete document.documentElement.dataset.far; });
   t.ready.catch(() => {});
   return t.updateCallbackDone.catch(() => {}).then(() => out);
 }

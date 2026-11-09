@@ -107,8 +107,11 @@ async function route() {
     let job = null;
     // 分頁列不單獨截圖（iPhone Safari 截毛玻璃會出現灰白色空框），跟整個畫面一起淡化
     document.documentElement.dataset.nav = fromSearch ? 'search' : tabSwitch ? 'tab' : (app.dataset.dir || 'fwd');
+    // 舊畫面或新畫面捲得比較下面（看不到深藍封面）：改成舊的先淡出、新的再淡入，不會變成新封面疊在一堆舊卡片上
+    const far = window.scrollY > 160 || (backTo || 0) > 160;
+    if (far) document.documentElement.dataset.far = ''; else delete document.documentElement.dataset.far;
     const t = document.startViewTransition(() => { job = run(); return Promise.race([job, new Promise((r) => setTimeout(r, 100))]); });
-    t.finished.catch(() => {}).finally(() => { if (document.documentElement.dataset.nav === 'tab') delete document.documentElement.dataset.nav; });
+    t.finished.catch(() => {}).finally(() => { if (document.documentElement.dataset.nav === 'tab') delete document.documentElement.dataset.nav; delete document.documentElement.dataset.far; });
     t.ready.catch(() => {});
     await t.updateCallbackDone.catch(() => {});
     await (job || run());
