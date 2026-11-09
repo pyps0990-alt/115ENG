@@ -676,7 +676,7 @@ async function paintVersion(el) {
     const d = new Date(loaded.t);
     const p = (n) => String(n).padStart(2, '0');
     const when = isNaN(d) ? '' : ` · ${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
-    el.textContent = `版本 ${loaded.v.slice(0, 7)}${when}`;
+    el.textContent = `${loaded.n ? `v${loaded.n}` : `版本 ${loaded.v.slice(0, 7)}`}${when}`;
     if (latest && latest.v !== loaded.v) {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'acct-ver-up'; b.textContent = '有新版本，點這裡更新';
