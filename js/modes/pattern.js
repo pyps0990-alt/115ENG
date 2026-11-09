@@ -4,7 +4,7 @@
 // 答案不公開（js/answers.js）
 import { typeLabel } from '../types.js';
 import { store } from '../storage.js';
-import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog, leaveOut } from '../util.js';
+import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog, leaveOut, scene } from '../util.js';
 import { icon } from '../icons.js';
 import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
@@ -70,8 +70,8 @@ export function mount(stage, ctx) {
         const q = all.find((x) => x.id === d.word);
         return { html: q ? reviewCardHTML(q, d.yours) : `<div class="rv-card"><div class="rv-prompt">${esc(d.q || d.question || '')}</div><div class="rv-row ok"><span>正確答案</span><b class="en">${esc(d.correct || '')}</b></div></div>` };
       }),
-      onDone: () => { if (firstTime) completeReview(unitId); gate.redraw(); window.scrollTo(0, 0); },
-      onExit: () => { gate.redraw(); window.scrollTo(0, 0); },
+      onDone: () => { if (firstTime) completeReview(unitId); scene(() => { gate.redraw(); window.scrollTo(0, 0); }); },
+      onExit: () => scene(() => { gate.redraw(); window.scrollTo(0, 0); }),
     });
     window.scrollTo(0, 0);
   }
@@ -338,8 +338,7 @@ export function mount(stage, ctx) {
       const stamp = nowStamp();
       const wasTried = store.tried(unitId);
       const mine = qs.map((q, i) => ({ stage: '句型練習', n: i + 1, kind: q.label, q: q.kind === 'apply' ? q.zh : q.stem, correct: '', yours: String((answers[q.id] || {}).yours || ''), ok: false, points: 0, hints: 0, word: q.id, err: '' }));
-      stage.innerHTML = '<div class="loading"><span class="spinner"></span>交卷中，伺服器正在計分…</div>';
-      window.scrollTo(0, 0);
+      await scene(() => { stage.innerHTML = '<div class="loading"><span class="spinner"></span>交卷中，伺服器正在計分…</div>'; window.scrollTo(0, 0); });
       const res = await submitScore({
         clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
         unit: unitId, unitTitle: ctx.unit.title, mode: 'pattern', review: false, attemptId: session,
@@ -423,8 +422,7 @@ export function mount(stage, ctx) {
           const q = byId.get(d.word) || {};
           return { stage: String(nameOf.get(d.word) || '句型練習').slice(0, 20), n: i + 1, kind: q.label || '', q: q.kind === 'apply' ? q.zh : q.stem, correct: '', yours: String(d.yours || ''), ok: false, points: 0, hints: 0, word: d.word, err: '' };
         });
-        stage.innerHTML = '<div class="loading"><span class="spinner"></span>交卷中，伺服器正在計分…</div>';
-        window.scrollTo(0, 0);
+        await scene(() => { stage.innerHTML = '<div class="loading"><span class="spinner"></span>交卷中，伺服器正在計分…</div>'; window.scrollTo(0, 0); });
         const res = await submitScore({
           clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
           unit: unitId, unitTitle: ctx.unit.title, mode: 'pattern', flow: 'learn', review: false, attemptId: session,

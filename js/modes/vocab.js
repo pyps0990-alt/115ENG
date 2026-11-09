@@ -1,7 +1,7 @@
 // 單字片語測驗：同一組單字，依序連續完成基礎 → 進階 → 精熟三段，最後一張總成績單
 import { typeLabel } from '../types.js';
 import { store } from '../storage.js';
-import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog, leaveOut } from '../util.js';
+import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog, leaveOut, scene } from '../util.js';
 import { icon } from '../icons.js';
 import { learnPrefs } from '../learn-prefs.js';
 import { renderMC, renderSpell, promptText, answerText, explainWrong, classifyError, errorOf, questionFromRecord } from '../components/question.js';
@@ -86,8 +86,8 @@ export function mount(stage, ctx) {
     mountReview(stage, {
       title: `${ctx.unit.title}｜${firstTime ? '檢討' : '再看一次檢討'}`,
       items: (details || []).filter((d) => !d.ok).map((d) => ({ html: reviewItemHTML(d) })),
-      onDone: () => { if (firstTime) completeReview(unitId); gate.redraw(); window.scrollTo(0, 0); },
-      onExit: () => { gate.redraw(); window.scrollTo(0, 0); },
+      onDone: () => { if (firstTime) completeReview(unitId); scene(() => { gate.redraw(); window.scrollTo(0, 0); }); },
+      onExit: () => scene(() => { gate.redraw(); window.scrollTo(0, 0); }),
     });
     window.scrollTo(0, 0);
   }
@@ -287,7 +287,7 @@ export function mount(stage, ctx) {
       if (!alive) return;
       if (!last) { show(); return; }
       stages[si].finished = true;
-      if (si === stages.length - 1) { finish(); return; }
+      if (si === stages.length - 1) { scene(() => finish()); return; }
       stageCard();
     }
 

@@ -1,4 +1,4 @@
-import { loadIndex, loadUnit, applyImported, addCustomUnits, loadAnalysis, analysisSig } from './data.js';
+import { loadIndex, loadUnit, loadUnitNow, unitCached, applyImported, addCustomUnits, loadAnalysis, analysisSig } from './data.js';
 import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow, fmtWhen, unitCfg, assignmentsFor, dueLabel } from './remote-config.js';
 import { store } from './storage.js';
 import { esc, confirmDialog } from './util.js';
@@ -58,6 +58,7 @@ async function route() {
   if (changed) app.dataset.dir = depth < lastDepth ? 'back' : 'fwd';
   const prevKind = lastKind;
   lastDepth = depth;
+  hush(1000);
   // 從首頁、我的成績點進單元前，記下捲到哪裡；返回時回到原位（不再一律跳回最上面，越下面的單元越明顯）
   const nextKind = (location.hash.split('/')[1] || '');
   if (changed && !first && nextKind === 'u' && ['', 'me'].includes(prevKind)) scrollMem[prevKind] = window.scrollY;
@@ -374,11 +375,27 @@ function showError(err) {
 // 首頁畫好後，趁空檔把接下來要做的單元題目先下載存在裝置上（依老師更新時間存，沒改過就不再下載）：點進單元時不用等網路。
 // 一次載入只做一次；省流量模式不做。
 let prefetched = false;
+// 一個一個在瀏覽器空閒時下載；換頁、點擊、捲動的前後一小段時間先停（下載完解析題目要一點時間，不能剛好撞在動畫上）
+let quietUntil = 0;
+const hush = (ms) => { quietUntil = Math.max(quietUntil, performance.now() + ms); };
+['pointerdown', 'keydown', 'wheel', 'touchmove'].forEach((t) => window.addEventListener(t, () => hush(700), { passive: true, capture: true }));
+// 手指按下單元（卡片、指派、成績列、搜尋結果）的那一刻就先讀題目：放開、換頁時題目已經在記憶體裡
+document.addEventListener('pointerdown', (e) => {
+  const a = e.target.closest && e.target.closest('a[href^="#/u/"]');
+  const meta = a && config && index && findUnit(decodeURIComponent(a.getAttribute('href').split('/')[2] || ''));
+  if (meta) loadUnit(meta.id, config).catch(() => {});
+}, { passive: true, capture: true });
+const idleTurn = () => new Promise((r) => (window.requestIdleCallback ? requestIdleCallback(r, { timeout: 6000 }) : setTimeout(r, 400)));
 function prefetchUnits(list) {
   if (prefetched || !list.length || (navigator.connection && navigator.connection.saveData)) return;
   prefetched = true;
-  const run = () => list.reduce((p, u) => p.then(() => loadUnit(u.id, config).catch(() => {})), Promise.resolve());
-  (window.requestIdleCallback || ((f) => setTimeout(f, 1500)))(run, { timeout: 4000 });
+  (async () => {
+    for (const u of list) {
+      if (unitCached(u.id, config)) continue;
+      do { await idleTurn(); } while (performance.now() < quietUntil || document.body.dataset.busy);
+      await loadUnitNow(u.id, config).catch(() => {}); // 只存到裝置上，不放進按下卡片用的暫存
+    }
+  })();
 }
 
 function renderHome() {

@@ -76,6 +76,24 @@ export const splitSentences = (p) => (String(p).match(/[^.!?]+(?:[.!?]+["'”’
 
 // danger：確認的是破壞性動作（例如離開測驗）。預設停在「取消」，確認鈕改成安靜的外框鈕，避免按 Enter 就誤中斷
 // 換內容前先讓舊的淡出（約 0.18 秒），再放新的進來：不會「啪」一下直接換掉
+// 單元裡的「場景」切換（開始測驗、交卷、看成績、進檢討、檢討完回單元頁）：跟換頁一樣用 View Transition 交叉淡化，
+// 封面高度、版面一起平順過去，不會硬切。不支援的瀏覽器、減少動態、或已經有轉場在跑時直接換
+let sceneBusy = false;
+export function scene(fn) {
+  const ok = !!document.startViewTransition && !reducedMotion() && document.visibilityState === 'visible' && !sceneBusy;
+  if (!ok) return Promise.resolve(fn());
+  sceneBusy = true;
+  document.documentElement.dataset.nav = 'scene';
+  let out;
+  const t = document.startViewTransition(() => { out = fn(); return Promise.race([Promise.resolve(out), new Promise((r) => setTimeout(r, 150))]); });
+  t.finished.catch(() => {}).finally(() => { sceneBusy = false; });
+  t.ready.catch(() => {});
+  return t.updateCallbackDone.catch(() => {}).then(() => out);
+}
+
+// 正在換場景：新內容不要再自己做進場動畫（換場的交叉淡化已經處理了，兩個疊在一起會先空白一下）
+export const inScene = () => sceneBusy;
+
 export async function leaveOut(host, ms = 180) {
   if (!host || !host.children.length || reducedMotion()) return;
   [...host.children].forEach((c) => c.classList.add('leaving'));

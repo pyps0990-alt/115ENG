@@ -1,6 +1,6 @@
 // 課文理解：先讀文章，再作答閱讀測驗；交卷後送出成績，再逐題檢討（一次一題，可標出原文依據）
 import { store } from '../storage.js';
-import { esc, nowStamp, confirmDialog, centerInView } from '../util.js';
+import { esc, nowStamp, confirmDialog, centerInView, scene } from '../util.js';
 import { icon } from '../icons.js';
 import { renderResult } from '../components/result.js';
 import { unitWindow, unitCfg } from '../remote-config.js';
@@ -234,8 +234,7 @@ export function mount(stage, ctx) {
       yours: answers[i] == null ? '' : `${KEYS[answers[i]]}. ${q.options[answers[i]]}`, hints: 0, ...judgeAt(i),
     }));
     const local = keyed ? mine.filter((d) => d.ok).length : null;
-    stage.innerHTML = '<div class="loading"><span class="spinner"></span>交卷中，伺服器正在計分…</div>';
-    window.scrollTo(0, 0);
+    await scene(() => { stage.innerHTML = '<div class="loading"><span class="spinner"></span>交卷中，伺服器正在計分…</div>'; window.scrollTo(0, 0); });
     const res = await submitScore({
       clientTs: stamp, cls: student.cls, seat: student.seat, name: student.name,
       unit: unitId, unitTitle: ctx.unit.title, mode: 'reading', review, level: review ? '複習 · 課文理解' : wasTried ? '補考 · 課文理解' : '課文理解',
@@ -409,8 +408,8 @@ export function mount(stage, ctx) {
     mountReview(stage.querySelector('[data-review]'), {
       title: `${ctx.unit.title}｜${firstTime ? '檢討' : '再看一次檢討'}`,
       items: qs.map((q, i) => reviewItem(q, i, answers[i], marks)),
-      onDone: () => { if (firstTime) completeReview(unitId); gate.redraw(); window.scrollTo(0, 0); },
-      onExit: () => { document.querySelector('.note-pop')?.remove(); gate.redraw(); window.scrollTo(0, 0); },
+      onDone: () => { if (firstTime) completeReview(unitId); scene(() => { gate.redraw(); window.scrollTo(0, 0); }); },
+      onExit: () => { document.querySelector('.note-pop')?.remove(); scene(() => { gate.redraw(); window.scrollTo(0, 0); }); },
     });
   }
 

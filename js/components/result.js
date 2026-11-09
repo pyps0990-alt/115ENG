@@ -1,4 +1,4 @@
-import { esc, confetti } from '../util.js';
+import { esc, confetti, scene } from '../util.js';
 import { PASS } from '../types.js';
 import { icon } from '../icons.js';
 
@@ -18,7 +18,7 @@ function countUp(el, to, ms = 1000) {
   const t0 = performance.now();
   el.textContent = '0';
   const step = (now) => {
-    const k = Math.min(1, (now - t0) / ms);
+    const k = Math.max(0, Math.min(1, (now - t0) / ms)); // 這一格的時間戳可能比起點早一點（或被轉場延後）：夾在 0～1，不會算出負數
     el.textContent = String(Math.round(to * (1 - Math.pow(1 - k, 3))));
     if (k < 1 && el.isConnected) requestAnimationFrame(step); else el.textContent = String(to);
   };
@@ -64,7 +64,8 @@ export function renderResult(host, { title, pct, scoreText, pills = [], wrong = 
     b.type = 'button';
     b.className = `btn ${a.primary ? 'primary' : ''}`;
     b.innerHTML = `${a.icon || ''}${esc(a.label)}`;
-    b.addEventListener('click', a.onClick);
+    // 回首頁走換頁轉場；其他（補考、檢討、再做一次）是同一頁裡換場景
+    b.addEventListener('click', a.icon === icon.home || a.nav ? a.onClick : () => scene(() => a.onClick()));
     row.append(b);
   });
   host.append(box);

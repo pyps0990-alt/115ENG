@@ -6,7 +6,7 @@
 // 版面：上方整體進度＋這一段的三個步驟；主要按鈕固定在下方（手機拇指按得到）；步驟之間依前進／後退方向滑動。
 //
 // guide（每個句型一份）：{ tag, name, use, parts: [{ t, eg }], examples: [{ en: 'Japan is {0:ten times} {1:the size} {2:of} {3:Taiwan}.', zh }], pitfall, checks: [題庫格式的題目] }
-import { esc, shuffle, reducedMotion } from '../util.js';
+import { esc, shuffle, reducedMotion, inScene } from '../util.js';
 import { icon } from '../icons.js';
 import { flattenPattern, renderChoiceCard, renderFillCard, renderApplyCard, judge, applyScore, reviewCardHTML } from './items.js';
 
@@ -98,7 +98,7 @@ export function mountLearn(stage, { guides, items, prefs, onFinish, grade = null
     }
     paintTop(step);
     const view = $('.ln-view');
-    const calm = reducedMotion();
+    const calm = reducedMotion() || inScene();
     const oldH = view.offsetHeight; // 要在舊內容改成淡出（不佔空間）之前量
     [...view.children].forEach((old) => {
       if (calm || dir === 0) { old.remove(); return; }
@@ -131,7 +131,7 @@ export function mountLearn(stage, { guides, items, prefs, onFinish, grade = null
 
   // ---------- 第一次：選認識卡的模式 ----------
   function chooseMode(then) {
-    stage.innerHTML = `<div class="ln-body in-r"><div class="ln-card ln-choose">
+    stage.innerHTML = `<div class="ln-body${inScene() ? '' : ' in-r'}"><div class="ln-card ln-choose">
       <h2>看句型說明時，你想要…</h2>
       <p class="muted">之後可以在說明卡右上角隨時切換。</p>
       <div class="ln-modes">

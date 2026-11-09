@@ -1862,9 +1862,16 @@ dialog.search-sheet::backdrop { background: rgba(15, 23, 42, .3); }
 }
 /* 換頁（View Transition）：新舊畫面重疊得久一點，新畫面慢慢停住 */
 /* 舊畫面留在底下不淡出、新畫面在上面淡入：兩張都半透明時深藍的導覽列與封面會透出白底（看起來閃白），這樣就不會 */
-::view-transition-old(root) { animation: none; mix-blend-mode: normal; }
-::view-transition-new(root) { animation: vt-page-in .42s var(--ease-soft) both; mix-blend-mode: normal; }
-::view-transition-image-pair(root) { isolation: auto; }
+/* 真正的交叉淡化：舊畫面淡出、新畫面淡入，用同一條時間曲線、plus-lighter 疊加——兩張畫面相同的地方（深藍封面、底色）
+   全程維持原色，不會閃白；不同的地方平順換過去，不會像兩張照片疊在一起。新畫面另外帶一點點位移，有前進／後退的方向感 */
+::view-transition-image-pair(root) { isolation: isolate; }
+::view-transition-old(root) { animation: vt-x-out .34s cubic-bezier(.4, 0, .2, 1) both; mix-blend-mode: plus-lighter; }
+::view-transition-new(root) { animation: vt-x-in .34s cubic-bezier(.4, 0, .2, 1) both, vt-rise .5s var(--ease-soft) both; mix-blend-mode: plus-lighter; }
+html[data-nav="back"]::view-transition-new(root) { animation-name: vt-x-in, vt-sink; }
+@keyframes vt-x-out { to { opacity: 0; } }
+@keyframes vt-x-in { from { opacity: 0; } }
+@keyframes vt-rise { from { transform: translate3d(0, 6px, 0); } }
+@keyframes vt-sink { from { transform: translate3d(0, -5px, 0); } }
 @keyframes vt-page-in { from { opacity: 0; transform: translate3d(0, 8px, 0); } }
 @keyframes vt-page-in-back { from { opacity: 0; transform: translate3d(0, -6px, 0); } }
 /* 分頁列：兩頁都有時保持不動（膠囊照常滑）；只有一邊有時淡入／淡出，不會突然出現或消失 */

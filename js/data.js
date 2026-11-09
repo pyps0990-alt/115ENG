@@ -30,7 +30,19 @@ export const loadIndex = () => {
 
 // 老師在後台匯入過的單元，改讀試算表裡的內容；讀不到時退回網站內建的 JSON。
 // 匯入內容依「更新時間」存在裝置上：老師沒改過就不用再等 Apps Script，改過會自動抓新版。
-export async function loadUnit(id, config) {
+// 按下卡片的瞬間就先讀題目，放開、換頁時直接拿到同一份（只留 3 秒：之後再進來照常重新讀，內容有異動時看得到）
+const mem = new Map();
+export function loadUnit(id, config) {
+  const imported = config && config.content && config.content[id];
+  const k = `${id}@${imported ? String(imported.updated || '') : ''}`;
+  const hit = mem.get(k);
+  if (hit && Date.now() - hit.at < 3000) return hit.p;
+  const p = loadUnitNow(id, config);
+  mem.set(k, { p, at: Date.now() });
+  p.catch(() => mem.delete(k));
+  return p;
+}
+export async function loadUnitNow(id, config) {
   const imported = config && config.content && config.content[id];
   if (imported && SCRIPT_URL) {
     const key = `b5p:content:${id}`;
@@ -57,6 +69,13 @@ export async function loadUnit(id, config) {
   }
   // 網站沒有內建題目了：老師還沒匯入的單元沒有題目
   throw new Error('老師還沒有放入這個單元的題目');
+}
+
+// 這個單元的題目是不是已經存在裝置上（只比對開頭的版本，不解析整份內容；預先下載時用來跳過，不浪費時間）
+export function unitCached(id, config) {
+  const imported = config && config.content && config.content[id];
+  if (!imported || !SCRIPT_URL) return true;
+  try { const raw = localStorage.getItem(`b5p:content:${id}`); return !!raw && raw.startsWith(`{"v":${JSON.stringify(String(imported.updated || ''))},`); } catch { return false; }
 }
 
 // 錯誤分析引擎（tools/brain）的結果：同單元哪些字放進某句例句也說得通（不當干擾選項）、每句例句的課外選項。
