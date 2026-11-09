@@ -1071,12 +1071,6 @@ h1.en, h2.en, h3.en, .brand, .eyebrow, .pct { font-family: var(--font-en); }
 .switch[aria-checked="true"] .sw::after { transform: translateX(18px); }
 
 /* 首頁：狀態說明、篩選 */
-.legend { margin: 0 0 4px; }
-.legend > summary { cursor: pointer; display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--navy); }
-.legend dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 14px; margin: 4px 0 8px; padding: 14px 16px; border-radius: 14px; background: var(--white); border: 1.5px solid var(--line-strong); font-size: .92rem; }
-.legend dt { font-weight: 800; color: var(--navy); }
-.legend dd { margin: 0; }
-@media (max-width: 480px) { .legend dl { grid-template-columns: 1fr; gap: 2px; } .legend dd { margin-bottom: 8px; } }
 .seg { display: inline-flex; margin-top: 24px; padding: 3px; border-radius: 999px; background: var(--wash); }
 .seg button { min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; color: var(--steel); font-weight: 700; font-size: .92rem; }
 .seg button[aria-pressed="true"] { background: var(--white); color: var(--navy); box-shadow: 0 1px 4px rgba(30, 58, 138, .18); }
@@ -1648,13 +1642,7 @@ body { background: var(--bg); }
 /* 首頁列表上方：篩選＋狀態說明 */
 .list-head { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; margin-top: 22px; }
 .list-head .seg { margin-top: 0; }
-.list-head .legend { margin: 0; }
-.list-head .legend > summary { gap: 6px; font-size: .92rem; list-style: none; }
-.list-head .legend > summary::-webkit-details-marker { display: none; }
-.list-head .legend > summary .ic { width: 17px; height: 17px; }
 .list-head { position: relative; flex-wrap: nowrap; justify-content: flex-end; margin-top: 14px; }
-.list-head .legend { flex: none; }
-.list-head .legend dl { position: absolute; z-index: 15; right: 0; top: calc(100% + 6px); width: min(420px, 100%); margin: 0; box-shadow: 0 16px 36px rgba(30, 58, 138, .16); animation: pop-in .2s var(--ease); }
 .list-head + .lesson, .list-head + .asg-sec { margin-top: 18px; }
 
 /* 單元卡：白底、左邊成績環，狀態用環與小標籤表達（不再整圈彩色外框） */
@@ -1681,7 +1669,7 @@ body { background: var(--bg); }
 @media (max-width: 599px) {
   .unit-grid .unit-tile .tile-meta { display: none; } /* 手機：卡片收短，類型與字數在單元頁看得到 */
   .unit-grid { gap: 10px; }
-  .unit-tile { padding: 14px; }
+  .unit-tile { padding: 14px; align-items: center; }
 }
 .lesson-head { border-bottom: 0; padding-bottom: 0; margin-bottom: 12px; font-size: 1.2rem; }
 .asg-sec .lesson-head .ic { color: var(--amber); }
@@ -1937,7 +1925,6 @@ dialog.search-sheet[open] { animation: ss-in .38s var(--ease-soft) both; }
 /* 卡片離開、狀態說明、通知：小一點的位移、不縮很小 */
 @keyframes tile-out { to { opacity: 0; transform: scale(.97); } }
 .unit-tile.tile-out { animation: tile-out .32s var(--ease-leave) forwards; }
-.list-head .legend[open] dl { animation: pop-in .3s var(--ease-soft) both; }
 .notify-item { animation-duration: .42s; animation-timing-function: var(--ease-soft); }
 /* 按鈕、卡片按下去的回饋：回彈慢一點 */
 .btn, .unit-tile, .next-card, .me-row { transition-timing-function: var(--ease-soft); }
@@ -2003,8 +1990,6 @@ dialog.search-sheet[open] { animation: ss-in .38s var(--ease-soft) both; }
 .acct-btn:active { transform: scale(.96); }
 .acct-btn.out { background: rgba(229, 72, 77, .9); border-color: rgba(255, 255, 255, .22); }
 .acct-btn.out:hover { background: #E5484D; }
-.acct-tip { margin: 4px 2px 0; font-size: .82rem; color: var(--steel); line-height: 1.6; }
-body.has-dock .acct-tip { margin-bottom: 8px; }
 .acct-ver { margin: 0 2px; font-size: .74rem; color: var(--steel); opacity: .8; font-variant-numeric: tabular-nums; }
 body.has-dock .acct-ver { margin-bottom: 96px; }
 .acct-ver:empty { min-height: 1.2em; }

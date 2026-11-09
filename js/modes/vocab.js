@@ -14,7 +14,7 @@ import { progress, leaveBody } from '../resume.js';
 import { diffAnswer } from '../components/diff.js';
 import { submitScore } from '../submit.js';
 import { statusBarHTML, mountDeadline } from '../components/status.js';
-import { PASS, stageSizes, partitionWords, pickWords, PER_TEST, weigh } from '../levels.js';
+import { PASS, partitionWords, pickWords, PER_TEST, weigh } from '../levels.js';
 
 
 export function mount(stage, ctx) {
@@ -22,8 +22,6 @@ export function mount(stage, ctx) {
   const all = ctx.allWords;
   const unitId = ctx.unit.id;
   const perTest = Math.min(all.length, ctx.perTest || PER_TEST); // 一次考幾個字（老師在出題設定填的，沒填就是 PER_TEST；單元的字比較多就抽題）
-  const sizes = stageSizes(perTest, levels.length);
-  const nPhrase = all.filter((w) => w.type === 'phrase').length;
   // 例句記憶：記下這位學生每個字考過哪幾句例句（存在這台裝置），下次換一句沒考過的；全部考過才重新開始
   const pickEx = (word, n) => {
     const key = `${unitId}:ex`;
@@ -96,14 +94,6 @@ export function mount(stage, ctx) {
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
-    eyebrow: levels.map((l) => l.en).join(' → '),
-    rules: [
-      all.length > perTest
-        ? `共 <b>${all.length}</b> 個（單字 ${all.length - nPhrase}、片語 ${nPhrase}），每次測驗抽 <b>${perTest}</b> 個，分成 <b>${levels.length}</b> 段（${sizes.join('、')} 題）；上次沒考到的字優先，做 ${Math.ceil(all.length / perTest)} 次就輪完全部`
-        : `共 <b>${all.length}</b> 個（單字 ${all.length - nPhrase}、片語 ${nPhrase}），分成 <b>${levels.length}</b> 段（${sizes.join('、')} 題），每個字這次只考一次，全部都會考到`,
-      '複習時單字會重新分配到不同的階段，題型和例句也會換',
-      ...levels.map((l, i) => `第 ${i + 1} 段 <b>${l.name}</b>：${esc(l.desc)}`),
-    ],
     best: () => store.best(unitId).vocab,
     review: () => store.done(unitId),
     reviewed: () => store.reviewed(unitId),
@@ -130,7 +120,6 @@ export function mount(stage, ctx) {
     const stages = saved
       ? saved.stages.map(({ levelId, ...r }) => ({ ...r, level: levels.find((l) => l.id === levelId) }))
       : stagesIn.map(({ level, words }) => ({ level, qs: level.build(shuffle(words), all, { analysis: ctx.analysis, pickEx }), points: 0, wrong: [] }));
-    const total = stages.reduce((s, x) => s + x.qs.length, 0);
     let si = saved ? saved.si : 0; let qi = saved ? saved.qi : 0; let done = saved ? saved.done : 0;
     let streak = saved ? saved.streak : 0; let bestStreak = saved ? saved.bestStreak : 0;
     const details = saved ? saved.details : [];
@@ -152,11 +141,10 @@ export function mount(stage, ctx) {
     const stKind = !official ? 'redo' : review ? 'review' : 'official';
     stage.innerHTML = `
       <div class="quiz has-qdock">
-        ${statusBarHTML({ kind: stKind, note: { official: '這次的分數會送給老師。', review: '', redo: '只練剛剛錯的題目，不計分也不送出。' }[stKind], mid: `<ol class="stepper" aria-label="測驗進度">${stages.map((s, i) => `<li data-step="${i}">
+        ${statusBarHTML({ kind: stKind, note: '', mid: `<ol class="stepper" aria-label="測驗進度">${stages.map((s, i) => `<li data-step="${i}">
           <span class="step-dot">${i + 1}</span><span class="step-name">${s.level.name}</span><span class="step-score"></span></li>`).join('')}</ol><div class="quiz-bar">
           <div class="bar"><span></span></div>
           <span class="quiz-stat" data-n></span>
-          <span class="quiz-all" data-all title="全部題數"></span>
           <span class="quiz-stat streak" data-streak title="連續答對">${icon.flame}<b>0</b></span>
         </div>` })}
 
@@ -168,7 +156,7 @@ export function mount(stage, ctx) {
             <div class="q-dock-sub"><div class="feedback" data-fb aria-live="polite"></div><button class="switch" type="button" role="switch" data-auto-toggle><span class="sw" aria-hidden="true"></span>自動下一題</button></div>
           </div>
         </div>
-        <p class="quiz-note"><span class="kb-hint">按 1–4 或 A–D 選答案，Enter 下一題</span><span class="auto-cue" data-auto-cue hidden>輕點畫面可暫停自動下一題</span></p>
+        <p class="quiz-note"><span class="auto-cue" data-auto-cue hidden>輕點畫面可暫停自動下一題</span></p>
       </div>`;
     mountDeadline(stage, official && !review ? unitWindow(ctx.config, unitId) : null);
     const nextBtn = stage.querySelector('[data-next]');
@@ -210,7 +198,6 @@ export function mount(stage, ctx) {
       const cur = stages[Math.min(si, stages.length - 1)];
       stage.querySelector('.bar > span').style.setProperty('--w', `${(Math.min(qi, cur.qs.length) / cur.qs.length) * 100}%`);
       stage.querySelector('[data-n]').textContent = `第 ${Math.min(qi + 1, cur.qs.length)} / ${cur.qs.length} 題`;
-      stage.querySelector('[data-all]').textContent = `全部 ${Math.min(done + 1, total)}/${total}`;
     };
 
     function show() {
@@ -224,10 +211,9 @@ export function mount(stage, ctx) {
       host.innerHTML = '';
       const s = stages[si];
       const q = s.qs[qi];
-      const label = `${s.level.name}・第 ${qi + 1} 題`;
       current = q.type === 'mc'
-        ? renderMC(host, q, { label: `${label}・${q.dir === 'en2zh' ? '選出中文意思' : q.dir === 'cloze' ? '選出空格的字詞' : '選出英文字詞'}`, onAnswer: (ok, chosen) => answered(q, ok, ok ? 1 : 0, q.options[chosen]) })
-        : renderSpell(host, q, { label: `${label}・${q.variant === 'cloze' ? '拼出空格的字詞' : '看中文拼出英文'}`, onAnswer: (ok, { hints, typed }) => answered(q, ok, ok ? 1 : 0, typed, hints) });
+        ? renderMC(host, q, { label: q.dir === 'en2zh' ? '選出中文意思' : q.dir === 'cloze' ? '選出空格的字詞' : '選出英文字詞', onAnswer: (ok, chosen) => answered(q, ok, ok ? 1 : 0, q.options[chosen]) })
+        : renderSpell(host, q, { label: q.variant === 'cloze' ? '拼出空格的字詞' : '看中文拼出英文', onAnswer: (ok, { hints, typed }) => answered(q, ok, ok ? 1 : 0, typed, hints) });
       centerInView(host.querySelector('.q-card'));
     }
 

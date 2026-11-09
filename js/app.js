@@ -342,11 +342,6 @@ function showError(err) {
 }
 
 /* ---------------- home ---------------- */
-// 課本冊數對應年級：B1～B2 高一、B3～B4 高二、B5～B6 高三
-function gradeOf(book) {
-  const n = Number((/(\d+)/.exec(book) || [])[1]);
-  return n >= 1 && n <= 2 ? '高一' : n >= 3 && n <= 4 ? '高二' : n >= 5 && n <= 6 ? '高三' : '';
-}
 // 首頁畫好後，趁空檔把接下來要做的單元題目先下載存在裝置上（依老師更新時間存，沒改過就不再下載）：點進單元時不用等網路。
 // 一次載入只做一次；省流量模式不做。
 let prefetched = false;
@@ -364,16 +359,13 @@ function renderHome() {
   if (!(location.hash.split('/')[1] || '')) { syncDock(s ? 'home' : null); paintTopLeft('', !!s); }
   app.innerHTML = s
     ? `<section class="hero compact cover">
-        <div class="cover-eyebrow">${esc(index.book || 'Book 5')} · ${esc(s.cls)} 班</div>
         <h1>${esc(maskName(s.name))}，今天從哪一課開始？</h1>
         <p id="progress-slot"></p>
       </section>
       <div id="next-slot"></div>
       <div id="lessons"></div>`
     : `<section class="hero cover">
-        <div class="cover-eyebrow">${esc(gradeOf(index.book || 'Book 5'))} · ${esc(index.book || 'Book 5')}</div>
         <h1>B5 Practice</h1>
-        <p>單字片語、課文理解、句型練習。總分達 ${PASS}% 就通過，沒通過可以一直補考。</p>
       </section>
       <div id="welcome-slot"></div>
       <div id="lessons"></div>`;
@@ -382,7 +374,7 @@ function renderHome() {
   if (!s) {
     mountInlineForm(app.querySelector('#welcome-slot'), {
       title: '輸入你的基本資料',
-      desc: '填寫班級、座號和姓名，要跟老師的名單一致。確認後會載入你之前的測驗紀錄。',
+      desc: '',
       button: '開始練習',
       onSave: () => renderHome(),
     });
@@ -393,7 +385,7 @@ function renderHome() {
   const lessons = [...new Set(visible.map((u) => u.lesson))].sort(lessonCmp);
   const host = app.querySelector('#lessons');
   if (!visible.length) {
-    host.innerHTML = `<div class="empty"><div class="big">${icon.inbox}</div><h2>還沒有開放的單元</h2><p>老師開放後會出現在這裡，不用做任何設定。</p><button class="btn" type="button" data-refresh>${icon.redo} 重新整理</button></div>`;
+    host.innerHTML = `<div class="empty"><div class="big">${icon.inbox}</div><h2>還沒有開放的單元</h2><button class="btn" type="button" data-refresh>${icon.redo} 重新整理</button></div>`;
     host.querySelector('[data-refresh]').onclick = () => location.reload();
     return;
   }
@@ -412,15 +404,13 @@ function renderHome() {
   if (asgPending.length) {
     // 老師指派的作業：一張用圖釘釘在封面上的便條紙，條列還沒做完的作業（截止早的在上面）。
     // 每一行：單元名稱、目前狀態、截止時間、還剩幾天（今天截止紅色、兩天內琥珀色）
-    const doneN = asg.length - asgPending.length;
     const rows = asgPending.map((a) => {
-      const st = unitStatus(a.u);
       const [when, left] = dueLabel(a.due).split(' · ');
       const days = (a.due - Date.now()) / 86400000;
       const urg = days < 1 ? 'today' : days <= 2 ? 'soon' : '';
       return `<li><a class="asg-row ${urg}" href="#/u/${esc(a.u.id)}">
-          <span class="asg-main"><b class="en">${esc(a.u.title)}</b><span class="asg-sub">${typeLabel(a.u.type)} · ${esc(st.note)}</span></span>
-          <span class="asg-due"><span class="asg-left">${esc(left === '今天' ? '今天截止' : left)}</span><span class="asg-when">${esc(when.replace(/ 截止$/, ''))}</span></span>
+          <span class="asg-main"><b class="en">${esc(a.u.title)}</b></span>
+          <span class="asg-due"><span class="asg-left" title="${esc(when)}">${esc(left === '今天' ? '今天截止' : left)}</span></span>
           <span class="asg-go" aria-hidden="true">${icon.arrowR}</span>
         </a></li>`;
     }).join('');
@@ -446,31 +436,24 @@ function renderHome() {
             <ellipse cx="25" cy="15.3" rx="5.5" ry="1.6" fill="#fff" opacity=".55"/>
           </g>
         </svg>
-        <header class="asg-note-h"><b>老師指派</b><span class="asg-count">${asgPending.length} 份要做</span>${doneN ? `<span class="asg-done">已完成 ${doneN}</span>` : ''}</header>
+        <header class="asg-note-h"><b>老師指派</b><span class="asg-count">${asgPending.length}</span></header>
         <ol class="asg-list">${rows}</ol>
       </section>`;
   } else if (nextRow) {
     const lead = { retake: '需要補考', todo: '待檢討', open: '下一個單元' }[nextRow.k];
     app.querySelector('#next-slot').innerHTML = `<a class="next-card ${nextRow.k}" href="#/u/${esc(nextRow.u.id)}">
         <span class="nc-ic">${nextRow.ic}</span>
-        <span class="nc-txt"><span class="nc-lead">${lead}</span><b class="en">${esc(nextRow.u.title)}</b><span class="nc-note">${lessonLabel(nextRow.u.lesson)} · ${esc(nextRow.note)}</span></span>
+        <span class="nc-txt"><span class="nc-lead">${lead}</span><b class="en">${esc(nextRow.u.title)}</b></span>
         <span class="nc-go">${icon.arrowR}</span>
       </a>`;
   }
   app.querySelector('.hero.cover')?.classList.toggle('no-next', !app.querySelector('#next-slot').innerHTML.trim());
   // 還沒有任何進度時不顯示「已完成 0 / N」，第一屏只留下一步要做什麼
   app.querySelector('#progress-slot').innerHTML = nOk || nTodo || nMiss
-    ? `<a class="hp-link" href="#/me">已完成 ${nOk} / ${visible.length}${nTodo ? ` · 待檢討 ${nTodo}` : ''}${nMiss ? ` · 缺交 ${nMiss}` : ''} · 詳細 ${icon.arrowR}</a>` : '';
+    ? `<a class="hp-link" href="#/me">已完成 ${nOk} / ${visible.length}${nTodo ? ` · 待檢討 ${nTodo}` : ''}${nMiss ? ` · 缺交 ${nMiss}` : ''} ${icon.arrowR}</a>` : '';
   // 指派作業只在最上面的主卡出現一次；下面的單元列表照課次排，指派的單元卡片上加一個小標籤（不再另外分一段，避免同一個單元出現兩次）
   const asgOf = new Map(asg.map((a) => [a.u.id, a]));
-  const legendHTML = `<details class="legend"><summary>${icon.info}狀態說明</summary>
-        <dl>
-          <dt>需補考</dt><dd>總分還沒到 ${PASS}%。可以隨時重做，沒有次數限制。</dd>
-          <dt>待檢討</dt><dd>已經通過，先逐題檢討，才能開始複習。</dd>
-          <dt>缺交</dt><dd>單元已截止，還沒有正式測驗紀錄，請找老師。</dd>
-        </dl>
-      </details>`;
-  host.innerHTML = `<div class="list-head">${legendHTML}</div>` + lessons.map((n) => {
+  host.innerHTML = lessons.map((n) => {
     const units = visible.filter((u) => u.lesson === n);
     if (!units.length) return '';
     return `<section class="lesson">
@@ -479,10 +462,6 @@ function renderHome() {
     </section>`;
   }).join('');
   try { localStorage.removeItem('b5p:filter'); } catch { /* ignore */ } // 「全部／現在要做的」篩選已拿掉（主卡與老師指派已經告訴學生先做什麼）
-  // 狀態說明：浮在按鈕下方，點其他地方就收起
-  const legend = host.querySelector('.legend');
-  const closeLegend = (e) => { if (!legend.isConnected) { document.removeEventListener('click', closeLegend, true); return; } if (legend.open && !legend.contains(e.target)) legend.open = false; };
-  document.addEventListener('click', closeLegend, true);
 }
 
 // 開放時段：放在卡片說明列的純文字（還沒開放、快截止、已截止）
@@ -499,12 +478,11 @@ function vocabMetaHTML(u, levels) {
   const ph = typeof u.phrases === 'number' ? Math.min(u.phrases, n) : null;
   const counts = ph == null ? `${n} 個單字與片語` : ph ? `${n - ph} 個單字 · ${ph} 個片語` : `${n} 個單字`;
   const partial = levels.join('、') !== LEVELS.map((l) => l.name).join('、') ? ` · ${levels.join('、')}` : '';
-  return `<div class="tile-meta stack"><span><span class="tile-cat">${typeIcon(u.type)}</span>${TYPES.vocab.tile}</span><span>${counts}${partial}</span></div>`;
+  return `<div class="tile-meta">${counts}${partial}</div>`;
 }
 
 function tileMeta(u) {
-  if (u.type === 'pattern') return `${u.count} 題 · 選擇、填空、應用`;
-  return `一篇文章 · ${u.count} 題閱讀測驗`;
+  return `${u.count} 題`;
 }
 
 // 卡片狀態：狀態標籤放最前面（文字＋圖示，用標籤的顏色區分），標題與主題第二；類型與字數、最佳成績與時段收在下面。
@@ -531,10 +509,10 @@ function tileHTML(u, asg = null) {
     : `<span class="tile-ring" aria-hidden="true">${typeIcon(u.type)}</span>`;
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
       ${ring}<span class="tile-body">
-      <div class="tile-top"><span class="tile-state">${st.ic}${chip}</span>${asg ? `<span class="tile-asg${asgDone(asg) ? ' done' : ''}">${icon.pin}${asgDone(asg) ? '指派・已完成' : `指派・${esc(fmtWhen(asg.due).split(' ')[0])} 截止`}</span>` : ''}</div>
+      ${st.k !== 'open' || asg ? `<div class="tile-top">${st.k !== 'open' ? `<span class="tile-state">${st.ic}${chip}</span>` : ''}${asg ? `<span class="tile-asg${asgDone(asg) ? ' done' : ''}">${icon.pin}指派</span>` : ''}</div>` : ''}
       <h3 class="en">${esc(u.title)}</h3>
       ${topicShown ? `<p class="tile-topic en">${esc(topicShown)}</p>` : ''}
-      ${vocab ? vocabMetaHTML(u, openLevels(u).map((l) => l.name)) : `<div class="tile-meta stack"><span><span class="tile-cat">${typeIcon(u.type)}</span>${kind}</span><span>${tileMeta(u)}</span></div>`}
+      ${vocab ? vocabMetaHTML(u, openLevels(u).map((l) => l.name)) : `<div class="tile-meta">${tileMeta(u)}</div>`}
       ${sub ? `<div class="tile-sub">${meter}<span>${esc(sub)}</span></div>` : ''}
       </span>
     </a>`;
@@ -544,7 +522,6 @@ function tileHTML(u, asg = null) {
 // 轉場用的單元標題外框（資料載入前先顯示，版面和正式標題一致）
 function unitShellHTML(meta) {
   return `<div class="unit-head shell"${markAttr(meta)}>
-      <div class="eyebrow">${typeIcon(meta.type)}${lessonLabel(meta.lesson)} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
     </div><div class="loading"><span class="spinner"></span>載入中…</div>`;
 }
@@ -555,11 +532,10 @@ function headHTML(meta, data) {
   const vocab = meta.type === 'vocab';
   const words = data.words || [];
   const phrases = words.filter((w) => w.type === 'phrase').length;
-  const sub = vocab ? `單字 ${words.length - phrases} 個 · 片語 ${phrases} 個`
-    : meta.type === 'pattern' ? `${(data.items || []).length} 題`
+  const sub = vocab ? [words.length - phrases ? `單字 ${words.length - phrases} 個` : '', phrases ? `片語 ${phrases} 個` : ''].filter(Boolean).join(' · ')
+    : meta.type === 'pattern' ? ((data.guides || []).length ? `${new Set((data.items || []).map((q) => q.tag).filter(Boolean)).size} 個句型` : `${(data.items || []).length} 題`)
     : `${(data.questions || []).length} 題`;
   return `<div class="unit-head"${markAttr(meta)}>
-      <div class="eyebrow">${typeIcon(meta.type)}${lessonLabel(meta.lesson)} · ${TYPES[typeOf(meta.type)].tile}</div>
       <h1>${esc(meta.title)}</h1>
       <div class="sub"><span>${sub}</span></div>
     </div>`;
@@ -612,13 +588,13 @@ function unitStatus(u) {
   const done = store.done(u.id);
   const best = store.best(u.id)[bestKey(u.type)];
   const w = unitWindow(config, u.id);
-  if (done && store.reviewed(u.id)) return { k: 'ok', rank: 4, st: best != null ? `${best}%` : '已完成', note: best != null ? '已完成・可複習' : '已完成', ic: icon.check };
+  if (done && store.reviewed(u.id)) return { k: 'ok', rank: 4, st: best != null ? `${best}%` : '已完成', note: '', ic: icon.check };
   // 做過正式測驗但沒通過：需要補考（缺交的判斷之前先處理）
-  if (!done && store.tried(u.id)) return { k: 'retake', rank: 0, st: '需補考', note: `${best != null ? `最佳 ${best}%，` : ''}未達 ${PASS}%，要重新做一次正式測驗${w.state === 'after' ? '。已截止：下課跟老師說「班級、座號、這個單元要補作」，老師開放後這裡會變回可以作答' : ''}`, ic: icon.alert };
-  if (done) return { k: 'todo', rank: 1, st: '待檢討', note: `${best != null ? `最佳 ${best}%・` : ''}做完檢討才能複習`, ic: icon.bulb };
-  if (w.state === 'after') return { k: 'miss', rank: 0, st: '缺交', note: `已於 ${fmtWhen(w.closeAt)} 截止。跟老師說「班級、座號、這個單元要補作」，老師開放後就能作答`, ic: icon.alert };
+  if (!done && store.tried(u.id)) return { k: 'retake', rank: 0, st: '需補考', note: `${best != null ? `${best}% · 差 ${PASS - best}%` : ''}${w.state === 'after' ? `${best != null ? ' · ' : ''}已截止，找老師補作` : ''}`, ic: icon.alert };
+  if (done) return { k: 'todo', rank: 1, st: '待檢討', note: best != null ? `${best}%` : '', ic: icon.bulb };
+  if (w.state === 'after') return { k: 'miss', rank: 0, st: '缺交', note: '找老師補作', ic: icon.alert };
   if (w.state === 'before') return { k: 'wait', rank: 5, st: '未開放', note: `${fmtWhen(w.openAt)} 開放`, ic: icon.lock };
-  return { k: 'open', rank: 2, st: '尚未開始', note: w.closeAt ? `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}` : '尚未測驗', ic: icon.play };
+  return { k: 'open', rank: 2, st: '尚未開始', note: w.closeAt ? `${w.extended ? '補作到' : '截止'} ${fmtWhen(w.closeAt)}` : '', ic: icon.play };
 }
 
 // 被伺服器拒收、沒有進到老師試算表的成績：列出來請學生截圖給老師（只列這位學生的）
@@ -644,12 +620,9 @@ async function renderMe() {
   if (!fresh) historyReady().then(() => { if ((location.hash.split('/')[1] || '') === 'me' && document.body.contains(app.querySelector('.me-updating'))) renderMe(); });
   const rows = visibleUnits().map((u) => ({ u, ...unitStatus(u) })).sort((a, b) => a.rank - b.rank || lessonCmp(a.u.lesson, b.u.lesson));
   const count = (k) => rows.filter((r) => r.k === k).length;
-  const masked = maskName(s.name);
   app.innerHTML = `
     <section class="me-head">
-      <div class="eyebrow">My records</div>
-      <h1>${esc(masked)} 的成績</h1>
-      <p class="muted" style="margin:0">${esc(s.cls)} 班 ${esc(s.seat)} 號${fresh ? '' : ' <span class="me-updating"><span class="spinner"></span>更新中…</span>'}</p>
+      <h1>我的成績${fresh ? '' : ' <span class="me-updating"><span class="spinner"></span>更新中…</span>'}</h1>
     </section>
     ${rejectedHTML(s)}
     <div class="me-sum">
@@ -660,10 +633,9 @@ async function renderMe() {
     </div>
     ${rows.length ? `<div class="me-list">${rows.map((r) => `<a class="me-row ${r.k}" href="#/u/${esc(r.u.id)}">
         <span class="ic-box">${r.ic}</span>
-        <span class="txt"><b>${esc(unitName(r.u))}</b><span>${typeLabel(r.u.type)}・${esc(r.note)}</span></span>
+        <span class="txt"><b>${esc(unitName(r.u))}</b>${r.note && r.note !== r.st ? `<span>${esc(r.note)}</span>` : ''}</span>
         <span class="st">${esc(r.st)}</span></a>`).join('')}</div>`
-      : `<div class="empty"><div class="big">${icon.inbox}</div><p>老師目前沒有開放任何單元。</p></div>`}
-    <p class="me-note">缺交是指：單元有截止時間、已經過了，而且沒有正式測驗紀錄。缺交的單元如果需要補作，請找老師。總分未達 ${PASS}% 的單元顯示「需補考」，重新做一次正式測驗，達標就通過。</p>`;
+      : `<div class="empty"><div class="big">${icon.inbox}</div><h2>還沒有開放的單元</h2></div>`}`;
 }
 
 /* ---------------- 帳號（底部分頁列的頭像） ---------------- */
@@ -693,7 +665,7 @@ function renderAccount() {
   app.innerHTML = `
     <section class="me-head acct-head">
       <span class="acct-av" aria-hidden="true">${esc((s.name || '?').trim().charAt(0))}</span>
-      <div class="acct-id"><div class="eyebrow">Account</div>
+      <div class="acct-id">
       <h1>${esc(maskName(s.name))}</h1>
       <p class="muted" style="margin:0">${esc(s.cls)} 班 ${esc(s.seat)} 號</p></div>
       <div class="acct-acts">
@@ -704,19 +676,18 @@ function renderAccount() {
     <section class="me-set" aria-label="學習設定">
       <h2>學習設定</h2>
       <div class="set-row">
-        <div class="set-txt"><b>句型說明的看法</b><span>句型練習的說明卡（之後也可以在說明卡右上角切換）</span></div>
+        <div class="set-txt"><b>句型說明</b></div>
         <div class="set-seg" role="radiogroup" aria-label="句型說明的看法">
-          <button type="button" role="radio" data-learn="find">${icon.target}<span>邊看邊找</span><small>用手指把公式的每一塊劃起來</small></button>
-          <button type="button" role="radio" data-learn="read">${icon.book}<span>直接看說明</span><small>例句直接標好顏色</small></button>
+          <button type="button" role="radio" data-learn="find">${icon.target}<span>邊看邊找</span></button>
+          <button type="button" role="radio" data-learn="read">${icon.book}<span>直接看說明</span></button>
         </div>
       </div>
       <div class="set-row inline">
-        <div class="set-txt"><b>自動下一題</b><span>單字選擇題答對後自動跳下一題</span></div>
+        <div class="set-txt"><b>自動下一題</b></div>
         <button class="switch" type="button" role="switch" data-auto aria-label="自動下一題"><span class="sw" aria-hidden="true"></span></button>
       </div>
       <p class="set-saved" aria-live="polite"></p>
     </section>
-    <p class="acct-tip">用別人的手機或共用電腦時，做完記得按右上角的「登出」：會清除這台裝置上的姓名和作答紀錄（老師那邊的成績不受影響）。</p>
     <p class="acct-ver" aria-live="polite"></p>`;
   bindAccount(app);
   paintVersion(app.querySelector('.acct-ver'));
@@ -725,12 +696,12 @@ function renderAccount() {
   const saved = app.querySelector('.set-saved');
   const say = (t) => { saved.textContent = t; clearTimeout(say.t); say.t = setTimeout(() => { saved.textContent = ''; }, 2000); };
   const paintLearn = () => app.querySelectorAll('[data-learn]').forEach((b) => b.setAttribute('aria-checked', String(lp.get('learnMode') === b.dataset.learn)));
-  app.querySelectorAll('[data-learn]').forEach((b) => b.addEventListener('click', () => { lp.set('learnMode', b.dataset.learn); paintLearn(); say('✓ 已儲存，所有裝置都會套用'); }));
+  app.querySelectorAll('[data-learn]').forEach((b) => b.addEventListener('click', () => { lp.set('learnMode', b.dataset.learn); paintLearn(); say('✓ 已儲存'); }));
   paintLearn();
   // 自動下一題也存在學生帳本：所有裝置都套用
   const auto = app.querySelector('[data-auto]');
   const paintAuto = () => auto.setAttribute('aria-checked', String(lp.get('auto')));
-  auto.addEventListener('click', () => { lp.set('auto', !lp.get('auto')); paintAuto(); say('✓ 已儲存，所有裝置都會套用'); });
+  auto.addEventListener('click', () => { lp.set('auto', !lp.get('auto')); paintAuto(); say('✓ 已儲存'); });
   setTimeout(paintAuto, 1500); // 剛從雲端讀到別的裝置改過的設定時更新
   paintAuto();
 }

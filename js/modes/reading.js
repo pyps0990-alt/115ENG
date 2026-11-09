@@ -41,15 +41,9 @@ export function mount(stage, ctx) {
   // 文章劃記：老師在後台「單元設定」開啟才有（不計分）
   const annotateOn = !!(parseQuiz(unitCfg(ctx.config, unitId).quiz) || {}).annotate;
   let stopAnnotator = null;
-  const minutes = Math.max(1, Math.round(nWords / 150));
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
-    rules: [
-      `文章約 <b>${nWords}</b> 字，建議閱讀 ${minutes} 分鐘`,
-      `共 <b>${qs.length}</b> 題，題目經過改寫，要理解文意才答得出來`,
-      '交卷後逐題檢討，看答案、解析與原文依據',
-    ],
     best: () => store.best(unitId).reading,
     review: () => store.done(unitId),
     reviewed: () => store.reviewed(unitId),
@@ -92,7 +86,7 @@ export function mount(stage, ctx) {
     let shut = false;
     try { shut = localStorage.getItem('b5p:rd-passage') === 'closed'; } catch { /* 無痕模式 */ }
     stage.innerHTML = `
-      ${statusBarHTML({ kind: review ? 'review' : 'official', note: review ? '' : '這次的分數會送給老師。全部作答完再交卷，交卷前都可以修改。', mid: '<div class="quiz-bar" title="作答進度"><div class="bar"><span></span></div></div>' })}
+      ${statusBarHTML({ kind: review ? 'review' : 'official', note: '', mid: '<div class="quiz-bar" title="作答進度"><div class="bar"><span></span></div></div>' })}
       <div class="reading-quiz" data-passage="${shut ? 'closed' : 'open'}">
         <details class="rd-fold"><summary>${icon.book} 看文章<span class="rd-fold-note">建議搭配課本使用</span></summary>${passageHTML()}</details>
         <aside class="rd-side" aria-label="文章">

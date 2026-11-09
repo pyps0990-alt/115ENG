@@ -5,14 +5,13 @@ import { esc, confirmDialog } from '../util.js';
 import { icon } from '../icons.js';
 import { fmtWhen } from '../remote-config.js';
 import { mountInlineForm, openStudentDialog, studentLabel, maskName } from '../student.js';
-import { SCRIPT_URL } from '../config.js';
 import { PASS } from '../types.js';
 
 // review()：做過正式測驗了嗎；reviewed()：檢討完了嗎。
 // 做過但還沒檢討：只能先檢討，「開始複習」鎖住；檢討完才能複習。
 // resume()：回傳 { label, onResume(student), discard() } 代表有做到一半的測驗，沒有就回傳 null
 // total：計分的總分（題數）；integer：每題只有 1 分或 0 分（課文理解），過關分數用整數題數表示
-export function testGate(stage, { eyebrow = '', rules = [], best, review = false, reviewed = true, retake = false, timeWindow, onStart, onReview, resume }) {
+export function testGate(stage, { best, review = false, reviewed = true, retake = false, timeWindow, onStart, onReview, resume }) {
   let wake = null;
   const draw = () => {
     stage.innerHTML = '';
@@ -21,7 +20,7 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
       const wrap = document.createElement('div');
       wrap.className = 'gate';
       stage.append(wrap);
-      mountInlineForm(wrap, { title: '開始測驗前，請先填寫基本資料', desc: '測驗成績會依這些資料送給老師，請確認正確。', button: '下一步', onSave: draw });
+      mountInlineForm(wrap, { title: '你的基本資料', desc: '', button: '下一步', onSave: draw });
       return;
     }
     const isReview = typeof review === 'function' ? review() : review;
@@ -35,7 +34,7 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
     clearTimeout(wake);
     if (win.state === 'before' && win.openAt - Date.now() < 86400000) wake = setTimeout(draw, win.openAt - Date.now() + 500);
     let timeNote = '';
-    if (win.state === 'open' && win.closeAt) timeNote = `${icon.clock} ${win.extended ? '老師開放你補作到' : '開放到'} ${fmtWhen(win.closeAt)}`;
+    if (win.state === 'open' && win.closeAt) timeNote = `${icon.clock} ${win.extended ? '補作到' : '截止'} ${fmtWhen(win.closeAt)}`;
     // 24 小時內截止：改用跟作答中一樣的醒目方塊（剩不到 1 小時變紅）
     const soon = win.state === 'open' && win.closeAt && win.closeAt - Date.now() <= 86400000;
     if (soon) timeNote = '';
@@ -54,42 +53,27 @@ export function testGate(stage, { eyebrow = '', rules = [], best, review = false
       timeNote = `${icon.clock} ${fmtWhen(win.openAt)} 開放`;
     } else if (win.state === 'after' && !isReview) {
       buttons = `<button class="btn" type="button" data-start disabled>${icon.lock} 已截止</button>`;
-      timeNote = `${icon.clock} 已於 ${fmtWhen(win.closeAt)} 截止，不能再做正式測驗。需要補作請跟老師說班級、座號和單元名稱，老師開放後重新整理這頁就能作答`;
+      timeNote = `${icon.clock} ${fmtWhen(win.closeAt)} 截止・補作請找老師`;
     }
     const rs = typeof resume === 'function' && win.state === 'open' && !needReview ? resume() : null;
-    // 一句話說明這次要做什麼；詳細規則收在下面，第一次進來的人預設展開
-    // 及格線是老師設定的（PASS 在 js/types.js）：只講百分比；部分給分的題型換算成題數會出現小數，反而看不懂
-    const passText = `老師設定的及格線是 <b>${PASS}%</b>`;
-    const lead = rs ? `你有一份做到一半的測驗（${rs.label}），可以接著做，也可以重新開始。`
-      : needReview ? '先逐題檢討完第一次測驗，才能開始複習。'
-      : isReview ? '你已經通過這個單元，這次是複習，成績會標記為複習送給老師。'
-      : needRetake ? `上次${bestNow != null ? ` <b>${bestNow}%</b>，還差 <b>${Math.max(0, PASS - bestNow)}%</b>` : ' 還沒通過'}。這次重新做一次：${passText}，達到就通過，沒有次數限制。`
-      : `${passText}，達到就通過；沒通過可以一直補考。`;
-    const firstTime = bestNow == null && !isReview && !needRetake;
     if (rs) {
       buttons = `<button class="btn primary" type="button" data-resume>${icon.play} 繼續上次 · ${esc(rs.label)}</button><button class="btn" type="button" data-start>重新開始</button>`;
     }
     // 這個單元走到哪：正式測驗 → 檢討錯題 → 複習（完成的打勾、目前這步框起來）
     const passed = !!isReview;
     const steps = [
-      ['正式測驗', passed ? (bestNow != null ? `通過 ${bestNow}%` : '已通過') : bestNow != null ? `最高 ${bestNow}%，還沒通過` : `${PASS}% 通過`, passed ? 'done' : 'now'],
-      ...(onReview ? [['檢討錯題', passed && isReviewed ? '完成' : passed ? '還沒檢討' : '通過後開放', passed && isReviewed ? 'done' : needReview ? 'now' : '']] : []),
-      ['複習', passed && (isReviewed || !onReview) ? '隨時可以練' : onReview ? '檢討完開放' : '通過後開放', passed && (isReviewed || !onReview) ? 'now' : ''],
+      ['正式測驗', passed ? (bestNow != null ? `${bestNow}%` : '') : bestNow != null ? `${bestNow}% · 差 ${Math.max(0, PASS - bestNow)}%` : `${PASS}% 通過`, passed ? 'done' : 'now'],
+      ...(onReview ? [['檢討錯題', '', passed && isReviewed ? 'done' : needReview ? 'now' : '']] : []),
+      ['複習', '', passed && (isReviewed || !onReview) ? 'now' : ''],
     ];
-    const stepsHTML = `<ol class="unit-steps" aria-label="這個單元的進度">${steps.map(([t, sub, st]) => `<li class="${st}"${st === 'now' ? ' aria-current="step"' : ''}><b>${t}</b><small>${esc(sub)}</small></li>`).join('')}</ol>`;
+    const stepsHTML = `<ol class="unit-steps" aria-label="這個單元的進度">${steps.map(([t, sub, st]) => `<li class="${st}"${st === 'now' ? ' aria-current="step"' : ''}><b>${t}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</li>`).join('')}</ol>`;
     const box = document.createElement('div');
     box.className = 'gate';
     box.innerHTML = `<div class="card gate-card">
         ${stepsHTML}
-        ${(() => { const tag = [eyebrow, isReview ? '複習' : needRetake ? '補考' : ''].filter(Boolean).join(' · '); return tag ? `<div class="eyebrow">${esc(tag)}</div>` : ''; })()}
-        <p class="gate-lead">${lead}</p>
-        ${bestNow != null ? `<div class="best-line">${icon.trophy} 你的最佳成績 <b>${bestNow}%</b></div>` : ''}
         ${timeNote ? `<p class="gate-note">${timeNote}</p>` : ''}
         <div class="btn-row">${buttons}</div>${soon ? '<p class="gate-dl"><span class="st-deadline" data-deadline hidden></span></p>' : ''}
-        <p class="who-line">以 <b>${esc(maskName(s.name))}</b>（${esc(s.cls)} 班 ${esc(s.seat)} 號）的身分作答 <button class="link-btn edit" type="button">不是我？切換</button></p>
-        <details class="gate-rules"${firstTime ? ' open' : ''}><summary>測驗規則</summary>
-          <ul class="rules">${rules.map((r) => `<li>${r}</li>`).join('')}
-            <li>${SCRIPT_URL ? '完成後成績會自動傳送給老師' : '完成後請截圖成績單繳交給老師'}</li></ul></details>
+        <p class="who-line"><b>${esc(maskName(s.name))}</b> · ${esc(s.cls)} 班 ${esc(s.seat)} 號 <button class="link-btn edit" type="button">切換</button></p>
       </div>`;
     box.querySelector('.edit').onclick = () => openStudentDialog(draw);
     const start = box.querySelector('[data-start]');

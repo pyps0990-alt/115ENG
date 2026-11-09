@@ -64,11 +64,11 @@ await p.waitForSelector('.unit-tile', { timeout: 10000 });
 await step('學生首頁：主卡是老師指派的 L2（不是課次較前面的 L1）；列表照課次排，L2 只出現一次並帶「指派」小標籤', async () => {
   await p.waitForSelector('.asg-note .asg-row', { timeout: 5000 });
   const lead = await p.textContent('.asg-note');
-  assert.match(lead, /老師指派/); assert.match(lead, /1 份要做/); assert.match(lead, /L2 單字/); assert.match(lead, /還剩 \d+ 天|今天截止/);
+  assert.match(lead, /老師指派/); assert.equal((await p.textContent('.asg-count')).trim(), '1'); assert.match(lead, /L2 單字/); assert.match(lead, /還剩 \d+ 天|今天截止/);
   assert.equal(await p.$$eval('.asg-note .asg-row', (a) => a.length), 1);
   assert.equal(await p.$$eval('.asg-sec', (a) => a.length), 0, '不再另外分一段');
   assert.equal(await p.$$eval('.unit-tile[data-id="u2"]', (a) => a.length), 1, 'L2 在列表只出現一次');
-  assert.match(await p.textContent('.unit-tile[data-id="u2"] .tile-asg'), /指派・\d+\/\d+ 截止/);
+  assert.match(await p.textContent('.unit-tile[data-id="u2"] .tile-asg'), /^指派$/);
   assert.equal(await p.$$eval('.unit-tile[data-id="u1"] .tile-asg', (a) => a.length), 0);
   // 標籤靠左、不超出卡片；主卡沒有被切掉的灰色陰影區
   const r = await p.evaluate(() => { const c = document.querySelector('.unit-tile[data-id="u2"]').getBoundingClientRect(), t = document.querySelector('.unit-tile[data-id="u2"] .tile-asg').getBoundingClientRect(), n = document.querySelector('.asg-note').getBoundingClientRect(); return { inside: t.right <= c.right && t.left >= c.left, noteIn: n.left >= 0 && n.right <= innerWidth }; });

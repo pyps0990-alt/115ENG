@@ -16,7 +16,7 @@ import { learnPrefs } from '../learn-prefs.js';
 import { statusBarHTML, mountDeadline } from '../components/status.js';
 import { progress } from '../resume.js';
 import { PASS } from '../levels.js';
-import { flattenPattern, renderChoiceCard, renderFillCard, renderApplyCard, explainHTML, reviewCardHTML, correctText, KIND_LABEL, judge, applyScore } from '../components/items.js';
+import { flattenPattern, renderChoiceCard, renderFillCard, renderApplyCard, explainHTML, reviewCardHTML, correctText, judge, applyScore } from '../components/items.js';
 
 const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ''));
 
@@ -55,11 +55,9 @@ export function mount(stage, ctx) {
     stage.innerHTML = `<div class="empty"><div class="big">${icon.file}</div><p>這個單元還沒有題目。</p></div>`;
     return;
   }
-  const kindsIn = [...new Set(all.map((q) => KIND_LABEL[q.kind]))].join('、');
   // 有句型說明：正式測驗走循序漸進版（認識 → 檢測 → 驗收，每個句型一段）
   const guides = Array.isArray((ctx.data || {}).guides) ? ctx.data.guides : [];
   const learnFlow = guides.length > 0;
-  const tagsIn = [...new Set(all.map((q) => q.tag).filter(Boolean))];
 
   function startReview(details) {
     if (!keyed) { withKey(() => startReview(details)); return; }
@@ -80,17 +78,6 @@ export function mount(stage, ctx) {
 
   const gate = testGate(stage, {
     timeWindow: () => unitWindow(ctx.config, unitId),
-    rules: learnFlow ? [
-      `共 <b>${tagsIn.length}</b> 個句型，每個句型一段：先認識句型、做不計分的檢測，再做 2～3 題計分的驗收`,
-      '每一段做完驗收就看這段的結果；各句型平均配分，總分 100',
-      ...(all.some((q) => q.kind === 'apply') ? ['應用題（排句子）部分給分：排進去的單字越多、順序越接近，分數越高'] : []),
-      '全部句型做完就交卷，之後可以逐題檢討錯題',
-    ] : [
-      `共 <b>${n}</b> 題，${esc(kindsIn)}混合出現，每次會從題庫（${all.length} 題）重新抽題`,
-      '全部作答完再交卷，交卷前可以回上一題修改；交卷後看答案與解析',
-      ...(all.some((q) => q.kind === 'apply') ? ['應用題（排句子）部分給分：排進去的單字越多、順序越接近，分數越高'] : []),
-      '做完可以逐題檢討錯題',
-    ],
     best: () => store.best(unitId).pattern,
     review: () => store.done(unitId),
     reviewed: () => store.reviewed(unitId),
@@ -125,7 +112,7 @@ export function mount(stage, ctx) {
 
     stage.innerHTML = `
       <div class="quiz">
-        ${statusBarHTML({ kind: redo ? 'redo' : 'review', note: redo ? '只練剛剛錯的題目，不計分也不送出。' : '每題答完馬上看解析。', mid: `<div class="quiz-bar">
+        ${statusBarHTML({ kind: redo ? 'redo' : 'review', note: '', mid: `<div class="quiz-bar">
           <div class="bar"><span></span></div>
           <span class="quiz-stat" data-n></span>
           <span class="quiz-stat streak" data-streak title="連續答對">${icon.flame}<b>0</b></span>
@@ -208,7 +195,7 @@ export function mount(stage, ctx) {
       const passed = pct >= PASS;
       if (official) { if (passed) store.setDone(unitId); else store.setTried(unitId); }
       const byKind = {};
-      details.forEach((d) => { const k = (byKind[d[barKey]] = byKind[d[barKey]] || { ok: 0, n: 0 }); k.n++; k.ok = Math.round((k.ok + (Number(d.points) || 0)) * 100) / 100; });
+      details.forEach((d) => { const k = (byKind[d.kind] = byKind[d.kind] || { ok: 0, n: 0 }); k.n++; k.ok = Math.round((k.ok + (Number(d.points) || 0)) * 100) / 100; });
       const per = Object.entries(byKind).map(([k, v]) => `${k} ${fmt(v.ok)}/${v.n}`).join('・');
       const firstTest = !review && !redo;
       if (firstTest) store.setFirst(unitId, { mode: 'pattern', details });
@@ -285,7 +272,7 @@ export function mount(stage, ctx) {
     window.addEventListener('beforeunload', unload);
     stage.innerHTML = `
       <div class="quiz">
-        ${statusBarHTML({ kind: 'official', note: '這次的分數會送給老師。全部作答完再交卷，交卷前可以回上一題修改。', mid: '<div class="quiz-bar"><div class="bar"><span></span></div><span class="quiz-stat" data-n></span></div>' })}
+        ${statusBarHTML({ kind: 'official', note: '', mid: '<div class="quiz-bar"><div class="bar"><span></span></div><span class="quiz-stat" data-n></span></div>' })}
         <div data-q></div>
         <div class="q-nav">
           <button class="btn ghost" type="button" data-prev>${icon.arrowL || '‹'} 上一題</button>

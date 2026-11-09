@@ -103,7 +103,7 @@ async function login(form) {
 // 內嵌表單（首頁歡迎卡、測驗前）
 export function mountInlineForm(host, { title, desc, button = '開始練習', onSave }) {
   const card = el(`<form class="card welcome" novalidate>
-      <div><div class="eyebrow">Step 1</div><h2>${esc(title)}</h2>${desc ? `<p class="muted" style="margin:4px 0 0">${esc(desc)}</p>` : ''}</div>
+      <div><h2>${esc(title)}</h2>${desc ? `<p class="muted" style="margin:4px 0 0">${esc(desc)}</p>` : ''}</div>
       ${formHTML(store.student() || {})}
       <div class="btn-row"><button class="btn primary" type="submit">${esc(button)} ${icon.arrowR}</button></div>
     </form>`);
@@ -119,7 +119,6 @@ export function mountInlineForm(host, { title, desc, button = '開始練習', on
 export function openStudentDialog(onSave) {
   const d = el(`<dialog class="modal"><form class="modal-body" novalidate>
       <h2>切換學生</h2>
-      <p class="muted" style="margin:0">輸入班級、座號和姓名，會載入這位學生的紀錄。</p>
       ${formHTML(store.student() || {})}
       <div class="btn-row" style="justify-content:flex-end">
         <button class="btn ghost" type="button" data-close>取消</button>
