@@ -1871,10 +1871,10 @@ dialog.search-sheet::backdrop { background: rgba(15, 23, 42, .3); }
 ::view-transition-image-pair(root) { isolation: auto; }
 ::view-transition-old(root) { animation: none; mix-blend-mode: normal; }
 ::view-transition-new(root) { animation: vt-x-in var(--vt-dur) var(--vt-ease) both; mix-blend-mode: normal; }
-/* 捲在下面時：舊畫面 0.12 秒淡出、新畫面接著淡入。轉場底色最上面一條是深藍（跟導覽列一樣），其餘是頁面底色，導覽列全程不會變淡 */
-html[data-far]::view-transition { background: linear-gradient(var(--navy) 0, var(--navy) calc(64px + env(safe-area-inset-top, 0px)), var(--bg, #F6F8FB) 0); }
-html[data-far]::view-transition-old(root) { animation: vt-x-out .12s ease-out both; }
-html[data-far]::view-transition-new(root) { animation: vt-x-in .22s var(--vt-ease) .05s both; }
+/* 捲在下面時的換頁（不截圖）：內容 0.1 秒淡出，換頁後 0.22 秒淡入；導覽列不動 */
+#app.far-out, .dock.far-out { opacity: 0; transition: opacity .1s ease-out; }
+#app.far-in { animation: vt-x-in var(--vt-dur) var(--vt-ease) both; }
+html.far-run, html.far-run.at-top { background: var(--bg, #F6F8FB) !important; transition: none !important; } /* 淡入的整段都保持淺色底，不會從深藍慢慢變過來 */
 /* 分頁列切換也走同一套過場：分頁列單獨拿出來保持即時（膠囊照常滑動），轉場那一下先不用毛玻璃（截圖裡的毛玻璃會變灰） */
 html[data-nav="tab"] .dock { view-transition-name: dock; -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255, 255, 255, .97); }
 @keyframes vt-x-out { to { opacity: 0; } }

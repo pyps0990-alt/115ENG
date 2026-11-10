@@ -47,6 +47,23 @@ function pageIn(changed, first) {
 app.addEventListener('animationend', (e) => { if (e.target === app) app.classList.remove('page-in'); });
 
 
+// 不截圖的換頁：內容淡出（只動透明度，手機最順），換完再淡入。分頁列跟著內容一起淡（換到沒有分頁列的頁面時不會突然消失）
+function fadeOutApp(withDock = true) {
+  return new Promise((resolve) => {
+    app.classList.remove('page-in', 'tab-in', 'far-in');
+    app.classList.add('far-out');
+    document.documentElement.classList.add('far-run'); // 內容淡掉時底色保持淺色（不要露出頂端回彈用的深藍）
+    if (withDock) document.getElementById('dock')?.classList.add('far-out'); // 分頁之間切換時分頁列不淡
+    setTimeout(resolve, 110);
+  });
+}
+function fadeInApp() {
+  const dock = document.getElementById('dock');
+  app.classList.remove('far-out'); dock?.classList.remove('far-out');
+  void app.offsetWidth;
+  app.classList.add('far-in');
+  clearTimeout(fadeInApp.t); fadeInApp.t = setTimeout(() => { app.classList.remove('far-in'); document.documentElement.classList.remove('far-run'); }, 400);
+}
 const scrollMem = {};
 async function route() {
   const here = location.hash || '#/';
@@ -102,16 +119,21 @@ async function route() {
   // 不支援轉場的瀏覽器才用文字與卡片淡入
   const tabKinds = ['', 'me', 'account'];
   const tabSwitch = changed && !first && tabKinds.includes(prevKind) && tabKinds.includes(kind || '');
-  const useVT = changed && !first && !!document.startViewTransition && !reduceMotion.matches && document.visibilityState === 'visible';
-  if (useVT) {
+  // 舊畫面或新畫面捲在下面：不用截圖式轉場（iPhone Safari 在「已經捲動、轉場中又要捲回頂端或捲到原位」時截圖位置會算錯，
+  // 會閃出首頁頂端、導覽列被擠到下面）。改成直接在畫面上：內容 0.1 秒淡出 → 換頁 → 淡入；導覽列不參與，一直在原位
+  const far = changed && !first && !reduceMotion.matches && (window.scrollY > 120 || (backTo || 0) > 120);
+  const useVT = changed && !first && !far && !!document.startViewTransition && !reduceMotion.matches && document.visibilityState === 'visible';
+  if (far) {
+    closeSearchNow();
+    await fadeOutApp(!tabSwitch);
+    await run();
+    fadeInApp();
+  } else if (useVT) {
     let job = null;
     // 分頁列不單獨截圖（iPhone Safari 截毛玻璃會出現灰白色空框），跟整個畫面一起淡化
     document.documentElement.dataset.nav = fromSearch ? 'search' : tabSwitch ? 'tab' : (app.dataset.dir || 'fwd');
-    // 舊畫面或新畫面捲得比較下面（看不到深藍封面）：改成舊的先淡出、新的再淡入，不會變成新封面疊在一堆舊卡片上
-    const far = window.scrollY > 160 || (backTo || 0) > 160;
-    if (far) document.documentElement.dataset.far = ''; else delete document.documentElement.dataset.far;
     const t = document.startViewTransition(() => { job = run(); return Promise.race([job, new Promise((r) => setTimeout(r, 100))]); });
-    t.finished.catch(() => {}).finally(() => { if (document.documentElement.dataset.nav === 'tab') delete document.documentElement.dataset.nav; delete document.documentElement.dataset.far; });
+    t.finished.catch(() => {}).finally(() => { if (document.documentElement.dataset.nav === 'tab') delete document.documentElement.dataset.nav; });
     t.ready.catch(() => {});
     await t.updateCallbackDone.catch(() => {});
     await (job || run());
@@ -119,7 +141,7 @@ async function route() {
   reportView();
   // 不再為了等中文網頁字型把整頁藏起來（以前最多藏 1.2 秒：換到用到新字的頁面時會整片白、動畫卡住）。
   // 中文字寬都是 1em，字型到了直接換上，版面不會位移
-  if (tabSwitch && !useVT && !reduceMotion.matches) { app.classList.remove('page-in', 'tab-in'); void app.offsetWidth; app.classList.add('tab-in'); clearTimeout(route.tabT); route.tabT = setTimeout(() => app.classList.remove('tab-in'), 500); }
+  if (far) { /* 已經淡入了 */ } else if (tabSwitch && !useVT && !reduceMotion.matches) { app.classList.remove('page-in', 'tab-in'); void app.offsetWidth; app.classList.add('tab-in'); clearTimeout(route.tabT); route.tabT = setTimeout(() => app.classList.remove('tab-in'), 500); }
   else if (!useVT) pageIn(changed, first);
 }
 

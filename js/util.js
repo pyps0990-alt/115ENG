@@ -121,12 +121,22 @@ let sceneBusy = false;
 export function scene(fn) {
   const ok = !!document.startViewTransition && !reducedMotion() && document.visibilityState === 'visible' && !sceneBusy;
   if (!ok) return Promise.resolve(fn());
+  // 捲在下面（例如在最後一題按交卷）：不用截圖式轉場（iPhone Safari 捲動中截圖位置會算錯），內容淡出 → 換 → 淡入
+  const app = document.getElementById('app');
+  if (window.scrollY > 120 && app) {
+    sceneBusy = true;
+    app.classList.remove('far-in'); app.classList.add('far-out'); document.documentElement.classList.add('far-run');
+    return new Promise((r) => setTimeout(r, 110)).then(() => fn()).then((out) => {
+      app.classList.remove('far-out'); void app.offsetWidth; app.classList.add('far-in');
+      setTimeout(() => { app.classList.remove('far-in'); document.documentElement.classList.remove('far-run'); }, 400);
+      return out;
+    }).finally(() => { sceneBusy = false; });
+  }
   sceneBusy = true;
   document.documentElement.dataset.nav = 'scene';
-  if (window.scrollY > 160) document.documentElement.dataset.far = ''; // 捲在下面：舊的先淡出（同換頁）
   let out;
   const t = document.startViewTransition(() => { out = fn(); return Promise.race([Promise.resolve(out), new Promise((r) => setTimeout(r, 100))]); });
-  t.finished.catch(() => {}).finally(() => { sceneBusy = false; delete document.documentElement.dataset.far; });
+  t.finished.catch(() => {}).finally(() => { sceneBusy = false; });
   t.ready.catch(() => {});
   return t.updateCallbackDone.catch(() => {}).then(() => out);
 }
