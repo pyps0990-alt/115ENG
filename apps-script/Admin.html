@@ -815,7 +815,10 @@
     /* 跟學生端同一套過場：舊畫面不動墊在下面、新畫面 0.22 秒快速淡入（每格只有一張圖在變透明度，手機上不掉格） */
     ::view-transition-image-pair(work) { isolation:auto; }
     ::view-transition-old(work) { animation:none; mix-blend-mode:normal; }
-    ::view-transition-new(work) { animation:vt-x-in .22s cubic-bezier(.2, .8, .2, 1) both; mix-blend-mode:normal; }
+    ::view-transition-new(work) { animation:vt-x-in .32s cubic-bezier(.16, 1, .3, 1) both, vt-work-rise .42s cubic-bezier(.16, 1, .3, 1) both; mix-blend-mode:normal; }
+    html.vt-tab::view-transition-new(work) { animation:vt-x-in .26s cubic-bezier(.16, 1, .3, 1) both; }
+    @keyframes vt-work-rise { from { transform:scale(.99); } }
+    ::view-transition-new(work) { transform-origin:50% 0; }
     @keyframes vt-x-out { to { opacity:0; } }
     @keyframes vt-x-in { from { opacity:0; } }
     @keyframes vt-fade { from { opacity:0; } }
@@ -1048,7 +1051,7 @@
     ::view-transition-old(m-rail), ::view-transition-old(m-top), ::view-transition-old(m-who) { display:none; }
     /* 上方標題列：B5 標誌與返回鍵、標題文字交叉淡化（深藍底兩張一樣，看起來只有內容在換） */
     ::view-transition-old(m-top) { display:block; animation:none; mix-blend-mode:normal; }
-    ::view-transition-new(m-top) { animation:vt-x-in .22s cubic-bezier(.2, .8, .2, 1) both; mix-blend-mode:normal; }
+    ::view-transition-new(m-top) { animation:vt-x-in .32s cubic-bezier(.16, 1, .3, 1) both; mix-blend-mode:normal; }
 
     /* ----- 液態玻璃：更精緻的動畫；「更多」改成分頁列上方的小選單 ----- */
     @media (max-width:900px) {
