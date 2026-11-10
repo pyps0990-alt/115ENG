@@ -110,6 +110,7 @@ async function route() {
   const backTo = changed && prevKind === 'u' && ['', 'me'].includes(lastKind) ? scrollMem[lastKind] : null;
   const fromSearch = !!document.querySelector('dialog.search-sheet[open]');
   const run = async () => {
+    pinY = null; // 點了搜尋結果換頁：不再固定位置
     closeSearchNow();
     window.scrollTo(0, 0); chrome(); await render();
     if (backTo) window.scrollTo(0, backTo);
@@ -162,8 +163,23 @@ function paintTopLeft(kind, loggedIn) {
 // 搜尋單元：輸入課次、單元名稱、主題或題型（例如「L3」「單字」「閱讀」），點結果直接進入。
 // 動畫：左上角的搜尋按鈕原地「長」成搜尋框（上方導覽列不動，B5 淡出、取消淡入），下面的結果淡入蓋住頁面；
 // 取消時倒著收回按鈕；點結果時整個搜尋畫面跟換頁一樣淡入單元頁（不會先閃回首頁）
+// 搜尋期間與剛關掉的一小段時間：底下的頁面固定在打開搜尋時的位置。
+// iPhone 叫出、收起鍵盤時會自己捲動頁面（關掉搜尋後首頁被捲到最下面、或跳一下），這裡把它拉回原位
+let pinY = null, pinUntil = 0;
+const pinScroll = () => { if (pinY != null && (Date.now() < pinUntil || document.querySelector('dialog.search-sheet')) && Math.abs(window.scrollY - pinY) > 1) window.scrollTo(0, pinY); };
+window.addEventListener('scroll', pinScroll, { passive: true });
+window.visualViewport?.addEventListener('resize', pinScroll);
+// 搜尋關掉後，使用者自己一碰畫面（滑動、滾輪）就不再固定，照常捲動
+['touchstart', 'wheel', 'keydown'].forEach((t) => window.addEventListener(t, () => { if (!document.querySelector('dialog.search-sheet')) pinY = null; }, { passive: true, capture: true }));
+function unpinSoon(ms = 900) {
+  pinUntil = Date.now() + ms;
+  pinScroll();
+  [60, 200, 400, 700, ms].forEach((t) => setTimeout(pinScroll, t));
+  setTimeout(() => { if (Date.now() >= pinUntil && !document.querySelector('dialog.search-sheet')) pinY = null; }, ms + 50);
+}
 function openSearch() {
   if (document.querySelector('dialog.search-sheet')) return;
+  pinY = window.scrollY; pinUntil = 0;
   const d = document.createElement('dialog');
   d.className = 'search-sheet';
   d.setAttribute('aria-label', '搜尋單元');
@@ -181,11 +197,13 @@ function openSearch() {
   const close = () => {
     if (!d.isConnected || d.classList.contains('closing')) return;
     input.blur();
-    if (reduceMotion.matches) { closeSearchNow(); return; }
+    unpinSoon(); // 收鍵盤時頁面不要被捲走
+    if (reduceMotion.matches) { closeSearchNow(); unpinSoon(); return; }
     d.classList.add('closing');
     document.body.classList.add('search-closing'); // B5 先淡回來；左上角按鈕等搜尋框收回原位才換回（同一個位置、同一個樣子，看不出切換）
-    const t = setTimeout(closeSearchNow, 600); // 保險：動畫事件沒來也會收掉
-    d.querySelector('.ss-body').addEventListener('animationend', () => { clearTimeout(t); closeSearchNow(); }, { once: true });
+    const done = () => { closeSearchNow(); unpinSoon(); };
+    const t = setTimeout(done, 600); // 保險：動畫事件沒來也會收掉
+    d.querySelector('.ss-body').addEventListener('animationend', () => { clearTimeout(t); done(); }, { once: true });
   };
   input.addEventListener('input', draw);
   // 點結果：不先關掉（換頁時由 route 收掉），換頁轉場直接從搜尋畫面淡到單元頁

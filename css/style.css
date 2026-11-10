@@ -2169,7 +2169,7 @@ html[data-nav="search"]::view-transition-new(topbar) { animation: ss-fade .32s v
 }
 
 /* 搜尋時：底下的頁面不能被捲動（iPhone 在搜尋結果滑到底時會把捲動傳給底下的首頁） */
-html.search-lock, html.search-lock body { overflow: hidden; overscroll-behavior: none; }
+html.search-lock, html.search-lock body { overscroll-behavior: none; } /* 不用 overflow:hidden：iPhone 切換它時會把頁面捲走；改由程式把頁面固定在原位 */
 /* 搜尋列自己有深藍底（打開時從透明淡成深藍，跟底下的導覽列接上）：鍵盤打開、畫面位移時搜尋框也不會透出底下的內容 */
 .ss-bar { max-width: none; padding-left: max(16px, env(safe-area-inset-left, 0px), calc((100% - 1200px) / 2 + 16px)); padding-right: max(16px, env(safe-area-inset-right, 0px), calc((100% - 1200px) / 2 + 16px)); margin-top: 0; padding-top: calc(10px + env(safe-area-inset-top, 0px)); background: var(--navy); touch-action: none; }
 dialog.search-sheet[open] .ss-bar { animation: ss-bar-in .16s ease both; }
