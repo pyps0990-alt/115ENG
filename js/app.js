@@ -192,14 +192,22 @@ function openSearch() {
   d.addEventListener('click', (e) => { if (e.target === d || e.target.closest('[data-close]')) close(); });
   d.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
   draw();
+  // iPhone 開鍵盤時可見範圍會變小：搜尋畫面的高度與位置跟著「鍵盤上方看得到的範圍」走，
+  // 搜尋框永遠在最上面、只有結果列表在捲（不然整個搜尋畫面連同底下的首頁會一起被捲走）
+  const vv = window.visualViewport;
+  const fit = () => { if (!vv || !d.isConnected) return; d.style.top = `${Math.max(0, vv.offsetTop)}px`; d.style.height = `${vv.height}px`; };
+  if (vv) { vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); d._unfit = () => { vv.removeEventListener('resize', fit); vv.removeEventListener('scroll', fit); }; }
+  fit();
+  document.documentElement.classList.add('search-lock'); // 底下的頁面不能被捲動
   document.body.classList.add('searching');
   d.showModal();
   input.focus({ preventScroll: true });
 }
 // 立刻收掉搜尋畫面（換頁時、關閉動畫結束時）
 function closeSearchNow() {
-  document.querySelectorAll('dialog.search-sheet').forEach((d) => { try { d.close(); } catch { /* ignore */ } d.remove(); });
+  document.querySelectorAll('dialog.search-sheet').forEach((d) => { d._unfit?.(); try { d.close(); } catch { /* ignore */ } d.remove(); });
   document.body.classList.remove('searching', 'search-closing');
+  document.documentElement.classList.remove('search-lock');
 }
 
 // 底部浮動分頁列（單元、我的成績）：登入後的首頁與我的成績才出現，作答時不會擋到畫面

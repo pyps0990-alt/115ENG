@@ -2121,7 +2121,7 @@ body.has-dock .acct-ver { margin-bottom: 96px; }
 /* ===== 搜尋單元（重新設計的開關動畫）=====
    搜尋畫面上方是透明的：底下真正的導覽列不動，左上角的搜尋按鈕原地長成搜尋框（同一個位置、同一個圓角），
    右上 B5 淡出、「取消」淡入；下面的結果區淡入蓋住頁面。取消時倒著收回成按鈕。 */
-dialog.search-sheet { position: fixed; inset: 0; width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: hidden; }
+dialog.search-sheet { position: fixed; inset: 0 0 auto 0; width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: hidden; overscroll-behavior: contain; }
 dialog.search-sheet[open] { display: flex; flex-direction: column; animation: none; }
 dialog.search-sheet::backdrop { background: transparent; }
 .ss-bar { flex: none; box-sizing: border-box; width: 100%; max-width: 1200px; min-height: 64px; margin: env(safe-area-inset-top, 0px) auto 0;
@@ -2167,3 +2167,13 @@ html[data-nav="search"]::view-transition-new(topbar) { animation: ss-fade .32s v
   dialog.search-sheet[open] *, dialog.search-sheet.closing * { animation: none !important; }
   .topbar .brand { transition: none !important; }
 }
+
+/* 搜尋時：底下的頁面不能被捲動（iPhone 在搜尋結果滑到底時會把捲動傳給底下的首頁） */
+html.search-lock, html.search-lock body { overflow: hidden; overscroll-behavior: none; }
+/* 搜尋列自己有深藍底（打開時從透明淡成深藍，跟底下的導覽列接上）：鍵盤打開、畫面位移時搜尋框也不會透出底下的內容 */
+.ss-bar { max-width: none; padding-left: max(16px, env(safe-area-inset-left, 0px), calc((100% - 1200px) / 2 + 16px)); padding-right: max(16px, env(safe-area-inset-right, 0px), calc((100% - 1200px) / 2 + 16px)); margin-top: 0; padding-top: calc(10px + env(safe-area-inset-top, 0px)); background: var(--navy); touch-action: none; }
+dialog.search-sheet[open] .ss-bar { animation: ss-bar-in .16s ease both; }
+dialog.search-sheet.closing .ss-bar { animation: ss-bar-out .2s ease both; }
+@keyframes ss-bar-in { from { background-color: transparent; } }
+@keyframes ss-bar-out { to { background-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { dialog.search-sheet .ss-bar { animation: none !important; } }
