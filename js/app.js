@@ -561,14 +561,32 @@ function renderHome() {
     ? `<a class="hp-link" href="#/me">已完成 ${nOk} / ${visible.length}${nTodo ? ` · 待檢討 ${nTodo}` : ''}${nMiss ? ` · 缺交 ${nMiss}` : ''} ${icon.arrowR}</a>` : '';
   // 指派作業只在最上面的主卡出現一次；下面的單元列表照課次排，指派的單元卡片上加一個小標籤（不再另外分一段，避免同一個單元出現兩次）
   const asgOf = new Map(asg.map((a) => [a.u.id, a]));
-  host.innerHTML = lessons.map((n) => {
+  // 課次多時：最上面一排課次快速跳轉（全部完成的課打勾）；全部完成的課收合起來（點標題展開），還要做的課比較好找
+  const doneLesson = (n) => visible.filter((u) => u.lesson === n).every((u) => unitStatus(u).k === 'ok');
+  const jump = lessons.length >= 4
+    ? `<nav class="lesson-jump" aria-label="跳到課次">${lessons.map((n) => `<button type="button" data-jump="${esc(String(n))}" class="${doneLesson(n) ? 'done' : ''}">${doneLesson(n) ? icon.check : ''}${esc(lessonLabel(n))}</button>`).join('')}</nav>`
+    : '';
+  host.innerHTML = jump + lessons.map((n) => {
     const units = visible.filter((u) => u.lesson === n);
     if (!units.length) return '';
-    return `<section class="lesson">
+    const grid = `<div class="unit-grid">${units.map((u) => tileHTML(u, asgOf.get(u.id))).join('')}</div>`;
+    if (doneLesson(n) && !asg.some((a) => a.u.lesson === n)) {
+      return `<details class="lesson lesson-done" data-lesson="${esc(String(n))}">
+      <summary class="lesson-head">${icon.book}<span>${lessonHeading(n)}</span><span class="lesson-ok">${icon.check}${units.length}</span></summary>
+      ${grid}
+    </details>`;
+    }
+    return `<section class="lesson" data-lesson="${esc(String(n))}">
       <h2 class="lesson-head">${icon.book}<span>${lessonHeading(n)}</span></h2>
-      <div class="unit-grid">${units.map((u) => tileHTML(u, asgOf.get(u.id))).join('')}</div>
+      ${grid}
     </section>`;
   }).join('');
+  host.querySelector('.lesson-jump')?.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-jump]'); if (!b) return;
+    const sec = [...host.querySelectorAll('[data-lesson]')].find((x) => x.dataset.lesson === b.dataset.jump); if (!sec) return;
+    if (sec.tagName === 'DETAILS') sec.open = true;
+    sec.scrollIntoView({ behavior: reduceMotion.matches ? 'auto' : 'smooth', block: 'start' });
+  });
   try { localStorage.removeItem('b5p:filter'); } catch { /* ignore */ } // 「全部／現在要做的」篩選已拿掉（主卡與老師指派已經告訴學生先做什麼）
 }
 

@@ -45,8 +45,9 @@ for (const reduced of [false, true]) {
   const tag = reduced ? '［減少動態效果］' : '';
   const ctx = await world.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: reduced ? 'reduce' : 'no-preference' });
   const p = await world.newPage(ctx, { student: true });
-  await p.goto(world.base + '/'); await p.waitForSelector('.unit-tile');
+  await p.goto(world.base + '/'); await p.waitForSelector('.unit-tile', { state: 'attached' });
   await settled(p, tag + '首頁', reduced);
+  await p.evaluate(() => document.querySelectorAll('details.lesson-done').forEach((d) => { d.open = true; })); // 全部完成的課會收合（第二輪時第 1 課已經做完）
   await p.click('.unit-tile[data-id="a-pat"]'); await p.waitForSelector('[data-start]');
   await settled(p, tag + '單元頁', reduced);
   await p.click('[data-start]'); await p.waitForSelector('.opt');
@@ -57,7 +58,7 @@ for (const reduced of [false, true]) {
   await settled(p, tag + '成績畫面', reduced, 4600); // 滿分的彩帶最長約 4.2 秒
   await p.evaluate(() => { delete document.body.dataset.busy; location.hash = '#/me'; }); await p.waitForSelector('.me-row');
   await settled(p, tag + '我的成績', reduced);
-  await p.evaluate(() => { location.hash = '#/'; }); await p.waitForSelector('.unit-tile');
+  await p.evaluate(() => { location.hash = '#/'; }); await p.waitForSelector('.unit-tile', { state: 'attached' });
   await p.mouse.move(1, 1); // 滑鼠停在單元卡上會有懸停浮起，不算動畫停在中途
   await settled(p, tag + '回到首頁', reduced);
   const bad = p.errors.filter((e) => !/favicon/.test(e));

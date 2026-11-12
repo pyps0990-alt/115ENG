@@ -107,11 +107,32 @@ export function mount(stage, ctx) {
       </div>
       <button class="rd-float" type="button" data-passage-open aria-label="展開文章">${icon.book}<span>文章</span></button>
       <div class="passage-foot">
+        <button class="rd-sheet-btn" type="button" data-sheet-open aria-label="看文章" hidden>${icon.book}<span>文章</span></button>
         <span class="count" data-count></span>
         <button class="btn primary" type="button" data-submit-btn>${icon.send} 交卷</button>
       </div>`;
 
     centerInView(stage.querySelector('.reading-quiz'), 'start');
+    // 手機：捲到題目時，交卷列左邊出現「文章」按鈕，按了從下面拉起半頁文章（邊看文章邊看題目，不用捲回上面展開）
+    const sheetBtn = stage.querySelector('[data-sheet-open]'), foldEl = stage.querySelector('.rd-fold');
+    if (foldEl && 'IntersectionObserver' in window) {
+      const io = new IntersectionObserver(([en]) => { sheetBtn.hidden = en.isIntersecting || getComputedStyle(foldEl).display === 'none'; });
+      io.observe(foldEl);
+    }
+    sheetBtn.addEventListener('click', () => {
+      const d = document.createElement('dialog');
+      d.className = 'rd-sheet';
+      d.setAttribute('aria-label', '文章');
+      d.innerHTML = `<div class="rd-sheet-bar"><span class="rd-sheet-grip" aria-hidden="true"></span><button class="rd-sheet-x" type="button" aria-label="關閉文章">${icon.x}</button></div><div class="rd-sheet-body">${passageHTML()}</div>`;
+      const close = () => { if (d.classList.contains('closing')) return; d.classList.add('closing'); setTimeout(() => { d.close(); d.remove(); }, 200); };
+      d.addEventListener('click', (e) => { if (e.target === d || e.target.closest('.rd-sheet-x')) close(); });
+      d.addEventListener('cancel', (e) => { e.preventDefault(); close(); });
+      // 往下滑把面板拉掉（文章捲在最上面時）
+      let y0 = null;
+      d.addEventListener('touchstart', (e) => { y0 = d.querySelector('.rd-sheet-body').scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
+      d.addEventListener('touchend', (e) => { if (y0 != null && e.changedTouches[0].clientY - y0 > 80) close(); y0 = null; }, { passive: true });
+      document.body.append(d); d.showModal();
+    });
     // 文章劃記（老師開啟才有）：工具在右下角的圓形按鈕，劃記跟著進度存起來
     stopAnnotator?.();
     stopAnnotator = annotateOn ? mountAnnotator(stage.querySelector('.reading-quiz'), paras, marks, persist, { nQ: qs.length }) : null;

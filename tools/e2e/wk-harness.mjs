@@ -91,7 +91,12 @@ export async function startBrowser({ width = 390, height = 844 } = {}) {
     js: (fn, ...args) => call('POST', S + '/execute/sync', { script: `return (${fn}).apply(null, arguments)`, args }),
     jsAsync: (fn, ...args) => call('POST', S + '/execute/async', { script: `var done=arguments[arguments.length-1]; Promise.resolve((${fn}).apply(null, Array.prototype.slice.call(arguments,0,-1))).then(done, function(e){done('ERR '+e)})`, args }),
     async $(css) { try {  return (await call('POST', S + '/element', { using: 'css selector', value: css }))['element-6066-11e4-a52e-4f735466cecf']; } catch { return null; } },
-    async click(css) { const id = await b.$(css); if (!id) throw new Error('no element ' + css); await call('POST', `${S}/element/${id}/click`, {}); },
+    async click(css) {
+      const id = await b.$(css); if (!id) throw new Error('no element ' + css);
+      // 元素在畫面最下面時會被固定的分頁列擋住（WebDriver 只捲到剛好看得到）：先捲到畫面中間
+      await b.js((c) => { const e = document.querySelector(c); const r = e.getBoundingClientRect(); if (r.bottom > innerHeight - 110 && !e.closest('.topbar, .dock, dialog, .passage-foot, .q-dock')) e.scrollIntoView({ block: 'center' }); }, css);
+      await call('POST', `${S}/element/${id}/click`, {});
+    },
     async type(css, text) { const id = await b.$(css); await call('POST', `${S}/element/${id}/value`, { text }); },
     async clickAt(x, y) {
       await call('POST', S + '/actions', { actions: [{ type: 'pointer', id: 'm', parameters: { pointerType: 'mouse' }, actions: [{ type: 'pointerMove', x: Math.round(x), y: Math.round(y), duration: 0 }, { type: 'pointerDown', button: 0 }, { type: 'pointerUp', button: 0 }] }] });
