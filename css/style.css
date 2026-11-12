@@ -2331,3 +2331,8 @@ html.dark .ln-bar, html.dark .q-dock { background: color-mix(in srgb, var(--card
 html.dark .dock { background: linear-gradient(180deg, rgba(30, 41, 64, .78), rgba(19, 28, 46, .72)); box-shadow: 0 10px 30px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .1), inset 0 0 0 1px rgba(255, 255, 255, .06); }
 html.dark .dock-ink, html.dark .dock.dragging .dock-ink { background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .07)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 4px 14px rgba(0, 0, 0, .4); }
 html.dark .dock-ink::after { opacity: .15; }
+
+/* 主畫面 App 的右滑返回：內容跟著手指往右，左邊緣一道淡陰影；畫面不會因此能左右捲動 */
+html.edge-drag, html.edge-drag body { overflow-x: clip; }
+#app.edge-drag { background: var(--bg); box-shadow: -14px 0 32px -8px rgba(15, 23, 42, .18); will-change: left; }
+html.dark #app.edge-drag { box-shadow: -14px 0 32px -8px rgba(0, 0, 0, .5); }

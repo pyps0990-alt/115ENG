@@ -72,6 +72,8 @@ function flatEnd() {
 const scrollMem = {};
 // 瀏覽器自己做了換頁動畫（iPhone 滑動返回）：這次換頁不再做轉場
 let uaSwiped = false;
+// 走過的頁面（回到走過的頁面就截斷）：右滑返回時先知道上一頁是不是有分頁列的首頁／我的成績
+const navStack = [];
 async function route() {
   const here = location.hash || '#/';
   const changed = here !== lastRendered;
@@ -82,6 +84,7 @@ async function route() {
   if (changed) app.dataset.dir = depth < lastDepth ? 'back' : 'fwd';
   const prevKind = lastKind;
   lastDepth = depth;
+  if (changed) { const i = navStack.lastIndexOf(here); if (i >= 0) navStack.length = i + 1; else navStack.push(here); }
   hush(1000);
   // 從首頁、我的成績點進單元前，記下捲到哪裡；返回時回到原位（不再一律跳回最上面，越下面的單元越明顯）
   const nextKind = (location.hash.split('/')[1] || '');
@@ -148,10 +151,89 @@ async function route() {
     await (job || run());
   } else await run();
   reportView();
+  window.dispatchEvent(new Event('b5-routed'));
   // 不再為了等中文網頁字型把整頁藏起來（以前最多藏 1.2 秒：換到用到新字的頁面時會整片白、動畫卡住）。
   // 中文字寬都是 1em，字型到了直接換上，版面不會位移
   if (tabSwitch && !useVT && !reduceMotion.matches) { app.classList.remove('page-in', 'tab-in'); void app.offsetWidth; app.classList.add('tab-in'); clearTimeout(route.tabT); route.tabT = setTimeout(() => app.classList.remove('tab-in'), 500); }
   else if (!useVT && !swiped) pageIn(changed, first);
+}
+
+// 加到主畫面（全螢幕 App）時沒有 Safari 的滑動返回：自己做。從左邊緣往右滑，內容跟著手指走；
+// 上方導覽列不動，底部分頁列也不動（上一頁有分頁列時，邊滑邊浮現在原位）。滑過三分之一或甩得夠快就回上一頁，不然彈回
+function initEdgeBack() {
+  const standalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true || window.__standalone;
+  const EDGE = 24;
+  let g = null;
+  const fixedIn = () => [...app.querySelectorAll('*')].filter((el) => el.offsetParent === null && getComputedStyle(el).position === 'fixed');
+  const paint = (x) => {
+    app.style.left = x ? `${x}px` : '';
+    for (const el of g.fixed) el.style.translate = x ? `${x}px 0` : '';
+    if (g.dock) { const p = Math.min(1, x / (innerWidth * 0.6)); g.dock.style.opacity = String(p); }
+  };
+  const reset = () => {
+    app.classList.remove('edge-drag', 'edge-anim'); document.documentElement.classList.remove('edge-drag');
+    app.style.left = ''; app.style.position = '';
+    if (g) for (const el of g.fixed) { el.style.translate = ''; el.style.transition = ''; }
+    const d = document.getElementById('dock'); if (d) { d.style.opacity = ''; d.style.transition = ''; }
+  };
+  document.addEventListener('touchstart', (e) => {
+    g = null;
+    if (e.touches.length !== 1 || !standalone()) return;
+    const t = e.touches[0];
+    if (t.clientX > EDGE) return;
+    const kind = location.hash.split('/')[1] || '';
+    if (!kind || kind === 'me' || kind === 'account' || document.body.dataset.busy || document.querySelector('dialog[open]')) return;
+    g = { x0: t.clientX, y0: t.clientY, x: 0, t: performance.now(), v: 0, on: false, fixed: [], dock: null };
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!g) return;
+    const t = e.touches[0], dx = t.clientX - g.x0, dy = t.clientY - g.y0;
+    if (!g.on) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (dx <= 0 || Math.abs(dy) > Math.abs(dx)) { g = null; return; } // 直的：照常捲動
+      g.on = true;
+      g.fixed = fixedIn();
+      app.style.position = 'relative'; app.classList.add('edge-drag'); document.documentElement.classList.add('edge-drag');
+      const dest = navStack[navStack.length - 2] || '#/';
+      const dk = dest.split('/')[1] || '';
+      if (store.student() && ['', 'me', 'account'].includes(dk)) { syncDock(dk || 'home'); g.dock = document.getElementById('dock'); g.dock.style.transition = 'none'; g.dock.style.opacity = '0'; }
+    }
+    e.preventDefault();
+    const now = performance.now(), x = Math.max(0, dx);
+    g.v = (x - g.x) / Math.max(1, now - g.t); g.x = x; g.t = now;
+    paint(x);
+  }, { passive: false });
+  const end = () => {
+    const s = g; g = null;
+    if (!s || !s.on) return;
+    g = s;
+    if (performance.now() - s.t > 60) s.v = 0; // 停住才放開：不算甩
+    const go = s.x > innerWidth / 3 || (s.v > 0.5 && s.x > 40);
+    const dur = reduceMotion.matches ? 0 : go ? 200 : 260;
+    const to = go ? innerWidth : 0;
+    app.classList.add('edge-anim');
+    app.style.transition = `left ${dur}ms cubic-bezier(.2,.8,.2,1)`;
+    for (const el of s.fixed) el.style.transition = `translate ${dur}ms cubic-bezier(.2,.8,.2,1)`;
+    if (s.dock) s.dock.style.transition = `opacity ${dur}ms`;
+    requestAnimationFrame(() => paint(to));
+    setTimeout(() => {
+      app.style.transition = '';
+      if (!go) { if (s.dock) syncDock(null); reset(); g = null; return; }
+      app.style.visibility = 'hidden'; // 舊頁面滑出去了：等新頁面畫好再顯示，不閃回原位
+      const done = () => {
+        window.removeEventListener('b5-routed', done);
+        reset(); g = null;
+        app.style.visibility = '';
+        if (!reduceMotion.matches) app.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
+      };
+      window.addEventListener('b5-routed', done);
+      setTimeout(() => { if (app.style.visibility === 'hidden') done(); }, 1500);
+      uaSwiped = true; // 已經做了滑動動畫：這次換頁不再做轉場
+      if (navStack.length > 1) history.back(); else location.hash = '#/';
+    }, dur + 20);
+  };
+  document.addEventListener('touchend', end, { passive: true });
+  document.addEventListener('touchcancel', () => { if (g && g.on) { g.x = 0; g.v = 0; } end(); }, { passive: true });
 }
 
 // 上方導覽列左邊：單元等內頁放「回首頁」；首頁、我的成績（最上層）放「搜尋單元」；還沒登入什麼都不放。B5 在右邊
@@ -1213,7 +1295,8 @@ async function boot() {
     e.preventDefault();
     if (await leaveOk()) { delete document.body.dataset.busy; location.hash = a.getAttribute('href'); }
   }, true);
-  window.addEventListener('popstate', (e) => { uaSwiped = !!e.hasUAVisualTransition; });
+  window.addEventListener('popstate', (e) => { uaSwiped = uaSwiped || !!e.hasUAVisualTransition; });
+  initEdgeBack();
   window.addEventListener('hashchange', async () => {
     if (reverting) { reverting = false; return; }
     if (document.body.dataset.busy) {
