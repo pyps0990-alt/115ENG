@@ -1,0 +1,16 @@
+{
+  "name": "B5 Practice",
+  "short_name": "B5",
+  "description": "內湖高中英文科 · Book 5 單字片語與課文理解練習",
+  "lang": "zh-Hant",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F6F8FB",
+  "theme_color": "#1E3A8A",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

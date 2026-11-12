@@ -2210,3 +2210,13 @@ dialog.search-sheet.closing .ss-bar { animation: ss-bar-out .2s ease both; }
 /* 手機打字時（鍵盤開著）收起測驗底部列，收起鍵盤再出現 */
 .q-dock, .ln-bar { transition: transform .22s var(--ease), opacity .18s; }
 html.kb-typing .q-dock, html.kb-typing .ln-bar { transform: translateY(110%); opacity: 0; pointer-events: none; }
+
+/* 英文發音按鈕（🔊）：字旁邊的小圓鈕，點了念出來 */
+.say { display: inline-grid; place-items: center; flex: none; width: 44px; height: 44px; margin: -10px -6px -10px 2px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--navy); vertical-align: middle; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.say .ic { width: 20px; height: 20px; padding: 6px; box-sizing: content-box; border-radius: 50%; background: var(--wash, #EEF2F8); transition: background .2s, color .2s; }
+.say:hover .ic { background: var(--navy); color: var(--white); }
+.say.saying .ic { animation: say-pulse .6s var(--ease); }
+@keyframes say-pulse { 40% { transform: scale(1.18); background: var(--navy); color: var(--white); } }
+.xp-ex .say { margin-top: -12px; margin-bottom: -12px; }
+.xp-ex .say .ic { width: 16px; height: 16px; padding: 5px; }
+@media (prefers-reduced-motion: reduce) { .say.saying .ic { animation: none; } }

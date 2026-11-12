@@ -17,7 +17,7 @@ function loadPlaywright() {
 }
 export const { chromium } = loadPlaywright();
 
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json' };
 
 export async function startWorld({ scriptLatency = 1200, teachers = ['teacher@example.com'], rulesAllowStaffWrite = true } = {}) {
   const server = http.createServer((req, res) => {

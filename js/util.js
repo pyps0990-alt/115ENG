@@ -84,6 +84,31 @@ if (typeof document !== 'undefined' && window.matchMedia && matchMedia('(pointer
   document.addEventListener('focusin', (e) => { if (typing(e.target)) document.documentElement.classList.add('kb-typing'); });
   document.addEventListener('focusout', () => setTimeout(() => { if (!typing(document.activeElement)) document.documentElement.classList.remove('kb-typing'); }, 60));
 }
+// 英文發音（iPhone、電腦內建的英文語音，不用錄音檔）：sayBtn(英文) 產生 🔊 按鈕，點了就念。不支援的瀏覽器不顯示按鈕
+const canSay = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+let enVoice = null;
+const pickVoice = () => {
+  const vs = speechSynthesis.getVoices();
+  enVoice = vs.find((v) => /^en[-_]US/i.test(v.lang) && /Samantha|Google US|Aaron|Nicky/i.test(v.name)) || vs.find((v) => /^en[-_]US/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || null;
+};
+export function say(text) {
+  if (!canSay || !text) return;
+  if (!enVoice) pickVoice();
+  const u = new SpeechSynthesisUtterance(String(text).replace(/\{\d+:([^}]*)\}/g, '$1').replace(/[[\]]/g, ''));
+  u.lang = 'en-US'; if (enVoice) u.voice = enVoice; u.rate = 0.9;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+const attrEsc = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+export const sayBtn = (text, label = '發音') => (canSay && text ? `<button class="say" type="button" data-say="${attrEsc(text)}" aria-label="${label}" title="${label}"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13"/></svg></button>` : '');
+if (canSay) {
+  speechSynthesis.addEventListener?.('voiceschanged', pickVoice);
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-say]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    say(b.dataset.say);
+    b.classList.remove('saying'); void b.offsetWidth; b.classList.add('saying');
+  });
+}
 // 正在跑的換頁／換場轉場：結束（或被跳過）時才 resolve。轉場中不要捲動頁面（iPhone Safari 截圖位置會算錯）
 let vtLive = null;
 export const afterVT = () => vtLive || Promise.resolve();

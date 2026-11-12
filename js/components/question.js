@@ -1,6 +1,6 @@
 // 可重複使用的題目元件：選擇題 (renderMC) 與字母框拼字 (renderSpell)。
 // feedback=true：練習模式，作答後立即顯示對錯；false：正式測驗，只記錄作答。
-import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample, pickExample, sameMeaning } from '../util.js';
+import { esc, shuffle, clozeParts, lettersOf, exampleHTML, plainExample, pickExample, sameMeaning, sayBtn } from '../util.js';
 import { icon } from '../icons.js';
 import { diffAnswer } from './diff.js';
 
@@ -134,7 +134,7 @@ export function renderMC(host, q, { feedback = true, selected = null, label = ''
   const cloze = q.dir === 'cloze';
   const meta = label || (en2zh ? '選出正確的中文意思' : cloze ? '選出最適合填入空格的字詞' : '選出正確的英文字詞');
   const prompt = en2zh
-    ? `<div class="q-prompt"><span class="w" lang="en">${esc(q.word.word)}</span></div>
+    ? `<div class="q-prompt"><span class="w" lang="en">${esc(q.word.word)}</span>${sayBtn(q.word.word)}</div>
        <div class="q-sub"><span class="pos">${esc(q.word.pos || '')}</span></div>`
     : cloze
       ? `<div class="q-sentence" lang="en">${esc(q.parts.before)}<span class="blank"></span>${esc(q.parts.after)}</div>`  // 例句題作答時不給中文（例句翻譯只在解析與檢討出現）
@@ -527,9 +527,9 @@ const simpleRows = (q, chosen, pool) => `<ul class="op-list">${optionsOf(q, chos
 function answerCard(q, exEn, exZh, extra) {
   const w = q.word;
   return `<div class="xp-answer"><div class="xp-answer-label">正確答案</div>`
-    + `<div class="xp-main"><span class="xp-word en" lang="en">${esc(w.word)}</span>${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>`
-    + (exEn ? `<p class="xp-ex en" lang="en">${exampleHTML(exEn)}</p>${exZh ? `<p class="xp-exzh">${esc(exZh)}</p>` : ''}` : '')
-    + (extra ? `<div class="xp-more"><div class="xp-more-label">再看一句</div><p class="xp-ex en" lang="en">${exampleHTML(extra.ex)}</p>${extra.zh ? `<p class="xp-exzh">${esc(extra.zh)}</p>` : ''}</div>` : '')
+    + `<div class="xp-main"><span class="xp-word en" lang="en">${esc(w.word)}</span>${sayBtn(w.word)}${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>`
+    + (exEn ? `<p class="xp-ex en" lang="en">${exampleHTML(exEn)}${sayBtn(exEn, '念例句')}</p>${exZh ? `<p class="xp-exzh">${esc(exZh)}</p>` : ''}` : '')
+    + (extra ? `<div class="xp-more"><div class="xp-more-label">再看一句</div><p class="xp-ex en" lang="en">${exampleHTML(extra.ex)}${sayBtn(extra.ex, '念例句')}</p>${extra.zh ? `<p class="xp-exzh">${esc(extra.zh)}</p>` : ''}</div>` : '')
     + '</div>';
 }
 

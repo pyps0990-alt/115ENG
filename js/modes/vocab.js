@@ -9,7 +9,7 @@ import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
 import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
-import { exampleHTML } from '../util.js';
+import { exampleHTML, sayBtn } from '../util.js';
 import { progress, leaveBody } from '../resume.js';
 import { diffAnswer } from '../components/diff.js';
 import { submitScore } from '../submit.js';
@@ -74,8 +74,8 @@ export function mount(stage, ctx) {
         <div class="rv-row no"><span>你的答案</span><b class="en" lang="en">${yours ? (spellKind ? mark.yoursHTML : esc(yours)) : '（未作答）'}</b></div>
         <div class="rv-row ok"><span>正確答案</span><b class="en" lang="en">${spellKind && yours ? mark.correctHTML : esc(d.correct || '')}</b></div>
         ${xp.err ? `<p class="xp-tip"><span class="xp-tag">${esc(xp.err)}</span>${esc(xp.tip)}</p>` : ''}
-        <div class="xp-main"><span class="xp-word en" lang="en">${esc(w.word)}</span>${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>
-        ${exEn ? `<p class="xp-ex en" lang="en">${exampleHTML(exEn)}</p>` : ''}
+        <div class="xp-main"><span class="xp-word en" lang="en">${esc(w.word)}</span>${sayBtn(w.word)}${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>
+        ${exEn ? `<p class="xp-ex en" lang="en">${exampleHTML(exEn)}${sayBtn(exEn, '念例句')}</p>` : ''}
         ${exZh ? `<p class="xp-exzh">${esc(exZh)}</p>` : ''}
       </div>`;
   }

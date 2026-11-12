@@ -4,9 +4,9 @@ import { startWorld, sleep } from './harness.mjs';
 
 const world = await startWorld({ scriptLatency: 40 });
 const g = world.gas;
-g.api('saveAllSettings', [[], ['l1-voc', 'l2-voc'].map((id, i) => ({ id, title: `L${i + 1} 單字`, type: 'vocab', lesson: i + 1, topic: 'T', visible: true, disabled: [], questionCount: 4, custom: true }))]);
+g.api('saveAllSettings', [[], ['l1-voc', 'l2-voc', 'l3-voc'].map((id, i) => ({ id, title: `L${i + 1} 單字`, type: 'vocab', lesson: i + 1, topic: 'T', visible: true, disabled: [], questionCount: 4, custom: true }))]);
 const words = ['apple', 'banana', 'cherry', 'dates', 'egg', 'fig'].map((w) => ({ word: w, pos: 'n.', zh: '字' + w, example: `I [${w}] it.`, exampleZh: '我。' }));
-for (const id of ['l1-voc', 'l2-voc']) g.api('saveContent', [id, { topic: 'Food', words }, true]);
+for (const id of ['l1-voc', 'l2-voc', 'l3-voc']) g.api('saveContent', [id, { topic: 'Food', words }, true]);
 const phone = { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true };
 let bad = 0;
 const step = async (n, f) => { try { await f(); console.log('✓', n); } catch (e) { bad++; console.log('✗', n, '\n  ', String(e.message).split('\n')[0]); } };
@@ -67,6 +67,27 @@ await step('手機上打字時收起測驗底部列，收起鍵盤後再出現',
   assert.equal(await p.evaluate(() => getComputedStyle(document.querySelector('.q-dock')).pointerEvents), 'none');
   await p.evaluate(() => document.getElementById('kb').blur()); await sleep(350);
   assert.equal(await p.evaluate(() => document.documentElement.classList.contains('kb-typing')), false);
+});
+await step('單字發音：英文題目旁有 🔊，按了用英文念那個字，不會選到選項或作答', async () => {
+  const ctx = await world.newContext(phone);
+  await ctx.addInitScript(() => {
+    window.__said = [];
+    const mock = { speak: (u) => window.__said.push([u.text, u.lang]), cancel() {}, getVoices: () => [{ lang: 'en-US', name: 'Samantha' }], addEventListener() {} };
+    Object.defineProperty(window, 'speechSynthesis', { value: mock, configurable: true });
+    window.SpeechSynthesisUtterance = function (t) { this.text = t; };
+  });
+  const v = await world.newPage(ctx, { student: true });
+  await v.goto(world.base + '/#/u/l3-voc'); await v.waitForSelector('[data-start]'); await sleep(500);
+  await v.tap('[data-start]'); await v.waitForSelector('.q-card');
+  for (let i = 0; i < 8 && !(await v.$('.q-prompt .say')); i++) { // 英→中的題目才有（中→英念出來就是答案）
+    const o = v.locator('.q-card .opt:not([disabled])'); if (await o.count()) await o.first().tap();
+    await sleep(300); if (await v.$('[data-next]:not([hidden])')) await v.tap('[data-next]:not([hidden])'); await sleep(500);
+  }
+  const word = await v.textContent('.q-prompt .w');
+  await v.tap('.q-prompt .say'); await sleep(200);
+  assert.deepEqual(await v.evaluate(() => window.__said), [[word, 'en-US']]);
+  assert.equal(await v.$$eval('.q-card .opt.selected, .q-card .opt.picked', (a) => a.length), 0, '沒有選到選項');
+  assert.ok(await v.$eval('.q-prompt .say', (b) => { const r = b.getBoundingClientRect(); return r.width >= 44 && r.height >= 44; }), '按鈕至少 44×44');
 });
 await step('沒有 JS 錯誤', async () => { assert.deepEqual(p.errors, []); });
 await world.close();
