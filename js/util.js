@@ -78,6 +78,9 @@ export const splitSentences = (p) => (String(p).match(/[^.!?]+(?:[.!?]+["'”’
 // 換內容前先讓舊的淡出（約 0.18 秒），再放新的進來：不會「啪」一下直接換掉
 // 轉場中點擊不會被吃掉：轉場的那零點幾秒，瀏覽器把點擊交給整頁（html）而不是畫面上的按鈕。
 // 手指一碰到螢幕就立刻結束轉場，這一下點擊改送到手指下真正的按鈕、選項或連結上
+// 正在跑的換頁／換場轉場：結束（或被跳過）時才 resolve。轉場中不要捲動頁面（iPhone Safari 截圖位置會算錯）
+let vtLive = null;
+export const afterVT = () => vtLive || Promise.resolve();
 (() => {
   if (typeof document === 'undefined' || !document.startViewTransition || document.__vtTap) return;
   document.__vtTap = true;
@@ -86,7 +89,9 @@ export const splitSentences = (p) => (String(p).match(/[^.!?]+(?:[.!?]+["'”’
   document.startViewTransition = (cb) => {
     const t = orig(cb);
     active = t;
-    t.finished.catch(() => {}).finally(() => { if (active === t) active = null; });
+    const done = t.finished.catch(() => {});
+    vtLive = done;
+    done.finally(() => { if (active === t) active = null; if (vtLive === done) vtLive = null; });
     return t;
   };
   let downAt = null;
@@ -215,7 +220,9 @@ function visibleBand() {
 }
 export function centerInView(el, block = 'center') {
   if (!el) return;
-  requestAnimationFrame(() => {
+  // 轉場進行中先不捲：等轉場結束再把題目捲到中間
+  afterVT().then(() => requestAnimationFrame(() => {
+    if (!el.isConnected) return;
     const { top, bottom } = visibleBand();
     const room = bottom - top;
     const r = el.getBoundingClientRect();
@@ -227,5 +234,5 @@ export function centerInView(el, block = 'center') {
     const dy = r.top - want;
     if (Math.abs(dy) < 2) return;
     window.scrollBy({ top: dy, behavior: reducedMotion() ? 'auto' : 'smooth' });
-  });
+  }));
 }

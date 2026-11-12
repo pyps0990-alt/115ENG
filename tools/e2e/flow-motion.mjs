@@ -63,6 +63,18 @@ await step('換場景：開始測驗 → 作答 → 交卷 → 成績，每一�
   const n = await p.evaluate(() => (document.querySelector('[data-num]') || {}).textContent);
   assert.equal(n, '100', '分數數字停在最終分數');
 });
+await step('開始測驗的轉場進行中頁面不捲動（iPhone Safari 轉場中捲動會把截圖位置算錯）', async () => {
+  await p.evaluate(() => { location.hash = '#/u/l5-read'; }); await p.waitForSelector('[data-start]'); await sleep(500);
+  await p.evaluate(() => {
+    window.__vtScroll = [];
+    addEventListener('scroll', () => { if (document.getAnimations().some((a) => String((a.effect && a.effect.pseudoElement) || '').includes('view-transition'))) window.__vtScroll.push(Math.round(scrollY)); });
+  });
+  await p.tap('[data-start]'); await p.waitForSelector('.pq'); await sleep(1200);
+  assert.deepEqual(await p.evaluate(() => window.__vtScroll), []);
+  await p.evaluate(() => document.querySelectorAll('.pq').forEach((q) => q.querySelector('.opt[data-i="0"]').click())); await sleep(300);
+  await p.tap('[data-submit-btn]'); await p.waitForSelector('dialog.modal[open]');
+  await p.tap('dialog.modal[open] .btn.primary'); await p.waitForSelector('.result', { timeout: 8000 }); await sleep(1200);
+});
 await step('轉場進行中立刻點選項：點擊不會被吃掉', async () => {
   await p.evaluate(() => { location.hash = '#/u/l3-read'; }); await p.waitForSelector('[data-start]'); await sleep(500);
   await p.tap('[data-start]'); await p.waitForSelector('.pq .opt');

@@ -78,7 +78,7 @@ export async function startWorld({ scriptLatency = 1200, teachers = ['teacher@ex
   return world;
 }
 
-async function routes(ctx, world) {
+export async function routes(ctx, world) {
   const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' };
   await ctx.route('https://www.gstatic.com/firebasejs/10.13.2/*.js', (route) => {
     const name = route.request().url().split('/').pop();
