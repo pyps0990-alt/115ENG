@@ -771,6 +771,7 @@
     .u-ink.no-anim, .rail-ink.no-anim { transition:none; }
     /* 單元清單：選到的那一列浮起來的感覺 */
     .u-row { transition:background .2s var(--ease-out), border-color .2s, box-shadow .25s var(--ease-out), transform .2s var(--ease-out); }
+    .u-row { contain:layout style; } /* 單元列內容變動只重排這一列 */
     .u-row:active { transform:scale(.985); }
     /* 卡片內容更新（例如切換班級）時不閃 */
     .usc-row .usc-bar i { animation:none; transition:width .45s var(--ease-out); }
@@ -5721,7 +5722,7 @@
           else if (e.target === d) close(inp ? null : false);
         });
         d.addEventListener('cancel', function (e) { e.preventDefault(); close(inp ? null : false); });
-        if (inp) inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') close(inp.value); });
+        if (inp) inp.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) close(inp.value); }); // 注音選字中按 Enter 是選字
         document.body.appendChild(d); d.showModal();
         (inp || d.querySelector(danger ? '[data-a="0"]' : '[data-a="1"]')).focus();
       });

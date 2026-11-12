@@ -163,7 +163,7 @@ export function renderFillCard(host, q, { meta = '填入空格中的單字或片
     onAnswer?.(ok, typed);
   };
   btn.addEventListener('click', check);
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); check(); } });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); check(); } }); // 選字中（注音、手寫）按 Enter 是選字，不是送出
   setTimeout(() => input.focus({ preventScroll: true }), 60);
   return { el: card };
 }

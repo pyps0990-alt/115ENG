@@ -449,7 +449,7 @@ function prefetchUnits(list) {
     for (const u of list) {
       if (unitCached(u.id, config)) continue;
       do { await idleTurn(); } while (performance.now() < quietUntil || document.body.dataset.busy);
-      await loadUnitNow(u.id, config).catch(() => {}); // 只存到裝置上，不放進按下卡片用的暫存
+      await loadUnitNow(u.id, config, { low: true }).catch(() => {}); // 只存到裝置上，不放進按下卡片用的暫存
     }
   })();
 }

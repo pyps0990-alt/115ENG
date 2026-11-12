@@ -11,11 +11,12 @@ const DEFAULT_COUNT = 10;
 const CACHE_KEY = 'b5p:config';
 const FIRESTORE = 'https://firestore.googleapis.com/v1/projects/eng-3385e/databases/(default)/documents/public/';
 
-async function fetchTimeout(url, ms) {
+// priority 'low'：背景檢查、預先下載用，不跟使用者正在等的請求搶網路（不支援的瀏覽器會忽略）
+async function fetchTimeout(url, ms, priority) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
   try {
-    return await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
+    return await fetch(url, { signal: ctrl.signal, cache: 'no-store', ...(priority ? { priority } : {}) });
   } finally {
     clearTimeout(t);
   }
@@ -30,7 +31,7 @@ function writeCache(c) {
 
 // 老師儲存時會同步一份到 Firestore：直接讀它，約 0.2 秒（Apps Script 要 2～5 秒）
 // index.html 在載入程式的同時就先發出設定的請求（window.__early），這裡直接接手，省下等程式載完的時間
-export async function firestoreDoc(id, ms = 4000) {
+export async function firestoreDoc(id, ms = 4000, priority) {
   let r = null;
   if (id === 'config' && window.__early && window.__early.config) {
     const early = window.__early.config;
@@ -38,22 +39,22 @@ export async function firestoreDoc(id, ms = 4000) {
     r = await early.catch(() => null);
     if (r && !r.ok) r = null;
   }
-  if (!r) r = await fetchTimeout(`${FIRESTORE}${encodeURIComponent(id)}`, ms);
+  if (!r) r = await fetchTimeout(`${FIRESTORE}${encodeURIComponent(id)}`, ms, priority);
   if (!r.ok) throw new Error(String(r.status));
   const j = await r.json();
   return JSON.parse(j.fields.json.stringValue);
 }
 
-async function fetchRemote() {
+async function fetchRemote(priority) {
   try {
-    const c = await firestoreDoc('config');
+    const c = await firestoreDoc('config', 4000, priority);
     if (c && c.units) return { ...c, source: 'firestore' };
   } catch { /* 還沒同步過或讀取失敗：改問 Apps Script */ }
-  return fetchGas();
+  return fetchGas(priority);
 }
 
-async function fetchGas() {
-  const r = await fetchTimeout(`${SCRIPT_URL}${SCRIPT_URL.includes('?') ? '&' : '?'}action=config`, 10000);
+async function fetchGas(priority) {
+  const r = await fetchTimeout(`${SCRIPT_URL}${SCRIPT_URL.includes('?') ? '&' : '?'}action=config`, 10000, priority);
   if (!r.ok) throw new Error(String(r.status));
   const j = await r.json();
   if (!j || !j.units) throw new Error('bad config');
@@ -100,7 +101,7 @@ export function watchConfig(current) {
   const checkNow = () => {
     if (!SCRIPT_URL || document.visibilityState !== 'visible' || Date.now() - lastCheck < 5000) return;
     lastCheck = Date.now();
-    fetchRemote().then((c) => idle(() => {
+    fetchRemote('low').then((c) => idle(() => {
       writeCache(c);
       if (!sameConfig(c, cur)) window.dispatchEvent(new CustomEvent('config-updated', { detail: c }));
     })).catch(() => { /* 離線：下次再試 */ });

@@ -5,7 +5,7 @@
 let started = false;
 // 這個畫面載入時的版本（第一次讀到的 version.json）：帳號頁顯示用，方便確認每台裝置是不是最新版
 let loaded = null;
-const fetchVer = () => fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' })
+const fetchVer = () => fetch(`version.json?t=${Date.now()}`, { cache: 'no-store', priority: 'low' })
   .then((r) => (r.ok ? r.json() : null)).then((j) => (j && j.v ? j : null)).catch(() => null);
 export async function versionInfo() {
   const latest = await fetchVer();

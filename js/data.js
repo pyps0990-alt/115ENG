@@ -1,8 +1,8 @@
 const cache = new Map();
 
-async function getJSON(url) {
+async function getJSON(url, priority) {
   if (cache.has(url)) return cache.get(url);
-  const p = fetch(url, { cache: 'no-cache' }).then((r) => {
+  const p = fetch(url, { cache: 'no-cache', ...(priority ? { priority } : {}) }).then((r) => {
     if (!r.ok) throw new Error(`${url}: ${r.status}`);
     return r.json();
   });
@@ -42,7 +42,8 @@ export function loadUnit(id, config) {
   p.catch(() => mem.delete(k));
   return p;
 }
-export async function loadUnitNow(id, config) {
+// low：背景預先下載（不跟使用者正在等的請求搶網路）
+export async function loadUnitNow(id, config, { low = false } = {}) {
   const imported = config && config.content && config.content[id];
   if (imported && SCRIPT_URL) {
     const key = `b5p:content:${id}`;
@@ -52,7 +53,7 @@ export async function loadUnitNow(id, config) {
       if (saved && saved.v === version && saved.data) return saved.data;
     } catch { /* ignore */ }
     try {
-      const d = await firestoreDoc(`content_${id}`);
+      const d = await firestoreDoc(`content_${id}`, 4000, low ? 'low' : undefined);
       if (d && String(d.v) === version && d.data) {
         try { localStorage.setItem(key, JSON.stringify({ v: version, data: d.data })); } catch { /* ignore */ }
         return d.data;
@@ -60,7 +61,7 @@ export async function loadUnitNow(id, config) {
     } catch { /* 改問 Apps Script */ }
     const url = `${SCRIPT_URL}${SCRIPT_URL.includes('?') ? '&' : '?'}action=content&unit=${encodeURIComponent(id)}&v=${encodeURIComponent(version)}`;
     try {
-      const res = await getJSON(url);
+      const res = await getJSON(url, low ? 'low' : undefined);
       if (res && res.ok && res.data) {
         try { localStorage.setItem(key, JSON.stringify({ v: version, data: res.data })); } catch { /* 空間不足時就不存 */ }
         return res.data;

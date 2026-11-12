@@ -301,7 +301,7 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   hintBtn?.addEventListener('click', hint);
   paintHint();
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); check(); }
+    if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); e.stopPropagation(); check(); } // 選字中按 Enter 是選字
   });
   paint();
   setTimeout(() => input.focus({ preventScroll: true }), 50);

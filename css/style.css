@@ -231,6 +231,8 @@ dialog.modal[open] { animation: pop-in .28s var(--ease); }
 }
 .unit-tile:hover { transform: translateY(-2px); border-color: var(--navy); }
 .unit-tile { position: relative; }
+/* 卡片內容變動（分數、進度環、狀態）時只重排這張卡片，不牽動整頁版面 */
+.unit-tile, .me-row, .asg-row { contain: layout style; }
 .unit-tile:hover { background: var(--white); }
 .tile-state { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px 3px 9px; border-radius: 999px; background: var(--white); border: 1px solid var(--line-strong); color: var(--steel); font-weight: 800; font-size: .88rem; white-space: nowrap; }
 .tile-state .ic { width: 15px; height: 15px; stroke-width: 2.6; }
