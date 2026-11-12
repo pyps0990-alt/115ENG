@@ -91,6 +91,21 @@ await step('一般瀏覽器（不是加到主畫面）：交給 Safari 自己的
   const s = await state(q);
   assert.equal(s.left, 0); assert.match(s.hash, /#\/u\/l1-voc/);
 });
+await step('主畫面 App 打開、切回來：自動輕推讓 iPhone 重算安全區域（不用自己滑），捲動位置不變', async () => {
+  await p.evaluate(() => { delete document.body.dataset.busy; location.hash = '#/'; }); await p.waitForSelector('.unit-tile'); await sleep(1300);
+  const a = await p.evaluate(() => ({ on: document.documentElement.classList.contains('standalone'), n: window.__saKicks || 0 }));
+  assert.ok(a.on && a.n >= 3, '打開時輕推 ' + JSON.stringify(a));
+  await p.evaluate(() => { const d = document.createElement('div'); d.style.height = '2000px'; document.getElementById('app').append(d); scrollTo(0, 300); }); await sleep(200); const y0 = await p.evaluate(() => scrollY); assert.ok(y0 > 0);
+  await p.evaluate(() => { Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true }); document.dispatchEvent(new Event('visibilitychange')); });
+  await sleep(1300);
+  const b = await p.evaluate(() => ({ n: window.__saKicks, y: scrollY, mh: document.documentElement.style.minHeight }));
+  assert.ok(b.n >= a.n + 3, '切回來也輕推'); assert.equal(b.y, y0, '捲動位置不變 ' + JSON.stringify(b)); assert.equal(b.mh, '');
+});
+await step('一般瀏覽器不輕推', async () => {
+  const q = await world.newPage(await world.newContext(phone), { student: true });
+  await q.goto(world.base + '/'); await q.waitForSelector('.unit-tile'); await sleep(1300);
+  assert.equal(await q.evaluate(() => window.__saKicks || 0), 0);
+});
 await step('沒有 JS 錯誤', async () => { assert.deepEqual(p.errors, []); });
 await world.close();
 if (bad) { console.log(bad + ' 項失敗'); process.exit(1); }

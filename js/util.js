@@ -91,6 +91,29 @@ if (typeof document !== 'undefined' && window.matchMedia && matchMedia('(pointer
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter') setTimeout(sync, 150); }); // 送出答案後輸入框可能被鎖住
   if (vv) vv.addEventListener('resize', sync);
 }
+// 加到主畫面的 App（iPhone）剛打開、或從背景切回來時，系統常常先回報「瀏海、底部橫條的安全區域是 0」，
+// 要等使用者滑一下、轉一下手機才重算：導覽列會先卡在時鐘底下、底部分頁列位置不對。
+// 這裡在開啟、切回來、轉向後自動「輕推」一下（捲 1px 再捲回來，或版面高度暫時多 1px），讓系統馬上重算，不用自己滑
+if (typeof document !== 'undefined' && ((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true || window.__standalone)) {
+  const root = document.documentElement;
+  root.classList.add('standalone');
+  let touching = false;
+  document.addEventListener('touchstart', () => { touching = true; }, { passive: true, capture: true });
+  document.addEventListener('touchend', () => { touching = false; }, { passive: true, capture: true });
+  const kick = () => {
+    if (touching || document.visibilityState !== 'visible') return;
+    const y = window.scrollY, max = root.scrollHeight - window.innerHeight;
+    if (max >= 1) { window.scrollTo(0, y >= 1 ? y - 1 : y + 1); requestAnimationFrame(() => window.scrollTo(0, y)); }
+    else { root.style.minHeight = 'calc(100% + 1px)'; requestAnimationFrame(() => requestAnimationFrame(() => { root.style.minHeight = ''; })); }
+    window.__saKicks = (window.__saKicks || 0) + 1;
+  };
+  const soon = () => { for (const t of [0, 120, 400, 1000]) setTimeout(() => requestAnimationFrame(kick), t); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', soon, { once: true }); else soon();
+  window.addEventListener('load', () => setTimeout(kick, 50), { once: true });
+  window.addEventListener('pageshow', (e) => { if (e.persisted) soon(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') soon(); });
+  window.addEventListener('orientationchange', () => setTimeout(soon, 250));
+}
 // 英文發音（iPhone、電腦內建的英文語音，不用錄音檔）：sayBtn(英文) 產生 🔊 按鈕，點了就念。不支援的瀏覽器不顯示按鈕
 const canSay = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
 let enVoice = null;
