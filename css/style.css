@@ -2184,3 +2184,25 @@ dialog.search-sheet.closing .ss-bar { animation: ss-bar-out .2s ease both; }
 @keyframes ss-bar-in { from { background-color: transparent; } }
 @keyframes ss-bar-out { to { background-color: transparent; } }
 @media (prefers-reduced-motion: reduce) { dialog.search-sheet .ss-bar { animation: none !important; } }
+
+/* ---- 觸控目標至少 44×44（Apple 介面規範）---- */
+.dock.mini { transform: translateX(-50%) scale(.88); } /* 捲下去縮小時高度仍有 44 */
+.q-dock .switch { min-height: 44px; }
+.acct-btn { min-height: 44px; }
+.ss-x { min-width: 44px; }
+.link-btn { min-width: 44px; padding: 4px 8px; }
+
+/* ---- 真實資訊（截止時間、剩幾天、狀態）至少約 13px ---- */
+.asg-when { font-size: .82rem; }
+.asg-left, .u-chip, .tile-asg, .tile-top .tile-asg { font-size: .82rem; }
+.asg-sub, .me-sum .sum span { font-size: .84rem; }
+.quiz-stat[hidden] { display: none; }
+
+/* 登出：放在帳號頁最下面、一般樣式（危險動作不放在最顯眼的位置） */
+.acct-out { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; margin: 4px 0 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--white); color: var(--bad-ink, #B91C1C); font: inherit; font-weight: 800; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.acct-out .ic { width: 18px; height: 18px; }
+.acct-out:active { transform: scale(.985); }
+
+/* 交卷確認框：用哪個身分交卷 */
+.who-confirm { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface); color: var(--navy); }
+.who-confirm .ic { flex: none; width: 18px; height: 18px; }

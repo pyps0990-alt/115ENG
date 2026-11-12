@@ -30,7 +30,7 @@ try {
   await p.locator('.opt').first().click(); await sleep(600);
   assert.equal(loads, before, '考試中不能自動重新載入');
   // 2) 考完回到首頁（換頁）：自動載入新版
-  await p.locator('[data-next]:not([hidden])').click(); await p.waitForSelector('.result');
+  await p.locator('[data-next]:not([hidden])').click(); await p.click('dialog.modal[open] [value="ok"]'); await p.waitForSelector('.result');
   await p.evaluate(() => { location.hash = '#/'; });
   await p.waitForFunction((n) => performance.getEntriesByType('navigation').length >= 1 && !document.querySelector('.update-bar'), loads, { timeout: 6000 });
   await sleep(1500);

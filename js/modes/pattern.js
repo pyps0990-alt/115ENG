@@ -8,7 +8,7 @@ import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog, leaveOut, sc
 import { icon } from '../icons.js';
 import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
-import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
+import { testGate, submitStateHTML, stampHTML, submitWhoHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore, fetchKey, cachedKey, newAttemptId, checkAnswer } from '../submit.js';
 import { mountLearn, guidePeekHTML } from '../components/learn.js';
@@ -68,7 +68,7 @@ export function mount(stage, ctx) {
       title: `${ctx.unit.title}｜${firstTime ? '檢討' : '再看一次檢討'}`,
       items: wrong.map((d) => {
         const q = all.find((x) => x.id === d.word);
-        return { html: q ? reviewCardHTML(q, d.yours) : `<div class="rv-card"><div class="rv-prompt">${esc(d.q || d.question || '')}</div><div class="rv-row ok"><span>正確答案</span><b class="en">${esc(d.correct || '')}</b></div></div>` };
+        return { html: q ? reviewCardHTML(q, d.yours) : `<div class="rv-card"><div class="rv-prompt">${esc(d.q || d.question || '')}</div><div class="rv-row ok"><span>正確答案</span><b class="en" lang="en">${esc(d.correct || '')}</b></div></div>` };
       }),
       onDone: () => { if (firstTime) completeReview(unitId); scene(() => { gate.redraw(); window.scrollTo(0, 0); }); },
       onExit: () => scene(() => { gate.redraw(); window.scrollTo(0, 0); }),
@@ -119,7 +119,7 @@ export function mount(stage, ctx) {
         ${statusBarHTML({ kind: redo ? 'redo' : 'review', note: '', mid: `<div class="quiz-bar">
           <div class="bar"><span></span></div>
           <span class="quiz-stat" data-n></span>
-          <span class="quiz-stat streak" data-streak title="連續答對">${icon.flame}<b>0</b></span>
+          <span class="quiz-stat streak" data-streak title="連續答對"${streak >= 2 ? '' : ' hidden'}>${icon.flame}<b>${streak}</b></span>
         </div>` })}
         <div data-q></div>
         <div class="q-foot"><div class="feedback" data-fb aria-live="polite"></div><button class="btn primary" type="button" data-next hidden></button></div>
@@ -167,6 +167,7 @@ export function mount(stage, ctx) {
         fb.innerHTML = got > 0 ? `${icon.x} 差一點，得 ${fmt(got)} 分，看一下解析` : `${icon.x} 看一下解析`;
       }
       st.querySelector('b').textContent = streak;
+      st.hidden = streak < 2; // 連對 2 題以上才出現，一開始的 0 沒有意義
       stage.querySelector('[data-q]').insertAdjacentHTML('beforeend', explainHTML(q));
       nextBtn.hidden = false;
       nextBtn.innerHTML = qi < qs.length - 1 ? `下一題 ${icon.arrowR}` : `看總成績 ${icon.arrowR}`;
@@ -313,10 +314,17 @@ export function mount(stage, ctx) {
     const go = (i) => { qi = Math.max(0, Math.min(qs.length - 1, i)); show(); };
     prevBtn.addEventListener('click', () => go(qi - 1));
     dots.addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) go(Number(b.dataset.go)); });
+    let asking = false, sent = false; // 確認框開著、或已經交卷：再按交卷不理會（連點不會跳出第二個確認框）
     nextBtn.addEventListener('click', async () => {
       if (qi < qs.length - 1) { go(qi + 1); return; }
+      if (asking || sent) return;
       const left = qs.length - answered();
-      if (left && !(await confirmDialog({ title: '確定要交卷嗎？', body: `還有 <b>${left}</b> 題沒作答，沒作答的以答錯計。交卷後就不能修改。`, ok: '交卷', cancel: '回去作答' }))) { const i = qs.findIndex((q) => !(answers[q.id] && String(answers[q.id].yours || '').trim())); go(i); return; }
+      // 交卷前確認一次身分（避免用別人的帳號作答）；有沒作答的題目時一起提醒
+      asking = true;
+      const yes = await confirmDialog({ title: '確定要交卷嗎？', body: submitWhoHTML() + (left ? `還有 <b>${left}</b> 題沒作答，沒作答的以答錯計。交卷後就不能修改。` : '所有題目都作答了。交卷後就不能修改。'), ok: '交卷', cancel: '回去作答' });
+      asking = false;
+      if (!yes) { if (left) { const i = qs.findIndex((q) => !(answers[q.id] && String(answers[q.id].yours || '').trim())); go(i); } return; }
+      sent = true;
       submitOfficial();
     });
     if (onKey) document.removeEventListener('keydown', onKey);

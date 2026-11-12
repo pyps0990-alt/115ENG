@@ -58,7 +58,7 @@ export function flattenPattern(items) {
 // 答錯後顯示：你的答案（錯的地方標出來）＋正確答案（你漏掉的字標出來）
 export function wrongLineHTML(yours, alts) {
   const d = diffAnswer(yours, alts);
-  return `${d.yoursHTML ? `<div>你的答案：<b class="en">${d.yoursHTML}</b></div>` : ''}<div>正確答案：<b class="en">${d.correctHTML}</b></div>`;
+  return `${d.yoursHTML ? `<div>你的答案：<b class="en" lang="en">${d.yoursHTML}</b></div>` : ''}<div>正確答案：<b class="en" lang="en">${d.correctHTML}</b></div>`;
 }
 
 export const correctText = (q) => (q.kind === 'mc' ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : altsOf(q).slice(0, 4).join(' / '));
@@ -100,9 +100,9 @@ function head(q, meta, sentence) {
 export function renderChoiceCard(host, q, { meta = '選出最適合的答案', onAnswer, reveal = null, deferred = false, initial = null, onPick } = {}) {
   const card = document.createElement('div');
   card.className = 'q-card slide-in';
-  card.innerHTML = `${head(q, meta, `<div class="q-sentence en">${blankHTML(q.stem)}</div>`)}
+  card.innerHTML = `${head(q, meta, `<div class="q-sentence en" lang="en">${blankHTML(q.stem)}</div>`)}
     <div class="options two" role="group" aria-label="選項">${q.options.map((o, i) => `<button class="opt" type="button" data-i="${i}">
-      <span class="opt-key">${KEYS[i]}</span><span class="opt-text en">${esc(o)}</span><span class="opt-mark" aria-hidden="true"></span></button>`).join('')}</div>`;
+      <span class="opt-key">${KEYS[i]}</span><span class="opt-text en" lang="en">${esc(o)}</span><span class="opt-mark" aria-hidden="true"></span></button>`).join('')}</div>`;
   host.append(card);
   if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   const opts = [...card.querySelectorAll('.opt')];
@@ -133,8 +133,8 @@ export function renderChoiceCard(host, q, { meta = '選出最適合的答案', o
 export function renderFillCard(host, q, { meta = '填入空格中的單字或片語', onAnswer, reveal = null, deferred = false, initial = null, onPick } = {}) {
   const card = document.createElement('div');
   card.className = 'q-card slide-in';
-  card.innerHTML = `${head(q, meta, `<div class="q-sentence en">${blankHTML(q.stem)}</div>${q.hint ? `<div class="q-sub"><span>${esc(q.hint)}</span></div>` : ''}`)}
-    <div class="fill-area"><input class="fill-input en" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="輸入答案" placeholder="輸入答案">
+  card.innerHTML = `${head(q, meta, `<div class="q-sentence en" lang="en">${blankHTML(q.stem)}</div>${q.hint ? `<div class="q-sub"><span>${esc(q.hint)}</span></div>` : ''}`)}
+    <div class="fill-area"><input class="fill-input en" lang="en" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="輸入答案" placeholder="輸入答案">
       <button class="btn primary" type="button" data-check>檢查 ${icon.check}</button></div>
     <div class="answer-line" hidden></div>`;
   host.append(card);
@@ -174,7 +174,7 @@ export function renderApplyCard(host, q, { meta = '應用：把單字排成正�
   const order = shuffle(q.words.map((w, i) => i));
   card.innerHTML = `${head(q, meta, `<div class="q-sentence">${esc(q.zh)}</div>`)}
     <div class="build-line" aria-live="polite"><span class="build-hint">點一下或拖動下面的單字，排成句子</span></div>
-    <div class="bank" role="group" aria-label="單字">${order.map((i) => `<button class="chip-word en" type="button" data-w="${i}">${esc(q.words[i])}</button>`).join('')}</div>
+    <div class="bank" role="group" aria-label="單字">${order.map((i) => `<button class="chip-word en" lang="en" type="button" data-w="${i}">${esc(q.words[i])}</button>`).join('')}</div>
     <div class="fill-area"><button class="btn ghost" type="button" data-clear>清除</button><button class="btn primary" type="button" data-check>檢查 ${icon.check}</button></div>
     <div class="answer-line" hidden></div>`;
   host.append(card);
@@ -184,7 +184,7 @@ export function renderApplyCard(host, q, { meta = '應用：把單字排成正�
   let done = false;
   const paint = () => {
     if (deferred) onPick?.(picked.map((i) => q.words[i]).join(' '), picked.slice());
-    line.innerHTML = picked.length ? picked.map((i, k) => `<button class="chip-word en on" type="button" data-k="${k}">${esc(q.words[i])}</button>`).join('') : '<span class="build-hint">點一下或拖動下面的單字，排成句子</span>';
+    line.innerHTML = picked.length ? picked.map((i, k) => `<button class="chip-word en on" lang="en" type="button" data-k="${k}">${esc(q.words[i])}</button>`).join('') : '<span class="build-hint">點一下或拖動下面的單字，排成句子</span>';
     bank.forEach((b) => { b.disabled = done || picked.includes(Number(b.dataset.w)); });
   };
   // 點一下：從下方加到句子最後面／從句子拿掉。單字的順序完全由學生決定，不會自動排序。
@@ -298,7 +298,7 @@ export function explainBlockHTML(q, ok) {
   const text = String(q.explain || '').trim();
   const body = text
     ? text.split(/\n+/).map((l) => `<p>${esc(l)}</p>`).join('')
-    : `<p class="muted">這題沒有附解析。正確答案是 <b class="en">${esc(isChoice(q) ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : altsOf(q)[0] || '')}</b>。</p>`;
+    : `<p class="muted">這題沒有附解析。正確答案是 <b class="en" lang="en">${esc(isChoice(q) ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : altsOf(q)[0] || '')}</b>。</p>`;
   return `<div class="explain explain-full">${body}</div>`;
 }
 
@@ -311,12 +311,12 @@ export function reviewCardHTML(q, yours, extra = '', no = null) {
   if (isChoice(q)) {
     const a = choiceIndex(yours);
     return `<div class="pq rv-pq ${ok ? 'is-ok' : 'is-no'}">${extra}
-      <div class="pq-head"><span class="pq-num">${no != null ? no : icon.bulb}</span><div><span class="skill">${meta}</span><div class="pq-q en">${blankHTML(q.stem)}</div></div></div>
-      ${filled ? `<div class="rv-filled"><span>完整句子</span><p class="en">${filled}</p></div>` : ''}
+      <div class="pq-head"><span class="pq-num">${no != null ? no : icon.bulb}</span><div><span class="skill">${meta}</span><div class="pq-q en" lang="en">${blankHTML(q.stem)}</div></div></div>
+      ${filled ? `<div class="rv-filled"><span>完整句子</span><p class="en" lang="en">${filled}</p></div>` : ''}
       <div class="options">${q.options.map((o, j) => {
     const cls = j === q.answer ? `correct${ok ? '' : ' reveal'}` : j === a ? 'wrong' : 'dim';
     const mark = j === q.answer ? icon.check : j === a ? icon.x : '';
-    return `<div class="opt ${cls}"><span class="opt-key">${KEYS[j]}</span><span class="opt-text en">${esc(o)}</span><span class="opt-mark" aria-hidden="true">${mark}</span></div>`;
+    return `<div class="opt ${cls}"><span class="opt-key">${KEYS[j]}</span><span class="opt-text en" lang="en">${esc(o)}</span><span class="opt-mark" aria-hidden="true">${mark}</span></div>`;
   }).join('')}</div>
       <div class="explain-wrap"><b class="ex-head ${ok ? 'ok' : 'no'}">${ok ? `${icon.check} 答對・正解 ${KEYS[q.answer]}` : a == null ? `${icon.x} 未作答・正解 ${KEYS[q.answer]}` : `${icon.x} 你選 ${KEYS[a]}・正解 ${KEYS[q.answer]}`}</b>${explainBlockHTML(q, ok)}</div>
     </div>`;
@@ -324,10 +324,10 @@ export function reviewCardHTML(q, yours, extra = '', no = null) {
   const prompt = q.kind === 'apply' ? esc(q.zh) : blankHTML(q.stem);
   return `<div class="rv-card">
     <div class="rv-meta">${no != null ? `第 ${no} 題・` : ''}${meta}</div>
-    <div class="rv-prompt en">${prompt}</div>
-    <div class="rv-row ${ok ? 'ok' : 'no'}"><span>你的答案</span><b class="en">${String(yours || '').trim() ? (ok ? esc(yours) : diffAnswer(yours, altsOf(q)).yoursHTML) : '（未作答）'}</b></div>
-    ${ok ? '' : `<div class="rv-row ok"><span>正確答案</span><b class="en">${diffAnswer(yours, altsOf(q)).correctHTML}</b></div>`}
-    ${filled ? `<div class="rv-filled"><span>完整句子</span><p class="en">${filled}</p></div>` : ''}
+    <div class="rv-prompt en" lang="en">${prompt}</div>
+    <div class="rv-row ${ok ? 'ok' : 'no'}"><span>你的答案</span><b class="en" lang="en">${String(yours || '').trim() ? (ok ? esc(yours) : diffAnswer(yours, altsOf(q)).yoursHTML) : '（未作答）'}</b></div>
+    ${ok ? '' : `<div class="rv-row ok"><span>正確答案</span><b class="en" lang="en">${diffAnswer(yours, altsOf(q)).correctHTML}</b></div>`}
+    ${filled ? `<div class="rv-filled"><span>完整句子</span><p class="en" lang="en">${filled}</p></div>` : ''}
     <div class="explain-wrap"><b class="ex-head ${ok ? 'ok' : 'no'}">${icon.bulb} 解析</b>${explainBlockHTML(q, ok)}</div>
   </div>`;
 }

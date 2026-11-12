@@ -134,10 +134,10 @@ export function renderMC(host, q, { feedback = true, selected = null, label = ''
   const cloze = q.dir === 'cloze';
   const meta = label || (en2zh ? '選出正確的中文意思' : cloze ? '選出最適合填入空格的字詞' : '選出正確的英文字詞');
   const prompt = en2zh
-    ? `<div class="q-prompt"><span class="w">${esc(q.word.word)}</span></div>
+    ? `<div class="q-prompt"><span class="w" lang="en">${esc(q.word.word)}</span></div>
        <div class="q-sub"><span class="pos">${esc(q.word.pos || '')}</span></div>`
     : cloze
-      ? `<div class="q-sentence">${esc(q.parts.before)}<span class="blank"></span>${esc(q.parts.after)}</div>`  // 例句題作答時不給中文（例句翻譯只在解析與檢討出現）
+      ? `<div class="q-sentence" lang="en">${esc(q.parts.before)}<span class="blank"></span>${esc(q.parts.after)}</div>`  // 例句題作答時不給中文（例句翻譯只在解析與檢討出現）
       : `<div class="q-prompt"><span class="zh">${esc(q.word.zh)}</span></div>
          <div class="q-sub"><span class="pos">${esc(q.word.pos || '')}</span></div>`;
   const card = document.createElement('div');
@@ -149,7 +149,7 @@ export function renderMC(host, q, { feedback = true, selected = null, label = ''
     </div>
     <div class="options two" role="group" aria-label="選項">
       ${q.options.map((o, i) => `<button class="opt" type="button" data-i="${i}">
-        <span class="opt-key">${KEYS[i]}</span><span class="opt-text ${en2zh ? '' : 'en'}">${esc(o)}</span>
+        <span class="opt-key">${KEYS[i]}</span><span class="opt-text ${en2zh ? '' : 'en'}"${en2zh ? '' : ' lang="en"'}>${esc(o)}</span>
         <span class="opt-mark" aria-hidden="true"></span></button>`).join('')}
     </div>`;
   host.append(card);
@@ -192,7 +192,7 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   const phrase = /\s/.test(String(q.answer).trim());
   const head = q.variant === 'cloze'
     ? `<div class="q-meta">${esc(label || '依句意拼出空格中的單字')}</div>
-       <div class="q-sentence">${esc(q.parts.before)}${phrase ? '<span class="blank"></span>' : `<span class="blank blank-hint" role="img" aria-label="空格：開頭 ${esc(target[0])}${n > 3 ? `、結尾 ${esc(target[n - 1])}` : ''}，共 ${n} 個字母">${blankHint(q.answer)}</span>`}${esc(q.parts.after)}</div>
+       <div class="q-sentence" lang="en">${esc(q.parts.before)}${phrase ? '<span class="blank"></span>' : `<span class="blank blank-hint" role="img" aria-label="空格：開頭 ${esc(target[0])}${n > 3 ? `、結尾 ${esc(target[n - 1])}` : ''}，共 ${n} 個字母">${blankHint(q.answer)}</span>`}${esc(q.parts.after)}</div>
        <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${n} 個字母${phrase ? `・開頭是 ${esc(target[0].toUpperCase())}` : ''}</span></div>`
     : `<div class="q-meta">${esc(label || '看中文，拼出英文單字')}</div>
        <div class="q-prompt"><span class="zh">${esc(w.zh)}</span></div>
@@ -500,7 +500,7 @@ const posLabel = (q, w) => { const c = rolesOf(q, w); return c.length ? roleName
 function optionRow({ text, w, ok, picked, pos, why, whyKind }) {
   return `<li class="op${ok ? ' op-ok' : ''}${picked ? ' op-picked' : ''}">`
     + `<span class="op-mark" aria-label="${ok ? '正確' : '錯誤'}">${ok ? icon.check : icon.x}</span>`
-    + `<div class="op-body"><div class="op-line"><b class="op-word en">${esc(text)}</b>`
+    + `<div class="op-body"><div class="op-line"><b class="op-word en" lang="en">${esc(text)}</b>`
     + (pos ? `<span class="op-pos">${esc(pos)}</span>` : '')
     + (picked && !ok ? '<span class="op-you">你選的</span>' : '')
     + (w && w.zh ? `<span class="op-zh">${esc(shortZh(w.zh))}</span>` : '')
@@ -527,9 +527,9 @@ const simpleRows = (q, chosen, pool) => `<ul class="op-list">${optionsOf(q, chos
 function answerCard(q, exEn, exZh, extra) {
   const w = q.word;
   return `<div class="xp-answer"><div class="xp-answer-label">正確答案</div>`
-    + `<div class="xp-main"><span class="xp-word en">${esc(w.word)}</span>${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>`
-    + (exEn ? `<p class="xp-ex en">${exampleHTML(exEn)}</p>${exZh ? `<p class="xp-exzh">${esc(exZh)}</p>` : ''}` : '')
-    + (extra ? `<div class="xp-more"><div class="xp-more-label">再看一句</div><p class="xp-ex en">${exampleHTML(extra.ex)}</p>${extra.zh ? `<p class="xp-exzh">${esc(extra.zh)}</p>` : ''}</div>` : '')
+    + `<div class="xp-main"><span class="xp-word en" lang="en">${esc(w.word)}</span>${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>`
+    + (exEn ? `<p class="xp-ex en" lang="en">${exampleHTML(exEn)}</p>${exZh ? `<p class="xp-exzh">${esc(exZh)}</p>` : ''}` : '')
+    + (extra ? `<div class="xp-more"><div class="xp-more-label">再看一句</div><p class="xp-ex en" lang="en">${exampleHTML(extra.ex)}</p>${extra.zh ? `<p class="xp-exzh">${esc(extra.zh)}</p>` : ''}</div>` : '')
     + '</div>';
 }
 
@@ -590,7 +590,7 @@ export function explainWrong(q, chosen, pool = [], mode = 'brief') {
     const d = spellDiff(chosen, q.answer);
     const typed = lettersOf(chosen || '');
     const mark = typed ? diffAnswer(typed, [lettersOf(q.answer) || q.answer]) : null;
-    parts.push(`<p class="xp-yours">${typed ? `你拼成 <b class="en">${mark.yoursHTML}</b>，正確是 <b class="en">${mark.correctHTML}</b>` : '沒有作答'}${typed && d ? `・${esc(d)}` : ''}</p>`);
+    parts.push(`<p class="xp-yours">${typed ? `你拼成 <b class="en" lang="en">${mark.yoursHTML}</b>，正確是 <b class="en" lang="en">${mark.correctHTML}</b>` : '沒有作答'}${typed && d ? `・${esc(d)}` : ''}</p>`);
     if (d) text.push(d);
   }
   if (mode !== 'full') {

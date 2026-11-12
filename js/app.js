@@ -187,7 +187,7 @@ function openSearch() {
   const d = document.createElement('dialog');
   d.className = 'search-sheet';
   d.setAttribute('aria-label', '搜尋單元');
-  d.innerHTML = `<div class="ss-bar"><label class="ss-field">${icon.search}<input type="search" placeholder="搜尋單元：課次、名稱、主題" aria-label="搜尋單元" enterkeyhint="search" autocomplete="off"></label><button class="ss-x" type="button" data-close>取消</button></div><div class="ss-body"><div class="ss-list" role="list"></div></div>`;
+  d.innerHTML = `<div class="ss-bar"><label class="ss-field">${icon.search}<input type="search" placeholder="搜尋單元：課次、名稱、主題" aria-label="搜尋單元" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label><button class="ss-x" type="button" data-close>取消</button></div><div class="ss-body"><div class="ss-list" role="list"></div></div>`;
   document.body.appendChild(d);
   const input = d.querySelector('input'), list = d.querySelector('.ss-list');
   const all = visibleUnits().map((u) => ({ u, s: unitStatus(u), key: [unitName(u), u.title, u.topic, lessonLabel(u.lesson), `L${u.lesson}`, typeLabel(u.type), TYPES[typeOf(u.type)].tile].join(' ').toLowerCase() }))
@@ -513,7 +513,7 @@ function renderHome() {
       const urg = days < 1 ? 'today' : days <= 2 ? 'soon' : '';
       return `<li><a class="asg-row ${urg}" href="#/u/${esc(a.u.id)}">
           ${ringHTML(a.u, 'sm')}
-          <span class="asg-main"><b class="en">${esc(a.u.title)}</b><span class="asg-meta">${chipHTML(a.u)}<span class="asg-sub">${esc([typeLabel(a.u.type), topicOf(a.u)].filter(Boolean).join(' · '))}</span></span></span>
+          <span class="asg-main"><b class="en" lang="en">${esc(a.u.title)}</b><span class="asg-meta">${chipHTML(a.u)}<span class="asg-sub">${esc([typeLabel(a.u.type), topicOf(a.u)].filter(Boolean).join(' · '))}</span></span></span>
           <span class="asg-due"><span class="asg-left">${esc(left === '今天' ? '今天截止' : left)}</span><span class="asg-when">${esc(when.replace(/ 截止$/, ''))}</span></span>
           <span class="asg-go" aria-hidden="true">${icon.arrowR}</span>
         </a></li>`;
@@ -547,7 +547,7 @@ function renderHome() {
     const lead = { retake: '需要補考', todo: '待檢討', open: '下一個單元' }[nextRow.k];
     app.querySelector('#next-slot').innerHTML = `<a class="next-card ${nextRow.k}" href="#/u/${esc(nextRow.u.id)}">
         <span class="nc-ic">${nextRow.ic}</span>
-        <span class="nc-txt"><span class="nc-lead">${lead}</span><b class="en">${esc(nextRow.u.title)}</b></span>
+        <span class="nc-txt"><span class="nc-lead">${lead}</span><b class="en" lang="en">${esc(nextRow.u.title)}</b></span>
         <span class="nc-go">${icon.arrowR}</span>
       </a>`;
   }
@@ -629,8 +629,8 @@ function tileHTML(u, asg = null) {
   ].join('');
   return `<a data-id="${esc(u.id)}" class="unit-tile ${vocab ? 't-vocab' : 't-reading'} ty-${typeOf(u.type)} st-${st.k}" href="#/u/${esc(u.id)}">
       ${ringHTML(u)}<span class="tile-body">
-      <h3 class="en">${esc(u.title)}</h3>
-      ${topicShown ? `<p class="tile-topic en">${esc(topicShown)}</p>` : ''}
+      <h3 class="en" lang="en">${esc(u.title)}</h3>
+      ${topicShown ? `<p class="tile-topic en" lang="en">${esc(topicShown)}</p>` : ''}
       <span class="tile-foot">${foot}</span>
       </span>
       <span class="tile-go" aria-hidden="true">${icon.arrowR}</span>
@@ -795,7 +795,6 @@ function renderAccount() {
       <p class="muted" style="margin:0">${esc(s.cls)} 班 ${esc(s.seat)} 號</p></div>
       <div class="acct-acts">
         <button class="acct-btn" type="button" data-switch>${icon.user}<span>切換學生</span></button>
-        <button class="acct-btn out" type="button" data-logout title="登出並清除這台裝置的資料">${icon.exit}<span>登出</span></button>
       </div>
     </section>
     <section class="me-set" aria-label="學習設定">
@@ -813,6 +812,7 @@ function renderAccount() {
       </div>
       <p class="set-saved" aria-live="polite"></p>
     </section>
+    <button class="acct-out" type="button" data-logout title="登出並清除這台裝置的資料">${icon.exit}<span>登出</span></button>
     <p class="acct-ver" aria-live="polite"></p>`;
   bindAccount(app);
   paintVersion(app.querySelector('.acct-ver'));

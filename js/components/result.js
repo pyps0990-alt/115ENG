@@ -31,7 +31,12 @@ function countUp(el, to, ms = 1000) {
 // prevBest：這次之前的最佳成績（補考時顯示進步多少）
 // onRetake：正式測驗沒過時，「馬上補考」變成主要按鈕，其他按鈕降為次要
 export function renderResult(host, { title, pct, scoreText, pills = [], wrong = [], actions = [], extraHTML = '', passLine = false, prevBest = null, onRetake = null }) {
-  if (passLine && pct < PASS && onRetake) actions = [{ label: '馬上補考', icon: icon.redo, primary: true, onClick: onRetake }, ...actions.map((a) => ({ ...a, primary: false }))];
+  if (passLine && pct < PASS && onRetake) {
+    actions = [{ label: '馬上補考', icon: icon.redo, primary: true, onClick: onRetake }, ...actions.map((a) => ({ ...a, primary: false }))];
+    // 錯一半以上：先檢討再補考比較有效，「開始檢討」當主要按鈕
+    const rv = actions.find((a) => /檢討/.test(a.label));
+    if (rv && pct < 50) actions = [{ ...rv, primary: true }, ...actions.filter((a) => a !== rv).map((a) => ({ ...a, primary: false }))];
+  }
   const gain = passLine && prevBest != null && pct > prevBest ? pct - prevBest : 0;
   if (gain) pills = [`比上次最佳多 ${gain}%`, ...pills];
   const box = document.createElement('div');

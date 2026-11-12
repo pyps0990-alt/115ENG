@@ -38,7 +38,7 @@ export function guidePeekHTML(g, open = false) {
   return `<details class="ln-peek"${open ? ' open' : ''}><summary>${icon.book} 看說明：${esc(g.name || g.tag)}</summary><div class="ln-peek-in">
     ${g.use ? `<p class="ln-use">${esc(g.use)}</p>` : ''}
     ${parts.length ? `<div class="ln-formula sm">${parts.map((p, i) => `<div class="ln-part c${i % 5}"><b>${esc(p.t)}</b></div>`).join('<span class="ln-plus" aria-hidden="true">+</span>')}</div>` : ''}
-    ${ex ? `<p class="ln-peek-ex en">${ex}</p>` : ''}
+    ${ex ? `<p class="ln-peek-ex en" lang="en">${ex}</p>` : ''}
     ${g.pitfall ? `<p class="ln-peek-pit">${icon.alert} ${esc(g.pitfall)}</p>` : ''}
   </div></details>`;
 }
@@ -155,7 +155,7 @@ export function mountLearn(stage, { guides, items, prefs, onFinish, grade = null
     let body = '', bar = '';
     if (step === 0) {
       body = `${g.use ? `<p class="ln-use">${esc(g.use)}</p>` : ''}
-        ${parts.length ? `<div class="ln-formula" role="list" aria-label="句型結構">${parts.map((p, i) => `<div class="ln-part c${i % 5}" role="listitem" style="--d:${i * 70}ms"><b>${esc(p.t)}</b>${p.eg ? `<span class="en">${esc(p.eg)}</span>` : ''}</div>`).join('<span class="ln-plus" aria-hidden="true">+</span>')}</div>` : ''}`;
+        ${parts.length ? `<div class="ln-formula" role="list" aria-label="句型結構">${parts.map((p, i) => `<div class="ln-part c${i % 5}" role="listitem" style="--d:${i * 70}ms"><b>${esc(p.t)}</b>${p.eg ? `<span class="en" lang="en">${esc(p.eg)}</span>` : ''}</div>`).join('<span class="ln-plus" aria-hidden="true">+</span>')}</div>` : ''}`;
       bar = `${prefs.get(seenKey) ? '<button type="button" class="btn ghost" data-skip>已經會了，直接檢測</button>' : ''}<button type="button" class="btn primary" data-next>看例句 ${icon.arrowR}</button>`;
     } else if (step === 1) {
       const e = s.examples[ex];

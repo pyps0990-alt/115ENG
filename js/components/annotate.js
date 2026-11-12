@@ -114,7 +114,7 @@ export function openNote(root, paras, mark, { readOnly = false, isNew = false, o
   const quote = wordsOf(paras[mark.p]).slice(mark.f, mark.t + 1).join(' ');
   const pop = document.createElement('div');
   pop.className = 'note-pop';
-  pop.innerHTML = `<div class="q en">「${esc(quote.length > 70 ? `${quote.slice(0, 70)}…` : quote)}」</div>
+  pop.innerHTML = `<div class="q en" lang="en">「${esc(quote.length > 70 ? `${quote.slice(0, 70)}…` : quote)}」</div>
     <textarea maxlength="200" placeholder="寫下想法，例如：這段在說…" ${readOnly ? 'readonly' : ''}>${esc(mark.n || '')}</textarea>
     <div class="row">${!isNew && !readOnly ? '<button class="btn small ghost" type="button" data-del>刪除</button>' : ''}${readOnly ? '' : '<button class="btn small ghost" type="button" data-cancel>取消</button>'}
       <button class="btn small primary" type="button" data-ok>${readOnly ? '關閉' : '貼上'}</button></div>`;

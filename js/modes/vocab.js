@@ -62,20 +62,20 @@ export function mount(stage, ctx) {
       const full = explainWrong(q, yours, all, 'full');
       return `<div class="rv-card">
         <div class="rv-meta">${esc(d.stage || '')}・${esc(d.kind || '')}</div>
-        <div class="rv-prompt ${/[a-z]/i.test(d.q || d.question || '') ? 'en' : ''}">${esc(d.q || d.question || '')}</div>
-        <div class="rv-row no"><span>你的答案</span><b class="en">${yours ? esc(yours) : '（未作答）'}</b></div>
+        <div class="rv-prompt ${/[a-z]/i.test(d.q || d.question || '') ? 'en" lang="en' : ''}">${esc(d.q || d.question || '')}</div>
+        <div class="rv-row no"><span>你的答案</span><b class="en" lang="en">${yours ? esc(yours) : '（未作答）'}</b></div>
         ${full.html}
       </div>`;
     }
     const xp = d.err ? errorOf(d, all) : { err: '' }; // 錯誤原因依兩個字的關係重新判斷（舊紀錄的選擇題都記成「意思混淆」）
     return `<div class="rv-card">
         <div class="rv-meta">${esc(d.stage || '')}・${esc(d.kind || '')}</div>
-        <div class="rv-prompt ${/[a-z]/i.test(d.q || d.question || '') ? 'en' : ''}">${esc(d.q || d.question || '')}</div>
-        <div class="rv-row no"><span>你的答案</span><b class="en">${yours ? (spellKind ? mark.yoursHTML : esc(yours)) : '（未作答）'}</b></div>
-        <div class="rv-row ok"><span>正確答案</span><b class="en">${spellKind && yours ? mark.correctHTML : esc(d.correct || '')}</b></div>
+        <div class="rv-prompt ${/[a-z]/i.test(d.q || d.question || '') ? 'en" lang="en' : ''}">${esc(d.q || d.question || '')}</div>
+        <div class="rv-row no"><span>你的答案</span><b class="en" lang="en">${yours ? (spellKind ? mark.yoursHTML : esc(yours)) : '（未作答）'}</b></div>
+        <div class="rv-row ok"><span>正確答案</span><b class="en" lang="en">${spellKind && yours ? mark.correctHTML : esc(d.correct || '')}</b></div>
         ${xp.err ? `<p class="xp-tip"><span class="xp-tag">${esc(xp.err)}</span>${esc(xp.tip)}</p>` : ''}
-        <div class="xp-main"><span class="xp-word en">${esc(w.word)}</span>${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>
-        ${exEn ? `<p class="xp-ex en">${exampleHTML(exEn)}</p>` : ''}
+        <div class="xp-main"><span class="xp-word en" lang="en">${esc(w.word)}</span>${w.pos ? `<span class="pos">${esc(w.pos)}</span>` : ''}<span class="xp-zh">${esc(w.zh || '')}</span></div>
+        ${exEn ? `<p class="xp-ex en" lang="en">${exampleHTML(exEn)}</p>` : ''}
         ${exZh ? `<p class="xp-exzh">${esc(exZh)}</p>` : ''}
       </div>`;
   }
@@ -147,12 +147,12 @@ export function mount(stage, ctx) {
           <span class="step-dot">${i + 1}</span><span class="step-name">${s.level.name}</span><span class="step-score"></span></li>`).join('')}</ol><div class="quiz-bar">
           <div class="bar"><span></span></div>
           <span class="quiz-stat" data-n></span>
-          <span class="quiz-stat streak" data-streak title="連續答對">${icon.flame}<b>0</b></span>
+          <span class="quiz-stat streak" data-streak title="連續答對"${streak >= 2 ? '' : ' hidden'}>${icon.flame}<b>${streak}</b></span>
         </div>` })}
 
         <div data-q></div>
         <div class="q-dock">
-          <button class="q-leave" type="button" data-leave aria-label="離開測驗" title="離開測驗">${icon.exit}</button>
+          <button class="q-leave" type="button" data-leave aria-label="離開測驗" title="離開測驗">${icon.x}</button>
           <div class="q-dock-r">
             <div class="q-foot"><button class="btn primary" type="button" data-next hidden></button><span class="btn next-ph" aria-hidden="true">下一題 ${icon.arrowR}</span></div>
             <div class="q-dock-sub"><div class="feedback" data-fb aria-live="polite"></div><button class="switch" type="button" role="switch" data-auto-toggle><span class="sw" aria-hidden="true"></span>自動下一題</button></div>
@@ -251,6 +251,7 @@ export function mount(stage, ctx) {
         fb.innerHTML = ''; // 答錯不另外寫字：正確答案與錯誤類型都在下方解析裡
       }
       st.querySelector('b').textContent = streak;
+      st.hidden = streak < 2; // 連對 2 題以上才出現，一開始的 0 沒有意義
       const lastInStage = qi === s.qs.length - 1;
       nextBtn.hidden = false;
       nextBtn.innerHTML = !lastInStage ? `下一題 ${icon.arrowR}` : si === stages.length - 1 ? `看總成績 ${icon.arrowR}` : `完成${s.level.name} ${icon.arrowR}`;
@@ -309,7 +310,7 @@ export function mount(stage, ctx) {
             <div class="stage-score"><div class="ss-frac"><b>${Math.round(w.stages[si])}</b><i>/ ${Math.round(w.max)}</i></div><span>${pct}%</span></div></div>
           <div class="stage-next">
             <div class="eyebrow">下一段 · 第 ${si + 2} 段</div>
-            <h3>${nx.level.name}<span class="en">${nx.level.en}</span></h3>
+            <h3>${nx.level.name}<span class="en" lang="en">${nx.level.en}</span></h3>
             <p>${esc(nx.level.desc)}</p>
             <ul>${nx.level.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
           </div>

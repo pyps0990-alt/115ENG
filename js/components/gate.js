@@ -101,17 +101,23 @@ export function testGate(stage, { parts = [], facts = [], best, review = false, 
 export function submitStateHTML(status) {
   const map = {
     sending: ['sending', '<span class="spinner sm"></span>', '成績送出中', '大約 1 到 3 秒，請先不要關掉這一頁。'],
-    sent: ['sent', icon.check, '成績已送到老師那裡', '可以放心離開這一頁。'],
+    sent: ['sent', icon.check, '成績已送出', ''],
     pending: ['queued', icon.clock, '成績先存在這台裝置', '正在送給老師，可以先離開，送出後右下角會通知。'],
     queued: ['queued', icon.clock, '成績先存在這台裝置', '網路恢復後會自動送給老師，可以先離開。請不要清除瀏覽器資料。'],
     error: ['error', icon.alert, '成績還沒送出', '成績已存在這台裝置。請按「立即重送」，或截圖這個畫面給老師。'],
     disabled: ['disabled', icon.camera, '請截圖這個畫面繳交給老師', ''],
-    volatile: ['error', icon.alert, '成績還沒送出', '這台裝置不能暫存成績：請先不要關掉或離開這一頁，等顯示「成績已送到老師那裡」再離開。'],
+    volatile: ['error', icon.alert, '成績還沒送出', '這台裝置不能暫存成績：請先不要關掉或離開這一頁，等顯示「成績已送出」再離開。'],
     rejected: ['error', icon.alert, '老師的伺服器拒收了這份成績', '請截圖這個畫面給老師（「我的成績」頁也會列出來）。'],
   };
   const [cls, ic, title, desc] = map[status] || map.disabled;
   const resend = status !== 'rejected' && (cls === 'queued' || cls === 'error') ? `<button class="btn small${cls === 'error' ? ' primary' : ''}" type="button" data-resend>立即重送</button>` : '';
   return `<div class="submit-state ${cls}"><span class="ss-ic" aria-hidden="true">${ic}</span><span class="ss-t"><b>${title}</b>${desc ? `<small>${desc}</small>` : ''}</span>${resend}</div>`;
+}
+
+// 交卷確認框的第一行：用哪個身分交卷（交卷前最後確認一次，避免用別人的帳號作答）
+export function submitWhoHTML() {
+  const s = store.student();
+  return s ? `<span class="who-confirm">${icon.user}<b>${esc(studentLabel(s))}</b></span>` : '';
 }
 
 export function stampHTML(s, title, stamp) {

@@ -6,7 +6,7 @@ import { renderResult } from '../components/result.js';
 import { unitWindow, unitCfg } from '../remote-config.js';
 import { parseQuiz } from '../levels.js';
 import { wordsOf, paraHTML, rangeOfKey, rangeOfRef, keywordHits, paintMarks, openNote, mountAnnotator } from '../components/annotate.js';
-import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
+import { testGate, submitStateHTML, stampHTML, submitWhoHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore, fetchKey, cachedKey } from '../submit.js';
 import { statusBarHTML, mountDeadline } from '../components/status.js';
@@ -63,7 +63,7 @@ export function mount(stage, ctx) {
   function passageHTML(opts = {}) {
     return `<article class="passage-card ann-text">
         <div class="eyebrow">Passage · ${nWords} words</div>
-        <h2 class="passage-title en">${esc(data.title || '')}</h2>
+        <h2 class="passage-title en" lang="en">${esc(data.title || '')}</h2>
         ${paras.map((p, i) => `<p data-p="${i}"><span class="pnum">${i + 1}</span><span class="ptext">${paraHTML(i, p, { ev: opts.ev, kw: opts.kw && opts.kw[i] })}</span></p>`).join('')}
       </article>`;
   }
@@ -96,12 +96,12 @@ export function mount(stage, ctx) {
           ${passageHTML()}
         </aside>
         <section class="pq-list" aria-label="閱讀測驗">
-          <div class="pq-intro"><span class="eyebrow">Questions${review ? ' · 複習' : ''}</span><span class="muted rd-hint-phone">建議搭配課本作答，需要時展開上面的文章</span><span class="muted rd-hint-wide">對照課本或文章作答</span></div>
+          <div class="pq-intro"><span class="eyebrow">Questions${review ? ' · 複習' : ''}</span><span class="muted rd-hint-wide">對照課本或文章作答</span></div>
           ${qs.map((q, i) => `<div class="pq" data-q="${i}">
             <div class="pq-head"><span class="pq-num">${i + 1}</span>
               <div><span class="skill">${esc(q.skill || '')}</span><div class="pq-q">${esc(q.q || '')}</div></div></div>
             <div class="options">${q.options.map((o, j) => `<button class="opt" type="button" data-i="${j}">
-              <span class="opt-key">${KEYS[j]}</span><span class="opt-text en">${esc(o)}</span><span class="opt-mark" aria-hidden="true"></span></button>`).join('')}</div>
+              <span class="opt-key">${KEYS[j]}</span><span class="opt-text en" lang="en">${esc(o)}</span><span class="opt-mark" aria-hidden="true"></span></button>`).join('')}</div>
           </div>`).join('')}
         </section>
       </div>
@@ -204,14 +204,18 @@ export function mount(stage, ctx) {
       }));
     });
 
+    let asking = false, sent = false; // 確認框開著、或已經交卷：連點交卷不會跳出第二個確認框
     stage.querySelector('[data-submit-btn]').addEventListener('click', async () => {
+      if (asking || sent) return;
       const blank = answers.filter((a) => a == null).length;
+      asking = true;
       const ok = await confirmDialog({
         title: '確定要交卷嗎？',
-        body: blank ? `還有 <b>${blank}</b> 題沒有作答。交卷後就不能修改。` : '所有題目都作答了。交卷後就不能修改。',
+        body: submitWhoHTML() + (blank ? `還有 <b>${blank}</b> 題沒有作答。交卷後就不能修改。` : '所有題目都作答了。交卷後就不能修改。'),
         ok: '交卷', cancel: '再檢查',
       });
-      if (ok && alive) finish(student, review, answers, t0, marks);
+      asking = false;
+      if (ok && alive) { sent = true; finish(student, review, answers, t0, marks); }
     });
     updateFoot();
   }
@@ -307,7 +311,7 @@ export function mount(stage, ctx) {
     態度: '態度題：注意作者用的形容詞、副詞和語氣詞（例如 unfortunately、surprisingly），判斷作者是正面、負面還是中立。',
   };
   const pairsHTML = (q) => (Array.isArray(q.pairs) && q.pairs.length
-    ? `<ul class="rd-pairs">${q.pairs.map((x) => `<li><span class="en">${esc(x.a)}</span><span class="rd-arrow" aria-label="換成">→</span><span class="en">${esc(x.b)}</span></li>`).join('')}</ul>` : '');
+    ? `<ul class="rd-pairs">${q.pairs.map((x) => `<li><span class="en" lang="en">${esc(x.a)}</span><span class="rd-arrow" aria-label="換成">→</span><span class="en" lang="en">${esc(x.b)}</span></li>`).join('')}</ul>` : '');
   const paraList = (list) => list.map((p) => `第 ${p + 1} 段`).join('、');
 
   // 依「對照這一題」的劃記判斷錯在哪個環節（只看學生選了題號的劃記，便利貼不算；樣式不影響）
@@ -318,7 +322,7 @@ export function mount(stage, ctx) {
         ? '<span class="rd-diag muted">沒有對照這題</span>你有劃記，但沒有一筆選了「對照第 ' + (i + 1) + ' 題」。劃記時在工具盤選題號，檢討時就能告訴你錯在哪個環節。'
         : '<span class="rd-diag muted">沒有劃記</span>這題你沒有劃記。下次可以先把題目關鍵字和找到的依據句劃起來，並選「對照第 ' + (i + 1) + ' 題」（劃記不計分）。';
     }
-    const where = (m) => `第 ${m.p + 1} 段「<span class="en">${esc(wordsOf(paras[m.p]).slice(m.f, m.t + 1).join(' '))}</span>」`;
+    const where = (m) => `第 ${m.p + 1} 段「<span class="en" lang="en">${esc(wordsOf(paras[m.p]).slice(m.f, m.t + 1).join(' '))}</span>」`;
     if (!ev) return `<span class="rd-diag muted">無法比對</span>這題沒有設定答案依據，你劃的是${where(mine[0])}。`;
     const evLen = ev.t - ev.f + 1;
     const covered = new Set();
@@ -344,7 +348,7 @@ export function mount(stage, ctx) {
       steps.push(['這題在考什麼', STRATEGY[q.skill] || STRATEGY.細節]);
       const where = ev ? `答案依據在<b>第 ${ev.p + 1} 段</b>（文章裡綠筆劃線的地方）。` : '';
       const kwText = kwParas.length && Array.isArray(q.kw) && q.kw.length
-        ? `題目的關鍵字 ${q.kw.map((k) => `<b class="en">${esc(k)}</b>`).join('、')} 出現在${paraList(kwParas)}（虛線標出），用它們就能找到答案的位置。` : '';
+        ? `題目的關鍵字 ${q.kw.map((k) => `<b class="en" lang="en">${esc(k)}</b>`).join('、')} 出現在${paraList(kwParas)}（虛線標出），用它們就能找到答案的位置。` : '';
       if (where || kwText) steps.push(['答案在哪裡', where + kwText]);
       if (Array.isArray(marks)) steps.push(['你錯在哪個環節', diagnose(q, i, ev, kw, marks)]);
       const trap = a != null && Array.isArray(q.traps) ? q.traps[a] : null;
@@ -361,7 +365,7 @@ export function mount(stage, ctx) {
           <div class="options">${q.options.map((o, j) => {
     const cls = j === q.answer ? `correct${ok ? '' : ' reveal'}` : j === a ? 'wrong' : 'dim';
     const mark = j === q.answer ? icon.check : j === a ? icon.x : '';
-    return `<div class="opt ${cls}"><span class="opt-key">${KEYS[j]}</span><span class="opt-text en">${esc(o)}</span><span class="opt-mark" aria-hidden="true">${mark}</span></div>`;
+    return `<div class="opt ${cls}"><span class="opt-key">${KEYS[j]}</span><span class="opt-text en" lang="en">${esc(o)}</span><span class="opt-mark" aria-hidden="true">${mark}</span></div>`;
   }).join('')}</div>
           <div class="explain">
             <b class="ex-head ${ok ? 'ok' : 'no'}">${ok ? `${icon.check} 答對` : a == null ? `${icon.x} 未作答・正解 ${KEYS[q.answer]}` : `${icon.x} 你選 ${KEYS[a]}・正解 ${KEYS[q.answer]}`}</b>
