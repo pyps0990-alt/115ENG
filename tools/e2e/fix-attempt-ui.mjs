@@ -37,7 +37,8 @@ await step('改到另一位學生：選名單上的人才按得下去，改完�
   await t.fill('dialog.fix-dlg .ask-in', '王');
   await t.waitForSelector('dialog.fix-dlg .pick button[data-seat="21"]');
   assert.equal(await t.$$eval('dialog.fix-dlg .pick button[data-seat="20"]', (a) => a.length), 0, '名單不列出原本的學生');
-  await t.dispatchEvent('dialog.fix-dlg .pick button[data-seat="21"]', 'mousedown');
+  await t.click('dialog.fix-dlg .pick button[data-seat="21"]'); // 真的點一下（按下、放開）：對話框不能被關掉
+  assert.ok(await t.$('dialog.fix-dlg[open]'), '點名單後對話框還開著');
   await t.click('dialog.fix-dlg [data-a="move"]');
   await t.waitForFunction(() => !document.querySelector('dialog.fix-dlg') && /已把/.test(document.getElementById('smsg').textContent), null, { timeout: 15000 });
   assert.deepEqual(rowOf('att-ui-1').slice(1, 4), ['306', '21', '王小明']);
@@ -59,6 +60,22 @@ await step('刪除這筆：要再確認一次，取消就不刪', async () => {
   assert.ok(!global.__fsDocs.has('classes/306/seats/20/units/x-voc/attempts/att-ui-2'));
 });
 
+await step('手機、平板：手指點名單上的學生，對話框不會關掉，選到那位學生', async () => {
+  const m = await world.newPage(await world.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }), { staff: 'teacher@example.com' });
+  await m.goto(world.base + '/admin.html'); await adminReady(m);
+  await m.evaluate(() => { location.hash = '#scores'; }); await sleep(500);
+  await m.evaluate(() => { const src = document.getElementById('f-src'); if (src) src.value = 'sheet'; document.getElementById('load').click(); });
+  await m.waitForSelector('#rows [data-fix]', { state: 'attached', timeout: 15000 });
+  await m.evaluate(() => document.querySelector('#rows [data-fix]').click()); await m.waitForSelector('dialog.fix-dlg[open]');
+  await m.tap('dialog.fix-dlg .ask-in'); await m.fill('dialog.fix-dlg .ask-in', '306'); await sleep(300);
+  const b = m.locator('dialog.fix-dlg .pick button[data-cls]').first(); await b.waitFor();
+  const want = await b.textContent();
+  await b.tap(); await sleep(300);
+  assert.ok(await m.$('dialog.fix-dlg[open]'), '對話框還開著');
+  assert.equal(await m.$eval('dialog.fix-dlg .ask-in', (i) => i.value), want);
+  assert.equal(await m.$eval('dialog.fix-dlg [data-a="move"]', (x) => x.disabled), false);
+  await m.tap('dialog.fix-dlg [data-a="0"]');
+});
 await step('沒有 JS 錯誤', async () => { assert.deepEqual(t.errors, []); });
 await world.close();
 if (bad) { console.log(bad + ' 項失敗'); process.exit(1); }

@@ -1318,7 +1318,7 @@ body.integrity-block::after {
 .gate-dl .st-deadline:not([hidden]) { display: inline-flex; align-items: center; gap: 6px; background: none; padding: 0; height: auto; font-weight: 800; font-size: .95rem; animation: none; }
 .gate-dl .st-deadline.urgent:not([hidden]) { display: flex; width: 100%; box-sizing: border-box; justify-content: flex-start; background: var(--bad-soft); padding: 10px 14px; border-radius: 12px; } /* 剩不到 1 小時：整行淡紅底，手機上不會漏看 */
 .gate-dl .st-deadline .ic { width: 17px; height: 17px; }
-@keyframes st-urge { 50% { background: #FECACA; } }
+@keyframes st-urge { 50% { background: var(--urge, #FECACA); } }
 .st-note { margin: 0 0 14px; font-size: .86rem; font-weight: 700; color: var(--steel); }
 /* 狀態列裡的一句話（算不算分）：桌機在進度下方一行，手機跟模式標籤同一行 */
 .st-bar.has-tag { grid-template-areas: "mode mid dl" "tag tag tag"; row-gap: 6px; }
@@ -2262,46 +2262,49 @@ dialog.rd-sheet.closing::backdrop { animation: bd-fade .2s ease-in reverse both;
 @media (prefers-reduced-motion: reduce) { dialog.rd-sheet, dialog.rd-sheet.closing, dialog.rd-sheet::backdrop { animation: none; } }
 
 /* ===========================================================
-   深色模式：跟著裝置設定（iPhone 設定 → 螢幕顯示與亮度 → 深色）
+   深色模式：html.dark（帳號頁可選「淺色／深色／跟隨系統」，預設跟隨系統；index.html 開頭的小程式在畫面出來前就決定）
    同一套海軍藍色相，只是底色變暗、字變亮；深藍導覽列與橘色主按鈕維持品牌色
    =========================================================== */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --paper: #0B1220;
-    --card: #131C2E;
-    --wash: #1A2438;
-    --ink: #C9D6FF;
-    --steel: #A3B0C6;
-    --line: #26324A;
-    --line-strong: #34425E;
-    --edge: #5E6E89;
-    --navy-soft: #1C2A4D;
-    --amber-soft: #3A2A0A;
-    --amber-ink: #FCD34D;
-    --good: #22C55E;
-    --good-soft: #0F2E1C;
-    --good-ink: #86EFAC;
-    --bad: #EF4444;
-    --bad-soft: #3B1418;
-    --bad-ink: #FCA5A5;
-    --shadow: 0 2px 6px rgba(0, 0, 0, .35), 0 10px 28px rgba(0, 0, 0, .35);
-  }
-  /* 寫死淺色的地方 */
-  .dock { background: rgba(19, 28, 46, .72); border-color: rgba(255, 255, 255, .08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 10px 28px rgba(0, 0, 0, .45); }
-  .asg-note { background: linear-gradient(165deg, #241D10 0%, #1C170C 100%); box-shadow: 0 18px 34px -12px rgba(0, 0, 0, .6), inset 0 0 0 1px rgba(217, 170, 60, .22); }
-  .asg-note-h .asg-done { color: #D9B86A; }
-  .asg-row:active { background: var(--wash); }
-  .tile-ring:not(.has) { background: var(--wash); }
-  .unit-tile.st-ok .tile-state, :is(.unit-tile, .me-row, .ss-row, .asg-row) .u-chip.k-ok { background: var(--good-soft); color: var(--good-ink); }
-  .unit-tile.st-todo .tile-state, :is(.unit-tile, .me-row, .ss-row, .asg-row) .u-chip.k-todo { background: #3A2210; color: #FDBA74; }
-  :is(.unit-tile, .me-row, .ss-row, .asg-row) .u-chip.k-retake { color: var(--amber-ink); }
-  .ann-text .hl-yellow { background: rgba(253, 230, 138, .3); }
-  .ann-text .hl-pink { background: rgba(251, 207, 232, .28); }
-  .ann-text .noted { background: rgba(147, 197, 253, .25); }
-  .ln-bar.fb.ok { background: #0F2A1B; border-top-color: #1F5236; }
-  .ln-bar.fb.no { background: #2E1416; border-top-color: #5A2328; }
-  .ln-rv-ok { border-color: #1F5236; background: #0F2A1B; }
-  .ln-bar, .q-dock { background: color-mix(in srgb, var(--card) 94%, transparent); }
-  @keyframes st-urge { 50% { background: #4A1C1F; } }
+html.dark {
+  color-scheme: dark;
+  --paper: #0B1220;
+  --card: #131C2E;
+  --wash: #1A2438;
+  --ink: #C9D6FF;
+  --steel: #A3B0C6;
+  --line: #26324A;
+  --line-strong: #34425E;
+  --edge: #5E6E89;
+  --navy-soft: #1C2A4D;
+  --amber-soft: #3A2A0A;
+  --amber-ink: #FCD34D;
+  --good: #22C55E;
+  --good-soft: #0F2E1C;
+  --good-ink: #86EFAC;
+  --bad: #EF4444;
+  --bad-soft: #3B1418;
+  --bad-ink: #FCA5A5;
+  --shadow: 0 2px 6px rgba(0, 0, 0, .35), 0 10px 28px rgba(0, 0, 0, .35);
+  --urge: #4A1C1F;
 }
+/* 寫死淺色的地方 */
+html.dark .dock { background: rgba(19, 28, 46, .72); border-color: rgba(255, 255, 255, .08); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 10px 28px rgba(0, 0, 0, .45); }
+html.dark .asg-note { background: linear-gradient(165deg, #241D10 0%, #1C170C 100%); box-shadow: 0 18px 34px -12px rgba(0, 0, 0, .6), inset 0 0 0 1px rgba(217, 170, 60, .22); }
+html.dark .asg-note-h .asg-done { color: #D9B86A; }
+html.dark .asg-row:active { background: var(--wash); }
+html.dark .tile-ring:not(.has) { background: var(--wash); }
+html.dark .unit-tile.st-ok .tile-state, html.dark :is(.unit-tile, .me-row, .ss-row, .asg-row) .u-chip.k-ok { background: var(--good-soft); color: var(--good-ink); }
+html.dark .unit-tile.st-todo .tile-state, html.dark :is(.unit-tile, .me-row, .ss-row, .asg-row) .u-chip.k-todo { background: #3A2210; color: #FDBA74; }
+html.dark :is(.unit-tile, .me-row, .ss-row, .asg-row) .u-chip.k-retake { color: var(--amber-ink); }
+html.dark .ann-text .hl-yellow { background: rgba(253, 230, 138, .3); }
+html.dark .ann-text .hl-pink { background: rgba(251, 207, 232, .28); }
+html.dark .ann-text .noted { background: rgba(147, 197, 253, .25); }
+html.dark .ln-bar.fb.ok { background: #0F2A1B; border-top-color: #1F5236; }
+html.dark .ln-bar.fb.no { background: #2E1416; border-top-color: #5A2328; }
+html.dark .ln-rv-ok { border-color: #1F5236; background: #0F2A1B; }
+html.dark .ln-bar, html.dark .q-dock { background: color-mix(in srgb, var(--card) 94%, transparent); }
+
+/* 帳號頁「外觀」：淺色／深色／跟隨系統 三格 */
+.set-seg.three { grid-template-columns: repeat(3, 1fr); }
+.set-seg.three button { justify-items: center; text-align: center; min-height: 64px; padding: 10px 6px; }
+.set-seg.three button .ic { margin-bottom: 2px; }

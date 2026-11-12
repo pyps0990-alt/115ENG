@@ -828,6 +828,14 @@ function renderAccount() {
           <button type="button" role="radio" data-learn="read">${icon.book}<span>直接看說明</span><small>例句直接標好顏色</small></button>
         </div>
       </div>
+      <div class="set-row">
+        <div class="set-txt"><b>外觀</b></div>
+        <div class="set-seg three" role="radiogroup" aria-label="外觀">
+          <button type="button" role="radio" data-theme="light">${icon.sun}<span>淺色</span></button>
+          <button type="button" role="radio" data-theme="dark">${icon.moon}<span>深色</span></button>
+          <button type="button" role="radio" data-theme="auto">${icon.auto}<span>跟隨系統</span></button>
+        </div>
+      </div>
       <div class="set-row inline">
         <div class="set-txt"><b>自動下一題</b></div>
         <button class="switch" type="button" role="switch" data-auto aria-label="自動下一題"><span class="sw" aria-hidden="true"></span></button>
@@ -842,6 +850,10 @@ function renderAccount() {
   const lp = learnPrefs();
   const saved = app.querySelector('.set-saved');
   const say = (t) => { saved.textContent = t; clearTimeout(say.t); say.t = setTimeout(() => { saved.textContent = ''; }, 2000); };
+  // 外觀：存在這台裝置（index.html 開頭的 b5Theme）
+  const paintTheme = () => app.querySelectorAll('[data-theme]').forEach((b) => b.setAttribute('aria-checked', String((window.b5Theme ? window.b5Theme.get() : 'auto') === b.dataset.theme)));
+  app.querySelectorAll('[data-theme]').forEach((b) => b.addEventListener('click', () => { window.b5Theme?.set(b.dataset.theme); paintTheme(); say('✓ 已儲存'); }));
+  paintTheme();
   const paintLearn = () => app.querySelectorAll('[data-learn]').forEach((b) => b.setAttribute('aria-checked', String(lp.get('learnMode') === b.dataset.learn)));
   app.querySelectorAll('[data-learn]').forEach((b) => b.addEventListener('click', () => { lp.set('learnMode', b.dataset.learn); paintLearn(); say('✓ 已儲存'); }));
   paintLearn();

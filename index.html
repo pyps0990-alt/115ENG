@@ -5,6 +5,18 @@
   <meta name="google" content="notranslate">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1E3A8A">
+  <!-- 外觀：淺色／深色／跟隨系統（帳號頁設定，存在這台裝置）。在畫面出來前就決定，不會先閃一下白色 -->
+  <script>
+    (function () {
+      var K = 'b5p:theme', mode = 'auto', root = document.documentElement;
+      try { mode = localStorage.getItem(K) || 'auto'; } catch (e) {}
+      var mq = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+      function apply() { var d = mode === 'dark' || (mode === 'auto' && !!mq && mq.matches); root.classList.toggle('dark', d); root.style.colorScheme = d ? 'dark' : 'light'; }
+      apply();
+      if (mq && mq.addEventListener) mq.addEventListener('change', apply);
+      window.b5Theme = { get: function () { return mode; }, set: function (v) { mode = v; try { localStorage.setItem(K, v); } catch (e) {} apply(); } };
+    })();
+  </script>
   <title>B5 Practice</title>
   <meta name="description" content="Book 5 單字片語三級測驗與課文理解">
   <meta property="og:type" content="website">
