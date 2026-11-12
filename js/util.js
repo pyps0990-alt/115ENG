@@ -78,6 +78,12 @@ export const splitSentences = (p) => (String(p).match(/[^.!?]+(?:[.!?]+["'”’
 // 換內容前先讓舊的淡出（約 0.18 秒），再放新的進來：不會「啪」一下直接換掉
 // 轉場中點擊不會被吃掉：轉場的那零點幾秒，瀏覽器把點擊交給整頁（html）而不是畫面上的按鈕。
 // 手指一碰到螢幕就立刻結束轉場，這一下點擊改送到手指下真正的按鈕、選項或連結上
+// 手機上正在打字（鍵盤開著）：收起測驗底部固定的「下一題」列，不讓它浮在鍵盤上方擋住題目；收起鍵盤後再出現
+if (typeof document !== 'undefined' && window.matchMedia && matchMedia('(pointer: coarse)').matches) {
+  const typing = (el) => el && el.matches && el.matches('input[type="text"], input:not([type]), textarea') && !el.closest('dialog');
+  document.addEventListener('focusin', (e) => { if (typing(e.target)) document.documentElement.classList.add('kb-typing'); });
+  document.addEventListener('focusout', () => setTimeout(() => { if (!typing(document.activeElement)) document.documentElement.classList.remove('kb-typing'); }, 60));
+}
 // 正在跑的換頁／換場轉場：結束（或被跳過）時才 resolve。轉場中不要捲動頁面（iPhone Safari 截圖位置會算錯）
 let vtLive = null;
 export const afterVT = () => vtLive || Promise.resolve();

@@ -3,10 +3,10 @@ import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow,
 import { store } from './storage.js';
 import { esc, confirmDialog, scene } from './util.js';
 import { icon } from './icons.js';
-import { mountInlineForm, historyReady, maskName, bindAccount } from './student.js';
+import { mountInlineForm, historyReady, maskName, bindAccount, openStudentDialog } from './student.js';
 import { LEVELS, PASS, levelsFor, quizCount } from './levels.js';
 import { flushOutbox, pendingItems, clearOutbox, outboxStatus, rejectedItems } from './submit.js';
-import { submitStateHTML } from './components/gate.js';
+import { submitStateHTML, markWhoOk, clearWhoOk } from './components/gate.js';
 import { leaveBody } from './resume.js';
 import * as integrity from './integrity.js';
 import { learnPrefs } from './learn-prefs.js';
@@ -70,6 +70,8 @@ function flatEnd() {
   document.documentElement.classList.remove('far-run');
 }
 const scrollMem = {};
+// 瀏覽器自己做了換頁動畫（iPhone 滑動返回）：這次換頁不再做轉場
+let uaSwiped = false;
 async function route() {
   const here = location.hash || '#/';
   const changed = here !== lastRendered;
@@ -127,7 +129,9 @@ async function route() {
   const tabSwitch = changed && !first && tabKinds.includes(prevKind) && tabKinds.includes(kind || '');
   // 舊畫面或新畫面捲在下面：不用截圖式轉場（iPhone Safari 在「已經捲動、轉場中又要捲回頂端或捲到原位」時截圖位置會算錯，
   // 會閃出首頁頂端、導覽列被擠到下面）。改成直接在畫面上：內容 0.1 秒淡出 → 換頁 → 淡入；導覽列不參與，一直在原位
-  const useVT = changed && !first && !!document.startViewTransition && !reduceMotion.matches && document.visibilityState === 'visible';
+  // iPhone 從左邊緣滑回上一頁：Safari 已經做了自己的滑動動畫，B5 不再做第二次（不然會閃一下、像重複換頁）
+  const swiped = uaSwiped; uaSwiped = false;
+  const useVT = changed && !first && !swiped && !!document.startViewTransition && !reduceMotion.matches && document.visibilityState === 'visible';
   // 捲在下面也用同一套截圖式轉場，但轉場期間「頁面不捲動」：iPhone Safari 只在轉場中頁面捲動（點進單元捲回頂端、返回捲回原位）時
   // 截圖位置會算錯。所以轉場開始前先把捲動換成內容往上位移（看起來一模一樣、頁面停在頂端），轉場中要捲到哪裡也都用位移代替，
   // 轉場結束的同一格再換回真正的捲動位置
@@ -147,7 +151,7 @@ async function route() {
   // 不再為了等中文網頁字型把整頁藏起來（以前最多藏 1.2 秒：換到用到新字的頁面時會整片白、動畫卡住）。
   // 中文字寬都是 1em，字型到了直接換上，版面不會位移
   if (tabSwitch && !useVT && !reduceMotion.matches) { app.classList.remove('page-in', 'tab-in'); void app.offsetWidth; app.classList.add('tab-in'); clearTimeout(route.tabT); route.tabT = setTimeout(() => app.classList.remove('tab-in'), 500); }
-  else if (!useVT) pageIn(changed, first);
+  else if (!useVT && !swiped) pageIn(changed, first);
 }
 
 // 上方導覽列左邊：單元等內頁放「回首頁」；首頁、我的成績（最上層）放「搜尋單元」；還沒登入什麼都不放。B5 在右邊
@@ -1172,6 +1176,7 @@ async function boot() {
     e.preventDefault();
     if (await leaveOk()) { delete document.body.dataset.busy; location.hash = a.getAttribute('href'); }
   }, true);
+  window.addEventListener('popstate', (e) => { uaSwiped = !!e.hasUAVisualTransition; });
   window.addEventListener('hashchange', async () => {
     if (reverting) { reverting = false; return; }
     if (document.body.dataset.busy) {
@@ -1193,6 +1198,20 @@ async function boot() {
   // 登入後在背景載入的紀錄到了：首頁的完成狀態、最佳成績跟著更新（不打斷作答）
   window.addEventListener('history-applied', () => { if (!document.body.dataset.busy && ['', 'me'].includes(location.hash.split('/')[1] || '')) route(); });
   route();
+  // 隔了很久再打開（學校共用平板、借同學的手機）：先確認是不是同一個人，避免用別人的帳號作答
+  const SEEN = 'b5p:seen', AWAY = 5 * 3600 * 1000;
+  const touch = () => { try { localStorage.setItem(SEEN, String(Date.now())); } catch { /* ignore */ } };
+  const checkWho = async () => {
+    const s = store.student();
+    let last = 0; try { last = Number(localStorage.getItem(SEEN)) || 0; } catch { /* ignore */ }
+    touch();
+    if (!s || !last || Date.now() - last < AWAY || document.body.dataset.busy || document.querySelector('dialog[open]')) return;
+    clearWhoOk(); // 隔很久了：之前的確認不算數
+    const me = await confirmDialog({ title: `你是 ${maskName(s.name)} 嗎？`, body: `${esc(s.cls)} 班 ${esc(s.seat)} 號`, ok: '是我', cancel: '換人' });
+    if (me) markWhoOk(); else openStudentDialog(() => window.dispatchEvent(new Event('student-changed')));
+  };
+  checkWho();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkWho(); else touch(); });
   // 以 Firestore 為準：進站時重新讀取紀錄（例如在別台裝置做過的測驗）；5 分鐘內讀過就沿用（重新整理、自動更新不重複下載）
   const s = store.student();
   if (s && s.key && !store.historyFresh(s.key, 5 * 60 * 1000)) {

@@ -8,7 +8,7 @@ import { esc, nowStamp, wait, shuffle, centerInView, confirmDialog, leaveOut, sc
 import { icon } from '../icons.js';
 import { renderResult } from '../components/result.js';
 import { unitWindow } from '../remote-config.js';
-import { testGate, submitStateHTML, stampHTML, submitWhoHTML } from '../components/gate.js';
+import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore, fetchKey, cachedKey, newAttemptId, checkAnswer } from '../submit.js';
 import { mountLearn, guidePeekHTML } from '../components/learn.js';
@@ -319,11 +319,13 @@ export function mount(stage, ctx) {
       if (qi < qs.length - 1) { go(qi + 1); return; }
       if (asking || sent) return;
       const left = qs.length - answered();
-      // 交卷前確認一次身分（避免用別人的帳號作答）；有沒作答的題目時一起提醒
-      asking = true;
-      const yes = await confirmDialog({ title: '確定要交卷嗎？', body: submitWhoHTML() + (left ? `還有 <b>${left}</b> 題沒作答，沒作答的以答錯計。交卷後就不能修改。` : '所有題目都作答了。交卷後就不能修改。'), ok: '交卷', cancel: '回去作答' });
-      asking = false;
-      if (!yes) { if (left) { const i = qs.findIndex((q) => !(answers[q.id] && String(answers[q.id].yours || '').trim())); go(i); } return; }
+      // 有沒作答的題目時先確認
+      if (left) {
+        asking = true;
+        const yes = await confirmDialog({ title: '確定要交卷嗎？', body: `還有 <b>${left}</b> 題沒作答，沒作答的以答錯計。交卷後就不能修改。`, ok: '交卷', cancel: '回去作答' });
+        asking = false;
+        if (!yes) { const i = qs.findIndex((q) => !(answers[q.id] && String(answers[q.id].yours || '').trim())); go(i); return; }
+      }
       sent = true;
       submitOfficial();
     });

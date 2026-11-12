@@ -6,7 +6,7 @@ import { renderResult } from '../components/result.js';
 import { unitWindow, unitCfg } from '../remote-config.js';
 import { parseQuiz } from '../levels.js';
 import { wordsOf, paraHTML, rangeOfKey, rangeOfRef, keywordHits, paintMarks, openNote, mountAnnotator } from '../components/annotate.js';
-import { testGate, submitStateHTML, stampHTML, submitWhoHTML } from '../components/gate.js';
+import { testGate, submitStateHTML, stampHTML } from '../components/gate.js';
 import { mountReview, completeReview } from '../components/review.js';
 import { submitScore, fetchKey, cachedKey } from '../submit.js';
 import { statusBarHTML, mountDeadline } from '../components/status.js';
@@ -211,7 +211,7 @@ export function mount(stage, ctx) {
       asking = true;
       const ok = await confirmDialog({
         title: '確定要交卷嗎？',
-        body: submitWhoHTML() + (blank ? `還有 <b>${blank}</b> 題沒有作答。交卷後就不能修改。` : '所有題目都作答了。交卷後就不能修改。'),
+        body: blank ? `還有 <b>${blank}</b> 題沒有作答。交卷後就不能修改。` : '所有題目都作答了。交卷後就不能修改。',
         ok: '交卷', cancel: '再檢查',
       });
       asking = false;

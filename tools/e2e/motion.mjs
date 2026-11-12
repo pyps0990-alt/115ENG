@@ -33,7 +33,7 @@ await p.evaluate(() => { location.hash = '#/u/l2-pat'; });
 await p.waitForSelector('[data-start]'); await p.click('[data-start]');
 await p.waitForSelector('.opt'); await p.locator('.opt').first().click();
 await sleep(200);
-await p.locator('[data-next]:not([hidden])').click(); await p.click('dialog.modal[open] [value="ok"]'); await p.waitForSelector('.result.pass');
+await p.locator('[data-next]:not([hidden])').click(); await p.waitForSelector('.result.pass');
 await sleep(1400);
 await p.screenshot({ path: `${out}/motion-result.png` });
 const bad = p.errors.filter((e) => !/favicon/.test(e));

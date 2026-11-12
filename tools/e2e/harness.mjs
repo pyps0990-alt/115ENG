@@ -68,7 +68,7 @@ export async function startWorld({ scriptLatency = 1200, teachers = ['teacher@ex
     await page.addInitScript(([st, sf, key]) => {
       window.__fb = window.__fb || {};
       if (sf) { window.__fb.staff = [sf]; window.__fb.popupEmail = sf; window.__fb.loggedInAs = sf; }
-      if (st) localStorage.setItem('b5p:student', JSON.stringify({ cls: '306', seat: '20', name: '陳奕嘉', key }));
+      if (st) { localStorage.setItem('b5p:student', JSON.stringify({ cls: '306', seat: '20', name: '陳奕嘉', key })); if (!window.__askWho) sessionStorage.setItem('b5p:who-ok', '1'); }
     }, [student, staff, keyOf('306', '20', '陳奕嘉')]);
     world.pages.add(page);
     page.on('close', () => world.pages.delete(page));

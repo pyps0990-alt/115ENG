@@ -96,7 +96,7 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
     assert.equal(await lineText(), 'I like red apples a lot');
     assert.equal((await p.locator('.bank .chip-word').allTextContents()).join(' '), bankBefore, '下方單字順序不可改變');
     await shot('drag-ok');
-    await p.locator('[data-next]').click(); await p.click('dialog.modal[open] [value="ok"]'); await p.waitForSelector('.result', { timeout: 8000 }); // 只有一題：交卷（確認身分）
+    await p.locator('[data-next]').click(); await p.waitForSelector('.result', { timeout: 8000 }); // 只有一題：直接交卷
   });
   await step(`[${label}] 沒通過要補考：65% 才通過，沒通過重新做正式測驗`, async () => {
     const c4 = await world.newContext({ viewport: { width: w, height: h } });
@@ -105,7 +105,7 @@ for (const [label, w, h] of [['m', 390, 844], ['d', 1280, 800]]) {
       await p4.waitForSelector('.bank .chip-word');
       const seq = right ? ['I', 'like', 'red', 'apples', 'a', 'lot'] : ['lot', 'a', 'I'];
       for (const t of seq) await p4.locator('.bank .chip-word:not([disabled])', { hasText: new RegExp('^' + t + '$') }).first().click();
-      await p4.locator('[data-next]').click(); await p4.click('dialog.modal[open] [value="ok"]'); await p4.waitForSelector('.result');
+      await p4.locator('[data-next]').click(); await p4.waitForSelector('.result');
     };
     await p4.goto(world.base + '/#/u/l2-drag'); await p4.waitForSelector('[data-start]');
     assert.match(await p4.locator('[data-start]').textContent(), /開始測驗/);

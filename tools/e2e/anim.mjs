@@ -53,7 +53,7 @@ for (const reduced of [false, true]) {
   await p.mouse.move(1, 1); // 滑鼠剛好停在選項上會有懸停位移，不算動畫停在中途
   await settled(p, tag + '作答中', reduced);
   await p.locator('.opt').first().click(); await sleep(200);
-  await p.locator('[data-next]:not([hidden])').click(); await p.click('dialog.modal[open] [value="ok"]'); await p.waitForSelector('.result');
+  await p.locator('[data-next]:not([hidden])').click(); await p.waitForSelector('.result');
   await settled(p, tag + '成績畫面', reduced, 4600); // 滿分的彩帶最長約 4.2 秒
   await p.evaluate(() => { delete document.body.dataset.busy; location.hash = '#/me'; }); await p.waitForSelector('.me-row');
   await settled(p, tag + '我的成績', reduced);

@@ -82,6 +82,11 @@ export function testGate(stage, { parts = [], facts = [], best, review = false, 
     const start = box.querySelector('[data-start]');
     if (!start.disabled) {
       start.onclick = async () => {
+        if (!isReview && !whoConfirmed()) {
+          const me = await confirmDialog({ title: '以這個身分作答？', body: whoHTML(s), ok: '開始作答', cancel: '換人' });
+          if (!me) { openStudentDialog(draw); return; }
+          markWhoOk();
+        }
         // 有做到一半的進度時，重新開始會捨棄它：先確認
         if (rs && !(await confirmDialog({ title: '重新開始？', body: '做到一半的進度會被捨棄，這次要重新做一份新的。', ok: '重新開始', cancel: '繼續上次', danger: true }))) return;
         if (rs) rs.discard();
@@ -114,9 +119,13 @@ export function submitStateHTML(status) {
   return `<div class="submit-state ${cls}"><span class="ss-ic" aria-hidden="true">${ic}</span><span class="ss-t"><b>${title}</b>${desc ? `<small>${desc}</small>` : ''}</span>${resend}</div>`;
 }
 
-// 交卷確認框的第一行：用哪個身分交卷（交卷前最後確認一次，避免用別人的帳號作答）
-export function submitWhoHTML() {
-  const s = store.student();
+// 作答前確認身分（避免用別人的帳號作答）：正式測驗開始前問一次，同一次使用（分頁沒關）只問一次；
+// 閒置很久再打開時 app.js 也會再問一次（回答「是我」同樣算確認過）
+const WHO_OK = 'b5p:who-ok';
+export const markWhoOk = () => { try { sessionStorage.setItem(WHO_OK, '1'); } catch { /* ignore */ } };
+export const clearWhoOk = () => { try { sessionStorage.removeItem(WHO_OK); } catch { /* ignore */ } };
+const whoConfirmed = () => { try { return !!sessionStorage.getItem(WHO_OK); } catch { return true; } };
+export function whoHTML(s = store.student()) {
   return s ? `<span class="who-confirm">${icon.user}<b>${esc(studentLabel(s))}</b></span>` : '';
 }
 

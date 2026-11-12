@@ -2206,3 +2206,7 @@ dialog.search-sheet.closing .ss-bar { animation: ss-bar-out .2s ease both; }
 /* 交卷確認框：用哪個身分交卷 */
 .who-confirm { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface); color: var(--navy); }
 .who-confirm .ic { flex: none; width: 18px; height: 18px; }
+
+/* 手機打字時（鍵盤開著）收起測驗底部列，收起鍵盤再出現 */
+.q-dock, .ln-bar { transition: transform .22s var(--ease), opacity .18s; }
+html.kb-typing .q-dock, html.kb-typing .ln-bar { transform: translateY(110%); opacity: 0; pointer-events: none; }
