@@ -61,7 +61,12 @@ await step('滑過三分之一：回到首頁（不再做第二次換頁轉場�
 });
 await step('甩得快（距離短）也回上一頁', async () => {
   await p.tap('.unit-tile[data-id="l1-voc"]'); await p.waitForSelector('[data-start]'); await sleep(700);
-  await swipe(p, 8, 108, { steps: 4, ms: 8 }); await p.waitForSelector('.unit-tile'); await sleep(500);
+  // 在頁面裡同一格連續送出觸控事件（電腦忙的時候 CDP 一個一個送會變慢，就不像「甩」了）
+  await p.evaluate(() => {
+    const fire = (type, x) => { const t = new Touch({ identifier: 1, target: document.body, clientX: x, clientY: 420 }); document.body.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: type === 'touchend' ? [] : [t], changedTouches: [t] })); };
+    fire('touchstart', 8); for (const x of [30, 55, 80, 108]) fire('touchmove', x); fire('touchend', 108);
+  });
+  await p.waitForSelector('.unit-tile'); await sleep(500);
   assert.equal((await state(p)).left, 0);
 });
 await step('不是從左邊緣開始、或是直的滑：不啟用', async () => {
