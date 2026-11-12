@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const FILES = ['VERSION', 'index.html', 'admin.html', 'robots.txt', 'favicon-32.png', 'icon-180.png', 'icon.png', 'manifest.webmanifest'];
+const FILES = ['VERSION', 'index.html', 'admin.html', 'robots.txt', 'favicon-32.png', 'icon-180.png', 'icon.png', 'manifest.webmanifest', 'admin.webmanifest', 'admin-icon.png', 'admin-icon-180.png', 'admin-favicon-32.png'];
 const DIRS = ['css', 'js', 'fonts', 'data'];
 
 const list = [...FILES];

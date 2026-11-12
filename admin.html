@@ -9,10 +9,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="B5 後台">
-  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="apple-touch-icon" href="admin-icon-180.png">
+  <link rel="manifest" href="admin.webmanifest">
   <meta name="robots" content="noindex">
   <title>老師後台 — B5 Practice</title>
-  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="admin-favicon-32.png" type="image/png" sizes="32x32">
   <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://script.google.com">
   <script data-theme-boot>
@@ -305,7 +306,7 @@
     .shell svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; flex:none; }
 
     .rail { background:var(--navy); color:var(--navy-ink); display:flex; flex-direction:column; align-items:center; padding:14px 0; gap:4px; z-index:6; border-radius:0; height:100%; }
-    .brand { width:44px; height:44px; border-radius:14px; background:var(--primary); color:#1E3A8A; font-weight:900; display:grid; place-items:center; margin-bottom:14px; }
+    .brand { width:44px; height:44px; border-radius:14px; background:rgba(245,158,11,.12); box-shadow:inset 0 0 0 2.5px var(--primary); color:var(--primary); font-weight:900; display:grid; place-items:center; margin-bottom:14px; } /* 後台標誌：橘框空心（學生端是實心橘方塊），主畫面圖示是反色的橘底深藍書 */
     .rail a[data-view] { width:62px; padding:9px 0 7px; border-radius:14px; display:grid; justify-items:center; gap:3px; color:var(--navy-ink); text-decoration:none; font-size:.74rem; font-weight:800; transition:background .2s, color .2s; }
     .rail a[data-view]:hover { background:rgba(255,255,255,.08); color:#fff; }
     .rail a[aria-current="page"] { background:rgba(255,255,255,.15); color:#fff; }
@@ -957,7 +958,7 @@
       .m-top-back:hover, .m-top-back:focus-visible { background:rgba(255,255,255,.12); }
       .m-top-back svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
       /* 左上角 B5 標誌（跟學生端同一個琥珀色方塊）；進到單元出現返回鍵時讓位給返回鍵 */
-      .m-top-logo { flex:none; width:34px; height:34px; border-radius:10px; background:var(--primary); color:#1E3A8A; display:grid; place-items:center; font-weight:900; font-size:.9rem; letter-spacing:.01em; margin-right:4px; }
+      .m-top-logo { flex:none; width:34px; height:34px; border-radius:10px; background:rgba(245,158,11,.12); box-shadow:inset 0 0 0 2px var(--primary); color:var(--primary); display:grid; place-items:center; font-weight:900; font-size:.9rem; letter-spacing:.01em; margin-right:4px; }
       .m-top-back:not([hidden]) + .m-top-logo { display:none; }
       .ulist, .work { grid-row:2 !important; }
       /* 下方分頁列 */
