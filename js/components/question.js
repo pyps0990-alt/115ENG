@@ -289,13 +289,18 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
       p.className = 'spell-tip';
       p.innerHTML = `<b>${hints === 1 ? '使用情境' : '近義字和搭配'}</b>${esc(tips[hints - 1])}`;
       box.append(p); box.hidden = false;
-      input.focus();
+      refocus();
       return;
     }
     input.value = (target.slice(0, hints + shown).join('') + letters().slice(hints + shown)).slice(0, n);
     paint();
-    input.focus();
+    refocus();
   };
+  // 按提示後游標回到輸入框：電腦照舊；手機只有原本鍵盤就開著才保持開著（鍵盤收著時不要自己跳出來蓋住提示）
+  const finePointer = window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches;
+  const refocus = () => { if (finePointer) input.focus(); };
+  // 手機上鍵盤開著時按提示：按下去不讓輸入框失去焦點（鍵盤不會先收起再彈出）
+  hintBtn?.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse' && document.activeElement === input) e.preventDefault(); });
 
   card.querySelector('[data-check]')?.addEventListener('click', check);
   hintBtn?.addEventListener('click', hint);
