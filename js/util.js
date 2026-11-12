@@ -80,9 +80,16 @@ export const splitSentences = (p) => (String(p).match(/[^.!?]+(?:[.!?]+["'”’
 // 手指一碰到螢幕就立刻結束轉場，這一下點擊改送到手指下真正的按鈕、選項或連結上
 // 手機上正在打字（鍵盤開著）：收起測驗底部固定的「下一題」列，不讓它浮在鍵盤上方擋住題目；收起鍵盤後再出現
 if (typeof document !== 'undefined' && window.matchMedia && matchMedia('(pointer: coarse)').matches) {
-  const typing = (el) => el && el.matches && el.matches('input[type="text"], input:not([type]), textarea') && !el.closest('dialog');
-  document.addEventListener('focusin', (e) => { if (typing(e.target)) document.documentElement.classList.add('kb-typing'); });
-  document.addEventListener('focusout', () => setTimeout(() => { if (!typing(document.activeElement)) document.documentElement.classList.remove('kb-typing'); }, 60));
+  const typing = (el) => el && el.matches && el.matches('input[type="text"], input:not([type]), textarea') && !el.disabled && !el.readOnly && !el.closest('dialog');
+  const root = document.documentElement, vv = window.visualViewport;
+  // 鍵盤收起來了（畫面高度回來）就一定顯示底部列：按鍵盤的 ✓ 送出後輸入框被鎖住，iPhone 不會發出「離開輸入框」的通知，不能只靠 focusout
+  const kbClosed = () => !vv || vv.height > window.innerHeight - 80;
+  // 只看鍵盤有沒有真的打開：程式自動把游標放進輸入框時 iPhone 不會跳出鍵盤，這時底部列要照常顯示
+  const sync = () => root.classList.toggle('kb-typing', typing(document.activeElement) && !kbClosed());
+  document.addEventListener('focusin', (e) => { if (!typing(e.target)) return; if (!vv) root.classList.add('kb-typing'); else setTimeout(sync, 350); });
+  document.addEventListener('focusout', () => setTimeout(() => { if (!vv) { if (!typing(document.activeElement)) root.classList.remove('kb-typing'); } else sync(); }, 60));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Enter') setTimeout(sync, 150); }); // 送出答案後輸入框可能被鎖住
+  if (vv) vv.addEventListener('resize', sync);
 }
 // 英文發音（iPhone、電腦內建的英文語音，不用錄音檔）：sayBtn(英文) 產生 🔊 按鈕，點了就念。不支援的瀏覽器不顯示按鈕
 const canSay = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';

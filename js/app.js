@@ -1153,10 +1153,17 @@ async function boot() {
   let lastFlip = 0;
   let trailing = 0;
   const flip = (on) => { scrolled = on; lastFlip = performance.now(); document.body.classList.toggle('scrolled', on); };
+  // 頂端回彈露出的底色：快速往上滑到頂端時，iPhone 在慣性捲動中更新底色會慢半拍，所以「接近頂端」就先換成深藍
+  // （捲動範圍的上半部、而且在一個畫面高以內；頁面很短時一直是深藍，底部回彈也只露出一點）
+  const setTop = () => {
+    const range = document.documentElement.scrollHeight - window.innerHeight;
+    document.documentElement.classList.toggle('at-top', window.scrollY < Math.max(160, Math.min(window.innerHeight, range / 2)));
+  };
+  window.addEventListener('scroll', setTop, { passive: true });
+  setTop();
   const evaluate = () => {
     ticking = false;
     const y = Math.max(0, window.scrollY);
-    document.documentElement.classList.toggle('at-top', window.scrollY < 160);
     if (document.body.classList.contains('exam')) return; // 考試中導覽列固定不變
     const want = scrolled ? y >= 24 : y > 64;
     if (want === scrolled) return;
