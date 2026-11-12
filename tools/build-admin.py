@@ -28,11 +28,11 @@ out = sub1('  <meta charset="utf-8">\n', '''  <meta charset="utf-8">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="B5 後台">
-  <link rel="apple-touch-icon" href="admin-icon-180.png">
-  <link rel="manifest" href="admin.webmanifest">
+  <link rel="apple-touch-icon" href="admin-icon-180.png?v=2">
+  <link rel="manifest" href="admin.webmanifest?v=2">
   <meta name="robots" content="noindex">
   <title>老師後台 — B5 Practice</title>
-  <link rel="icon" href="admin-favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="admin-favicon-32.png?v=2" type="image/png" sizes="32x32">
   <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://script.google.com">
 ''', out)

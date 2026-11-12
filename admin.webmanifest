@@ -9,7 +9,7 @@
   "background_color": "#F4F6F9",
   "theme_color": "#1E3A8A",
   "icons": [
-    { "src": "admin-icon-180.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "admin-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "admin-icon-180.png?v=2", "sizes": "180x180", "type": "image/png" },
+    { "src": "admin-icon.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }
