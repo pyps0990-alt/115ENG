@@ -1167,6 +1167,16 @@
     .ask-btns { display:flex; justify-content:flex-end; gap:8px; padding:14px 22px 20px; }
     .ask-btns .btn { min-height:44px; padding:0 18px; }
     .btn.danger-solid { background:var(--bad); color:#fff; border-color:var(--bad); }
+    /* 修正一筆作答（學生用錯帳號）：改到另一位學生或刪除 */
+    dialog.fix-dlg { overflow:visible; }
+    .fix-dlg .fix-to { position:relative; display:grid; }
+    .fix-dlg .fix-to .ask-in { margin-top:0; }
+    .fix-dlg .pick { width:100%; max-height:220px; }
+    .fix-dlg .ask-btns { flex-wrap:wrap; }
+    .fix-dlg .fix-del { margin-right:auto; color:var(--bad-ink); border-color:#F3B4B4; }
+    .fix-dlg .fix-del:hover:not(:disabled) { border-color:var(--bad); background:var(--bad-soft); }
+    .fix-dlg .msg:empty { display:none; }
+    td.c-fix { white-space:nowrap; }
     @keyframes ask-in { from { opacity:0; transform:translateY(8px) scale(.98); } }
     @keyframes ask-out { to { opacity:0; transform:scale(.98); } }
     @media (prefers-reduced-motion: reduce) { dialog.ask, dialog.ask.closing { animation:none; } }
@@ -1745,7 +1755,7 @@
         <div id="wstats"></div>
         <div class="stats" id="stats"></div>
         <table>
-          <thead><tr><th>時間</th><th>班級</th><th>座號</th><th>姓名</th><th>單元</th><th>分數</th><th>%</th><th>基礎</th><th>進階</th><th>精熟</th><th>錯題</th><th>驗證</th></tr></thead>
+          <thead><tr><th>時間</th><th>班級</th><th>座號</th><th>姓名</th><th>單元</th><th>分數</th><th>%</th><th>基礎</th><th>進階</th><th>精熟</th><th>錯題</th><th>驗證</th><th></th></tr></thead>
           <tbody id="rows"><tr><td colspan="11" class="muted">按「查詢」載入成績</td></tr></tbody>
         </table>
       </div>
@@ -2262,15 +2272,73 @@
     };
 
     // 成績表格（試算表與 Firebase 兩種來源共用）
+    var shownScores = [], fixNote = { text: '', at: 0 };
     function paintScores(rows) {
-      $('smsg').textContent = '';
-      $('rows').innerHTML = rows.map(function (r) {
+      $('smsg').className = 'msg';
+      $('smsg').textContent = Date.now() - fixNote.at < 15000 ? fixNote.text : ''; // 剛修正完重新載入：留著結果
+      shownScores = rows;
+      $('rows').innerHTML = rows.map(function (r, i) {
         return '<tr><td>' + esc(r.time) + '</td><td>' + esc(r.cls) + '</td><td>' + esc(r.seat) + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.unitTitle || r.unit) +
-          '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td><td style="white-space:normal">' + (r.check === '—' ? '<span class="muted" title="還沒同步到試算表，尚未用題庫核對（每 10 分鐘自動同步）">—</span>' : r.check ? (r.id && SH.acks && SH.acks[r.id] ? '<span class="muted">已確認：' + esc(r.check) + '</span>' : '<span class="chk-warn"><svg class="ic-w" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>' + esc(r.check) + '</span>') : '<span class="muted">✓</span>') + '</td></tr>';
-      }).join('') || '<tr><td colspan="12" class="muted">沒有資料</td></tr>';
+          '</td><td>' + esc(r.score) + ' / ' + esc(r.total) + '</td><td>' + esc(r.pct) + '</td><td>' + esc(r.basic) + '</td><td>' + esc(r.advanced) + '</td><td>' + esc(r.mastery) + '</td><td style="white-space:normal">' + esc(r.wrong) + '</td><td style="white-space:normal">' + (r.check === '—' ? '<span class="muted" title="還沒同步到試算表，尚未用題庫核對（每 10 分鐘自動同步）">—</span>' : r.check ? (r.id && SH.acks && SH.acks[r.id] ? '<span class="muted">已確認：' + esc(r.check) + '</span>' : '<span class="chk-warn"><svg class="ic-w" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.3"/></svg>' + esc(r.check) + '</span>') : '<span class="muted">✓</span>') + '</td><td class="c-fix">' + (r.id ? '<button class="btn sm ghost" type="button" data-fix="' + i + '">修正</button>' : '') + '</td></tr>';
+      }).join('') || '<tr><td colspan="13" class="muted">沒有資料</td></tr>';
       var n = rows.length;
       var avg = n ? Math.round(rows.reduce(function (a, r) { return a + Number(r.pct || 0); }, 0) / n) : 0;
       $('stats').innerHTML = n ? '<span class="stat">筆數 ' + n + '</span><span class="stat">平均 ' + avg + '%</span>' : '';
+    }
+    // 修正一筆作答（學生用錯帳號作答）：改到另一位學生，或刪除這一筆。學生的「我的成績」、後台、試算表、成績單一起改
+    $('rows').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-fix]'); if (b && shownScores[Number(b.dataset.fix)]) fixDialog(shownScores[Number(b.dataset.fix)]);
+    });
+    function fixDialog(r) {
+      loadRoster();
+      var who = r.cls + ' 班 ' + r.seat + ' 號 ' + (r.name || '');
+      var d = document.createElement('dialog'); d.className = 'ask fix-dlg';
+      d.innerHTML = '<div class="ask-body"><b class="ask-title"></b><p class="fix-sub"></p>' +
+        '<div class="fix-to"><input class="ask-in" type="text" autocomplete="off" placeholder="改到：搜尋姓名、班級或座號" aria-label="改到哪一位學生"><div class="pick" hidden></div></div><p class="msg"></p></div>' +
+        '<div class="ask-btns"><button type="button" class="btn fix-del" data-a="del">刪除這筆</button><button type="button" class="btn" data-a="0">取消</button><button type="button" class="btn primary" data-a="move" disabled>改到這位學生</button></div>';
+      d.querySelector('.ask-title').textContent = who;
+      d.querySelector('.fix-sub').textContent = (r.unitTitle || r.unit) + '・' + r.pct + ' 分・' + r.time;
+      var inp = d.querySelector('.ask-in'), pick = d.querySelector('.pick'), msg = d.querySelector('.msg'), go = d.querySelector('[data-a="move"]');
+      var to = null, busy = false;
+      var show = function () {
+        if (!roster) { pick.innerHTML = '<div class="muted" style="padding:8px 12px">名單載入中…</div>'; pick.hidden = false; setTimeout(function () { if (d.open && document.activeElement === inp) show(); }, 600); return; }
+        var q = inp.value.trim().toLowerCase();
+        var hits = roster.filter(function (x) { return !(x.cls === String(r.cls) && String(x.seat) === String(r.seat).replace(/^0+(?=\d)/, '')) && (!q || (x.cls + ' ' + x.seat + ' ' + x.name + ' ' + x.cls + '-' + x.seat).toLowerCase().indexOf(q) >= 0); }).slice(0, 50);
+        pick.innerHTML = hits.map(function (x) { return '<button type="button" data-cls="' + esc(x.cls) + '" data-seat="' + esc(x.seat) + '" data-name="' + esc(x.name) + '">' + esc(x.cls + ' 班 ' + x.seat + ' 號 ' + x.name) + '</button>'; }).join('') || '<div class="muted" style="padding:8px 12px">找不到符合的學生</div>';
+        pick.hidden = false;
+      };
+      inp.addEventListener('focus', show);
+      inp.addEventListener('input', function () { to = null; go.disabled = true; show(); });
+      inp.addEventListener('blur', function () { setTimeout(function () { pick.hidden = true; }, 150); });
+      pick.addEventListener('mousedown', function (e) {
+        var x = e.target.closest('button[data-cls]'); if (!x) return;
+        e.preventDefault();
+        to = { cls: x.dataset.cls, seat: x.dataset.seat, name: x.dataset.name };
+        inp.value = to.cls + ' 班 ' + to.seat + ' 號 ' + to.name; pick.hidden = true; go.disabled = false;
+      });
+      var close = function () { d.classList.add('closing'); setTimeout(function () { d.close(); d.remove(); }, 140); };
+      var run = function (target) {
+        busy = true; msg.className = 'msg'; msg.textContent = '處理中…';
+        [].forEach.call(d.querySelectorAll('button, input'), function (x) { x.disabled = true; });
+        google.script.run.withSuccessHandler(function () {
+          close();
+          if (window.patchAttempt) window.patchAttempt(r.id, target);
+          fixNote = { text: target ? '已把 ' + who + ' 的這筆成績改到 ' + target.cls + ' 班 ' + target.seat + ' 號 ' + target.name : '已刪除 ' + who + ' 的這筆成績', at: Date.now() };
+          $('load').click();
+        }).withFailureHandler(function (err) {
+          busy = false; msg.className = 'msg err'; msg.textContent = /不支援的操作/.test(err.message) ? '沒有改成：Apps Script 還是舊版，請先更新 Code.gs（clasp push 後再 clasp deploy）' : '沒有改成：' + err.message;
+          [].forEach.call(d.querySelectorAll('button, input'), function (x) { x.disabled = false; }); go.disabled = !to;
+        }).fixAttempt(r.id, { cls: r.cls, seat: r.seat, name: r.name, unit: r.unit }, target);
+      };
+      d.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-a]');
+        if (!b) { if (e.target === d && !busy) close(); return; }
+        if (b.dataset.a === '0') close();
+        else if (b.dataset.a === 'move' && to) run(to);
+        else if (b.dataset.a === 'del') ask('刪除 ' + who + ' 的這筆成績？\n' + (r.unitTitle || r.unit) + '・' + r.pct + ' 分・' + r.time + '\n刪除後無法復原。').then(function (yes) { if (yes) run(null); });
+      });
+      d.addEventListener('cancel', function (e) { e.preventDefault(); if (!busy) close(); });
+      document.body.appendChild(d); d.showModal(); inp.focus();
     }
     var PASS_PCT = 65; // 與網站 js/types.js 的 PASS 相同
     // 姓名、座號搜尋與「只看未通過」：兩種來源都在這裡篩
@@ -5882,6 +5950,14 @@
       var redraw = function () {
         drawUnitList(); drawOverview(); if (SH.view === 'unit') drawUnitHead();
         if (SH.view === 'unit' && SH.tab === 'scores' && typeof drawUnitScores === 'function') drawUnitScores();
+      };
+      // 老師修正了一筆作答（改到另一位學生或刪除）：畫面與裝置上的快取一起改（之後只會補抓新的，舊的不會再讀一次）
+      window.patchAttempt = function (id, to) {
+        if (!SH.attempts) return;
+        SH.attempts = SH.attempts.filter(function (x) { return to || x.attemptId !== id; }).map(function (x) {
+          return to && x.attemptId === id ? Object.assign({}, x, { cls: String(to.cls), seat: String(to.seat), name: to.name }) : x;
+        });
+        writeCache(SH.attempts); redraw();
       };
       var loading = false;
       loadAttempts = function () {

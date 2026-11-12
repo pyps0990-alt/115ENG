@@ -100,7 +100,7 @@ function doGet(e) {
 /* ------------------------------------------------------------------ */
 var FIREBASE_WEB_KEY = 'AIzaSyC0HFF3YjrsONdvYwTrofihkqNGiQjjdyc';
 var API_EMAIL = null;
-var API_VERSION = 'admin-api-4';
+var API_VERSION = 'admin-api-5';
 
 // 用 Google 的 Identity Toolkit 驗證 Firebase 登入憑證，回傳登入的 email。
 // 快取到憑證過期前 1 分鐘（Firebase 憑證 1 小時過期），同一個憑證不重查；過期的憑證本來就會被換新。
@@ -139,7 +139,7 @@ function handleApi_(d) {
     getContent: getContent, saveContent: saveContent, deleteContent: deleteContent, getSiteUrl: getSiteUrl,
     getAiStatus: getAiStatus, setAiSettings: setAiSettings, clearAiKey: clearAiKey, testLocalAi: testLocalAi,
     aiGenerateReading: aiGenerateReading, aiAnalyzeReading: aiAnalyzeReading, aiCheckAnswers: aiCheckAnswers, aiGeneratePattern: aiGeneratePattern, getAiPrompts: getAiPrompts, setAiPrompt: setAiPrompt, getBrainConfig: getBrainConfig, setBrainConfig: setBrainConfig, aiFillVocab: aiFillVocab, aiVocabHints: aiVocabHints, aiPatternGuides: aiPatternGuides, aiAddExamples: aiAddExamples,
-    lookupStudent: lookupStudent, deleteStudent: deleteStudent,
+    lookupStudent: lookupStudent, deleteStudent: deleteStudent, fixAttempt: fixAttempt,
     backupSpreadsheet: backupSpreadsheet, semesterReset: semesterReset, purgeUnitScores: purgeUnitScores, listPurgeUnits: listPurgeUnits,
     syncNow: syncNow, getSyncStatus: getSyncStatus, syncReport: syncReport,
   };
@@ -1133,7 +1133,7 @@ function getScores(filter) {
       unit: String(r[4]), unitTitle: String(r[5]), level: String(r[6]), mode: String(r[7]),
       score: r[8], total: r[9], pct: r[10],
       basic: String(r[11]), advanced: String(r[12]), mastery: String(r[13]),
-      wrong: String(r[14]), durationSec: r[15], check: String(r[18] || ''),
+      wrong: String(r[14]), durationSec: r[15], id: String(r[17] || ''), check: String(r[18] || ''),
     });
   }
   return out;
@@ -1631,6 +1631,117 @@ function lookupStudent(cls, seat, name) {
     attempts: firestoreListChildren_('vault/' + key + '/attempts').length,
     reviews: firestoreListChildren_('vault/' + key + '/reviews').length,
   };
+}
+
+// 修正一筆作答紀錄（學生用錯帳號作答）：to 給 { cls, seat, name } 是改到那位學生，不給就是刪除這一筆。
+// 一筆作答存在好幾個地方，全部一起改：Firestore 的學生帳本（學生「我的成績」讀這裡）與依班級整理的複本（後台即時成績讀這裡）、
+// 試算表的 scores、班級分頁、作答明細與成績單（成績單的格子重新取這位學生剩下的最高分）。記錄編號不變，同步時才不會被當成新的一筆。
+function fixAttempt(attemptId, from, to) {
+  assertTeacher_();
+  var id = String(attemptId || '');
+  if (!/^[\w-]{6,64}$/.test(id)) throw new Error('記錄編號格式錯誤');
+  from = from || {};
+  var fCls = trimText_(from.cls, 8), fSeat = normSeat_(from.seat), fName = trimText_(from.name, 40), unit = trimText_(from.unit, 60);
+  if (!fCls || !fSeat || !unit) throw new Error('缺少這筆作答的班級、座號或單元');
+  var tCls = '', tSeat = '', tName = '', tKey = '';
+  if (to) {
+    tCls = trimText_(to.cls, 8); tSeat = normSeat_(to.seat); tName = trimText_(to.name, 40);
+    if (!/^\d{3,4}$/.test(tCls) || !/^\d{1,2}$/.test(tSeat) || !tName) throw new Error('請選擇要改到哪一位學生');
+    if (tCls === fCls && tSeat === fSeat) throw new Error('要改到的學生跟原本的一樣');
+    tKey = studentKeyServer_(tCls, tSeat, tName);
+    if (!firestoreRequest_('get', FIRESTORE_ROOT + '/vault/' + tKey)) throw new Error('名單上找不到 ' + tCls + ' 班 ' + tSeat + ' 號 ' + tName);
+  }
+  var out = { firestore: 0, rows: 0 };
+  // Firestore：依班級整理的複本（路徑由班級、座號、單元決定），以及學生帳本裡的那一份（用複本記的 key，沒有就用班級座號姓名算）
+  var enc = encodeURIComponent;
+  var classPath = function (c, st) { return 'classes/' + enc(c) + '/seats/' + enc(st) + '/units/' + enc(unit) + '/attempts/' + enc(id); };
+  var classDoc = firestoreRequest_('get', FIRESTORE_ROOT + '/' + classPath(fCls, fSeat));
+  var fKey = classDoc && classDoc.fields && classDoc.fields.key ? String(classDoc.fields.key.stringValue || '') : '';
+  if (!/^[0-9a-f]{64}$/.test(fKey)) fKey = fName ? studentKeyServer_(fCls, fSeat, fName) : '';
+  var vaultDoc = fKey ? firestoreRequest_('get', FIRESTORE_ROOT + '/vault/' + fKey + '/attempts/' + enc(id)) : null;
+  var full = function (p) { return FIRESTORE_ROOT.replace('https://firestore.googleapis.com/v1/', '') + '/' + p; };
+  var writes = [];
+  [[classDoc, function () { return classPath(tCls, tSeat); }], [vaultDoc, function () { return 'vault/' + tKey + '/attempts/' + enc(id); }]].forEach(function (pair) {
+    var doc = pair[0]; if (!doc || !doc.name) return;
+    if (to) {
+      var f = JSON.parse(JSON.stringify(doc.fields || {}));
+      f.cls = { stringValue: tCls }; f.seat = { stringValue: tSeat }; f.name = { stringValue: tName }; f.key = { stringValue: tKey };
+      writes.push({ update: { name: full(pair[1]()), fields: f }, currentDocument: { exists: false } });
+    }
+    writes.push({ delete: doc.name });
+    out.firestore++;
+  });
+  if (writes.length) firestoreRequest_('post', FIRESTORE_ROOT + ':commit', { writes: writes });
+
+  // 試算表：先把排隊中的成績整理進來（不然改完又被寫回舊的），整段拿著鎖
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    drainLoop_();
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var idCol = SCORES_FIELDS.indexOf('attemptId'), pctCol = SCORES_FIELDS.indexOf('pct');
+    var moved = null;
+    var scoreSheets = ss.getSheets().filter(function (sh) { var n = sh.getName(); return n === SHEET_SCORES || n.indexOf(CLASS_SHEET_PREFIX) === 0; });
+    scoreSheets.forEach(function (sh) {
+      var last = sh.getLastRow(); if (last < 2) return;
+      var ids = sh.getRange(2, idCol + 1, last - 1, 1).getValues();
+      for (var i = ids.length - 1; i >= 0; i--) {
+        if (String(ids[i][0]) !== id) continue;
+        var r = i + 2;
+        var isMain = sh.getName() === SHEET_SCORES;
+        if (isMain) moved = sh.getRange(r, 1, 1, SCORES_HEADER.length).getValues()[0];
+        if (to && isMain) { sh.getRange(r, 2, 1, 3).setValues([[tCls, tSeat, tName]]); }
+        else if (to && sh.getName() === CLASS_SHEET_PREFIX + tCls) { sh.getRange(r, 2, 1, 3).setValues([[tCls, tSeat, tName]]); }
+        else sh.deleteRow(r);
+        out.rows++;
+      }
+    });
+    // 換到別班：在新班級的分頁補一列
+    if (to && moved && tCls !== fCls) {
+      var row = moved.slice(); row[1] = tCls; row[2] = tSeat; row[3] = tName;
+      var csh = sheet_(CLASS_SHEET_PREFIX + tCls, SCORES_HEADER); ensureScoresHeader_(csh);
+      csh.getRange(csh.getLastRow() + 1, 1, 1, SCORES_HEADER.length).setValues([row]);
+    }
+    var ds = ss.getSheetByName(SHEET_DETAILS);
+    var dLast = ds ? ds.getLastRow() : 0;
+    if (dLast >= 2) {
+      var dIds = ds.getRange(2, DETAILS_FIELDS.indexOf('attemptId') + 1, dLast - 1, 1).getValues();
+      for (var j = dIds.length - 1; j >= 0; j--) {
+        if (String(dIds[j][0]) !== id) continue;
+        var k = j; while (k > 0 && String(dIds[k - 1][0]) === id) k--;
+        if (to) ds.getRange(k + 2, DETAILS_FIELDS.indexOf('cls') + 1, j - k + 1, 3).setValues(Array.apply(null, Array(j - k + 1)).map(function () { return [tCls, tSeat, tName]; }));
+        else ds.deleteRows(k + 2, j - k + 1);
+        j = k;
+      }
+    }
+    // 成績單：兩位學生這個單元的格子都重新取最高分（原本的人可能變低或變成沒有分數）
+    var bestOf = function (c, st) {
+      var sh = ss.getSheetByName(SHEET_SCORES), last = sh ? sh.getLastRow() : 0, best = null;
+      if (last < 2) return null;
+      sh.getRange(2, 1, last - 1, SCORES_HEADER.length).getValues().forEach(function (r) {
+        if (String(r[1]).trim() !== c || seatKey_(r[2]) !== seatKey_(st) || String(r[4]).trim() !== unit || r[pctCol] === '') return;
+        var v = Number(r[pctCol]); if (isFinite(v) && (best === null || v > best)) best = v;
+      });
+      return best;
+    };
+    var setCell = function (c, st, nm, v) {
+      if (!/^\d{3,4}$/.test(c)) return;
+      if (v !== null) { writeGradebook_(c, [[ '', c, st, nm, unit, '', '', '', '', '', v ]]); }
+      var sh = ss.getSheetByName(GRADEBOOK_PREFIX + c); if (!sh || sh.getLastRow() < 2) return;
+      var head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+      var col = head.map(function (h) { return String(h).trim(); }).indexOf(unit); if (col < GRADEBOOK_BASE_HEADER.length) return;
+      var seats = sh.getRange(2, 2, sh.getLastRow() - 1, 1).getValues();
+      for (var i = 0; i < seats.length; i++) if (seatKey_(seats[i][0]) === seatKey_(st)) { sh.getRange(i + 2, col + 1).setValue(v === null ? '' : v); break; }
+    };
+    setCell(fCls, fSeat, fName, bestOf(fCls, fSeat));
+    if (to) setCell(tCls, tSeat, tName, bestOf(tCls, tSeat));
+    SpreadsheetApp.flush();
+  } finally {
+    lock.releaseLock();
+  }
+  if (!out.firestore && !out.rows) throw new Error('找不到這筆作答紀錄（可能已經改過或刪除了）');
+  audit_(to ? '成績改到另一位學生' : '刪除一筆成績', id, fCls + ' 班 ' + fSeat + ' 號 ' + fName + '・' + unit + (to ? ' → ' + tCls + ' 班 ' + tSeat + ' 號 ' + tName : ''));
+  return out;
 }
 
 // 刪除一位學生在 Firestore 上的所有資料（帳本、作答、檢討紀錄，以及依班級整理的那份複本）。

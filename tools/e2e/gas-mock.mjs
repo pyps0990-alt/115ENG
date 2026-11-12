@@ -152,13 +152,22 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
         if (global.__commitFail) return resp(503, '{"error":{"message":"unavailable"}}');
         const body = JSON.parse(opts.payload);
         calls.commit.push(body);
+        // 作答紀錄（vault/*/attempts、classes/*/attempts）：global.__fsDocs（路徑 → fields）
+        const att = (n) => /\/attempts\//.test(n) && n.split('/documents/')[1];
+        const docs = global.__fsDocs || (global.__fsDocs = new Map());
+        if (body.writes.some((w) => w.update && att(w.update.name) && w.currentDocument && w.currentDocument.exists === false && docs.has(att(w.update.name)))) return resp(409, '{"error":{"message":"exists"}}');
+        body.writes.forEach((w) => {
+          if (w.update && att(w.update.name)) docs.set(att(w.update.name), w.update.fields);
+          if (w.delete && att(w.delete)) docs.delete(att(w.delete));
+        });
         body.writes.forEach((w) => {
           if (w.update && w.update.name.includes('/documents/public/')) publicDocs.set(w.update.name.split('/documents/public/')[1], w.update.fields);
           if (w.update && w.update.name.includes('/documents/secure/')) secureDocs.set(w.update.name.split('/documents/secure/')[1], w.update.fields);
           if (w.update && w.update.name.includes('/documents/admins/')) admins.add(w.update.name.split('/documents/admins/')[1]);
           if (w.delete && w.delete.includes('/documents/admins/')) admins.delete(w.delete.split('/documents/admins/')[1]);
         });
-        onFirestoreCommit(body);
+        const rest = body.writes.filter((w) => !(w.update ? att(w.update.name) : att(w.delete || '')));
+        if (rest.length) onFirestoreCommit({ ...body, writes: rest });
         return resp(200, '{}');
       }
       if (url.endsWith(':runQuery')) {
@@ -188,6 +197,11 @@ export function createGas({ teachers = ['teacher@example.com'], onFirestoreCommi
       if (url.includes('/documents/admins/')) return admins.has(decodeURIComponent(url.split('/documents/admins/')[1])) ? resp(200, '{"name":"x"}') : resp(404, '{}');
       // 伺服器計分轉送用的通關密語（global.__fnSecret）
       if (url.includes('/documents/private/fn')) return global.__fnSecret ? resp(200, JSON.stringify({ name: 'x', fields: { secret: { stringValue: global.__fnSecret } } })) : resp(404, '{}');
+      if ((opts.method || 'get') === 'get' && /\/attempts\//.test(url)) {
+        const k = decodeURIComponent(url.split('/documents/')[1]);
+        const docs = global.__fsDocs || (global.__fsDocs = new Map());
+        return docs.has(k) ? resp(200, JSON.stringify({ name: 'projects/eng-3385e/databases/(default)/documents/' + k, fields: docs.get(k) })) : resp(404, '{}');
+      }
       if (url.includes('/documents/vault/') && (opts.method || 'get') === 'get') {
         // 學生帳本：rosterKeys 沒給＝每個人都在名單上；rosterKeys === 'down'＝Firestore 暫時出錯
         const k = url.split('/documents/vault/')[1].split(/[?/]/)[0];
