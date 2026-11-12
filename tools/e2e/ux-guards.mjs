@@ -92,17 +92,26 @@ await step('單字發音：英文題目旁有 🔊，按了用英文念那個字
     window.SpeechSynthesisUtterance = function (t) { this.text = t; };
   });
   const v = await world.newPage(ctx, { student: true });
-  await v.goto(world.base + '/#/u/l3-voc'); await v.waitForSelector('[data-start]'); await sleep(500);
-  await v.tap('[data-start]'); await v.waitForSelector('.q-card');
-  for (let i = 0; i < 8 && !(await v.$('.q-prompt .say')); i++) { // 英→中的題目才有（中→英念出來就是答案）
-    const o = v.locator('.q-card .opt:not([disabled])'); if (await o.count()) await o.first().tap();
-    await sleep(300); if (await v.$('[data-next]:not([hidden])')) await v.tap('[data-next]:not([hidden])', { timeout: 1500 }).catch(() => {}); await sleep(500); // 開著自動下一題時按鈕可能已經自己換題消失
-  }
+  await v.goto(world.base + '/'); await v.waitForSelector('.unit-tile'); await sleep(500);
+  // 直接畫一題英→中的選擇題（測驗的題目方向是隨機的，不一定遇得到）
+  await v.evaluate(async () => {
+    const { renderMC } = await import('/js/components/question.js');
+    const host = document.createElement('div'); host.id = 'say-host'; document.getElementById('app').prepend(host);
+    const w = (x) => ({ word: x, zh: '字' + x, pos: 'n.' });
+    renderMC(host, { dir: 'en2zh', word: w('apple'), options: ['字apple', '字egg', '字fig', '字dates'], answer: 0, words: [w('apple'), w('egg'), w('fig'), w('dates')] }, { onAnswer() {} });
+    scrollTo(0, 0);
+  });
+  await v.waitForSelector('.q-prompt .say');
   const word = await v.textContent('.q-prompt .w');
   await v.tap('.q-prompt .say'); await sleep(200);
   assert.deepEqual(await v.evaluate(() => window.__said), [[word, 'en-US']]);
   assert.equal(await v.$$eval('.q-card .opt.selected, .q-card .opt.picked', (a) => a.length), 0, '沒有選到選項');
   assert.ok(await v.$eval('.q-prompt .say', (b) => { const r = b.getBoundingClientRect(); return r.width >= 44 && r.height >= 44; }), '按鈕至少 44×44');
+});
+await step('底部分頁列置中不用位移（iPhone 換頁轉場會把 translateX(-50%) 算錯，整條往左偏）', async () => {
+  await p.evaluate(() => { delete document.body.dataset.busy; location.hash = '#/'; }); await p.waitForSelector('.unit-tile'); await sleep(800);
+  const d = await p.evaluate(() => { const el = document.getElementById('dock'); if (!el) return null; const r = el.getBoundingClientRect(); return { t: getComputedStyle(el).transform, mid: Math.round((r.left + r.right) / 2), w: innerWidth }; });
+  if (d) { assert.ok(!/matrix\(1, 0, 0, 1, -/.test(d.t), '不能有往左的位移：' + d.t); assert.ok(Math.abs(d.mid - d.w / 2) < 2, '置中 ' + JSON.stringify(d)); }
 });
 await step('沒有 JS 錯誤', async () => { assert.deepEqual(p.errors, []); });
 await world.close();

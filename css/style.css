@@ -1702,7 +1702,7 @@ body { background: var(--bg); }
 
 /* 底部浮動分頁列（玻璃） */
 .dock {
-  position: fixed; z-index: 40; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  position: fixed; z-index: 40; left: 0; right: 0; width: max-content; margin-inline: auto; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); /* 用左右自動邊距置中，不用 translateX(-50%)：iPhone Safari 換頁轉場時會把位移算錯，整條分頁列往左偏 */
   display: flex; gap: 4px; padding: 6px; border-radius: 999px;
   background: rgba(255, 255, 255, .66); border: 1px solid rgba(255, 255, 255, .95);
   -webkit-backdrop-filter: blur(22px) saturate(1.8); backdrop-filter: blur(22px) saturate(1.8);
@@ -1721,7 +1721,7 @@ body { background: var(--bg); }
 
 /* 往下滑時縮小（整列等比例縮小，只用 transform：不會讓版面移動，也比改寬高順） */
 .dock { transform-origin: 50% 100%; transition: transform .4s cubic-bezier(.22, 1.2, .36, 1); }
-.dock.mini { transform: translateX(-50%) scale(.8); }
+.dock.mini { transform: scale(.8); }
 .dock a { transition: color .3s var(--ease); }
 @media (prefers-reduced-motion: reduce) { .dock { transition: none; } }
 .dock.dragging .dock-ink { box-shadow: 0 10px 22px rgba(30, 58, 138, .3); }
@@ -2188,7 +2188,7 @@ dialog.search-sheet.closing .ss-bar { animation: ss-bar-out .2s ease both; }
 @media (prefers-reduced-motion: reduce) { dialog.search-sheet .ss-bar { animation: none !important; } }
 
 /* ---- 觸控目標至少 44×44（Apple 介面規範）---- */
-.dock.mini { transform: translateX(-50%) scale(.88); } /* 捲下去縮小時高度仍有 44 */
+.dock.mini { transform: scale(.88); } /* 捲下去縮小時高度仍有 44 */
 .q-dock .switch { min-height: 44px; }
 .acct-btn { min-height: 44px; }
 .ss-x { min-width: 44px; }
