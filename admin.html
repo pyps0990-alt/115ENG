@@ -1697,8 +1697,8 @@
           <label>主題（小字顯示在首頁卡片標題下方，可空白）<input type="text" id="v-topic" placeholder="例：Resilience"></label>
           <div class="help">
             <b>單字片語　匯入格式</b><br>
-            每行一個單字或片語，欄位順序：<b>英文、詞性、中文、例句（3 句）、例句翻譯（3 句）</b>，可以再加第 6、7 欄<b>拼寫提示</b>（第 1 層使用情境、第 2 層近義字和搭配，不能寫出答案；片語不用），或按下方「AI 產生拼寫提示」。<br>
-            <b>每個字請放 3 句例句</b>：在例句欄用 <code>;</code> 隔開 3 句，例句翻譯欄也用 <code>;</code> 依相同順序隔開 3 句翻譯。三句請用不同的情境；學生每次考這個字的例句題會隨機抽其中一句，不同學生拿到的題目就不會一樣。學生作答時看不到翻譯，答錯的解析和檢討時才會顯示，幫助理解句意，所以請一定要填。<br>
+            每行一個單字或片語，欄位順序：<b>英文、詞性、中文、例句（5 句）、例句翻譯（5 句）</b>，可以再加第 6、7 欄<b>拼寫提示</b>（第 1 層使用情境、第 2 層近義字和搭配，不能寫出答案；片語不用），或按下方「AI 產生拼寫提示」。<br>
+            <b>每個字請放 5 句例句</b>：在例句欄用 <code>;</code> 隔開 5 句，例句翻譯欄也用 <code>;</code> 依相同順序隔開 5 句翻譯。五句請用不同的情境；學生每次考這個字的例句題會隨機抽其中一句，不同學生拿到的題目就不會一樣。學生作答時看不到翻譯，答錯的解析和檢討時才會顯示，幫助理解句意，所以請一定要填。<br>
             從 Excel 或 Google 試算表選取這幾欄直接複製貼上即可；也可以自己打字，欄位之間用 <code>|</code> 隔開。<br>
             例句中要考的部分用 <code>[ ]</code> 括起來，例如 <code>The team [bounced back] quickly.</code>（可以是變化後的形態，如 <code>[adapted]</code>）；沒括的話會自動找出來。含空格或詞性寫 <code>phr.</code> 的會當成片語。<br>
             範例（一行）：<code>adapt | v. | 適應 | She [adapted] quickly to her new school. ; We must [adapt] to climate change. ; Animals [adapt] to survive. | 她很快適應了新學校。 ; 我們必須適應氣候變遷。 ; 動物為了生存而適應環境。</code><br>
@@ -1707,11 +1707,11 @@
             ・超過 100 個請拆成兩個單元。<br><div id="v-ex"></div><details class="ex-box" id="v-prompt-box"><summary>給 AI 的完整提示詞（依這個單元的出題設定）</summary><pre id="v-prompt"></pre></details><b>用外部 AI 整理單字</b>：按下方「複製『給 AI 的完整提示詞』」貼到 ChatGPT、Gemini 或 Claude，把最後一行改成你的單字，再把回覆整段貼回下面的欄位（Markdown 表格、程式碼框都會自動整理）。
           </div>
           <div class="bar">
-            <button class="btn ai" id="ai-vocab" type="button">✦ AI 補齊詞性、中文與 3 句例句</button>
-            <button class="btn ai" id="ai-more-ex" type="button">✦ AI 補齊到每個字 3 句例句</button>
+            <button class="btn ai" id="ai-vocab" type="button">✦ AI 補齊詞性、中文與 5 句例句</button>
+            <button class="btn ai" id="ai-more-ex" type="button">✦ AI 補齊到每個字 5 句例句</button>
             <button class="btn ai" id="ai-hints" type="button" title="例句拼寫卡住時的提示：第 1 次看使用情境，第 2 次看近義字和搭配（寫在第 6、7 欄）">✦ AI 產生拼寫提示</button>
             <button class="btn" id="v-copy-prompt" type="button" data-copy-prompt="vocab">複製「給 AI 的完整提示詞」</button>
-            <span class="muted">已經填好的欄位不會被改動；「補齊到 3 句」只補不足的句數，附在原本例句後面。</span>
+            <span class="muted">已經填好的欄位不會被改動；「補齊到 5 句」只補不足的句數，附在原本例句後面。</span>
           </div>
           <label>單字片語<textarea id="v-text" spellcheck="false" placeholder="resilient&#9;adj.&#9;有韌性的&#9;Children are often more [resilient] than adults think. ; The [resilient] team recovered quickly. ; Plants that are [resilient] survive dry summers.&#9;孩子往往比大人想像的更有韌性。 ; 這支有韌性的隊伍很快恢復了。 ; 有韌性的植物能熬過乾燥的夏天。&#10;bounce back | phr. | （挫折後）很快恢復 | The team [bounced back] after losing. ; She [bounced back] from the illness. ; Markets [bounce back] fast. | 球隊輸球後很快重新振作。 ; 她從病中很快恢復。 ; 市場很快反彈。"></textarea></label>
         </div>
@@ -3066,8 +3066,8 @@
       var tips = [];
       if (words.length > 30 && words.length <= 100) tips.push('目前 ' + words.length + ' 個，超過 30 個：每次測驗抽 30 個出題，上次沒考到的優先，學生做 ' + Math.ceil(words.length / 30) + ' 次就輪完全部');
       if (words.length >= 4 && (nPh < 2 || nPh > 5)) tips.push('建議每個單元 2–5 個片語（目前 ' + nPh + ' 個）');
-      var few = words.filter(function (w) { return (w.examples ? w.examples.length : 1) < 3; }).length;
-      if (few) tips.push(few + ' 個字的例句少於 3 句：例句越多，不同學生拿到相同題目的機會越低（可按「AI 補齊到每個字 3 句例句」）');
+      var few = words.filter(function (w) { return (w.examples ? w.examples.length : 1) < 5; }).length;
+      if (few) tips.push(few + ' 個字的例句少於 5 句：例句越多，不同學生拿到相同題目的機會越低（可按「AI 補齊到每個字 5 句例句」）');
       var noZh = words.filter(function (w) { return !(w.exampleZh || (w.examples || []).some(function (e) { return e.zh; })); }).length;
       if (sameZh.length) tips.push(sameZh.length + ' 個字的中文意思和前面的字相同或重疊（第 ' + sameZh.join('、') + ' 行，狀態欄有寫和哪一個重疊）');
       if (noZh) tips.push(noZh + ' 個字的例句沒有中文翻譯：檢討時看不到例句的中文意思');
@@ -3695,7 +3695,7 @@
           '2. 中文寫最常見的意思，用繁體中文（臺灣用語），最多兩個意思，之間用「；」隔開。',
         ];
         if (cloze) {
-          rules.push('3. 每個字剛好 3 句例句，三句要用不同情境（學校、家庭、社會），也盡量用不同的形態（原形、過去式、-ing、複數）；每句 8–14 個英文字，程度 CEFR A2–B1。除了要考的字，其他都用國中程度的常用字（約最常用的 2000 字），不要罕見人名地名、俚語或很長的子句：學生作答時不能查字典、不能翻譯，認得要考的字就要看得懂整句。');
+          rules.push('3. 每個字剛好 5 句例句，五句要用不同情境（學校、家庭、朋友、休閒、社會），也盡量用不同的形態（原形、過去式、-ing、複數）；每句 8–14 個英文字，程度 CEFR A2–B1。除了要考的字，其他都用國中程度的常用字（約最常用的 2000 字），不要罕見人名地名、俚語或很長的子句：學生作答時不能查字典、不能翻譯，認得要考的字就要看得懂整句。');
           rules.push('4. 每一句例句裡，要考的字或片語用方括號 [ ] 括起來，且只括一次，例如 She [adapted] quickly to her new school.（括號裡可以是變化後的形態：過去式、複數、-ing）。');
           rules.push('5. 這些例句會挖空讓學生' + (has('cloze') && has('clozeSpell') ? '選字或拼字' : has('cloze') ? '選字' : '拼字') + '：前後文要能清楚指向這個字，換成同一份清單裡的其他字就說不通。');
           rules.push('6. 例句翻譯要自然通順，並且和例句完全對應；不要在同一處並列兩個同義詞（例如「核心關鍵」），不然挖空後等於寫出答案。');
@@ -3707,7 +3707,7 @@
         if (spell) rules.push(rules.length + 1 + '. 這個單元有拼字題：英文用正確的拼法，片語寫成固定的樣子，不要加 sth. / sb. 這類代號。');
         rules.push(rules.length + 1 + '. 保留老師提供的每一個字，不要增加或刪減；總數（單字與片語合計）不超過 100 個，不要重複。');
         rules.push(rules.length + 1 + '. 第一行不要寫欄位標題。');
-        var nEx = cloze ? '3 句' : '1 句';
+        var nEx = cloze ? '5 句' : '1 句';
         return [PROMPT_HEAD + '請依照下面的格式，幫我整理一份單字片語清單。', '',
           '【這個單元的考法】' + (u ? quizSummary(u) : '基礎 → 進階 → 精熟（預設三段）'), '',
           '【格式】每行一個單字或片語，共 5 個欄位，欄位之間用 Tab 或「 | 」隔開（整份請統一一種）：',
@@ -4002,9 +4002,9 @@
         if (i === 0 && /^(word|英文|單字|片語)$/i.test(c[0])) return;
         var ex0 = (c[3] || '').split(/;|；/)[0];
         var have = (c[3] || '').split(/;|；/).filter(function (x) { return x.trim(); }).length;
-        if (c[0] && c[2] && ex0 && have < 3) todo.push({ i: i, sep: sep, word: c[0], zh: c[2], example: ex0, need: 3 - have });
+        if (c[0] && c[2] && ex0 && have < 5) todo.push({ i: i, sep: sep, word: c[0], zh: c[2], example: ex0, need: 5 - have });
       });
-      if (!todo.length) { $('imp-msg').textContent = '每個字都已經有 3 句例句了（或還沒填好英文、中文與至少一句例句）'; $('imp-msg').className = 'msg ok'; return; }
+      if (!todo.length) { $('imp-msg').textContent = '每個字都已經有 5 句例句了（或還沒填好英文、中文與至少一句例句）'; $('imp-msg').className = 'msg ok'; return; }
       var btn = $('ai-more-ex'), label = btn.textContent;
       aiBusy(btn, true, label); impDirty();
       google.script.run.withSuccessHandler(function (res) {
@@ -4029,7 +4029,7 @@
         });
         $('v-text').value = lines.join('\n');
         $('imp-check').click();
-        $('imp-msg').textContent = 'AI 幫 ' + filled + ' 個字補齊到 3 句例句，請確認後再儲存'; $('imp-msg').className = 'msg ok';
+        $('imp-msg').textContent = 'AI 幫 ' + filled + ' 個字補齊到 5 句例句，請確認後再儲存'; $('imp-msg').className = 'msg ok';
       }).withFailureHandler(function (err) {
         aiBusy(btn, false, label); $('imp-msg').textContent = err.message; $('imp-msg').className = 'msg err';
       }).aiAddExamples(todo.map(function (t) { return { word: t.word, zh: t.zh, example: t.example, need: t.need }; }));
@@ -5985,7 +5985,7 @@
     // 外部 AI 的回覆：題目後面接「【句型說明】」，貼上時自動把說明拆到下方，題目留在輸入框
     function guideRules() {
       var t = prompts && prompts.guides && prompts.guides.text;
-      return t || '- 名稱 6 字以內；用途一句 30 字以內；結構拆 3～5 塊；例句 4 句不同情境（CEFR A2–B1，8～14 字），每一塊都要標到；易錯一句；檢測 2 題很簡單的四選一。';
+      return t || '- 名稱 6 字以內；用途一句 30 字以內；結構拆 3～5 塊；例句 5 句不同情境（CEFR A2–B1，8～14 字），每一塊都要標到；易錯一句；檢測 2 題很簡單的四選一。';
     }
     function takeGuides() {
       var ta = $('t-text'), text = ta.value, at = text.indexOf(GUIDE_MARK);
@@ -6208,7 +6208,7 @@
           { el: function () { return q('#imp-vocab .btn.ai') ? q('#imp-vocab .bar') : q('#imp-reading .btn.ai') ? q('#ai-reading').closest('.bar') : q('#imp-text .btn.ai') ? q('#ai-text').closest('.bar') : null; },
             title: '讓 AI 出題', text: function () {
               var u = curUnit() || {};
-              return u.type === 'vocab' ? '先在下方貼上要考的單字（只有英文也可以），再按「✦ AI 補齊詞性、中文與 3 句例句」。已經填好的欄位不會被改。'
+              return u.type === 'vocab' ? '先在下方貼上要考的單字（只有英文也可以），再按「✦ AI 補齊詞性、中文與 5 句例句」。已經填好的欄位不會被改。'
                 : u.type === 'reading' ? '先貼上文章，選好題數，再按「✦ AI 產生題目」。每一題都會附原文依據。'
                 : '先填主題和「AI 出題範圍」（例如 Lesson 3 的重點句型），再按「✦ AI 產生題目」。';
             } },
@@ -6513,7 +6513,7 @@
           '要逐筆查詢、做錯題分析或打開試算表：展開成績頁下方的「查詢作答紀錄」。'],
         notes: ['成績先存在網站的資料庫，後台馬上看得到；試算表每 10 分鐘同步一次（晚上 10 點到早上 7 點不同步）。急著登記可以在「試算表同步」按「立即同步到試算表」。', '試算表的「成績單 班級」分頁是一人一列、一個單元一欄，只留最高分，最適合登記。'], tour: 'scores' },
       { id: 'ai', title: '用 AI 出題', lead: 'AI 可以幫你補齊單字資料、出課文題目和句型題，但產生後一定要看過再存。', img: 'ai-vocab',
-        steps: ['打開單元的「題目」，按「用 AI 產生」（已經有題目按「編輯題目」）。', '單字片語：貼上要考的單字（只有英文也可以），按「AI 補齊詞性、中文與 3 句例句」。已經填好的欄位不會被改。',
+        steps: ['打開單元的「題目」，按「用 AI 產生」（已經有題目按「編輯題目」）。', '單字片語：貼上要考的單字（只有英文也可以），按「AI 補齊詞性、中文與 5 句例句」。已經填好的欄位不會被改。',
           '課文理解：貼上文章、選題數，按「AI 產生題目」，每一題都會附原文依據。', '句型練習：填主題和「AI 出題範圍」（例如 Lesson 3 的重點句型），按「AI 產生題目」；「AI 產生句型說明」會寫好每個句型的說明。',
           '逐題確認答案與解析，按「預覽與檢查」，沒問題再「儲存到網站」。'],
         notes: [{ img: 'settings-ai', text: 'AI 金鑰和出題規則（提示詞）在「設定」。按鈕顯示錯誤時先確認金鑰；額度用完時會自動改用其他模型。' }, '段考複習的題目比較長，AI 有時會分批產生，部分沒成功時再按一次即可。'], tour: 'ai' },

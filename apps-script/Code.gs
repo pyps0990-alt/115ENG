@@ -2139,7 +2139,7 @@ var AI_PROMPT_DEFAULTS = {
     '- "word": exactly as given',
     '- "pos": one of n. / v. / adj. / adv. / prep. / conj. / phr. (use "phr." for multi-word phrases; for words with two common uses write e.g. "n. / v.")',
     '- "zh": the most common meaning in Traditional Chinese (Taiwan usage), short, with ； between senses, at most two senses',
-    '- "examples": EXACTLY 3 natural example sentences, each at CEFR A2–B1 level, 8–14 words, each in a clearly different situation/context (e.g. school, family, society). In every sentence the target word or phrase appears once and is wrapped in square brackets, e.g. "The team [bounced back] after the loss." The bracketed text may be an inflected form (past tense, plural, -ing). ' + EASY_EN_,
+    '- "examples": EXACTLY 5 natural example sentences, each at CEFR A2–B1 level, 8–14 words, each in a clearly different situation/context (e.g. school, family, friends, hobbies, society). In every sentence the target word or phrase appears once and is wrapped in square brackets, e.g. "The team [bounced back] after the loss." The bracketed text may be an inflected form (past tense, plural, -ing). ' + EASY_EN_,
     '- "exampleZh" of each example: a natural Traditional Chinese translation of that sentence (students read it as a hint, so it must match the sentence exactly)',
   ].join('\n'),
   reading: [
@@ -2170,7 +2170,7 @@ var AI_PROMPT_DEFAULTS = {
     '- name：句型的中文名稱，6 字以內（例如「倍數比較」「強調句」）。',
     '- use：一句中文說明什麼時候用、表達什麼意思（30 字以內）。',
     '- parts：把句型拆成 3～5 塊，依句子順序；t 是這一塊的中文或英文名稱（例如「倍數」「the + 名詞」「of」「比較的對象」），eg 是這一塊在例句裡的一個例子。',
-    '- examples：4 句不同情境的完整例句（CEFR A2–B1，8～14 字，' + EASY_EN_ + '），en 裡用 {編號:文字} 標出每一塊，編號對應 parts 的順序（從 0 開始），每一塊都要標到，例如 "Japan is about {0:ten times} {1:the size} {2:of} {3:Taiwan}."；句子其他部分不要標。zh 是自然的中文翻譯。',
+    '- examples：5 句不同情境的完整例句（CEFR A2–B1，8～14 字，' + EASY_EN_ + '），en 裡用 {編號:文字} 標出每一塊，編號對應 parts 的順序（從 0 開始），每一塊都要標到，例如 "Japan is about {0:ten times} {1:the size} {2:of} {3:Taiwan}."；句子其他部分不要標。zh 是自然的中文翻譯。',
     '- pitfall：一句中文，學生最常犯的錯（30 字以內）。',
     '- checks：2 題很簡單的四選一選擇題，確認學生看懂這個句型；q 是題目（空格用 ____），options 4 個選項，answer 是正確選項的索引（0～3），explain 是一句中文解析。',
   ].join('\n'),
@@ -2374,7 +2374,7 @@ function aiGenerateReading(passage, count, title) {
 // items: [{ word, zh, example }]（example 是現有的第一句，給 AI 當參考、避免重複出同樣情境）
 function aiAddExamples(items) {
   assertTeacher_();
-  // items: [{ word, zh, example, need }]；need = 還缺幾句（1–2），目標是每個字共 3 句
+  // items: [{ word, zh, example, need }]；need = 還缺幾句（1–4），目標是每個字共 5 句
   items = (items || []).filter(function (x) { return x && x.word && x.zh && x.example; }).slice(0, 60);
   if (!items.length) throw new Error('請先填好每個字的英文、中文與至少一句例句');
   var schema = {
@@ -2402,7 +2402,7 @@ function aiAddExamples(items) {
     'e.g. "She [adapted] quickly to her new school." Also give a natural Traditional Chinese translation of each sentence (students use the translation as a hint).',
     '',
     'Words:',
-    items.map(function (x, i) { return (i + 1) + '. ' + x.word + '（' + x.zh + '）existing example: ' + x.example + ' — write ' + Math.max(1, Math.min(2, Number(x.need) || 1)) + ' new sentence(s)'; }).join('\n'),
+    items.map(function (x, i) { return (i + 1) + '. ' + x.word + '（' + x.zh + '）existing example: ' + x.example + ' — write ' + Math.max(1, Math.min(4, Number(x.need) || 1)) + ' new sentence(s)'; }).join('\n'),
   ].join('\n');
   var out = (aiCall_(prompt, schema).items || []).map(function (x) {
     return {
@@ -2515,7 +2515,7 @@ function aiFillVocab(items) {
     items.map(function (w, i) { return (i + 1) + '. ' + w; }).join('\n'),
   ].join('\n');
   var out = (aiCall_(prompt, schema).words || []).map(function (w) {
-    var exs = (w.examples || []).map(function (e) { return { example: String(e.example || '').trim(), exampleZh: String(e.exampleZh || '').trim() }; }).filter(function (e) { return e.example; }).slice(0, 3);
+    var exs = (w.examples || []).map(function (e) { return { example: String(e.example || '').trim(), exampleZh: String(e.exampleZh || '').trim() }; }).filter(function (e) { return e.example; }).slice(0, 5);
     return {
       word: String(w.word || '').trim(), pos: String(w.pos || '').trim(), zh: String(w.zh || '').trim(),
       examples: exs, example: exs.length ? exs[0].example : '', exampleZh: exs.length ? exs[0].exampleZh : '',

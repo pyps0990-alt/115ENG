@@ -11,7 +11,7 @@ import { icon } from '../icons.js';
 import { flattenPattern, renderChoiceCard, renderFillCard, renderApplyCard, judge, applyScore, reviewCardHTML } from './items.js';
 
 const PER_SECTION = [2, 3]; // 每段驗收隨機抽 2～3 題（題庫不夠就有幾題考幾題）
-const EXAMPLES_SHOWN = 3; // 每段認識卡隨機挑幾句例句
+const EXAMPLES_SHOWN = 5; // 每段認識卡隨機挑幾句例句
 // 輕震一下（只在使用者真的點過畫面之後；瀏覽器規定沒點過不能震）
 const buzz = () => { try { if (navigator.vibrate && !reducedMotion() && (!navigator.userActivation || navigator.userActivation.hasBeenActive)) navigator.vibrate(10); } catch { /* 不支援就算了 */ } };
 
