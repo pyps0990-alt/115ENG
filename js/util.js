@@ -103,7 +103,7 @@ if (typeof document !== 'undefined' && ((window.matchMedia && matchMedia('(displ
   const kick = () => {
     if (touching || document.visibilityState !== 'visible') return;
     const y = window.scrollY, max = root.scrollHeight - window.innerHeight;
-    if (max >= 1) { window.scrollTo(0, y >= 1 ? y - 1 : y + 1); requestAnimationFrame(() => window.scrollTo(0, y)); }
+    if (max >= 1) { window.scrollTo({ top: y >= 1 ? y - 1 : y + 1, behavior: 'instant' }); requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'instant' })); }
     else { root.style.minHeight = 'calc(100% + 1px)'; requestAnimationFrame(() => requestAnimationFrame(() => { root.style.minHeight = ''; })); }
     window.__saKicks = (window.__saKicks || 0) + 1;
   };

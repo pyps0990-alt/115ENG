@@ -27,6 +27,34 @@
       if (mq && mq.addEventListener) mq.addEventListener('change', apply);
       window.b5Theme = { get: function () { return mode; }, set: function (v) { mode = v; try { localStorage.setItem(K, v); } catch (e) {} apply(); } };
     })();
+    // 加到主畫面的 App（iPhone）剛打開、切回來時，系統常先回報「安全區域是 0」，要滑一下才重算（標題列卡在時鐘底下）。
+    // 開啟、切回來、轉向後自動輕推一下：正在看的捲動區捲 1px 再捲回來（後台是內容區自己捲，不是整頁），讓系統馬上重算
+    (function () {
+      var sa = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true || window.__standalone;
+      if (!sa) return;
+      var root = document.documentElement, touching = false;
+      root.classList.add('standalone');
+      document.addEventListener('touchstart', function () { touching = true; }, { passive: true, capture: true });
+      document.addEventListener('touchend', function () { touching = false; }, { passive: true, capture: true });
+      function kick() {
+        if (touching || document.visibilityState !== 'visible') return;
+        var els = [document.scrollingElement || root].concat([].slice.call(document.querySelectorAll('.work, .ulist-scroll')));
+        var moved = false;
+        els.forEach(function (el) {
+          if (!el || el.scrollHeight - el.clientHeight < 1 || !el.getClientRects().length) return;
+          var y = el.scrollTop; el.scrollTo({ top: y >= 1 ? y - 1 : y + 1, behavior: 'instant' }); moved = true; // 內容區平常是平滑捲動：這裡要瞬間，看不出來
+          requestAnimationFrame(function () { el.scrollTo({ top: y, behavior: 'instant' }); });
+        });
+        if (!moved) { root.style.minHeight = 'calc(100% + 1px)'; requestAnimationFrame(function () { requestAnimationFrame(function () { root.style.minHeight = ''; }); }); }
+        window.__saKicks = (window.__saKicks || 0) + 1;
+      }
+      function soon() { [0, 120, 400, 1000].forEach(function (t) { setTimeout(function () { requestAnimationFrame(kick); }, t); }); }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', soon); else soon();
+      window.addEventListener('load', function () { setTimeout(kick, 50); });
+      window.addEventListener('pageshow', function (e) { if (e.persisted) soon(); });
+      document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') soon(); });
+      window.addEventListener('orientationchange', function () { setTimeout(soon, 250); });
+    })();
   </script>
   <style>
     :root {
