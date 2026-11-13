@@ -118,6 +118,7 @@ export function mount(stage, ctx) {
 
   // stagesIn: [{ level, words }]；official=false 為錯題練習，不送出成績；review=true 為做過正式測驗後的複習
   // saved：從「繼續上次」接回來的進度（題目、順序、得分都照原樣）
+  let dockEl = null; // 作答中的底部橫幅（放在 body 底下，離開或交卷時移除）
   function play(student, stagesIn, official, review = false, saved = null) {
     const stages = saved
       ? saved.stages.map(({ levelId, ...r }) => ({ ...r, level: levels.find((l) => l.id === levelId) }))
@@ -161,14 +162,20 @@ export function mount(stage, ctx) {
         <p class="quiz-note"><span class="auto-cue" data-auto-cue hidden>輕點畫面可暫停自動下一題</span></p>
       </div>`;
     mountDeadline(stage, official && !review ? unitWindow(ctx.config, unitId) : null);
-    const nextBtn = stage.querySelector('[data-next]');
+    // 底部橫幅直接放在 body 底下：頁面進場動畫（transform）期間，iPad／iPhone Safari 會把 fixed 元素當成跟著內容區定位，
+    // 動畫結束也不會放回去（只剩內容寬、離底部一段距離、按鈕擠在一起）。不在動畫元素裡面就不會發生
+    dockEl?.remove();
+    dockEl = stage.querySelector('.q-dock');
+    document.body.append(dockEl);
+    const dock = dockEl;
+    const nextBtn = dock.querySelector('[data-next]');
     // 自動下一題：答對選擇題後等 AUTO_MS 毫秒自動跳，可以關掉（記在這台裝置）；進度條動畫與計時共用同一個數字
     const AUTO_MS = 2400;
     // 自動下一題的設定存在學生帳本（所有裝置都套用），這台裝置也留一份
     const lp = learnPrefs();
     const getFlag = (k, d) => (k === 'b5p:auto' ? lp.get('auto') : d);
     const setFlag = (k, v) => { if (k === 'b5p:auto') lp.set('auto', v); };
-    const autoToggle = stage.querySelector('[data-auto-toggle]');
+    const autoToggle = dock.querySelector('[data-auto-toggle]');
     const autoCue = stage.querySelector('[data-auto-cue]');
     const paintAuto = () => autoToggle.setAttribute('aria-checked', getFlag('b5p:auto', true) ? 'true' : 'false');
     paintAuto();
@@ -178,12 +185,12 @@ export function mount(stage, ctx) {
       paintAuto();
     });
     // 離開測驗：先確認，這次作答不會送出
-    stage.querySelector('[data-leave]').addEventListener('click', async () => {
+    dock.querySelector('[data-leave]').addEventListener('click', async () => {
       const ok = await confirmDialog({ title: '要離開這次測驗嗎？', body: leaveBody(unitId), ok: '離開', cancel: '繼續作答', danger: true });
       // 先解除「作答中」鎖定再換頁，不然全站的離開確認會再問第二次
       if (ok) { window.removeEventListener('beforeunload', unload); delete document.body.dataset.busy; location.hash = '#/'; }
     });
-    const foot = stage.querySelector('.q-foot');
+    const foot = dock.querySelector('.q-foot');
     nextBtn.addEventListener('click', next);
 
     const paintStepper = () => {
@@ -207,7 +214,7 @@ export function mount(stage, ctx) {
       persist();
       paintStepper();
       foot.hidden = false;
-      stage.querySelector('[data-fb]').innerHTML = '';
+      dock.querySelector('[data-fb]').innerHTML = '';
       nextBtn.hidden = true;
       const host = stage.querySelector('[data-q]');
       host.innerHTML = '';
@@ -234,7 +241,7 @@ export function mount(stage, ctx) {
         exampleEn: clozeQ ? `${q.parts.before}[${q.parts.answer}]${q.parts.after}` : '',
         exampleZh: clozeQ ? (q.exampleZh || '') : '',
       });
-      const fb = stage.querySelector('[data-fb]');
+      const fb = dock.querySelector('[data-fb]');
       const st = stage.querySelector('[data-streak]');
       if (ok) {
         streak++; bestStreak = Math.max(bestStreak, streak);
@@ -301,7 +308,7 @@ export function mount(stage, ctx) {
       const nx = stages[si + 1];
       paintStepper();
       foot.hidden = true;
-      stage.querySelector('[data-fb]').innerHTML = ''; // 過場卡：下方的「答對了」一起清掉
+      dock.querySelector('[data-fb]').innerHTML = ''; // 過場卡：下方的「答對了」一起清掉
       const w = weigh(stages, details);
       const pct = Math.round((w.stages[si] / w.max) * 100);
       const host = stage.querySelector('[data-q]');
@@ -324,6 +331,7 @@ export function mount(stage, ctx) {
     async function finish() {
       current = null;
       document.body.classList.remove('qdock-on');
+      dockEl?.remove(); dockEl = null;
       if (official) progress.clear(unitId);
       delete document.body.dataset.busy;
       window.removeEventListener('beforeunload', unload);
@@ -411,6 +419,7 @@ export function mount(stage, ctx) {
   return () => {
     alive = false;
     document.body.classList.remove('qdock-on');
+    dockEl?.remove(); dockEl = null;
     clearTimeout(advanceTimer);
     dropHold();
     window.removeEventListener('beforeunload', unload);

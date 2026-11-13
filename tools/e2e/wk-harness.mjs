@@ -32,7 +32,7 @@ const INJECT = (seed) => `
   return of('/__mock',{method:'POST',body:JSON.stringify({url:url,method:(init.method||'GET').toUpperCase(),headers:headers,body:typeof init.body==='string'?init.body:null}),signal:init.signal})
    .then(function(r){if(r.status===599)throw new TypeError('Failed to fetch');return r;});};
  window.__fb=window.__fb||{};
- ${seed ? `if(!localStorage.getItem('b5p:student'))localStorage.setItem('b5p:student',${JSON.stringify(JSON.stringify(seed))});sessionStorage.setItem('b5p:who-ok','1');` : ''}
+ ${seed ? `if(!localStorage.getItem('b5p:student'))localStorage.setItem('b5p:student',${JSON.stringify(JSON.stringify(seed))});sessionStorage.setItem('b5p:who-ok','1');if(!localStorage.getItem('b5p:seen'))localStorage.setItem('b5p:seen',String(Date.now()));` : ''}
 })();</script>`;
 
 export async function startWorld({ scriptLatency = 60 } = {}) {
