@@ -3,7 +3,7 @@ import { getConfig, watchConfig, unitVisible, modeOn, questionCount, unitWindow,
 import { store } from './storage.js';
 import { esc, confirmDialog, scene } from './util.js';
 import { icon } from './icons.js';
-import { mountInlineForm, historyReady, maskName, bindAccount, openStudentDialog } from './student.js';
+import { mountInlineForm, historyReady, maskName, bindAccount, openStudentDialog, cloud, trackHistory } from './student.js';
 import { LEVELS, PASS, levelsFor, quizCount } from './levels.js';
 import { flushOutbox, pendingItems, clearOutbox, outboxStatus, rejectedItems } from './submit.js';
 import { submitStateHTML, markWhoOk, clearWhoOk } from './components/gate.js';
@@ -854,6 +854,7 @@ async function renderMe() {
       <h1>我的成績${fresh ? '' : ' <span class="me-updating"><span class="spinner"></span>更新中…</span>'}</h1>
     </section>
     ${rejectedHTML(s)}
+    ${cloud.state === 'fail' ? `<div class="me-cloud bad">${icon.alertCircle}<span>讀不到雲端成績，目前只顯示這台裝置上的紀錄</span><button class="btn small" type="button" data-cloud-retry>${icon.redo} 再試一次</button></div>` : ''}
     <div class="me-sum">
       <div class="sum"><b>${count('ok')} / ${rows.length}</b><span>已完成</span></div>
       <div class="sum todo"><b>${count('todo')}</b><span>待檢討</span></div>
@@ -865,6 +866,12 @@ async function renderMe() {
         <span class="txt"><b>${esc(unitName(r.u))}</b><span>${[typeLabel(r.u.type), whenText(r.u, r)].filter(Boolean).map(esc).join(' · ')}</span></span>
         ${chipHTML(r.u, r) || '<span class="u-chip k-open">尚未開始</span>'}</a>`).join('')}</div>`
       : `<div class="empty"><div class="big">${icon.inbox}</div><h2>還沒有開放的單元</h2></div>`}`;
+  const retry = app.querySelector('[data-cloud-retry]');
+  if (retry) retry.onclick = () => {
+    retry.disabled = true; retry.innerHTML = '<span class="spinner sm"></span>讀取中…';
+    trackHistory(firebase().then((fb) => fb.loadHistory(s.key)).then((h) => store.applyHistory(h.attempts, h.reviews)))
+      .then(() => { if ((location.hash.split('/')[1] || '') === 'me') renderMe(); });
+  };
 }
 
 /* ---------------- 帳號（底部分頁列的頭像） ---------------- */
@@ -1320,14 +1327,20 @@ async function boot() {
   route();
   // 隔了很久再打開（學校共用平板、借同學的手機）：先確認是不是同一個人，避免用別人的帳號作答
   const SEEN = 'b5p:seen', AWAY = 5 * 3600 * 1000;
-  const touch = () => { try { localStorage.setItem(SEEN, String(Date.now())); } catch { /* ignore */ } };
+  let asking = false;
+  const touch = () => { if (asking) return; try { localStorage.setItem(SEEN, String(Date.now())); } catch { /* ignore */ } };
   const checkWho = async () => {
     const s = store.student();
     let last = 0; try { last = Number(localStorage.getItem(SEEN)) || 0; } catch { /* ignore */ }
-    touch();
-    if (!s || !last || Date.now() - last < AWAY || document.body.dataset.busy || document.querySelector('dialog[open]')) return;
+    // 已經登入、卻沒有「最後使用時間」：這個功能上線前就登入的裝置（不知道隔了多久），也問一次
+    const away = s && (!last || Date.now() - last >= AWAY);
+    if (asking) return;
+    if (!away) { touch(); return; }
+    if (document.body.dataset.busy || document.querySelector('dialog[open]')) { setTimeout(checkWho, 1500); return; } // 有別的視窗開著：等它關了再問
+    asking = true;
     clearWhoOk(); // 隔很久了：之前的確認不算數
     const me = await confirmDialog({ title: `你是 ${maskName(s.name)} 嗎？`, body: `${esc(s.cls)} 班 ${esc(s.seat)} 號`, ok: '是我', cancel: '換人' });
+    asking = false; touch();
     if (me) markWhoOk(); else openStudentDialog(() => window.dispatchEvent(new Event('student-changed')));
   };
   checkWho();
@@ -1335,12 +1348,12 @@ async function boot() {
   // 以 Firestore 為準：進站時重新讀取紀錄（例如在別台裝置做過的測驗）；5 分鐘內讀過就沿用（重新整理、自動更新不重複下載）
   const s = store.student();
   if (s && s.key && !store.historyFresh(s.key, 5 * 60 * 1000)) {
-    firebase().then((fb) => fb.loadHistory(s.key)).then((h) => {
+    trackHistory(firebase().then((fb) => fb.loadHistory(s.key)).then((h) => {
       store.applyHistory(h.attempts, h.reviews);
       // 作答中不打斷（交卷後換頁就會用新設定）；老師頁不需要重畫
     const kind = location.hash.split('/')[1] || '';
     if (kind !== 'teacher' && !document.body.dataset.busy) route();
-    }).catch(() => { /* 離線時沿用裝置上的紀錄 */ });
+    })).then(() => { if (cloud.state === 'fail' && (location.hash.split('/')[1] || '') === 'me' && !document.body.dataset.busy) route(); });
   }
 }
 

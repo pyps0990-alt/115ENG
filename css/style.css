@@ -2336,3 +2336,8 @@ html.dark .dock-ink::after { opacity: .15; }
 html.edge-drag, html.edge-drag body { overflow-x: clip; }
 #app.edge-drag { background: var(--bg); box-shadow: -14px 0 32px -8px rgba(15, 23, 42, .18); will-change: left; }
 html.dark #app.edge-drag { box-shadow: -14px 0 32px -8px rgba(0, 0, 0, .5); }
+/* 我的成績：讀不到雲端成績（錯誤＋怎麼修） */
+.me-cloud { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 14px 0; padding: 12px 14px; border-radius: 16px; background: var(--bad-soft); color: var(--bad-ink); border: 1.5px solid currentColor; font-weight: 700; }
+.me-cloud > .ic, .me-cloud > svg { width: 22px; height: 22px; flex: none; }
+.me-cloud span { flex: 1 1 200px; min-width: 0; }
+.me-cloud .btn { flex: none; }

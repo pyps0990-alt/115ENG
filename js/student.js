@@ -36,6 +36,13 @@ export function readForm(form) {
 // 登入後在背景載入這位學生的紀錄（換頁不用等它）；進入單元前會等它載完，才不會把做過的單元當成沒做過
 let pendingHistory = Promise.resolve();
 export const historyReady = () => Promise.race([pendingHistory, new Promise((r) => setTimeout(r, 8000))]);
+// 雲端紀錄讀取狀態：loading／ok／fail（讀不到時「我的成績」要說出來，不能默默顯示空的）
+export const cloud = { state: 'idle' };
+export function trackHistory(p) {
+  cloud.state = 'loading';
+  pendingHistory = p.then((v) => { cloud.state = 'ok'; return v; }, (e) => { cloud.state = 'fail'; console.error('讀取雲端紀錄失敗', e); });
+  return pendingHistory;
+}
 
 // 登入按鈕的狀態回饋：確認中（轉圈）→ 成功（綠色打勾）或失敗（輕輕抖一下），取代整段紅字
 const btnLabel = new WeakMap();
@@ -83,11 +90,11 @@ async function login(form) {
     if ((store.student() || {}).key !== res.key) store.resetProgress();
     store.setStudent(student);
     let returned = false;
-    pendingHistory = loadHistory(res.key).then((h) => {
+    trackHistory(loadHistory(res.key).then((h) => {
       if ((store.student() || {}).key === res.key) store.applyHistory(h.attempts, h.reviews);
       // 「已確認」還在顯示時不要換畫面；紀錄比它晚到才通知首頁更新
       if (returned) window.dispatchEvent(new Event('history-applied'));
-    }).catch(() => { /* 讀不到就先用裝置上的紀錄 */ });
+    })); // 讀不到就先用裝置上的紀錄，「我的成績」會顯示讀不到
     setBtn(btn, 'ok', `${icon.check}已確認，歡迎 ${esc(res.name)}`);
     await pause(reduced() ? 0 : 480); // 讓學生看到「已確認」，紀錄同時在背景載入
     returned = true;

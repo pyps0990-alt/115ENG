@@ -27,11 +27,31 @@ await step('閒置 6 小時再打開：先問「你是 陳〇嘉 嗎？」，按
   await p.waitForSelector('dialog.modal[open] form');
   assert.match(await p.textContent('dialog.modal[open]'), /切換學生/);
 });
-await step('閒置 4 小時、或第一次打開：不問', async () => {
-  for (const h of [4, null]) {
-    const p = await page(h); await sleep(500);
-    assert.equal(await p.$$eval('dialog.modal[open]', (a) => a.length), 0, `${h} 小時`);
-  }
+await step('閒置 4 小時：不問', async () => {
+  const p = await page(4); await sleep(500);
+  assert.equal(await p.$$eval('dialog.modal[open]', (a) => a.length), 0);
+});
+await step('功能上線前就登入的裝置（沒有最後使用時間）：也問；沒回答就重新整理，還會再問', async () => {
+  const ctx = await world.newContext(phone);
+  await ctx.addInitScript(() => { window.__noSeen = true; });
+  const p = await world.newPage(ctx, { student: true });
+  await p.goto(world.base + '/'); await p.waitForSelector('dialog.modal[open]');
+  assert.match(await p.textContent('dialog.modal[open]'), /你是 陳〇嘉 嗎？/);
+  await p.reload(); await p.waitForSelector('dialog.modal[open]');
+  assert.match(await p.textContent('dialog.modal[open]'), /你是 陳〇嘉 嗎？/, '重新整理還會問');
+  await p.tap('dialog.modal[open] [value="ok"]'); await sleep(400);
+  await p.reload(); await p.waitForSelector('.unit-tile'); await sleep(600);
+  assert.equal(await p.$$eval('dialog.modal[open]', (a) => a.length), 0, '回答「是我」之後不再問');
+});
+await step('我的成績：讀不到雲端成績時說出來，按「再試一次」重新讀（不用重新整理整頁）', async () => {
+  const ctx = await world.newContext(phone);
+  await ctx.addInitScript(() => { window.__fb = window.__fb || {}; window.__fb.denyHistory = true; });
+  const p = await world.newPage(ctx, { student: true });
+  await p.goto(world.base + '/#/me'); await p.waitForSelector('.me-cloud', { timeout: 15000 });
+  assert.match(await p.textContent('.me-cloud'), /讀不到雲端成績/);
+  await p.evaluate(() => { window.__fb.denyHistory = false; });
+  await p.tap('[data-cloud-retry]'); await p.waitForSelector('.me-cloud', { state: 'detached', timeout: 15000 });
+  p.errors.length = 0;
 });
 await step('作答前確認身分：開始正式測驗先問一次，「開始作答」後同一次使用不再問；「換人」打開切換學生', async () => {
   const q = await page(null, true);
