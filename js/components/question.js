@@ -110,12 +110,32 @@ export const answerText = (q) => (q.type === 'mc' ? q.options[q.answer] : q.answ
 
 // 拼字框依單字分組：放不下一行時在單字之間換行，不會把一個字拆成兩行（keep a watchful eye on）
 // 例句拼寫的空格提示：每個字顯示第一個和最後一個字母，中間用底線（例如 r _ _ _ _ n）；3 個字母以下只給第一個字母
-function blankHint(answer) {
+// 例句裡是規則變化（switch → switches、differ → differs、study → studies、stop → stopped、make → making）：
+// 原本那個字照樣給頭尾字母，變化的字尾整段顯示（s _ _ _ _ h es、d _ _ _ _ r s）；不規則變化（go → went）照舊只給頭尾
+const REG_END = /^(s|es|d|ed|ing|er|est|ly|ies|ied|ier|iest|ily)$/;
+export function inflectSplit(base, answer) {
+  const b = String(base || '').toLowerCase().trim(), a = String(answer || '').toLowerCase().trim();
+  if (!/^[a-z]+$/.test(b) || !/^[a-z]+$/.test(a) || a === b || a.length <= b.length) return null;
+  let k = 0; while (k < b.length && b[k] === a[k]) k++;
+  const lost = b.slice(k), end = a.slice(k);
+  // 字根至少 3 個字母；去掉的只能是字尾的 e（make → making）或 y 變 i（study → studies）
+  const okLost = lost === '' || (lost === 'e' && /^(ing|ed|er|est)$/.test(end)) || (lost === 'y' && /^i(es|ed|er|est|ly)$/.test(end));
+  if (k < 3 || !okLost) return null;
+  // 字尾是 e 的字只加 r、st（wise → wiser、wisest）
+  if (lost === '' && b.endsWith('e') && /^(r|st)$/.test(end)) return { stem: k, end: a.length - k };
+  // 字尾子音重複（stop → stopped、big → bigger）
+  const dbl = lost === '' && end.length > 1 && end[0] === b[b.length - 1] && /^[bdgklmnprtz]$/.test(end[0]) && /^(ed|ing|er|est)$/.test(end.slice(1));
+  if (!REG_END.test(end) && !dbl) return null;
+  return { stem: k, end: a.length - k };
+}
+function blankHint(answer, base) {
+  const sp = inflectSplit(base, answer);
   return String(answer).split(/(\s+)/).map((part) => {
     if (/^\s+$/.test(part)) return '<span class="bh-gap"></span>';
     const idx = [...part].map((ch, i) => (/[a-z]/i.test(ch) ? i : -1)).filter((i) => i >= 0);
-    const first = idx[0], last = idx.length > 3 ? idx[idx.length - 1] : -1;
-    return [...part].map((ch, i) => (!/[a-z]/i.test(ch) ? esc(ch) : i === first || i === last ? `<b>${esc(ch.toLowerCase())}</b>` : '<i></i>')).join('');
+    const stemLen = sp ? sp.stem : idx.length;
+    const first = idx[0], last = stemLen > 3 ? idx[stemLen - 1] : -1;
+    return [...part].map((ch, i) => (!/[a-z]/i.test(ch) ? esc(ch) : i === first || i === last || (sp && i >= sp.stem) ? `<b>${esc(ch.toLowerCase())}</b>` : '<i></i>')).join('');
   }).join('');
 }
 
@@ -188,11 +208,14 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   const n = target.length;
   const w = q.word;
 
-  // 單字：空格直接顯示頭尾字母（片語不給，維持原本的空格與小提示）
+  // 單字：空格直接顯示頭尾字母（片語不給，維持原本的空格與小提示）；規則變化的字尾整段顯示
   const phrase = /\s/.test(String(q.answer).trim());
+  const sp = q.variant === 'cloze' && !phrase ? inflectSplit(w.word, q.answer) : null;
+  const tailTxt = sp ? target.slice(sp.stem - (sp.stem > 3 ? 1 : 0)).join('') : n > 3 ? target[n - 1] : '';
+  const hidden = sp ? Math.max(0, sp.stem - (sp.stem > 3 ? 2 : 1)) : Math.max(0, n - (n > 3 ? 2 : 1));
   const head = q.variant === 'cloze'
     ? `<div class="q-meta">${esc(label || '依句意拼出空格中的單字')}</div>
-       <div class="q-sentence" lang="en">${esc(q.parts.before)}${phrase ? '<span class="blank"></span>' : `<span class="blank blank-hint" role="img" aria-label="空格：開頭 ${esc(target[0])}${n > 3 ? `、結尾 ${esc(target[n - 1])}` : ''}，共 ${n} 個字母">${blankHint(q.answer)}</span>`}${esc(q.parts.after)}</div>
+       <div class="q-sentence" lang="en">${esc(q.parts.before)}${phrase ? '<span class="blank"></span>' : `<span class="blank blank-hint" role="img" aria-label="空格：開頭 ${esc(target[0])}${tailTxt ? `、結尾 ${esc(tailTxt)}` : ''}，共 ${n} 個字母">${blankHint(q.answer, w.word)}</span>`}${esc(q.parts.after)}</div>
        <div class="q-sub"><span class="pos">${esc(w.pos || '')}</span><span>${n} 個字母${phrase ? `・開頭是 ${esc(target[0].toUpperCase())}` : ''}</span></div>`
     : `<div class="q-meta">${esc(label || '看中文，拼出英文單字')}</div>
        <div class="q-prompt"><span class="zh">${esc(w.zh)}</span></div>
@@ -223,7 +246,7 @@ export function renderSpell(host, q, { feedback = true, value = '', label = '', 
   const shown = q.variant === 'cloze' && !phrase && n > 1 ? 1 : 0;
   // 老師（或 AI）寫好的分層提示：第 1 次看使用情境、第 2 次看近義字和搭配，不再直接給字母
   const tips = shown ? (Array.isArray(w.hints) ? w.hints : []).map((t) => String(t || '').trim()).filter(Boolean).slice(0, MAX_HINTS) : [];
-  const maxHints = tips.length ? tips.length : Math.max(0, Math.min(MAX_HINTS, n - 1 - shown - (shown && n > 3 ? 1 : 0)));
+  const maxHints = tips.length ? tips.length : Math.max(0, Math.min(MAX_HINTS, shown ? hidden : n - 1));
   // 已經給出的字母數：用文字提示時一個字母都不給（hints 只算按了幾次提示）
   const given = () => (tips.length ? 0 : hints);
   const hintBtn = card.querySelector('[data-hint]');
