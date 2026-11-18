@@ -132,6 +132,8 @@ await step('重新勾選顯示 → 單元回來', async () => {
 
 await step('匯入內容 → 學生的設定與題目同步（同一個請求）', async () => {
   await openImport(teacherPage, 'l2-voc');
+  // 編輯題目預設是卡片：要貼上文字先切到「貼上文字」
+  if (await teacherPage.isVisible('.ced[data-for="v-text"] [data-m="text"]')) await teacherPage.click('.ced[data-for="v-text"] [data-m="text"]');
   await teacherPage.fill('#v-text', ['grape\tn.\t葡萄\tI ate a [grape].\t我吃了葡萄。', 'peach\tn.\t桃子\tThe [peach] is sweet.\t桃子很甜。', 'lemon\tn.\t檸檬\tA [lemon] is sour.\t檸檬很酸。', 'melon\tn.\t哈密瓜\tWe shared a [melon].\t我們分著吃。'].join('\n'));
   await teacherPage.click('#imp-check');
   await teacherPage.waitForFunction(() => !document.getElementById('imp-save').disabled);
