@@ -32,6 +32,8 @@ jobs:
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
           npx --yes firebase-tools@latest hosting:channel:deploy preview --expires 30d --project eng-3385e --non-interactive --json > "$RUNNER_TEMP/out.json" || { cat "$RUNNER_TEMP/out.json"; rm -f "$RUNNER_TEMP/sa.json"; exit 1; }
           rm -f "$RUNNER_TEMP/sa.json"
-          URL=$(node -e "const j=require(process.argv[1]);const r=j.result||{};const k=Object.keys(r)[0];console.log((r[k]&&r[k].url)||'')" "$RUNNER_TEMP/out.json")
+          # 輸出前面會先有部署前步驟（版本號）的文字，直接找網址
+          URL=$(grep -o 'https://eng-3385e--preview-[a-z0-9-]*\.web\.app' "$RUNNER_TEMP/out.json" | head -1)
+          if [ -z "$URL" ]; then cat "$RUNNER_TEMP/out.json"; exit 1; fi
           echo "預覽網址：$URL"
           { echo "## 預覽網址"; echo; echo "- 學生端：$URL"; echo "- 老師後台：$URL/admin.html"; echo; echo "分支 \`${GITHUB_REF_NAME}\`，commit \`${GITHUB_SHA::7}\`。確認後合併到 main 才會更新正式網站。"; } >> "$GITHUB_STEP_SUMMARY"
