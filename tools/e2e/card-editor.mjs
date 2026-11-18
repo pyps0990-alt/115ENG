@@ -4,7 +4,8 @@ import { startWorld, sleep } from './harness.mjs';
 const world = await startWorld({ scriptLatency: 40 });
 const g = world.gas;
 const unit = (id, type) => ({ id, title: id, type, lesson: 1, topic: '', visible: true, disabled: [], questionCount: 4, custom: true });
-g.api('saveAllSettings', [[], [unit('v1', 'vocab'), unit('p1', 'pattern')]]);
+g.api('saveAllSettings', [[], [unit('v1', 'vocab'), unit('p1', 'pattern'), unit('r1', 'reading')]]);
+g.api('saveContent', ['r1', { title: 'Tea', topic: 'Tea', passage: ['Tea is good for you and many people drink it.'], questions: [{ skill: '細節', q: 'What is tea?', options: ['Good', 'Bad', 'Cold', 'Old'], answer: 0, explain: '解析', key: 'Tea is good for you' }] }, true]);
 const ex = (w) => [1, 2, 3].map((i) => ({ ex: `Sentence ${i} with [${w}] here.`, zh: `第 ${i} 句。` }));
 g.api('saveContent', ['v1', { topic: 'T', words: ['apple', 'banana', 'cherry', 'dates'].map((w) => ({ word: w, pos: 'n.', zh: '字' + w, examples: ex(w) })) }, true]);
 g.api('saveContent', ['p1', { items: [
@@ -113,6 +114,21 @@ await step('第一題前面有其他文字：停在貼上文字並說明', async
   await t.evaluate(() => { document.getElementById('t-text').value = '這是我的題目\n[選擇]\n題目：a ____\n選項：x | y\n答案：A'; });
   assert.equal(await t.isVisible('#t-text'), true);
   assert.match(await t.textContent('.ced[data-for="t-text"] .ced-why'), /第一題前面/);
+});
+await step('課文理解：改表單裡的題目，下方「批次貼上文字格式」跟著同步；按「填入表單」不會被蓋回去', async () => {
+  await open('r1');
+  await t.locator('#r-bulk-box summary').click();
+  assert.match(await ta('r-bulk'), /Q1：What is tea\?/, '一打開就是目前的內容');
+  await t.locator('#r-qs .q-text').first().fill('Why do people drink tea?');
+  await sleep(500);
+  assert.match(await ta('r-bulk'), /Q1：Why do people drink tea\?/);
+  await t.locator('#r-qs input[type=radio]').nth(1).check(); await sleep(500);
+  assert.match(await ta('r-bulk'), /Q1答案：B/);
+  await t.fill('#r-bulk', (await ta('r-bulk')).replace('Why do people drink tea?', 'Is tea good?'));
+  await t.click('#r-bulk-go'); await sleep(800);
+  assert.equal(await t.locator('#r-qs .q-text').first().inputValue(), 'Is tea good?', '文字套回表單');
+  assert.match(await ta('r-bulk'), /Is tea good\?/);
+  assert.match(await t.textContent('#r-bulk-msg'), /已填入/, '填入表單的結果訊息還在');
 });
 await step('沒有 JS 錯誤', async () => { assert.deepEqual(errs, []); });
 await world.close();

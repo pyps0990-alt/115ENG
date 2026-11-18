@@ -2348,3 +2348,6 @@ html.dark #app.edge-drag { box-shadow: -14px 0 32px -8px rgba(0, 0, 0, .5); }
 .me-cloud > .ic, .me-cloud > svg { width: 22px; height: 22px; flex: none; }
 .me-cloud span { flex: 1 1 200px; min-width: 0; }
 .me-cloud .btn { flex: none; }
+/* 深色模式對比補強（tools/e2e/dark-audit.mjs 檢查）：深藍的進度條在深色底上看不見，改成亮一點的藍；答對的綠色字母鍵用深色字 */
+html.dark .bar > span { background: #7C9CFF; }
+html.dark .opt.correct .opt-key { color: #052E16; }

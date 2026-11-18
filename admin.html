@@ -1505,6 +1505,11 @@
     html.dark #work tbody tr.row-err:hover td { background:#33181C; }
     html.dark tr.row-err td, html.dark .danger-zone, html.dark #work .card.nv-danger-card { background:#2A1416; border-color:#5A2328; }
     html.dark .strip i, html.dark .usc-legend i { background:#2B3854; }
+    /* 單元清單三段進度條：深藍填色在深色底上看不見，改亮藍；危險區（#work 裡的規則比較優先）也要換成深底 */
+    html.dark .strip i::after { background:#7C9CFF; }
+    html.dark .strip i.full::after { background:var(--good-c); }
+    html.dark #work .danger-zone { background:#2A1416; border-color:#5A2328; }
+    html.dark #work .danger-zone [data-slot="danger"] > .card + .card { border-top-color:#4A1F24; }
     html.dark input[type=checkbox] { border-color:var(--edge); }
     html.dark ::-webkit-scrollbar-thumb { background:#34425E; }
     html.dark #work input:focus, html.dark #work select:focus, html.dark #work textarea:focus { box-shadow:0 0 0 3px rgba(201,214,255,.18); }
@@ -2800,7 +2805,7 @@
       o.push('文章：' + (d.passage || []).join('\n\n'));
       (d.questions || []).forEach(function (q, j) {
         var pre = 'Q' + (j + 1);
-        o.push(pre + '：' + q.q, pre + '選項：' + (q.options || []).join(' | '), pre + '答案：' + 'ABCDEFGHIJ'[q.answer]);
+        o.push(pre + '：' + q.q, pre + '選項：' + (q.options || []).join(' | '), pre + '答案：' + ('ABCDEFGHIJ'[q.answer] || ''));
         if (q.explain) o.push(pre + '解析：' + q.explain);
         if (q.key) o.push(pre + '依據：' + q.key);
         else if (q.ref) o.push(pre + '依據句：' + q.ref);
@@ -3650,7 +3655,45 @@
     };
 
     // 課文理解：整篇文字格式 → 填入表單
+    // 課文理解：表單（一題一個區塊）改了什麼，下方「批次貼上文字格式」跟著同步（只從表單寫到文字；文字改完按「填入表單」才會套回表單）
+    function readingFromForm() {
+      var passage = $('r-passage').value.split(/\n\s*\n/).map(function (p) { return p.replace(/\s*\n\s*/g, ' ').trim(); }).filter(Boolean);
+      var qs = [].map.call($('r-qs').children, function (box) {
+        var opts = [].map.call(box.querySelectorAll('.q-opt'), function (el) { return el.value.trim(); });
+        while (opts.length && !opts[opts.length - 1]) opts.pop();
+        var checked = box.querySelector('input[type=radio]:checked'), ans = checked ? Number(checked.value) : -1;
+        var q = { skill: box.querySelector('.q-skill').value, q: box.querySelector('.q-text').value.trim(), options: opts, answer: ans, explain: box.querySelector('.q-explain').value.trim() };
+        var ref = box.querySelector('.q-ref').value, key = box.querySelector('.q-key').value.replace(/\s+/g, ' ').trim();
+        if (key) q.key = key; else if (ref) q.ref = ref;
+        var traps = [].map.call(box.querySelectorAll('.q-trap-row'), function (row, j) {
+          var t = row.querySelector('.q-trap').value, why = row.querySelector('.q-why').value.trim();
+          return j < opts.length && j !== ans && t ? { t: t, why: why } : null;
+        }).slice(0, opts.length);
+        if (traps.some(Boolean)) q.traps = traps;
+        var kw = parseKw(box.querySelector('.q-kw').value); if (kw.length) q.kw = kw;
+        var pairs = parsePairs(box.querySelector('.q-pairs').value); if (pairs.length) q.pairs = pairs;
+        return q;
+      });
+      return { title: $('r-title').value.trim(), passage: passage, questions: qs };
+    }
+    var rSyncT = null, rFromBulk = 0;
+    function syncReadingBulk() {
+      if (Date.now() - rFromBulk < 600) return; // 剛按「填入表單」：表單是從文字來的，不要回頭改寫文字（也保留它的檢查結果）
+      clearTimeout(rSyncT);
+      rSyncT = setTimeout(function () {
+        var d = readingFromForm();
+        if (!d.passage.length && !d.questions.some(function (q) { return q.q || q.options.length; })) return; // 表單是空的：不要蓋掉剛貼上、還沒填入表單的文字
+        $('r-bulk').value = serReading(d);
+        $('r-bulk-lint').innerHTML = ''; $('r-bulk-msg').textContent = '';
+      }, 250);
+    }
+    ['input', 'change'].forEach(function (ev) {
+      $('imp-reading').addEventListener(ev, function (e) { if (e.target.closest && e.target.closest('#r-bulk-box')) return; syncReadingBulk(); });
+    });
+    // 新增、刪除、上下移題目（按鈕）也會改表單
+    new MutationObserver(function () { syncReadingBulk(); }).observe($('r-qs'), { childList: true });
     $('r-bulk-go').onclick = function () {
+      rFromBulk = Date.now();
       var msg = $('r-bulk-msg'), blocks = splitBlocks('[閱讀]\n' + $('r-bulk').value);
       $('r-bulk-lint').innerHTML = '';
       if (!blocks.length) { msg.textContent = '沒有讀到內容'; msg.className = 'msg err'; return; }
