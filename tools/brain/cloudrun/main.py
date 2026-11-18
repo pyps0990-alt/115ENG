@@ -12,6 +12,7 @@ Cloud Run 只在「有請求進來」時給 CPU，所以不能「先回 job 編�
 環境變數：
   BRAIN_KEY       必填。老師後台呼叫時帶的金鑰
   ALLOW_ORIGINS   選填。允許呼叫的網站，逗號分隔（預設 eng-3385e 的兩個網址）
+  ALLOW_ORIGIN_REGEX 選填。另外允許的網址規則（預設 Firebase 預覽頻道 eng-3385e--*.web.app）
 """
 import asyncio
 import json
@@ -31,8 +32,14 @@ import wordbank
 
 ORIGINS = [o.strip() for o in os.environ.get('ALLOW_ORIGINS', 'https://eng-3385e.web.app,https://eng-3385e.firebaseapp.com').split(',') if o.strip()]
 app = FastAPI(title='B5 錯誤分析引擎', docs_url=None, redoc_url=None, openapi_url=None)
-app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=['GET', 'POST', 'OPTIONS'],
-                   allow_headers=['Content-Type', 'X-Brain-Key'], max_age=600)
+# Firebase 預覽頻道（.github/workflows/preview.yml）的網址 eng-3385e--preview-xxxx.web.app 也可以呼叫（先在預覽網站測試再上線）
+ORIGIN_RE = os.environ.get('ALLOW_ORIGIN_REGEX', r'https://eng-3385e--[a-z0-9-]+\.web\.app')
+# 新版 Starlette（1.x）自己處理 Chrome 的 Private Network Access：沒有開 allow_private_network，
+# 網站呼叫本機（127.0.0.1）的預檢一律回 400「Disallowed CORS private-network」，本機分析整個不能用。舊版沒有這個參數就不傳（由下面的中介層補標頭）
+import inspect
+_PNA = {'allow_private_network': True} if 'allow_private_network' in inspect.signature(CORSMiddleware.__init__).parameters else {}
+app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_origin_regex=ORIGIN_RE or None, allow_methods=['GET', 'POST', 'OPTIONS'],
+                   allow_headers=['Content-Type', 'X-Brain-Key'], max_age=600, **_PNA)
 
 @app.middleware('http')
 async def _private_network(request, call_next):
