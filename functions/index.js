@@ -18,7 +18,8 @@ initializeApp();
 const db = getFirestore();
 
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw1KgAc6VsJkFM-ADUJY3NHWt4Y4KYDlUjppRlzKB__HRHEwPzgxfK0GXkMKaF9x1Ny/exec';
-const ORIGINS = ['https://eng-3385e.web.app', 'https://eng-3385e.firebaseapp.com', 'http://localhost:5173'];
+// 預覽頻道（.github/workflows/preview.yml）的網址 eng-3385e--preview-xxxx.web.app 也可以交卷
+const ORIGINS = ['https://eng-3385e.web.app', 'https://eng-3385e.firebaseapp.com', 'http://localhost:5173', /^https:\/\/eng-3385e--preview-[a-z0-9]+\.web\.app$/];
 const RATE_WINDOW_MS = 10 * 60 * 1000; // 同一位學生 10 分鐘內最多 RATE_MAX 筆（正常使用遠低於這個數字）
 const RATE_MAX = 20;
 const MODES = ['vocab', 'reading', 'pattern'];
