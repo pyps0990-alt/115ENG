@@ -1153,6 +1153,14 @@
     }
     @media (max-width:900px) and (prefers-reduced-motion: reduce) { .rail { transition:none !important; } .rail .rail-ic { transition:none !important; } }
 
+    /* 加到主畫面的 App（iPhone）：剛打開時系統算的「畫面底部」偏高，要滑一下才回到正確位置，用 bottom 貼底的分頁列會浮在半空中。
+       改用整個螢幕的高度（100lvh，一打開就正確）從上往下算位置，一開始就貼在底部 */
+    @supports (height:100lvh) { @media (max-width:900px) {
+      html.standalone .rail { --rh:66px; bottom:auto !important; top:calc(100lvh - var(--rh) - max(6px, calc(env(safe-area-inset-bottom, 0px) - 10px))) !important;
+        transition:height .38s cubic-bezier(.22, 1.2, .4, 1), left .38s cubic-bezier(.22, 1.2, .4, 1), right .38s cubic-bezier(.22, 1.2, .4, 1), top .38s cubic-bezier(.22, 1.2, .4, 1); }
+      html.standalone .rail.lg-mini { --rh:52px; }
+    } }
+    @media (max-width:900px) and (prefers-reduced-motion: reduce) { html.standalone .rail { transition:none !important; } }
     /* 液態玻璃分頁列往下挪一點：跟 iOS 一樣，稍微伸進底部橫條的範圍，不留太大空隙 */
     @media (max-width:900px) { .rail { bottom:max(6px, calc(env(safe-area-inset-bottom, 0px) - 10px)) !important; } .savebar { bottom:calc(80px + max(0px, env(safe-area-inset-bottom, 0px) - 16px)) !important; } .m-panel { bottom:calc(80px + max(0px, env(safe-area-inset-bottom, 0px) - 16px)) !important; } }
 

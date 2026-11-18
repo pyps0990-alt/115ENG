@@ -62,6 +62,8 @@ export async function startWorld({ scriptLatency = 60 } = {}) {
     if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); res.end(); return; }
     let body = fs.readFileSync(file);
     if (p === '/index.html') body = String(body).replace('<head>', '<head>' + INJECT(u.searchParams.has('nologin') ? null : seed));
+    // 老師後台：?staff 以老師身分登入（假的 Firebase 登入）
+    if (p === '/admin.html') body = String(body).replace('<head>', '<head>' + INJECT(null) + (u.searchParams.has('staff') ? "<script>window.__fb=window.__fb||{};__fb.staff=['teacher@example.com'];__fb.popupEmail='teacher@example.com';__fb.loggedInAs='teacher@example.com';</script>" : ''));
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
     res.end(body);
   });
