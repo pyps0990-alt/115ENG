@@ -1427,6 +1427,13 @@ html { scroll-padding-top: var(--sticky-h, 0px); }
 .ln-body.leaving.out-r { animation-name: ln-out-r; }
 .ln-body.in-r { animation: ln-in-r .42s cubic-bezier(.16, 1, .3, 1) .08s both; }
 .ln-body.in-l { animation: ln-in-l .42s cubic-bezier(.16, 1, .3, 1) .08s both; }
+/* 同一個句型裡換下一句例句、下一題：外框、標題、進度點不動，只有句子／題目輕輕滑進來（不再整張卡片重新浮現） */
+.ln-body.in-soft .ln-card > * { animation: none; }
+.ln-body.in-soft .ln-sent, .ln-body.in-soft [data-legend], .ln-body.in-soft .ln-ex-foot, .ln-body.in-soft .ln-ask, .ln-body.in-soft [data-q], .ln-body.in-soft [data-q] ~ * { animation: ln-soft .28s cubic-bezier(.16, 1, .3, 1) both !important; animation-delay: 0s !important; }
+.ln-body.in-soft [data-legend], .ln-body.in-soft .ln-ex-foot { animation-delay: .04s !important; }
+.ln-body.in-soft > .ln-card > [data-q], .ln-body.in-soft > [data-q] { animation-delay: 0s !important; }
+.ln-body.in-soft .q-card.slide-in { animation: none; } /* 題目卡自己的滑入不要再疊一次 */
+@keyframes ln-soft { from { opacity: 0; transform: translateX(calc(var(--sd, 1) * 14px)); } }
 .ln-body.in-r .ln-card > *, .ln-body.in-l .ln-card > * { animation: ln-rise .38s cubic-bezier(.16, 1, .3, 1) both; }
 .ln-body .ln-card > :nth-child(1) { animation-delay: .1s; }
 .ln-body .ln-card > :nth-child(2) { animation-delay: .145s; }
@@ -1568,7 +1575,7 @@ html { scroll-padding-top: var(--sticky-h, 0px); }
 .ln-rv-ok > :not(summary) { margin: 12px; }
 @media (min-width: 640px) { .ln-modes { grid-template-columns: 1fr 1fr; } .ln-mode { grid-template-columns: 1fr; } .ln-mode-ic { grid-row: auto; margin-bottom: 6px; } }
 @media (prefers-reduced-motion: reduce) { .ln-where.swap, .ln-fb, .ln-fb-btns, .ln-steps li.done .ln-st-ok { animation: none !important; } .ln-view.resizing, .ln-steps li, .ln-st-t, .ln-sent .ln-seg { transition: none !important; } }
-@media (prefers-reduced-motion: reduce) { .ln-peek-in, .ln-body, .ln-body .ln-card > *, .ln-bar.swap > *, .ln-part, .ln-bar.fb, .ln-sent .shake, .ln-sent .ln-seg.pop, .ln-ask.nudge, .ln-sec-bar i { animation: none !important; } .ln-sent .ln-seg, .ln-prog i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .ln-body.in-soft *, .ln-peek-in, .ln-body, .ln-body .ln-card > *, .ln-bar.swap > *, .ln-part, .ln-bar.fb, .ln-sent .shake, .ln-sent .ln-seg.pop, .ln-ask.nudge, .ln-sec-bar i { animation: none !important; } .ln-sent .ln-seg, .ln-prog i { transition: none; } }
 
 /* ================= 老師指派的作業 ================= */
 .asg-rail { display: grid; grid-auto-flow: column; grid-auto-columns: 100%; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 16px 0 12px; }
@@ -2124,7 +2131,7 @@ body.has-dock .acct-ver { margin-bottom: 96px; }
 .tile-ring.k-ok b, .tile-ring.k-todo b { color: var(--good-ink); }
 .tile-ring.k-retake, .tile-ring.k-miss { --ring: var(--amber); }
 /* 單元內容晚到（題目還在下載）：跟換頁同一種淡入接上 */
-.focus.late-in > #stage { animation: vt-page-in .36s var(--ease-soft) both; }
+.focus.late-in > #stage { animation: fade-in .3s var(--ease-soft) both; } /* 只淡入、不位移：有 transform 的動畫會讓裡面固定在底部的橫幅（下一題、按鈕列）在 iPhone／iPad 上卡在半空中 */
 @media (prefers-reduced-motion: reduce) { .focus.late-in > #stage { animation: none; } }
 
 /* ===== 搜尋單元（重新設計的開關動畫）=====

@@ -90,9 +90,13 @@ export function mountLearn(stage, { guides, items, prefs, onFinish, grade = null
       if (i === step) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
     });
   };
-  // 換畫面：舊內容快速淡出（疊在原處），新內容依方向輕輕淡入
-  const show = (step, body, bar, dir = 1) => {
+  // 換畫面：舊內容快速淡出（疊在原處），新內容依方向輕輕淡入。
+  // key 一樣（同一個句型裡換下一句例句、下一題）：卡片外框、標題、進度點都不動，只有句子／題目本身輕輕換過去
+  let lastKey = '';
+  const show = (step, body, bar, dir = 1, key = '') => {
     pos += dir;
+    const soft = !!key && key === lastKey && dir !== 0;
+    lastKey = key;
     if (!$('.ln-shell')) {
       stage.innerHTML = `<div class="ln-shell"><div class="ln-top"><div class="ln-prog" role="progressbar" aria-label="整體進度" aria-valuemin="0" aria-valuemax="100"><i></i></div><div class="ln-where"></div><ol class="ln-steps" aria-label="這個句型的進度"></ol></div><div class="ln-view"></div><div class="ln-bar"></div></div>`;
     }
@@ -101,12 +105,13 @@ export function mountLearn(stage, { guides, items, prefs, onFinish, grade = null
     const calm = reducedMotion() || inScene();
     const oldH = view.offsetHeight; // 要在舊內容改成淡出（不佔空間）之前量
     [...view.children].forEach((old) => {
-      if (calm || dir === 0) { old.remove(); return; }
+      if (calm || dir === 0 || soft) { old.remove(); return; }
       old.classList.remove('in-r', 'in-l'); old.classList.add('leaving', dir > 0 ? 'out-l' : 'out-r'); old.setAttribute('aria-hidden', 'true'); old.inert = true;
       setTimeout(() => old.remove(), 220);
     });
     const next = document.createElement('div');
-    next.className = `ln-body${calm || dir === 0 ? '' : dir > 0 ? ' in-r' : ' in-l'}`;
+    next.className = `ln-body${calm || dir === 0 ? '' : soft ? ' in-soft' : dir > 0 ? ' in-r' : ' in-l'}`;
+    if (soft) next.style.setProperty('--sd', dir > 0 ? '1' : '-1');
     next.innerHTML = body;
     view.append(next);
     // 內容高度不同時，外框高度平順地伸縮（不要瞬間跳）
@@ -119,7 +124,7 @@ export function mountLearn(stage, { guides, items, prefs, onFinish, grade = null
       }
     }
     const b = $('.ln-bar');
-    b.className = `ln-bar${calm || dir === 0 ? '' : ' swap'}`; b.innerHTML = bar || ''; b.hidden = !bar;
+    b.className = `ln-bar${calm || dir === 0 || soft ? '' : ' swap'}`; b.innerHTML = bar || ''; b.hidden = !bar;
     // 只有捲到下面時才回到頂端（不要每一步都捲動）
     const topY = stage.getBoundingClientRect().top + window.scrollY - 80;
     if (window.scrollY > topY + 40) window.scrollTo({ top: Math.max(0, topY), behavior: 'auto' });
@@ -166,7 +171,7 @@ export function mountLearn(stage, { guides, items, prefs, onFinish, grade = null
       body = g.pitfall ? `<div class="ln-pit"><b>${icon.alert} 容易錯的地方</b><p>${esc(g.pitfall)}</p></div>` : '<p class="ln-use">看懂了嗎？接著用 1～2 題確認一下。</p>';
       bar = `<button type="button" class="btn ghost" data-prev>${icon.back}</button><button type="button" class="btn primary" data-next>開始檢測 ${icon.arrowR}</button>`;
     }
-    show(0, `<div class="ln-card ln-learn">${head}${body}</div>`, bar, dir);
+    show(0, `<div class="ln-card ln-learn">${head}${body}</div>`, bar, dir, step === 1 ? `ex${si}` : '');
     on('[data-switch]', () => { prefs.set('learnMode', modeOf() === 'find' ? 'read' : 'find'); learn(step, ex, 0); });
     on('[data-skip]', () => check(0));
     on('[data-prev]', () => (step === 1 ? (ex > 0 ? learn(1, ex - 1, -1) : learn(0, 0, -1)) : learn(1, s.examples.length - 1, -1)));
@@ -283,7 +288,7 @@ export function mountLearn(stage, { guides, items, prefs, onFinish, grade = null
     if (ci >= s.checks.length) { if (s.quiz.every((q) => graded[q.id])) sectionResult(); else quiz(0); return; }
     const q = s.checks[ci];
     show(1, `<div class="ln-note"><span class="ln-tag free">不計分</span>確認剛剛看懂了沒・第 ${ci + 1} / ${s.checks.length} 題</div><div data-q></div>`,
-      `<button type="button" class="btn ghost" data-relearn>${icon.book} 看說明</button>`, dir);
+      `<button type="button" class="btn ghost" data-relearn>${icon.book} 看說明</button>`, dir, `ck${si}`);
     on('[data-relearn]', () => learn(0, 0, -1));
     const host = $('[data-q]');
     const opts = { meta: q.kind === 'apply' ? '把單字排成正確的句子' : q.kind === 'fill' ? '填入空格' : '選出正確的答案', onAnswer: (ok) => {
@@ -314,7 +319,7 @@ export function mountLearn(stage, { guides, items, prefs, onFinish, grade = null
     show(2, `<div class="ln-note"><span class="ln-tag score">計分</span>第 ${qi + 1} / ${s.quiz.length} 題</div>
       <div class="ln-qdots" role="group" aria-label="跳到第幾題">${s.quiz.map((x, i) => `<button type="button" class="${i === qi ? 'now' : ''}${hasAns(x) ? ' done' : ''}" data-goq="${i}" aria-label="第 ${i + 1} 題${hasAns(x) ? '（已作答）' : ''}">${i + 1}</button>`).join('')}</div>
       <div data-q></div>`,
-      `<button type="button" class="btn ghost" data-prev ${qi ? '' : 'disabled'}>${icon.back}</button><button type="button" class="btn primary" data-next>${last ? `看這段結果 ${icon.check}` : `下一題 ${icon.arrowR}`}</button>`, dir);
+      `<button type="button" class="btn ghost" data-prev ${qi ? '' : 'disabled'}>${icon.back}</button><button type="button" class="btn primary" data-next>${last ? `看這段結果 ${icon.check}` : `下一題 ${icon.arrowR}`}</button>`, dir, `q${si}`);
     const host = $('[data-q]');
     const paintDots = () => $$('[data-goq]').forEach((b, i) => b.classList.toggle('done', hasAns(s.quiz[i])));
     const opts = { meta: q.label, deferred: true, initial: states[q.id] ?? null, onPick: (yours, state) => { answers[q.id] = yours; states[q.id] = state; paintDots(); } };
