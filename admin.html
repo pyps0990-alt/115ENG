@@ -1496,6 +1496,69 @@
     html.dark input[type=checkbox] { border-color:var(--edge); }
     html.dark ::-webkit-scrollbar-thumb { background:#34425E; }
     html.dark #work input:focus, html.dark #work select:focus, html.dark #work textarea:focus { box-shadow:0 0 0 3px rgba(201,214,255,.18); }
+    /* 題目卡片編輯 */
+    .ced { display:grid; gap:12px; }
+    .ced-bar { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; }
+    .ced-seg, .ced-kind { display:inline-flex; padding:3px; gap:2px; border-radius:12px; background:var(--surface); border:1px solid var(--line); }
+    .ced-seg button, .ced-kind button { border:0; background:transparent; color:var(--steel); font:inherit; font-weight:800; min-height:36px; padding:0 14px; border-radius:9px; cursor:pointer; }
+    .ced-kind button { min-height:32px; padding:0 10px; font-size:.86rem; }
+    .ced-seg button[aria-pressed="true"], .ced-kind button[aria-pressed="true"] { background:var(--card); color:var(--ink); box-shadow:0 1px 3px rgba(15,23,42,.14); }
+    .ced-n { color:var(--ink); font-variant-numeric:tabular-nums; }
+    .ced-list { display:grid; gap:10px; }
+    .ced-card { display:grid; gap:8px; padding:12px; border:1px solid var(--line); border-radius:16px; background:var(--card); }
+    .ced-card:focus-within { border-color:var(--ink); box-shadow:0 0 0 3px rgba(30,58,138,.08); }
+    .ced-card.ced-moved { animation:ced-moved .5s ease; }
+    @keyframes ced-moved { from { background:var(--surface); } }
+    .ced-head { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+    .ced-no { flex:none; min-width:28px; height:28px; padding:0 6px; border-radius:9px; display:grid; place-items:center; background:var(--surface); color:var(--steel); font-weight:900; font-size:.82rem; font-variant-numeric:tabular-nums; }
+    .ced input, .ced textarea { width:100%; min-width:0; min-height:40px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); font:inherit; font-size:16px; box-sizing:border-box; }
+    .ced textarea { resize:none; overflow:hidden; line-height:1.45; }
+    .ced input:focus, .ced textarea:focus { outline:none; border-color:var(--ink); }
+    .ced-head .ced-en { flex:2 1 160px; font-weight:800; }
+    .ced-head .ced-pos { flex:0 1 84px; }
+    .ced-head .ced-zh { flex:2 1 140px; }
+    .ced-head .ced-tag { flex:1 1 160px; }
+    .ced-tools { display:flex; gap:2px; margin-left:auto; }
+    .ced-ic { flex:none; width:36px; height:36px; display:grid; place-items:center; border:0; border-radius:10px; background:transparent; color:var(--steel); cursor:pointer; }
+    .ced-ic svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+    .ced-ic:hover:not([disabled]) { background:var(--surface); color:var(--ink); }
+    .ced-ic.danger:hover:not([disabled]) { color:#B91C1C; }
+    .ced-ic[disabled] { opacity:.3; cursor:default; }
+    .ced-exs { list-style:none; margin:0; padding:0; display:grid; gap:6px; counter-reset:ex; }
+    .ced-ex { display:grid; grid-template-columns:22px minmax(0,1.4fr) minmax(0,1fr) 36px; gap:6px; align-items:start; counter-increment:ex; }
+    .ced-ex::before { content:counter(ex); align-self:center; color:var(--steel); font-weight:800; font-size:.8rem; text-align:center; }
+    .ced-foot { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+    .ced-mini { border:1px dashed var(--line); background:transparent; color:var(--ink); font:inherit; font-weight:800; font-size:.86rem; min-height:34px; padding:0 12px; border-radius:10px; cursor:pointer; justify-self:start; }
+    .ced-mini:hover { background:var(--surface); }
+    .ced-cnt { font-size:.82rem; font-weight:800; color:var(--steel); font-variant-numeric:tabular-nums; }
+    .ced-cnt.low { color:#B45309; }
+    .ced-more { flex:1 1 100%; }
+    .ced-more summary { cursor:pointer; font-size:.86rem; font-weight:800; color:var(--steel); }
+    .ced-more[open] { display:grid; gap:6px; }
+    .ced-body { display:grid; gap:8px; }
+    .ced-row { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:8px; }
+    .ced-opts { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap:6px; }
+    .ced-opt { display:flex; gap:6px; align-items:center; }
+    .ced-key { flex:none; width:40px; height:40px; border-radius:10px; border:1.5px solid var(--line); background:var(--card); color:var(--steel); font:inherit; font-weight:900; cursor:pointer; }
+    .ced-opt.on .ced-key { background:#16A34A; border-color:#16A34A; color:#fff; }
+    .ced-opt.on input { border-color:#16A34A; }
+    .ced-add { display:flex; flex-wrap:wrap; gap:8px; }
+    @media (max-width:600px) {
+      .ced-ex { grid-template-columns:18px minmax(0,1fr) 36px; }
+      .ced-ex [data-f="z"] { grid-column:2; }
+      .ced-row { grid-template-columns:1fr; }
+      .ced-head .ced-tools { order:2; }
+      .ced-head .ced-en { order:1; flex:1 1 calc(100% - 170px); }
+      .ced-head .ced-pos { order:3; flex:0 0 84px; }
+      .ced-head .ced-zh { order:4; flex:1 1 0; }
+      .ced-head .ced-tag { order:3; flex:1 1 100%; }
+      .ced-head .ced-ic { width:32px; height:32px; }
+      .ced-kind button { padding:0 8px; }
+      .ced-card { padding:10px; }
+    }
+    @media (prefers-reduced-motion: reduce) { .ced-card.ced-moved { animation:none; } }
+    html.dark .ced-opt.on .ced-key { background:#22C55E; border-color:#22C55E; color:#052e16; }
+    html.dark .ced-cnt.low { color:#FBBF24; }
   </style>
 </head>
 <body>
@@ -3236,6 +3299,7 @@
     }
     // 跳到輸入框的第幾行：選取那一行，捲到看得見（長的行會折行，所以用一個看不見的複製框量出那一行的高度）
     function jumpToLine(ta, ln) {
+      if (typeof CardEd !== 'undefined' && CardEd.jump(ta, ln)) return; // 卡片模式：跳到那一張卡片
       var d = ta.closest('details'); if (d && !d.open) d.open = true;
       var lines = ta.value.split('\n'), start = 0;
       for (var i = 0; i < ln && i < lines.length; i++) start += lines[i].length + 1;
@@ -4835,7 +4899,7 @@
         var k = b.dataset.uc;
         if (k === 'all') { UC.all = !UC.all; drawContentView(); }
         else if (k === 'edit') ucEdit(true);
-        else if (k === 'paste') ucEdit(false);
+        else if (k === 'paste') { CardEd.setMode('text'); ucEdit(false); } // 選「貼上文字」：直接開文字框
         else if (k === 'file') { ucEdit(false); $('imp-file').click(); }
         else if (k === 'ai') { ucEdit(false); var ai = card.querySelector('.btn.ai'); if (ai) ai.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
         else if (k === 'close') { if (/尚未儲存|檢查通過/.test($('imp-msg').textContent) && !await ask('編輯中的內容還沒儲存，確定要離開嗎？')) return; UC.editing = false; drawContentView(); $('work').scrollTop = 0; }
@@ -6015,6 +6079,264 @@
       setTimeout(function () { $('imp-msg').textContent = '已把 ' + n + ' 個單字的拼寫提示填進第 6、7 欄，請按「預覽與檢查」確認'; $('imp-msg').className = 'msg ok'; }, 0);
     });
     $('t-text').addEventListener('input', function () { takeGuides(); clearTimeout(gT); gT = setTimeout(drawGuides, 400); });
+    /* ================= 題目卡片編輯：一題一張卡片直接改，也可以切回「貼上文字」 =================
+       文字框仍然是唯一的資料來源：卡片從文字框讀出來畫，每改一個欄位就把整份寫回文字框（檢查、AI 補齊、儲存都照原本的流程）；
+       AI、載入現有題目等程式直接改文字框時，卡片自動重畫。卡片表示不了的內容（例如第一題前面有其他文字）會停在文字模式並說明原因 */
+    var CardEd = (function () {
+      var MODE_KEY = 'b5a:editMode';
+      var VAL = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+      var eds = {};
+      var ICON = {
+        up: '<svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>', down: '<svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>',
+        del: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
+        x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>'
+      };
+      function mode() { try { return localStorage.getItem(MODE_KEY) || 'cards'; } catch (e) { return 'cards'; } }
+      function tools(i, n) {
+        return '<div class="ced-tools"><button type="button" class="ced-ic" data-act="up" aria-label="往上移"' + (i ? '' : ' disabled') + '>' + ICON.up + '</button>' +
+          '<button type="button" class="ced-ic" data-act="down" aria-label="往下移"' + (i < n - 1 ? '' : ' disabled') + '>' + ICON.down + '</button>' +
+          '<button type="button" class="ced-ic danger" data-act="del" aria-label="刪除">' + ICON.del + '</button></div>';
+      }
+      function val(el, f) { var x = el.querySelector('[data-f="' + f + '"]'); return x ? x.value.trim() : ''; }
+      function grow(t) { if (t && t.tagName === 'TEXTAREA') { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; } }
+
+      function make(cfg) {
+        var ta = $(cfg.ta), label = ta.closest('label'), syncing = false, items = [], ranges = [], cur = mode();
+        var box = document.createElement('div'); box.className = 'ced'; box.dataset.for = cfg.ta;
+        box.innerHTML = '<div class="ced-bar"><div class="ced-seg" role="group" aria-label="編輯方式"><button type="button" data-m="cards">卡片</button><button type="button" data-m="text">貼上文字</button></div>' +
+          '<b class="ced-n"></b><span class="ced-why msg err" hidden></span></div><div class="ced-list"></div><div class="ced-add">' + cfg.adds.map(function (a) { return '<button type="button" class="btn" data-add="' + a[0] + '">＋ ' + a[1] + '</button>'; }).join('') + '</div>';
+        label.parentNode.insertBefore(box, label);
+        var list = box.querySelector('.ced-list'), why = box.querySelector('.ced-why');
+        Object.defineProperty(ta, 'value', { configurable: true, get: function () { return VAL.get.call(ta); }, set: function (v) { VAL.set.call(ta, v); if (!syncing) load(); } });
+        ta.addEventListener('input', function () { if (!syncing && cur === 'cards') load(); });
+
+        function paintMode() {
+          box.querySelectorAll('[data-m]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.m === cur)); });
+          var cards = cur === 'cards';
+          label.hidden = cards; list.hidden = !cards; box.querySelector('.ced-add').hidden = !cards;
+          box.querySelector('.ced-n').textContent = cards && items.length ? items.length + ' ' + cfg.unit : '';
+        }
+        function load() {
+          var r = cfg.parse(VAL.get.call(ta));
+          if (!r.ok) {
+            items = []; list.innerHTML = '';
+            if (cur === 'cards') { cur = 'text'; why.textContent = r.why; why.hidden = false; }
+            paintMode(); return;
+          }
+          why.hidden = true;
+          items = r.items; ranges = cfg.ser(items).ranges; draw();
+        }
+        function draw() {
+          list.innerHTML = items.map(function (it, i) { return '<div class="ced-card" data-i="' + i + '">' + cfg.card(it, i, items.length) + '</div>'; }).join('');
+          list.querySelectorAll('textarea').forEach(grow);
+          paintMode();
+        }
+        function write() {
+          var out = cfg.ser(items); ranges = out.ranges;
+          syncing = true; VAL.set.call(ta, out.text); ta.dispatchEvent(new Event('input', { bubbles: true })); syncing = false;
+          box.querySelector('.ced-n').textContent = items.length ? items.length + ' ' + cfg.unit : '';
+        }
+        function cardOf(el) { var c = el.closest('.ced-card'); return c ? { el: c, i: +c.dataset.i } : null; }
+        list.addEventListener('input', function (e) {
+          var c = cardOf(e.target); if (!c) return;
+          grow(e.target);
+          items[c.i] = cfg.read(c.el, items[c.i]); write();
+        });
+        list.addEventListener('click', function (e) {
+          var b = e.target.closest('[data-act]'); if (!b) return;
+          var c = cardOf(b); if (!c) return;
+          var i = c.i, act = b.dataset.act;
+          items[i] = cfg.read(c.el, items[i]);
+          if (act === 'up' || act === 'down') {
+            var j = act === 'up' ? i - 1 : i + 1; if (j < 0 || j >= items.length) return;
+            var t = items[i]; items[i] = items[j]; items[j] = t; write(); draw();
+            var moved = list.querySelector('.ced-card[data-i="' + j + '"]'); if (moved) { moved.classList.add('ced-moved'); moved.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); var mb = moved.querySelector('[data-act="' + act + '"]:not([disabled])'); if (mb) mb.focus({ preventScroll: true }); }
+            return;
+          }
+          if (act === 'del') {
+            var name = cfg.name(items[i]);
+            ask('刪除第 ' + (i + 1) + ' ' + cfg.one + (name ? '「' + name + '」' : '') + '？').then(function (ok) { if (!ok) return; items.splice(i, 1); write(); draw(); });
+            return;
+          }
+          if (cfg.act(act, items[i], b)) { write(); draw();
+            var card = list.querySelector('.ced-card[data-i="' + i + '"]'); var f = card && card.querySelector(cfg.focusAfter && cfg.focusAfter[act] || '[data-f]'); if (f && act !== 'ans') f.focus(); }
+        });
+        box.querySelector('.ced-add').addEventListener('click', function (e) {
+          var b = e.target.closest('[data-add]'); if (!b) return;
+          items.push(cfg.blank(b.dataset.add)); write(); draw();
+          var last = list.lastElementChild; if (last) { last.scrollIntoView({ block: 'center', behavior: 'smooth' }); var f = last.querySelector('input,textarea'); if (f) f.focus({ preventScroll: true }); }
+        });
+        box.querySelector('.ced-seg').addEventListener('click', function (e) {
+          var b = e.target.closest('[data-m]'); if (!b || b.dataset.m === cur) return;
+          cur = b.dataset.m; try { localStorage.setItem(MODE_KEY, cur); } catch (x) { /* 無痕模式 */ }
+          why.hidden = true;
+          if (cur === 'cards') load(); else paintMode();
+        });
+        load();
+        // 檢查結果點「第幾行」：卡片模式就跳到那一張卡片
+        return {
+          setMode: function (m) { cur = m; why.hidden = true; if (m === 'cards') load(); else paintMode(); },
+          jump: function (ln) {
+            if (cur !== 'cards') return false;
+            var k = ranges.findIndex(function (r) { return ln >= r[0] && ln <= r[1]; }); if (k < 0) return false;
+            var card = list.querySelector('.ced-card[data-i="' + k + '"]'); if (!card) return false;
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.classList.add('flash-box'); setTimeout(function () { card.classList.remove('flash-box'); }, 1600);
+            var f = card.querySelector('input,textarea'); if (f) f.focus({ preventScroll: true });
+            return true;
+          }
+        };
+      }
+
+      /* ---------- 單字片語：英文｜詞性｜中文｜例句（; 隔開）｜翻譯（; 隔開）｜拼寫提示 1｜拼寫提示 2 ---------- */
+      var semi = function (s) { return String(s || '').split(/\s*[;；]\s*/).map(function (x) { return x.trim(); }); };
+      function vParse(text) {
+        var out = [];
+        String(text || '').replace(/\r/g, '').split('\n').forEach(function (line, ln) {
+          if (!line.trim()) return;
+          var sep = line.indexOf('\t') >= 0 ? '\t' : '|';
+          var c = line.split(sep).map(function (x) { return x.trim(); });
+          if (!out.length && /^(word|英文|單字|片語)$/i.test(c[0])) return; // 欄位標題
+          var ex = c[3] ? semi(c[3]) : [], zh = c[4] ? semi(c[4]) : [];
+          var rows = ex.map(function (s, k) { return { s: s, z: zh[k] || '' }; }).filter(function (r) { return r.s || r.z; });
+          zh.slice(ex.length).forEach(function (z) { if (z) rows.push({ s: '', z: z }); });
+          out.push({ en: c[0] || '', pos: c[1] || '', zh: c[2] || '', ex: rows, h1: c[5] || '', h2: c[6] || '', extra: c.slice(7) });
+        });
+        return { ok: true, items: out };
+      }
+      function vSer(items) {
+        var ranges = [];
+        var text = items.map(function (it, i) {
+          var ex = it.ex.filter(function (r) { return r.s || r.z; });
+          var c = [it.en, it.pos, it.zh, ex.map(function (r) { return r.s; }).join(' ; '), ex.some(function (r) { return r.z; }) ? ex.map(function (r) { return r.z; }).join(' ; ') : '', it.h1, it.h2].concat(it.extra || []);
+          while (c.length > 1 && !c[c.length - 1]) c.pop();
+          ranges.push([i, i]);
+          return c.join(' | ');
+        }).join('\n');
+        return { text: text, ranges: ranges };
+      }
+      function vCard(it, i, n) {
+        var exs = it.ex.length ? it.ex : [{ s: '', z: '' }];
+        return '<div class="ced-head"><span class="ced-no">' + (i + 1) + '</span>' +
+          '<input data-f="en" class="ced-en" lang="en" placeholder="英文" value="' + esc(it.en) + '" autocomplete="off" autocapitalize="off" spellcheck="false">' +
+          '<input data-f="pos" class="ced-pos" placeholder="詞性" value="' + esc(it.pos) + '" autocomplete="off">' +
+          '<input data-f="zh" class="ced-zh" placeholder="中文" value="' + esc(it.zh) + '" autocomplete="off">' + tools(i, n) + '</div>' +
+          '<ol class="ced-exs">' + exs.map(function (r, k) {
+            return '<li class="ced-ex" data-k="' + k + '"><textarea data-f="s" rows="1" lang="en" spellcheck="false" placeholder="例句，用 [ ] 圈出這個字">' + esc(r.s) + '</textarea>' +
+              '<input data-f="z" placeholder="翻譯" value="' + esc(r.z) + '" autocomplete="off">' +
+              '<button type="button" class="ced-ic" data-act="delex" data-k="' + k + '" aria-label="刪掉這句例句">' + ICON.x + '</button></li>';
+          }).join('') + '</ol>' +
+          '<div class="ced-foot"><button type="button" class="ced-mini" data-act="addex">＋ 例句</button><span class="ced-cnt' + (it.ex.filter(function (r) { return r.s; }).length < 5 ? ' low' : '') + '">' + it.ex.filter(function (r) { return r.s; }).length + ' / 5 句</span>' +
+          '<details class="ced-more"' + (it.h1 || it.h2 ? ' open' : '') + '><summary>拼寫提示</summary><input data-f="h1" placeholder="第 1 層：使用情境" value="' + esc(it.h1) + '"><input data-f="h2" placeholder="第 2 層：近義字、搭配" value="' + esc(it.h2) + '"></details></div>';
+      }
+      function vRead(el, old) {
+        var ex = [].map.call(el.querySelectorAll('.ced-ex'), function (li) { return { s: val(li, 's'), z: val(li, 'z') }; });
+        return { en: val(el, 'en'), pos: val(el, 'pos'), zh: val(el, 'zh'), ex: ex, h1: val(el, 'h1'), h2: val(el, 'h2'), extra: (old && old.extra) || [] };
+      }
+      function vAct(act, it, b) {
+        if (act === 'addex') { it.ex.push({ s: '', z: '' }); return true; }
+        if (act === 'delex') { it.ex.splice(+b.dataset.k, 1); return true; }
+        return false;
+      }
+
+      /* ---------- 句型練習：[選擇]／[填空]／[應用] 一題一張卡片 ---------- */
+      var LETTERS = 'ABCDEFGHIJ';
+      function pParse(text) {
+        var norm = normalizeAI(text), lines = norm.split('\n'), first = lines.findIndex(function (l) { return l.trim(); });
+        if (first >= 0 && !/^\s*\[(選擇|填空|應用)\]/.test(lines[first])) return { ok: false, why: '第一題前面還有其他文字，卡片看不懂：請在文字模式整理好（每題用 [選擇]、[填空] 或 [應用] 開頭）再切回卡片' };
+        var blocks = splitBlocks(text), bad = blocks.filter(function (b) { return ['mc', 'fill', 'apply'].indexOf(b.kind) < 0; });
+        if (bad.length) return { ok: false, why: '有句型練習以外的題型（例如 [閱讀]），卡片看不懂：請在文字模式修改' };
+        return { ok: true, items: blocks.map(function (b) {
+          var f = b.f, it = { kind: b.kind, tag: f['句型'] || '', explain: f['解析'] || '' };
+          if (b.kind === 'mc') { it.q = f['題目'] || ''; it.opts = splitOpts(f['選項']); it.ans = f['答案'] ? ansIndex(f['答案'], it.opts) : -1; if (it.opts.length < 2) while (it.opts.length < 4) it.opts.push(''); }
+          else if (b.kind === 'fill') { it.q = f['題目'] || ''; it.answer = f['答案'] || ''; it.hint = f['提示'] || ''; }
+          else { it.zh = f['中文'] || ''; it.words = f['單字'] || ''; it.answer = f['答案'] || ''; }
+          return it;
+        }) };
+      }
+      function pSer(items) {
+        var ranges = [], ln = 0;
+        var text = items.map(function (it) {
+          var o = ['[' + KIND_ZH[it.kind] + ']', '句型：' + (it.tag || '')];
+          if (it.kind === 'mc') o.push('題目：' + (it.q || ''), '選項：' + it.opts.filter(function (x) { return x.trim(); }).join(' | '), '答案：' + (it.ans >= 0 && it.opts[it.ans] && it.opts[it.ans].trim() ? LETTERS[it.opts.slice(0, it.ans).filter(function (x) { return x.trim(); }).length] : ''));
+          else if (it.kind === 'fill') { o.push('題目：' + (it.q || ''), '答案：' + (it.answer || '')); if (it.hint) o.push('提示：' + it.hint); }
+          else o.push('中文：' + (it.zh || ''), '單字：' + (it.words || ''), '答案：' + (it.answer || ''));
+          o.push('解析：' + String(it.explain || '').replace(/\n+/g, ' '));
+          ranges.push([ln, ln + o.length - 1]); ln += o.length + 1;
+          return o.join('\n');
+        }).join('\n\n');
+        return { text: text, ranges: ranges };
+      }
+      function pCard(it, i, n) {
+        var kinds = [['mc', '選擇'], ['fill', '填空'], ['apply', '應用']];
+        var head = '<div class="ced-head"><span class="ced-no">' + (i + 1) + '</span><div class="ced-kind" role="group" aria-label="題型">' +
+          kinds.map(function (k) { return '<button type="button" data-act="kind" data-k="' + k[0] + '" aria-pressed="' + (it.kind === k[0]) + '">' + k[1] + '</button>'; }).join('') + '</div>' +
+          '<input data-f="tag" class="ced-tag" list="ced-tags" placeholder="句型" value="' + esc(it.tag) + '" autocomplete="off">' + tools(i, n) + '</div>';
+        var body = '';
+        if (it.kind === 'mc') {
+          body = '<input data-f="q" lang="en" spellcheck="false" placeholder="題目（空格寫 ____）" value="' + esc(it.q) + '">' +
+            '<div class="ced-opts">' + it.opts.map(function (o, j) {
+              return '<div class="ced-opt' + (j === it.ans ? ' on' : '') + '"><button type="button" class="ced-key" data-act="ans" data-j="' + j + '" aria-pressed="' + (j === it.ans) + '" aria-label="選 ' + LETTERS[j] + ' 當正確答案">' + LETTERS[j] + '</button>' +
+                '<input data-f="opt" lang="en" spellcheck="false" placeholder="選項 ' + LETTERS[j] + '" value="' + esc(o) + '"><button type="button" class="ced-ic" data-act="delopt" data-j="' + j + '" aria-label="刪掉這個選項"' + (it.opts.length > 2 ? '' : ' disabled') + '>' + ICON.x + '</button></div>';
+            }).join('') + '</div>' + (it.opts.length < 6 ? '<button type="button" class="ced-mini" data-act="addopt">＋ 選項</button>' : '');
+        } else if (it.kind === 'fill') {
+          body = '<input data-f="q" lang="en" spellcheck="false" placeholder="題目（空格寫 ____）" value="' + esc(it.q) + '">' +
+            '<div class="ced-row"><input data-f="answer" lang="en" spellcheck="false" placeholder="答案（多種寫法用 | 隔開）" value="' + esc(it.answer) + '"><input data-f="hint" placeholder="提示" value="' + esc(it.hint) + '"></div>';
+        } else {
+          body = '<input data-f="zh" placeholder="中文句子" value="' + esc(it.zh) + '">' +
+            '<input data-f="words" lang="en" spellcheck="false" placeholder="單字（用 | 隔開，順序打亂）" value="' + esc(it.words) + '">' +
+            '<input data-f="answer" lang="en" spellcheck="false" placeholder="答案句子" value="' + esc(it.answer) + '">';
+        }
+        return head + '<div class="ced-body">' + body + '<textarea data-f="explain" rows="1" placeholder="解析">' + esc(it.explain) + '</textarea></div>';
+      }
+      function pRead(el, old) {
+        var it = { kind: old.kind, tag: val(el, 'tag'), explain: val(el, 'explain') };
+        if (old.kind === 'mc') { it.q = val(el, 'q'); it.opts = [].map.call(el.querySelectorAll('[data-f="opt"]'), function (x) { return x.value; }); it.ans = old.ans; }
+        else if (old.kind === 'fill') { it.q = val(el, 'q'); it.answer = val(el, 'answer'); it.hint = val(el, 'hint'); }
+        else { it.zh = val(el, 'zh'); it.words = val(el, 'words'); it.answer = val(el, 'answer'); }
+        return it;
+      }
+      function pAct(act, it, b) {
+        if (act === 'ans') { it.ans = +b.dataset.j; return true; }
+        if (act === 'addopt') { it.opts.push(''); return true; }
+        if (act === 'delopt') { var j = +b.dataset.j; it.opts.splice(j, 1); if (it.ans === j) it.ans = -1; else if (it.ans > j) it.ans--; return true; }
+        if (act === 'kind') {
+          var k = b.dataset.k; if (k === it.kind) return false;
+          var q = it.q || '', ans = it.kind === 'mc' ? (it.opts[it.ans] || '') : (it.answer || '');
+          it.kind = k;
+          if (k === 'mc') { it.q = q; it.opts = ans ? [ans, '', '', ''] : ['', '', '', '']; it.ans = ans ? 0 : -1; }
+          else if (k === 'fill') { it.q = q; it.answer = ans; it.hint = it.hint || ''; }
+          else { it.zh = it.zh || ''; it.words = it.words || ''; it.answer = ''; }
+          return true;
+        }
+        return false;
+      }
+      function pBlank(k) {
+        if (k === 'mc') return { kind: 'mc', tag: lastTag(), q: '', opts: ['', '', '', ''], ans: -1, explain: '' };
+        if (k === 'fill') return { kind: 'fill', tag: lastTag(), q: '', answer: '', hint: '', explain: '' };
+        return { kind: 'apply', tag: lastTag(), zh: '', words: '', answer: '', explain: '' };
+      }
+      function lastTag() { var t = ''; try { splitBlocks($('t-text').value).forEach(function (b) { if (b.f['句型']) t = b.f['句型']; }); } catch (e) { /* 沒有題目 */ } return t; }
+
+      function init() {
+        if (!$('ced-tags')) { var dl = document.createElement('datalist'); dl.id = 'ced-tags'; document.body.appendChild(dl); }
+        eds['v-text'] = make({ ta: 'v-text', unit: '個單字片語', one: '個', adds: [['w', '新增單字片語']], parse: vParse, ser: vSer, card: vCard, read: vRead, act: vAct,
+          blank: function () { return { en: '', pos: '', zh: '', ex: [{ s: '', z: '' }], h1: '', h2: '', extra: [] }; },
+          name: function (it) { return it.en; }, focusAfter: { addex: '.ced-ex:last-child [data-f="s"]' } });
+        eds['t-text'] = make({ ta: 't-text', unit: '題', one: '題', adds: [['mc', '選擇題'], ['fill', '填空題'], ['apply', '應用題']], parse: pParse, ser: pSer, card: pCard, read: pRead, act: pAct, blank: pBlank,
+          name: function (it) { return String(it.q || it.zh || '').slice(0, 24); }, focusAfter: { addopt: '.ced-opt:last-child [data-f="opt"]', kind: '[data-f="q"], [data-f="zh"]' } });
+        // 句型標籤的選單：目前題目裡出現過的句型
+        $('t-text').addEventListener('input', function () {
+          var tags = []; try { splitBlocks(VAL.get.call($('t-text'))).forEach(function (b) { var t = b.f['句型']; if (t && tags.indexOf(t) < 0) tags.push(t); }); } catch (e) { /* 略過 */ }
+          $('ced-tags').innerHTML = tags.map(function (t) { return '<option value="' + esc(t) + '">'; }).join('');
+        });
+      }
+      init();
+      return {
+        jump: function (ta, ln) { var e = eds[ta.id]; return !!e && e.jump(ln); },
+        setMode: function (m) { try { localStorage.setItem(MODE_KEY, m); } catch (x) { /* 無痕模式 */ } Object.keys(eds).forEach(function (k) { eds[k].setMode(m); }); }
+      };
+    })();
     $('ai-guides').onclick = function () {
       if (!needAi()) return;
       var info = guideTags();
