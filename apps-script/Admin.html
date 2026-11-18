@@ -980,7 +980,7 @@
       .rail { position:fixed; left:0; right:0; bottom:0; top:auto; z-index:30; height:calc(64px + env(safe-area-inset-bottom, 0px)); padding:4px 4px env(safe-area-inset-bottom, 0px); display:flex; flex-direction:row; align-items:stretch; justify-content:space-around; gap:0; overflow:visible; border-top:1px solid rgba(255,255,255,.12); }
       .rail .brand, .rail-ink { display:none !important; }
       .rail a[data-view], .rail-more { flex:1 1 0; min-width:0; width:auto !important; min-height:56px; padding:6px 0 4px !important; display:flex !important; flex-direction:column; align-items:center; justify-content:center; gap:3px; border:0; border-radius:12px; background:transparent; color:var(--navy-ink); font:inherit; font-size:.74rem !important; font-weight:800; white-space:nowrap; cursor:pointer; }
-      .rail a[data-view="students"], .rail a[data-view="settings"], .rail a[data-view="help"] { display:none !important; }
+      .rail a[data-view="students"], .rail a[data-view="analysis"], .rail a[data-view="settings"], .rail a[data-view="help"] { display:none !important; }
       .rail a[data-view="overview"] { order:1; } .rail a[data-view="units"] { order:2; } .rail a[data-view="scores"] { order:3; } .rail a[data-view="live"] { order:4; } .rail-more { order:5; }
       .rail .rail-ic { margin:0 !important; }
       .rail a[aria-current="page"], .rail-more.on { color:#fff; background:rgba(255,255,255,.1) !important; }
@@ -1563,6 +1563,35 @@
     @media (prefers-reduced-motion: reduce) { .ced-card.ced-moved { animation:none; } }
     html.dark .ced-opt.on .ced-key { background:#22C55E; border-color:#22C55E; color:#052e16; }
     html.dark .ced-cnt.low { color:#FBBF24; }
+    /* 錯誤分析頁：上方選在哪裡分析＋引擎狀態＋全部分析；下面每個單字單元一列（狀態、分析鍵，分析中進度條放在那一列） */
+    .an-bar { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; }
+    .an-bar #an-all { margin-left:auto; }
+    .an-eng { display:inline-flex; align-items:center; gap:6px; font-weight:800; font-size:.9rem; color:var(--muted); }
+    .an-eng::before { content:""; width:9px; height:9px; border-radius:50%; background:currentColor; opacity:.5; }
+    .an-eng.good { color:#15803D; } .an-eng.good::before { opacity:1; }
+    .an-eng.bad { color:#B45309; } .an-eng.bad::before { opacity:1; }
+    #an-msg-slot .msg { display:block; margin-top:10px; }
+    #an-msg-slot .msg:empty { display:none; }
+    .an-list { display:grid; }
+    .an-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:6px 12px; padding:12px 4px; border-top:1px solid var(--line); }
+    .an-row:first-child { border-top:0; }
+    .an-row.focus { background:var(--surface); border-radius:12px; padding-inline:10px; }
+    .an-name { display:grid; gap:2px; min-width:0; }
+    .an-name b { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .an-meta { color:var(--muted); font-size:.84rem; font-variant-numeric:tabular-nums; }
+    .an-prog { grid-column:1 / -1; }
+    .an-prog:empty { display:none; }
+    .an-prog .br-live { margin-top:2px; }
+    .pill.bad { background:#FEE2E2; color:#B91C1C; }
+    .pill.navy { background:var(--navy); color:#fff; }
+    .an-adv-card { display:grid; gap:4px; }
+    .an-fold > summary { cursor:pointer; font-weight:800; color:var(--ink); padding:6px 0; }
+    .an-fold .bar { margin-top:8px; }
+    .an-mini .nv-panel-h { margin:0; }
+    @media (max-width:600px) { .an-row { grid-template-columns:minmax(0,1fr) auto; } .an-row .pill { grid-row:2; grid-column:1; justify-self:start; } .an-row [data-an-go] { grid-row:1 / 3; grid-column:2; } .an-bar #an-all { margin-left:0; width:100%; } }
+    html.dark .an-eng.good { color:#4ADE80; } html.dark .an-eng.bad { color:#FBBF24; }
+    html.dark .pill.bad { background:#3B1418; color:#FCA5A5; }
+    html.dark .pill.navy { background:#2B4BB5; color:#fff; }
   </style>
 </head>
 <body>
@@ -1575,6 +1604,7 @@
       <a href="#live" data-view="live"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span>即時</a>
       <a href="#students" data-view="students"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M16 4.5a3.5 3.5 0 010 7"/><path d="M18 14a6 6 0 013.5 6"/></svg></span>學生</a>
       <a href="#scores" data-view="scores"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg></span>成績</a>
+      <a href="#analysis" data-view="analysis"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/><path d="M7.5 11l2 2 4-4.5"/></svg></span>分析</a>
       <a href="#settings" data-view="settings"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span>設定</a>
       <a href="#help" data-view="help"><span class="rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.2-1.5 2.3M12 17.2v.3"/></svg></span>教學</a>
       <div class="rail-who"><span class="who"><?= email ?></span></div>
@@ -1646,6 +1676,21 @@
 
         <div class="view" data-pane-view="help" hidden>
           <div class="w-head"><div><h1>教學</h1><div class="w-sub muted">每一章講一件事；按「帶我做一次」會在畫面上一步一步帶你做</div></div></div>
+        </div>
+
+        <div class="view" data-pane-view="analysis" hidden>
+          <div class="w-head"><div><h1>錯誤分析</h1></div></div>
+          <section class="card an-top">
+            <div class="an-bar">
+              <div class="nv-seg" role="radiogroup" aria-label="在哪裡分析"><label><input type="radio" name="an-where2" value="local"><span>這台電腦</span></label><label><input type="radio" name="an-where2" value="cloud"><span>雲端</span></label></div>
+              <span class="an-eng" id="an-eng" role="status"></span>
+              <button class="btn navy" type="button" id="an-all">全部分析</button>
+            </div>
+            <div id="an-msg-slot"></div>
+          </section>
+          <section class="card an-units"><div class="an-list" id="an-list"><p class="muted" style="margin:0">讀取中…</p></div></section>
+          <section class="card an-adv-card" id="an-adv"></section>
+          <div id="an-hold" hidden></div>
         </div>
 
         <div class="view" data-pane-view="settings" hidden>
@@ -2906,17 +2951,19 @@
         return String(h);
       };
       // 待分析的單元：題目改過（或從沒分析過）的單字片語單元
-      var pending = [];
+      var pending = [], info = {};
       var pendingRefresh = function () {
         var list = (typeof units !== 'undefined' ? units : []).filter(function (u) { return u.type === 'vocab'; });
         return Promise.all(list.map(function (u) {
           return Promise.all([window.fbPublic('content_' + u.id), window.fbPublic('analysis_' + u.id)]).then(function (r) {
-            var c = r[0], a = r[1];
-            if (!c || !c.data || !(c.data.words || []).length) return null;
-            return a && a.sig === sigOf(c.data.words) ? null : u;
-          }, function () { return null; });
+            var c = r[0], a = r[1], n = c && c.data ? (c.data.words || []).length : 0;
+            var st = !n ? 'empty' : !a ? 'none' : a.sig === sigOf(c.data.words) ? 'ok' : 'stale';
+            info[u.id] = { u: u, n: n, st: st, at: a && a.at ? a.at : 0 };
+            return st === 'none' || st === 'stale' ? u : null;
+          }, function () { info[u.id] = { u: u, n: 0, st: 'err', at: 0 }; return null; });
         })).then(function (list) {
           pending = list.filter(Boolean);
+          if (window.drawAnalysis) window.drawAnalysis();
           $('br-pending').hidden = !pending.length;
           $('br-pending-list').textContent = pending.map(function (u) { return u.title || u.id; }).join('、');
         });
@@ -2938,6 +2985,20 @@
         }).then(pendingRefresh);
       };
       setTimeout(pendingRefresh, 1500);
+      // 「錯誤分析」頁用的介面：各單元狀態、分析一個單元（依「這台電腦／雲端」）
+      window.anApi = {
+        info: function () { return info; }, refresh: pendingRefresh, localUp: localUp,
+        ready: function () { return !!(cfg && cfg.key) && (local() || !!cfg.url); },
+        hasCloud: function () { return !!(cfg && cfg.url); }, hasKey: function () { return !!(cfg && cfg.key); },
+        run: function (u) {
+          if (!cfg || !cfg.key) { msg('請先在下方「引擎設定」填金鑰', 'err'); return Promise.resolve(); }
+          if (!local() && !cfg.url) { msg('請先在下方「引擎設定」填雲端網址，或改用這台電腦', 'err'); return Promise.resolve(); }
+          return (local() ? localUp() : Promise.resolve(true)).then(function (up) {
+            if (!up) { msg('這台電腦的分析引擎沒有開：雙擊 tools/brain 裡的「start-local-engine.bat」，看到 Uvicorn running 再按一次', 'err'); return; }
+            return analyzeUnit(u, local() ? LOCAL_URL : cfg.url);
+          }).then(pendingRefresh);
+        }
+      };
       function analyzeUnit(u, base) {
         msg('讀取題目…');
         var t0 = 0, timer = null, last = null, stepAt = {};
@@ -3006,6 +3067,7 @@
           return pump();
         }).then(function (result) {
           last = { step: 3, stage: '存進 Firebase', done: 1, total: 1 }; paint();
+          result.at = Date.now(); // 「錯誤分析」頁顯示上次分析的時間
           var docs = {}; docs['analysis_' + u.id] = result;
           return window.fastPublish(docs).then(function () {
             for (var k = 0; k < steps.length; k++) steps[k].className = 'done';
@@ -4277,7 +4339,7 @@
     /* ================= 後台外框（以單元為中心） =================
        原本的功能卡片（id、事件都不變）在這裡搬到新的位置：
          單元頁：題目＝匯入卡＋錯誤分析卡、出題設定＝單元設定表（只顯示這個單元）、成績與錯題＝成績卡（篩選這個單元）、補作＝補作卡
-         學生＝名單匯入＋查詢刪除、成績＝同步卡＋成績卡、設定＝AI、出題規則、錯誤分析引擎、危險區＝刪除單元紀錄＋學期結算
+         學生＝名單匯入＋查詢刪除、成績＝同步卡＋成績卡、錯誤分析＝各單字單元的分析狀態與引擎設定、設定＝AI、出題規則、危險區＝刪除單元紀錄＋學期結算
        網址：#overview、#units、#unit/<代號>/<content|settings|scores|makeup>、#students、#scores、#settings */
     var shell = $('shell');
     var slot = function (k) { return document.querySelector('[data-slot="' + k + '"]'); };
@@ -4309,10 +4371,10 @@
       ai.open = true; pr.open = false; br.open = true;
       slot('settings-main').appendChild(wrapCard('AI 出題', ai));
       slot('settings-main').appendChild(wrapCard('AI 出題規則', pr));
-      slot('settings-main').appendChild(wrapCard('錯誤分析引擎', br));
+      // 錯誤分析引擎的設定搬到「錯誤分析」頁（anMount）
       slot('danger').appendChild(cardOf('pu-go'));
       slot('danger').appendChild(cardOf('sem-reset'));
-      // 錯誤分析卡：引擎設定搬到「設定」後，這張卡只留分析單元的按鈕
+      // 錯誤分析卡：單元頁只留狀態和「去分析」（anMount）
       $('an-card').hidden = false;
     })();
 
@@ -4418,7 +4480,7 @@
         if (s === 'empty' && u.visible) items.push({ ic: 'file', tone: 'navy', text: '<b>' + esc(u.title) + '</b> 還沒有匯入題目<span class="att-more">，學生看到的是「尚未開放」</span>', unit: u.id, tab: 'content', act: '匯入' });
         if (s === 'later' && twMs(u.openAt) - Date.now() < 7 * 86400000) items.push({ ic: 'cal', tone: 'navy', text: '<b>' + esc(u.title) + '</b> ' + fmtTw(u.openAt) + ' 開放', unit: u.id, tab: 'settings', act: '檢查設定' });
       });
-      var pend = $('br-pending-list'); if (pend && !$('br-pending').hidden && pend.textContent.trim()) items.push({ ic: 'cpu', tone: 'navy', text: '錯誤分析待處理：<b>' + esc(pend.textContent.trim()) + '</b><span class="att-more">（題目改過，還沒重新分析）</span>', view: 'settings', act: '前往' });
+      var pend = $('br-pending-list'); if (pend && !$('br-pending').hidden && pend.textContent.trim()) items.push({ ic: 'cpu', tone: 'navy', text: '錯誤分析待處理：<b>' + esc(pend.textContent.trim()) + '</b><span class="att-more">（題目改過，還沒重新分析）</span>', view: 'analysis', act: '前往' });
       $('ov-att').innerHTML = items.length ? items.map(function (a, i) {
         return '<div class="att-row" data-att="' + i + '"><span class="att-ic ' + (a.tone || '') + '">' + IC[a.ic] + '</span><div>' + a.text + '</div><button class="btn small" type="button" data-att="' + i + '">' + a.act + ' ›</button></div>';
       }).join('') : '<p class="muted" style="margin:0">目前沒有需要處理的事。</p>';
@@ -4622,6 +4684,7 @@
       if (v === 'scores') { slot('scores').appendChild(cardOf('load')); $('f-unit').value = ''; if (typeof syncStatus === 'function') syncStatus(); }
       if (v === 'settings' && typeof puLoad === 'function') puLoad();
       if (v === 'overview') drawOverview();
+      if (v === 'analysis' && window.drawAnalysis) { window.drawAnalysis(); if (window.anApi) window.anApi.refresh(); if (window.anEngine) window.anEngine(); }
       if (v === 'live') {
         var titles = {}; units.forEach(function (u) { titles[u.id] = u.title || u.id; });
         if (!window.fbAttempts) $('live-frame').innerHTML = '<section class="card"><p class="muted" style="margin:0">網站版後台才看得到即時監控。</p></section>';
@@ -4633,7 +4696,7 @@
     function route() {
       var h = decodeURIComponent((location.hash || '#overview').slice(1)).split('/');
       if (h[0] === 'unit' && h[1]) { if (units.some(function (u) { return u.id === h[1]; })) { openUnit(h[1], h[2]); return; } }
-      var v = ['overview', 'units', 'live', 'students', 'scores', 'settings', 'help'].indexOf(h[0]) >= 0 ? h[0] : 'overview';
+      var v = ['overview', 'units', 'live', 'students', 'scores', 'analysis', 'settings', 'help'].indexOf(h[0]) >= 0 ? h[0] : 'overview';
       showView(v);
       // 按 ＋（新增單元）：直接到新增單元畫面，不先閃一下單元清單
       shell.dataset.pane = v === 'units' && !SH.wantNew ? 'list' : 'work';
@@ -4947,37 +5010,93 @@
     /* ----- 錯誤分析卡（只有單字片語單元）：精簡成一列「在哪裡分析＋開始分析」，上傳檔案收進進階 ----- */
     (function anMount() {
       var an = $('an-card'); if (!an) return;
-      var where = $('br-where'), go = $('br-go');
-      var head = document.createElement('div'); head.className = 'nv-panel-h';
-      head.innerHTML = '<h2>錯誤分析</h2><span class="pill" id="an-state"></span><div class="r"><div class="nv-seg" role="radiogroup" aria-label="在哪裡分析">' +
-        '<label><input type="radio" name="an-where" value="local"><span>這台電腦</span></label><label><input type="radio" name="an-where" value="cloud"><span>雲端</span></label></div></div>';
-      head.querySelector('.r').appendChild(go);
-      go.textContent = '開始分析'; go.classList.remove('primary'); go.classList.add('navy');
-      var lead = document.createElement('p'); lead.className = 'nv-lead';
-      lead.textContent = '分析後，例句選字題會避開「放進句子也說得通」的選項，並加入課外干擾選項；不會改題目和成績。這台電腦較快，但要先開本機分析引擎。引擎網址與金鑰在「設定」。';
-      var adv = document.createElement('details'); adv.className = 'nv-adv';
-      adv.innerHTML = '<summary>上傳在電腦上分析好的檔案</summary>';
-      var upBar = $('an-file').closest('.bar'), upTitle = upBar.previousElementSibling;
-      adv.appendChild(upBar);
-      var msg = $('br-msg'); msg.style.display = 'block'; msg.style.marginBottom = '8px'; an.appendChild(msg);
-      [].slice.call(an.children).forEach(function (c) { if (c.id !== 'br-pending' && c.id !== 'br-live' && c.id !== 'br-msg' && c.tagName !== 'DETAILS') c.remove(); else if (c.tagName === 'DETAILS' && !c.querySelector('#br-url')) c.remove(); });
-      if (upTitle && upTitle.parentNode) upTitle.remove();
-
-      an.insertBefore(msg, an.firstChild); an.appendChild(adv); an.insertBefore(lead, msg); an.insertBefore(head, lead);
-      where.hidden = true; an.appendChild(where);
-      var sync = function () { [].forEach.call(head.querySelectorAll('[name="an-where"]'), function (r) { r.checked = r.value === where.value; }); };
-      head.addEventListener('change', function (e) { if (e.target.name === 'an-where') { where.value = e.target.value; where.dispatchEvent(new Event('change')); } });
-      sync();
-      // 這個單元的分析狀態：在待分析清單裡＝要重新分析
+      // 共用的元件搬到「錯誤分析」頁：訊息、進度、引擎設定、上傳檔案；待分析清單只當資料用（總覽的提醒讀它）
+      var slotMsg = $('an-msg-slot'), adv = $('an-adv'), hold = $('an-hold');
+      var msgEl = $('br-msg'); slotMsg.appendChild(msgEl);
+      hold.appendChild($('br-pending')); hold.appendChild($('br-where')); hold.appendChild($('br-go'));
+      var live = $('br-live'); hold.appendChild(live);
+      var eng = $('br-url').closest('details'); eng.open = false;
+      var engCard = eng.closest('.card'); // 原本被包成設定頁的卡片：拿出來後把空卡片移掉
+      eng.querySelector('summary').textContent = '引擎設定（網址與金鑰）'; eng.className = 'an-fold';
+      adv.appendChild(eng);
+      if (engCard && engCard !== an && !engCard.querySelector('input,select,textarea,button')) engCard.remove();
+      var up = document.createElement('details'); up.className = 'an-fold'; up.innerHTML = '<summary>上傳在電腦上分析好的檔案</summary>';
+      up.appendChild($('an-file').closest('.bar')); adv.appendChild(up);
+      // 單元「題目」分頁只留狀態和「去分析」
+      an.className = 'card an-mini';
+      an.innerHTML = '<div class="nv-panel-h"><h2>錯誤分析</h2><span class="pill" id="an-state"></span><div class="r"><a class="btn small" id="an-goto" href="#analysis">去分析</a></div></div>';
+      $('an-goto').onclick = function () { AN.focus = (curUnit() || {}).id || ''; };
+      // 在哪裡分析：沿用原本的設定
+      var where = $('br-where');
+      var syncWhere = function () { [].forEach.call(document.querySelectorAll('[name="an-where2"]'), function (r) { r.checked = r.value === where.value; }); };
+      document.querySelector('[data-pane-view="analysis"] .nv-seg').addEventListener('change', function (e) {
+        if (e.target.name !== 'an-where2') return; where.value = e.target.value; where.dispatchEvent(new Event('change')); window.anEngine();
+      });
+      syncWhere();
+      var AN = window.AN = { running: '', focus: '' };
+      var fmtAt = function (t) { if (!t) return ''; var d = new Date(t), p = function (n) { return ('0' + n).slice(-2); }; return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); };
+      var ST = { ok: ['good', '已分析'], stale: ['warn', '題目改過，待分析'], none: ['muted', '還沒分析'], empty: ['muted', '還沒有題目'], err: ['bad', '讀取失敗'] };
+      // 引擎狀態：這台電腦的引擎有沒有開、雲端有沒有設定
+      window.anEngine = function () {
+        var el = $('an-eng'); if (!el || !window.anApi) return;
+        if (where.value === 'local') {
+          el.className = 'an-eng'; el.textContent = '檢查這台電腦的引擎…';
+          window.anApi.localUp().then(function (ok) {
+            el.className = 'an-eng ' + (ok ? 'good' : 'bad');
+            el.textContent = ok ? '這台電腦的引擎已開啟' : '引擎沒開：雙擊 tools/brain 的 start-local-engine.bat';
+          });
+        } else {
+          var ok = window.anApi.hasCloud() && window.anApi.hasKey();
+          el.className = 'an-eng ' + (ok ? 'good' : 'bad'); el.textContent = ok ? '雲端引擎已設定' : '雲端還沒設定：在下方「引擎設定」填網址與金鑰';
+        }
+      };
+      window.drawAnalysis = function () {
+        var box = $('an-list'); if (!box || !window.anApi) return;
+        var info = window.anApi.info();
+        var list = (typeof units !== 'undefined' ? units : []).filter(function (u) { return u.type === 'vocab'; });
+        if (!list.length) { box.innerHTML = '<p class="muted" style="margin:0">還沒有單字片語單元</p>'; return; }
+        // 進度條先拿出來（重畫不會把它刪掉）
+        hold.appendChild(live);
+        var order = { stale: 0, none: 1, err: 2, ok: 3, empty: 4 };
+        list = list.slice().sort(function (a, b) { var x = info[a.id], y = info[b.id]; return (x ? order[x.st] : 5) - (y ? order[y.st] : 5); });
+        box.innerHTML = list.map(function (u) {
+          var it = info[u.id], st = it ? ST[it.st] : ['muted', '讀取中…'], run = AN.running === u.id;
+          return '<div class="an-row' + (run ? ' running' : '') + (AN.focus === u.id ? ' focus' : '') + '" data-an="' + esc(u.id) + '">' +
+            '<div class="an-name"><b>' + esc(u.title || u.id) + '</b><span class="an-meta">' + (it && it.n ? it.n + ' 個字' : '') + (it && it.at ? '<span>・' + fmtAt(it.at) + '</span>' : '') + '</span></div>' +
+            '<span class="pill ' + (run ? 'navy' : st[0]) + '">' + (run ? '分析中' : st[1]) + '</span>' +
+            '<button class="btn small' + (it && (it.st === 'stale' || it.st === 'none') ? ' navy' : '') + '" type="button" data-an-go="' + esc(u.id) + '"' + (AN.running || !it || it.st === 'empty' ? ' disabled' : '') + '>' + (it && it.st === 'ok' ? '重新分析' : '分析') + '</button>' +
+            '<div class="an-prog"></div></div>';
+        }).join('');
+        if (AN.running) { var row = box.querySelector('[data-an="' + AN.running + '"] .an-prog'); if (row) { row.appendChild(live); live.hidden = false; } }
+        var todo = list.filter(function (u) { var it = info[u.id]; return it && (it.st === 'stale' || it.st === 'none'); });
+        var all = $('an-all'); all.disabled = !!AN.running || !todo.length; all.textContent = todo.length ? '全部分析（' + todo.length + '）' : '全部分析';
+        if (AN.focus) { var f = box.querySelector('.an-row.focus'); if (f) { f.scrollIntoView({ block: 'center' }); setTimeout(function () { AN.focus = ''; if (f.isConnected) f.classList.remove('focus'); }, 1800); } }
+      };
+      var runOne = function (u) {
+        AN.running = u.id; window.drawAnalysis();
+        return window.anApi.run(u).then(function () { AN.running = ''; window.drawAnalysis(); }, function () { AN.running = ''; window.drawAnalysis(); });
+      };
+      $('an-list').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-an-go]'); if (!b || AN.running) return;
+        var u = units.filter(function (x) { return x.id === b.dataset.anGo; })[0]; if (u) runOne(u);
+      });
+      $('an-all').onclick = function () {
+        var info = window.anApi.info();
+        var todo = units.filter(function (u) { var it = info[u.id]; return u.type === 'vocab' && it && (it.st === 'stale' || it.st === 'none'); });
+        todo.reduce(function (p, u) { return p.then(function () { return runOne(u); }); }, Promise.resolve());
+      };
+      // 單元「題目」分頁的狀態
       window.anState = function () {
         var u = curUnit(), st = $('an-state'); if (!u || !st) return;
         an.hidden = u.type !== 'vocab' || !window.fastPublish;
-        var list = ($('br-pending-list').textContent || '').split('、');
-        var need = !$('br-pending').hidden && list.indexOf(u.title || u.id) >= 0;
-        st.className = 'pill ' + (need ? 'warn' : 'good'); st.textContent = need ? '題目改過，還沒重新分析' : '已分析';
-        if (!ucCount(u)) { st.className = 'pill muted'; st.textContent = '還沒有題目'; }
+        var it = window.anApi ? window.anApi.info()[u.id] : null;
+        var k = it ? it.st : (ucCount(u) ? null : 'empty');
+        var x = k ? ST[k] : ['muted', '讀取中…'];
+        st.className = 'pill ' + x[0]; st.textContent = AN.running === u.id ? '分析中' : x[1];
       };
       new MutationObserver(function () { window.anState(); }).observe($('br-pending'), { attributes: true, childList: true, subtree: true });
+      var draw0 = window.drawAnalysis;
+      window.drawAnalysis = function () { draw0(); window.anState(); };
     })();
     var showTabAN = showTab;
     showTab = function (tab) { showTabAN(tab); if (tab === 'content' && window.anState) window.anState(); };
@@ -5351,7 +5470,7 @@
       };
       flat($('ai-box'));
       flat($('pr-box'), true);
-      flat($('br-url').closest('details'));
+      // 錯誤分析引擎的設定已經搬到「錯誤分析」頁（摺起來，保留標題）
     })();
 
 
@@ -5694,7 +5813,7 @@
       var paint = function () {
         if (!window.fastPublish) return;
         var list = ($('br-pending-list').textContent || '').trim();
-        if (!$('br-pending').hidden && list) sysSet('analysis', 'warn', list + '：題目改過，還沒重新分析', { label: '前往', run: function () { var u = units.filter(function (x) { return list.split('、').indexOf(x.title || x.id) >= 0; })[0]; if (u) location.hash = '#unit/' + encodeURIComponent(u.id) + '/content'; } });
+        if (!$('br-pending').hidden && list) sysSet('analysis', 'warn', list + '：題目改過，還沒重新分析', { label: '前往', run: function () { var u = units.filter(function (x) { return list.split('、').indexOf(x.title || x.id) >= 0; })[0]; if (window.AN && u) window.AN.focus = u.id; location.hash = '#analysis'; } });
         else sysSet('analysis', 'ok', '單字單元都分析好了');
       };
       new MutationObserver(paint).observe($('br-pending'), { attributes: true, childList: true, subtree: true });
@@ -5749,7 +5868,8 @@
       var sheet = document.createElement('div'); sheet.className = 'm-sheet'; sheet.id = 'm-sheet'; sheet.hidden = true;
       sheet.innerHTML = '<div class="m-scrim" data-close></div><div class="m-panel" role="dialog" aria-label="更多"><span class="m-grip" aria-hidden="true"></span>' +
         '<a href="#students" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M16 4.5a3.5 3.5 0 010 7"/><path d="M18 14a6 6 0 013.5 6"/></svg></span><span><b>學生</b><small>名單、補作延長、個別學生的成績</small></span></a>' +
-        '<a href="#settings" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span><span><b>設定</b><small>AI 出題、錯誤分析引擎、學期結算</small></span></a>' +
+        '<a href="#analysis" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/><path d="M7.5 11l2 2 4-4.5"/></svg></span><span><b>錯誤分析</b><small>單字片語單元的選項分析</small></span></a>' +
+        '<a href="#settings" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span><span><b>設定</b><small>AI 出題、學期結算</small></span></a>' +
         '<a href="#help" class="m-item" data-close><span class="m-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 21V5M8 7h7M8 11h7"/></svg></span><span><b>教學</b><small>完整說明與一步一步的導覽</small></span></a>' +
         '<div class="m-acct" id="m-acct" hidden><span class="m-acct-id"><b id="m-acct-name"></b><small id="m-acct-email"></small></span><button class="btn small" type="button" id="m-switch">切換帳號</button><button class="btn small m-out" type="button" id="m-out">登出</button></div>' +
         '<button class="btn m-cancel" type="button" data-close>關閉</button></div>';
@@ -5783,13 +5903,13 @@
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !sheet.hidden) { open(false); more.focus(); } });
       rail.addEventListener('click', function (e) { if (e.target.closest('a[data-view="units"]') && SH.view === 'units' && shell.dataset.pane === 'work') { shell.dataset.pane = 'list'; paintMobileTop(); } });
       $('m-top-back').onclick = function () { if (SH.view === 'units') { shell.dataset.pane = 'list'; paintMobileTop(); } else location.hash = '#units'; };
-      var NAMES = { overview: '總覽', units: '單元', live: '即時監控', students: '學生', scores: '成績', settings: '設定', help: '教學' };
+      var NAMES = { overview: '總覽', units: '單元', live: '即時監控', students: '學生', scores: '成績', analysis: '錯誤分析', settings: '設定', help: '教學' };
       window.paintMobileTop = function () {
         var v = SH.view, u = v === 'unit' ? curUnit() : null;
         $('m-top-title').textContent = u ? (u.title || u.id) : NAMES[v] || '';
         $('m-top-back').hidden = !(v === 'unit' || (v === 'units' && shell.dataset.pane === 'work'));
         if (v === 'units' && shell.dataset.pane === 'work') $('m-top-title').textContent = '新增單元';
-        more.classList.toggle('on', v === 'students' || v === 'settings' || v === 'help');
+        more.classList.toggle('on', v === 'students' || v === 'analysis' || v === 'settings' || v === 'help');
         // ＋：在新增單元的畫面是選取中（膠囊框住它，加號與「新增」變黃色）
         fab.classList.toggle('on', v === 'units' && shell.dataset.pane === 'work');
         fab.setAttribute('aria-current', fab.classList.contains('on') ? 'page' : 'false');
