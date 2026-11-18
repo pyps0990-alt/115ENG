@@ -90,6 +90,17 @@ await step('手機總覽：有錯誤分析卡（待分析幾個、是哪幾個�
   const z = await m.evaluate(() => { const r = document.querySelector('.rail').getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { work: getComputedStyle(document.querySelector('.work')).zIndex, onTop: !!(el && el.closest('.rail')) }; });
   assert.equal(z.work, '0'); assert.ok(z.onTop, '分頁列在最上層');
 });
+await step('有待分析的單元：左邊選單「分析」標數字；手機頭像加一圈、選單裡標數字', async () => {
+  await t.goto(world.base + '/admin.html#overview'); await sleep(3500);
+  assert.match(await t.getAttribute('#rail-an', 'data-badge'), /^[1-9]/);
+  const mc = await world.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }); await seed(mc);
+  const m = await world.newPage(mc, { staff: 'teacher@example.com' });
+  await m.goto(world.base + '/admin.html#overview'); await sleep(3500);
+  assert.equal(await m.evaluate(() => document.getElementById('who-btn').classList.contains('has-an')), true);
+  assert.match(await m.textContent('#who-btn .sr'), /待分析/);
+  await m.tap('#who-btn'); await sleep(400);
+  assert.match(await m.textContent('#m-an-n'), /^[1-9]/);
+});
 await step('沒有 JS 錯誤', async () => { assert.deepEqual(errs, []); });
 await world.close();
 if (bad) { console.log(bad + ' 項失敗'); process.exit(1); }
