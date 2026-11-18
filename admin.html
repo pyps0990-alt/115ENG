@@ -1491,6 +1491,18 @@
     html.dark .uc-passage:not(.open)::after { background:linear-gradient(transparent, var(--card)); }
     html.dark #work .w-head .w-sub .pill.warn { color:var(--amber-ink); }
     html.dark .br-pending, html.dark .lint li.warn, html.dark tr.row-warn td { background:#2A2110; color:var(--amber-ink); border-color:#5C4614; }
+    /* 匯入檢查（深色）：原文那一行用深底淺字（原本是淺灰底配淺色字，看不清楚）；錯誤是深紅底、提醒是深琥珀底 */
+    html.dark .lint li, html.dark tr.row-err td { background:#2A1417; color:#FCA5A5; border-color:#5C2329; }
+    html.dark .lint li.warn { background:#2A2110; color:#FCD34D; border-color:#5C4614; }
+    html.dark .lint .src { background:rgba(0,0,0,.32); color:#E2E8F0; box-shadow:inset 0 0 0 1px rgba(255,255,255,.06); }
+    html.dark .lint .src:empty::before { color:#94A3B8; }
+    html.dark .lint .jump { background:transparent; }
+    html.dark .lint .jump:hover span { color:#14110A; }
+    html.dark .st-warn { color:#FBBF24; }
+    html.dark .st-err { color:#FCA5A5; }
+    html.dark #work tbody tr:hover td { background:#18233A; } /* 表格滑過：原本是淺色底，深色模式下整列變白、字看不見 */
+    html.dark #work tbody tr.row-warn:hover td { background:#33280F; }
+    html.dark #work tbody tr.row-err:hover td { background:#33181C; }
     html.dark tr.row-err td, html.dark .danger-zone, html.dark #work .card.nv-danger-card { background:#2A1416; border-color:#5A2328; }
     html.dark .strip i, html.dark .usc-legend i { background:#2B3854; }
     html.dark input[type=checkbox] { border-color:var(--edge); }
