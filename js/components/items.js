@@ -51,9 +51,24 @@ export function applyScore(q, built) {
 // 題目文字裡的空格（____）畫成底線
 export const blankHTML = (s) => esc(s).replace(/_{2,}/g, '<span class="blank"></span>');
 
-export function flattenPattern(items) {
-  return (items || []).map((it, i) => ({ id: `i${i}`, kind: it.type, label: KIND_LABEL[it.type] || '', tag: it.tag || '', stem: it.q || it.zh || '', hint: it.hint || '', zh: it.zh || '', words: it.words || [], options: it.options || [], answer: it.answer ?? (it.type === 'apply' && it.words ? it.words.join(' ') : undefined), explain: it.explain || '' })); // 應用題沒填答案：題目給的單字順序就是答案
+// 選擇題的答案統一成選項索引：存成 1、"1"、"B"、"B."、或直接寫選項原文都認得；認不出來就是 undefined（畫面上不顯示）
+export function mcIndex(a, options) {
+  if (a == null || a === '') return undefined;
+  const opts = (options || []).map((o) => String(o).trim().toLowerCase());
+  const ok = (i) => (Number.isInteger(i) && i >= 0 && i < opts.length ? i : undefined);
+  if (typeof a === 'number') return ok(a);
+  const s = String(a).trim();
+  if (/^\d+$/.test(s)) return ok(Number(s));
+  const m = /^([A-J])\.?$/i.exec(s);
+  if (m) return ok(KEYS.indexOf(m[1].toUpperCase()));
+  const byText = opts.indexOf(s.replace(/^[A-J]\.\s*/i, '').toLowerCase());
+  return byText >= 0 ? byText : undefined;
 }
+export function flattenPattern(items) {
+  return (items || []).map((it, i) => ({ id: `i${i}`, kind: it.type, label: KIND_LABEL[it.type] || '', tag: it.tag || '', stem: it.q || it.zh || '', hint: it.hint || '', zh: it.zh || '', words: it.words || [], options: it.options || [],
+    answer: it.type === 'mc' ? mcIndex(it.answer, it.options) : it.answer ?? (it.type === 'apply' && it.words ? it.words.join(' ') : undefined), explain: it.explain || '' })); // 應用題沒填答案：題目給的單字順序就是答案
+}
+const hasMc = (q) => Number.isInteger(q.answer) && q.answer >= 0 && q.answer < (q.options || []).length;
 
 // 答錯後顯示：你的答案（錯的地方標出來）＋正確答案（你漏掉的字標出來）
 export function wrongLineHTML(yours, alts) {
@@ -61,7 +76,7 @@ export function wrongLineHTML(yours, alts) {
   return `${d.yoursHTML ? `<div>你的答案：<b class="en" lang="en">${d.yoursHTML}</b></div>` : ''}<div>正確答案：<b class="en" lang="en">${d.correctHTML}</b></div>`;
 }
 
-export const correctText = (q) => (q.kind === 'mc' ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : altsOf(q).slice(0, 4).join(' / '));
+export const correctText = (q) => (q.kind === 'mc' ? (hasMc(q) ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : '') : altsOf(q).slice(0, 4).join(' / '));
 export const isChoice = (q) => q.kind === 'mc';
 
 // 從「A. 選項文字」找回選項索引（Firestore 讀回的紀錄用）
@@ -71,7 +86,7 @@ export function choiceIndex(yours) {
 }
 
 export function judge(q, yours) {
-  if (isChoice(q)) return String(yours || '') === correctText(q);
+  if (isChoice(q)) return hasMc(q) && String(yours || '') === correctText(q);
   if (q.kind === 'apply') return fillOk(q, yours);
   return fillOk(q, yours);
 }
@@ -288,7 +303,7 @@ export function explainHTML(q) {
 // 題幹裡的空格填入正確答案，整句讀一遍：「完整句子」（沒有空格的題目回傳空字串）
 export function filledStemHTML(q) {
   if (!q.stem || !/_{2,}/.test(q.stem)) return '';
-  const ans = isChoice(q) ? q.options[q.answer] : altsOf(q)[0];
+  const ans = isChoice(q) ? (hasMc(q) ? q.options[q.answer] : '') : altsOf(q)[0];
   if (!ans) return '';
   return esc(q.stem).replace(/_{2,}/g, `<mark class="fill-ok">${esc(ans)}</mark>`);
 }
@@ -298,7 +313,7 @@ export function explainBlockHTML(q, ok) {
   const text = String(q.explain || '').trim();
   const body = text
     ? text.split(/\n+/).map((l) => `<p>${esc(l)}</p>`).join('')
-    : `<p class="muted">這題沒有附解析。正確答案是 <b class="en" lang="en">${esc(isChoice(q) ? `${KEYS[q.answer]}. ${q.options[q.answer]}` : altsOf(q)[0] || '')}</b>。</p>`;
+    : correctText(q) ? `<p class="muted">這題沒有附解析。正確答案是 <b class="en" lang="en">${esc(isChoice(q) ? correctText(q) : altsOf(q)[0] || '')}</b>。</p>` : '<p class="muted">這題沒有附解析。</p>';
   return `<div class="explain explain-full">${body}</div>`;
 }
 
@@ -318,7 +333,7 @@ export function reviewCardHTML(q, yours, extra = '', no = null) {
     const mark = j === q.answer ? icon.check : j === a ? icon.x : '';
     return `<div class="opt ${cls}"><span class="opt-key">${KEYS[j]}</span><span class="opt-text en" lang="en">${esc(o)}</span><span class="opt-mark" aria-hidden="true">${mark}</span></div>`;
   }).join('')}</div>
-      <div class="explain-wrap"><b class="ex-head ${ok ? 'ok' : 'no'}">${ok ? `${icon.check} 答對・正解 ${KEYS[q.answer]}` : a == null ? `${icon.x} 未作答・正解 ${KEYS[q.answer]}` : `${icon.x} 你選 ${KEYS[a]}・正解 ${KEYS[q.answer]}`}</b>${explainBlockHTML(q, ok)}</div>
+      <div class="explain-wrap"><b class="ex-head ${ok ? 'ok' : 'no'}">${ok ? `${icon.check} 答對・正解 ${KEYS[q.answer]}` : `${icon.x} ${a == null ? '未作答' : `你選 ${KEYS[a]}`}${hasMc(q) ? `・正解 ${KEYS[q.answer]}` : ''}`}</b>${explainBlockHTML(q, ok)}</div>
     </div>`;
   }
   const prompt = q.kind === 'apply' ? esc(q.zh) : blankHTML(q.stem);
