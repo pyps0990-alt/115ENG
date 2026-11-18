@@ -1605,6 +1605,13 @@
     html.dark .an-eng.good { color:#4ADE80; } html.dark .an-eng.bad { color:#FBBF24; }
     html.dark .pill.bad { background:#3B1418; color:#FCA5A5; }
     html.dark .pill.navy { background:#2B4BB5; color:#fff; }
+    /* 手機：捲動的內容區自成一層、放在分頁列下面（iPhone 會把捲動區升成獨立圖層，蓋到固定在下方的分頁列） */
+    @media (max-width:900px) { .work { z-index:0; isolation:isolate; } }
+    /* 總覽的錯誤分析卡 */
+    .ov-an { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
+    .ov-an-n { font-size:1.6rem; font-weight:900; color:var(--ink); font-variant-numeric:tabular-nums; line-height:1; }
+    .ov-an-list { flex:1 1 200px; min-width:0; color:var(--muted); font-weight:700; font-size:.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ov-an .btn { margin-left:auto; }
   </style>
 </head>
 <body>
@@ -1650,6 +1657,7 @@
           <div class="ov-grid">
             <section class="card"><div class="card-h"><h2>需要處理</h2><span class="pill" id="ov-att-n"></span></div><div id="ov-att" class="att"><p class="muted">讀取中…</p></div></section>
             <section class="card ov-asg-card" id="ov-asg-card"><div class="card-h"><h2>指派作業</h2><button class="btn small" type="button" id="ov-asg-add" style="margin-left:auto">＋ 指派作業</button></div><div id="ov-asg" class="asg-list"><p class="muted" style="margin:0">讀取中…</p></div></section>
+            <section class="card ov-an-card" id="ov-an-card" hidden><div class="card-h"><h2>錯誤分析</h2><span class="pill" id="ov-an-pill"></span></div><div class="ov-an" id="ov-an"></div></section>
             <section class="card"><div class="card-h"><h2>剛交卷</h2><span class="muted small" id="ov-today"></span><a class="btn small" href="#live" style="margin-left:auto">即時監控</a></div><div id="ov-stream" class="stream"><p class="muted">讀取中…</p></div></section>
           </div>
         </div>
@@ -5120,8 +5128,19 @@
         st.className = 'pill ' + x[0]; st.textContent = AN.running === u.id ? '分析中' : x[1];
       };
       new MutationObserver(function () { window.anState(); }).observe($('br-pending'), { attributes: true, childList: true, subtree: true });
+      // 總覽也放一張：待分析幾個、是哪幾個，點了直接到錯誤分析頁（手機不用再從頭像選單找）
+      var drawOv = function () {
+        var card = $('ov-an-card'); if (!card || !window.anApi) return;
+        var info = window.anApi.info(), vocab = units.filter(function (u) { return u.type === 'vocab'; });
+        card.hidden = !vocab.length || !window.fastPublish;
+        var todo = vocab.filter(function (u) { var it = info[u.id]; return it && (it.st === 'stale' || it.st === 'none'); });
+        var pill = $('ov-an-pill');
+        pill.className = 'pill ' + (todo.length ? 'warn' : 'good'); pill.textContent = todo.length ? todo.length + ' 個待分析' : '都分析好了';
+        $('ov-an').innerHTML = (todo.length ? '<span class="ov-an-list">' + esc(todo.map(function (u) { return u.title || u.id; }).join('、')) + '</span>' : '<span class="ov-an-list">' + vocab.length + ' 個單字單元</span>') +
+          '<a class="btn small' + (todo.length ? ' navy' : '') + '" href="#analysis">' + (todo.length ? '去分析' : '查看') + '</a>';
+      };
       var draw0 = window.drawAnalysis;
-      window.drawAnalysis = function () { draw0(); window.anState(); };
+      window.drawAnalysis = function () { draw0(); window.anState(); drawOv(); };
     })();
     var showTabAN = showTab;
     showTab = function (tab) { showTabAN(tab); if (tab === 'content' && window.anState) window.anState(); };

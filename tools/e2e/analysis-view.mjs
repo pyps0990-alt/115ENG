@@ -79,6 +79,17 @@ await step('手機：右上角頭像打開的選單裡有錯誤分析', async ()
   assert.equal(await m.isVisible('[data-pane-view="analysis"]'), true);
   assert.match(await m.textContent('#m-top-title'), /錯誤分析/);
 });
+await step('手機總覽：有錯誤分析卡（待分析幾個、是哪幾個），點「去分析」直接到錯誤分析頁；捲動的內容在分頁列下面', async () => {
+  const mc = await world.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }); await seed(mc);
+  const m = await world.newPage(mc, { staff: 'teacher@example.com' });
+  await m.goto(world.base + '/admin.html#overview'); await sleep(3500);
+  await m.waitForSelector('#ov-an-card:not([hidden])');
+  assert.match(await m.textContent('#ov-an-card'), /個待分析|都分析好了/);
+  await m.tap('#ov-an a[href="#analysis"]'); await sleep(1200);
+  assert.equal(await m.isVisible('[data-pane-view="analysis"]'), true);
+  const z = await m.evaluate(() => { const r = document.querySelector('.rail').getBoundingClientRect(); const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { work: getComputedStyle(document.querySelector('.work')).zIndex, onTop: !!(el && el.closest('.rail')) }; });
+  assert.equal(z.work, '0'); assert.ok(z.onTop, '分頁列在最上層');
+});
 await step('沒有 JS 錯誤', async () => { assert.deepEqual(errs, []); });
 await world.close();
 if (bad) { console.log(bad + ' 項失敗'); process.exit(1); }
