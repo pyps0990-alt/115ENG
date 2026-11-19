@@ -1,0 +1,21 @@
+# 錯誤分析引擎・自動分析版（Cloud Run GPU：NVIDIA L4）
+# 老師存了單字單元 → Firestore 事件（Eventarc）→ 這個服務的 /event → 分析並寫回 public/analysis_<單元>（見 DEPLOY-AUTO.md）
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 NLTK_DATA=/app/nltk_data HF_HOME=/app/models PIP_NO_CACHE_DIR=1
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu128 \
+ && pip install -r requirements.txt
+
+# 字典、中文斷詞、兩個語言模型（Qwen2.5-1.5B／-Instruct）建置時就下載好：冷啟動不用等下載
+RUN python -c "import nltk; [nltk.download(p, download_dir='/app/nltk_data', quiet=True) for p in ('wordnet','cmudict','averaged_perceptron_tagger_eng')]" \
+ && python -c "import jieba; jieba.initialize()" \
+ && python -c "from transformers import AutoTokenizer, AutoModelForCausalLM; [(AutoTokenizer.from_pretrained(m), AutoModelForCausalLM.from_pretrained(m)) for m in ('Qwen/Qwen2.5-1.5B', 'Qwen/Qwen2.5-1.5B-Instruct')]"
+
+COPY . .
+# 單字表：打包時沒有放（老師電腦上沒有 wordbank/）就從 Hugging Face 的 nhmccyj/b5-wordbank 下載大考中心詞彙表
+RUN mkdir -p wordbank && if [ -z "$(ls wordbank)" ]; then python -c "import urllib.request, urllib.parse; n='大考中心詞彙表_Level1-6.csv'; urllib.request.urlretrieve('https://huggingface.co/datasets/nhmccyj/b5-wordbank/resolve/main/' + urllib.parse.quote(n), 'wordbank/bank0.csv')"; fi \
+ && python -c "import wordbank; n=len(wordbank.load()); print('單字表', n, '個字'); assert n > 1000"
+CMD exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}

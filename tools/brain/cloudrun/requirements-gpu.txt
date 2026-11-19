@@ -1,0 +1,9 @@
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+transformers>=4.56,<5
+accelerate
+nltk==3.10.3
+jieba==0.42.1
+lemminflect==0.2.3
+google-auth
+requests

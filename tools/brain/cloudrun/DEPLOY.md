@@ -48,3 +48,7 @@ curl https://<Service URL>/health
 - 用法：雙擊 `tools\brain\start-local-engine.bat`，後台「錯誤分析」選「用這台電腦分析」，或按「全部用這台電腦分析」處理待分析的單元。
 - Cloud Run 上的服務維持舊版（DistilRoBERTa）當備援，**不要再重新部署**：新版模型在沒有 GPU 的 Cloud Run 上會非常慢，映像檔也要另外下載 Qwen 模型。
 - 老師多標一批「不適合」的課外選項後，執行 `.venv\Scripts\python train_lm.py` 重新訓練判斷門檻。
+
+## 2026-11 起：自動分析（不用開網頁）
+
+老師存了單字單元就自動分析並寫回網站：另一個服務 `b5-brain-auto`（Cloud Run GPU＋Firestore 事件），步驟見 `DEPLOY-AUTO.md`。這裡的 `b5-brain` 維持原樣。
