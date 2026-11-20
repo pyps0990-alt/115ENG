@@ -7,6 +7,20 @@
 - GPU：NVIDIA L4，一個單元約 1～2 分鐘（冷啟動另外約 1 分鐘）
 - 程式：`cloudrun/main.py` 的 `/event`（事件）、`/sweep`（把所有待分析的單元補做一次）
 
+## 最快：在 Cloud Shell 一鍵設定（手機、電腦都可以）
+
+1. 打開 https://console.cloud.google.com/?project=eng-3385e&cloudshell=true （用 Firebase 專案擁有者的帳號），下面會開出 Cloud Shell
+2. 貼上（第一次 clone 會問 GitHub 帳號與 Personal access token：GitHub → Settings → Developer settings → Personal access tokens，勾 repo 權限）：
+
+```
+git clone -b claude/gallant-davinci-6245iy https://github.com/pyps0990-alt/115ENG.git && cd 115ENG
+bash tools/brain/cloudrun/setup-auto.sh
+```
+
+3. 跑完會列出補做的結果。之後只想補做一次待分析的單元：`bash tools/brain/cloudrun/setup-auto.sh sweep`
+
+下面是同樣的步驟拆開來（想在自己電腦一步一步做時參考）。
+
 以下指令在 `tools\brain` 資料夾、用 Windows 命令提示字元（cmd）執行。`gcloud` 要先 `gcloud auth login` 用 Firebase 專案擁有者的帳號登入。
 
 ## 1. 開啟需要的服務（只要一次）
