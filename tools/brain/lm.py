@@ -38,7 +38,9 @@ def _load(name):
         tok.padding_side = 'left'
         if tok.pad_token is None:
             tok.pad_token = tok.eos_token
-        model = AutoModelForCausalLM.from_pretrained(name, dtype=torch.float16 if dev == 'cuda' else torch.float32).to(dev).eval()
+        # 沒有 GPU 時預設 float32；記憶體不夠（例如 GitHub Actions）可以設 LM_CPU_DTYPE=bfloat16，兩個模型大約省一半
+        cpu_dtype = getattr(torch, os.environ.get('LM_CPU_DTYPE', 'float32'))
+        model = AutoModelForCausalLM.from_pretrained(name, dtype=torch.float16 if dev == 'cuda' else cpu_dtype).to(dev).eval()
         _m[name] = (tok, model)
     return _m[name]
 

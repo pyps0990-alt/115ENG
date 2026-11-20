@@ -1,0 +1,79 @@
+# 自動錯誤分析：不用開網頁、不用開電腦
+#  - 定時（台灣時間 7:00～22:00 每小時）：找出題目改過、還沒分析的單字單元，分析完寫回網站
+#  - 手動：Actions → 自動錯誤分析 → Run workflow（可選只檢查）
+#  - 推到 claude/** 分支且改了這個流程或 auto_analyze.py：只檢查（不寫任何東西）
+name: 自動錯誤分析
+
+on:
+  schedule:
+    - cron: '7 23,0-14 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'run＝分析並寫回；check＝只檢查'
+        default: run
+        type: choice
+        options: [run, check]
+  push:
+    branches: ['claude/**']
+    paths:
+      - .github/workflows/brain-analyze.yml
+      - tools/brain/auto_analyze.py
+
+concurrency:
+  group: brain-analyze
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    env:
+      MODE: ${{ github.event_name == 'push' && 'check' || inputs.mode || 'run' }}
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/b5-sa.json
+      NLTK_DATA: /tmp/nltk_data
+      HF_HOME: ${{ github.workspace }}/.hf
+      LM_CPU_DTYPE: bfloat16
+      PYTHONUNBUFFERED: '1'
+    defaults:
+      run:
+        shell: bash
+        working-directory: tools/brain
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 金鑰
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then echo "::error::GitHub Secrets 沒有 FIREBASE_SERVICE_ACCOUNT"; exit 1; fi
+          umask 077; printf '%s' "$SA" > "$GOOGLE_APPLICATION_CREDENTIALS"
+
+      - name: 安裝
+        run: |
+          if [ "$MODE" = run ]; then pip install -q torch --index-url https://download.pytorch.org/whl/cpu; fi
+          pip install -q 'transformers>=4.56,<5' nltk==3.10.3 jieba==0.42.1 lemminflect==0.2.3 google-auth requests
+          python -c "import nltk; [nltk.download(p, download_dir='$NLTK_DATA', quiet=True) for p in ('wordnet','cmudict','averaged_perceptron_tagger_eng')]"
+          mkdir -p wordbank
+          python -c "import urllib.request, urllib.parse; n='大考中心詞彙表_Level1-6.csv'; urllib.request.urlretrieve('https://huggingface.co/datasets/nhmccyj/b5-wordbank/resolve/main/' + urllib.parse.quote(n), 'wordbank/bank0.csv')"
+          python -c "import wordbank; n=len(wordbank.load()); print('單字表', n, '個字'); assert n > 1000"
+
+      - name: 語言模型（快取）
+        if: env.MODE == 'run'
+        uses: actions/cache@v4
+        with:
+          path: .hf
+          key: hf-qwen2.5-1.5b-v1
+
+      - name: 分析
+        run: python auto_analyze.py "$MODE" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: 刪掉金鑰
+        if: always()
+        run: rm -f "$GOOGLE_APPLICATION_CREDENTIALS"
